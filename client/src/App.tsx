@@ -55,12 +55,20 @@ function Router() {
   // Role-based dashboard component selector
   const getDashboardComponent = (role?: string) => {
     switch (role) {
-      case 'referral-agent':
-        return ReferralAgentDashboard;
-      case 'retail-agent':
-        return RetailAgentBooking;
+      case 'admin':
+        return Dashboard;
+      case 'portfolio-manager':
+        return PortfolioManagerDashboard;
+      case 'owner':
+        return OwnerDashboard;
       case 'staff':
         return StaffDashboard;
+      case 'retail-agent':
+        return RetailAgentBooking;
+      case 'referral-agent':
+        return ReferralAgentDashboard;
+      case 'guest':
+        return GuestAddonServices;
       default:
         return Dashboard;
     }
@@ -72,7 +80,14 @@ function Router() {
         <Route path="/" component={Landing} />
       ) : (
         <>
-          <Route path="/" component={Dashboard} />
+          <Route path="/">
+            {() => {
+              // Redirect to role-specific dashboard
+              const userRole = (user as any)?.role;
+              const DashboardComponent = getDashboardComponent(userRole);
+              return <DashboardComponent />;
+            }}
+          </Route>
           <Route path="/dashboard/:role">
             {({ role }) => {
               const DashboardComponent = getDashboardComponent(role);

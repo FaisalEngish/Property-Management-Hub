@@ -7,7 +7,7 @@ import connectPg from "connect-pg-simple";
 export const DEMO_USERS = [
   {
     id: "demo-admin",
-    email: "admin@hostpilotpro.com",
+    email: "admin@test.com",
     password: "admin123",
     firstName: "Admin",
     lastName: "User",
@@ -17,8 +17,8 @@ export const DEMO_USERS = [
   },
   {
     id: "demo-pm",
-    email: "pm@hostpilotpro.com", 
-    password: "pm123",
+    email: "manager@test.com", 
+    password: "manager123",
     firstName: "Portfolio",
     lastName: "Manager",
     role: "portfolio-manager",
@@ -27,7 +27,7 @@ export const DEMO_USERS = [
   },
   {
     id: "demo-owner",
-    email: "owner@hostpilotpro.com",
+    email: "owner@test.com",
     password: "owner123", 
     firstName: "Property",
     lastName: "Owner",
@@ -37,7 +37,7 @@ export const DEMO_USERS = [
   },
   {
     id: "demo-staff",
-    email: "staff@hostpilotpro.com",
+    email: "staff@test.com",
     password: "staff123",
     firstName: "Staff",
     lastName: "Member", 
@@ -90,10 +90,10 @@ export const DEMO_USERS = [
     department: "maintenance",
   },
   {
-    id: "demo-retail",
-    email: "retail@hostpilotpro.com",
-    password: "retail123",
-    firstName: "Retail",
+    id: "demo-agent",
+    email: "agent@test.com",
+    password: "agent123",
+    firstName: "Sales",
     lastName: "Agent",
     role: "retail-agent", 
     organizationId: "default-org",
@@ -203,7 +203,7 @@ export async function setupDemoAuth(app: Express) {
         
         res.json({ 
           message: "Login successful", 
-          redirectUrl: `/dashboard/${demoUser.role}`,
+          redirectUrl: "/",
           user: {
             id: demoUser.id,
             email: demoUser.email,
