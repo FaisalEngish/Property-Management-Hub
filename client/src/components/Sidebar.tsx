@@ -48,8 +48,15 @@ const navigationModules = [
         path: "/", 
         icon: LayoutDashboard, 
         label: "Dashboard", 
-        roles: ["admin", "portfolio-manager", "owner", "staff", "retail-agent", "referral-agent", "guest"],
+        roles: ["admin", "portfolio-manager", "staff", "retail-agent", "referral-agent", "guest"],
         description: "Overview and metrics"
+      },
+      { 
+        path: "/owner/dashboard", 
+        icon: LayoutDashboard, 
+        label: "Owner Dashboard", 
+        roles: ["owner"],
+        description: "Property performance, financials, and payout management"
       },
     ]
   },

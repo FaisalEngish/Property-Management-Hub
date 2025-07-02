@@ -30,6 +30,7 @@ import PropertyMediaLibrary from "@/pages/PropertyMediaLibrary";
 import GuestAddonBooking from "@/pages/GuestAddonBooking";
 import AdminAddonBookings from "@/pages/AdminAddonBookings";
 import AdminAddonSettings from "@/pages/AdminAddonSettings";
+import OwnerDashboard from "@/pages/OwnerDashboard";
 
 function Router() {
   const { isAuthenticated, isLoading, user } = useAuth();
@@ -91,6 +92,7 @@ function Router() {
           <Route path="/guest/add-ons" component={GuestAddonBooking} />
           <Route path="/admin/add-ons-bookings" component={AdminAddonBookings} />
           <Route path="/admin/add-ons-settings" component={AdminAddonSettings} />
+          <Route path="/owner/dashboard" component={OwnerDashboard} />
           <Route path="/hostaway" component={Hostaway} />
           <Route path="/settings" component={Settings} />
         </>
