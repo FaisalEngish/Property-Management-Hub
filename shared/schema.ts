@@ -1210,6 +1210,115 @@ export const aiConfiguration = pgTable("ai_configuration", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// Recurring Services - Property management services that bill monthly/quarterly
+export const recurringServices = pgTable("recurring_services", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  propertyId: integer("property_id").references(() => properties.id),
+  serviceName: varchar("service_name").notNull(),
+  serviceCategory: varchar("service_category").notNull(), // cleaning, maintenance, security, landscaping, pool, management
+  providerName: varchar("provider_name").notNull(),
+  providerContact: varchar("provider_contact"),
+  providerEmail: varchar("provider_email"),
+  billingFrequency: varchar("billing_frequency").notNull(), // monthly, quarterly, bi-annual, annual
+  billingAmount: decimal("billing_amount", { precision: 10, scale: 2 }).notNull(),
+  nextBillingDate: timestamp("next_billing_date").notNull(),
+  lastBillingDate: timestamp("last_billing_date"),
+  autoPayEnabled: boolean("auto_pay_enabled").default(false),
+  paymentMethod: varchar("payment_method"), // card, bank_transfer, check, cash
+  billingRoute: varchar("billing_route").notNull().default("company_expense"), // company_expense, owner_charge
+  assignedPropertyOwner: varchar("assigned_property_owner").references(() => users.id),
+  contractStartDate: timestamp("contract_start_date"),
+  contractEndDate: timestamp("contract_end_date"),
+  contractDocument: varchar("contract_document"), // URL to contract file
+  isActive: boolean("is_active").default(true),
+  notes: text("notes"),
+  createdBy: varchar("created_by").references(() => users.id).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Recurring Service Bills - Track actual bills received
+export const recurringServiceBills = pgTable("recurring_service_bills", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  serviceId: integer("service_id").references(() => recurringServices.id).notNull(),
+  propertyId: integer("property_id").references(() => properties.id),
+  billNumber: varchar("bill_number"),
+  billDate: timestamp("bill_date").notNull(),
+  dueDate: timestamp("due_date").notNull(),
+  billAmount: decimal("bill_amount", { precision: 10, scale: 2 }).notNull(),
+  paidAmount: decimal("paid_amount", { precision: 10, scale: 2 }).default("0"),
+  status: varchar("status").notNull().default("pending"), // pending, paid, overdue, disputed, cancelled
+  paymentDate: timestamp("payment_date"),
+  paymentMethod: varchar("payment_method"),
+  paymentReference: varchar("payment_reference"),
+  billDocument: varchar("bill_document"), // URL to bill/invoice file
+  receiptDocument: varchar("receipt_document"), // URL to payment receipt
+  billingRoute: varchar("billing_route").notNull(), // company_expense, owner_charge
+  chargedToOwner: varchar("charged_to_owner").references(() => users.id),
+  processedBy: varchar("processed_by").references(() => users.id),
+  isDisputed: boolean("is_disputed").default(false),
+  disputeReason: text("dispute_reason"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Bill Reminders & Notifications
+export const billReminders = pgTable("bill_reminders", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  billId: integer("bill_id").references(() => recurringServiceBills.id),
+  serviceId: integer("service_id").references(() => recurringServices.id),
+  reminderType: varchar("reminder_type").notNull(), // upcoming_bill, overdue_payment, contract_renewal
+  reminderDate: timestamp("reminder_date").notNull(),
+  daysBeforeDue: integer("days_before_due"), // For upcoming bills
+  daysOverdue: integer("days_overdue"), // For overdue payments
+  recipientUser: varchar("recipient_user").references(() => users.id),
+  recipientEmail: varchar("recipient_email"),
+  status: varchar("status").default("pending"), // pending, sent, acknowledged
+  sentAt: timestamp("sent_at"),
+  acknowledgedAt: timestamp("acknowledged_at"),
+  emailSubject: varchar("email_subject"),
+  emailBody: text("email_body"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Service Performance Tracking
+export const servicePerformance = pgTable("service_performance", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  serviceId: integer("service_id").references(() => recurringServices.id).notNull(),
+  propertyId: integer("property_id").references(() => properties.id),
+  performanceMonth: varchar("performance_month").notNull(), // YYYY-MM
+  qualityRating: integer("quality_rating"), // 1-5 stars
+  timelinessRating: integer("timeliness_rating"), // 1-5 stars
+  costEffectiveness: integer("cost_effectiveness"), // 1-5 stars
+  issuesReported: integer("issues_reported").default(0),
+  maintenanceTasksGenerated: integer("maintenance_tasks_generated").default(0),
+  customerSatisfaction: integer("customer_satisfaction"), // 1-5 stars from guests
+  serviceNotes: text("service_notes"),
+  improvementSuggestions: text("improvement_suggestions"),
+  reviewedBy: varchar("reviewed_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Insert and Select schemas for Recurring Services
+export const insertRecurringServiceSchema = createInsertSchema(recurringServices);
+export const insertRecurringServiceBillSchema = createInsertSchema(recurringServiceBills);
+export const insertBillReminderSchema = createInsertSchema(billReminders);
+export const insertServicePerformanceSchema = createInsertSchema(servicePerformance);
+
+export type RecurringService = typeof recurringServices.$inferSelect;
+export type InsertRecurringService = typeof recurringServices.$inferInsert;
+export type RecurringServiceBill = typeof recurringServiceBills.$inferSelect;
+export type InsertRecurringServiceBill = typeof recurringServiceBills.$inferInsert;
+export type BillReminder = typeof billReminders.$inferSelect;
+export type InsertBillReminder = typeof billReminders.$inferInsert;
+export type ServicePerformance = typeof servicePerformance.$inferSelect;
+export type InsertServicePerformance = typeof servicePerformance.$inferInsert;
+
 // Insert and Select schemas for AI Feedback System
 export const insertGuestFeedbackSchema = createInsertSchema(guestFeedback);
 export const insertAiTaskRuleSchema = createInsertSchema(aiTaskRules);

@@ -2388,6 +2388,376 @@ export class DatabaseStorage implements IStorage {
       monthlyStats,
     };
   }
+
+  // ==================== RECURRING SERVICES & BILLS MANAGEMENT ====================
+
+  // Recurring Services Operations
+  async getRecurringServices(organizationId: string, filters?: {
+    propertyId?: number;
+    serviceCategory?: string;
+    isActive?: boolean;
+  }): Promise<RecurringService[]> {
+    let query = db.select().from(recurringServices).where(eq(recurringServices.organizationId, organizationId));
+
+    if (filters?.propertyId) {
+      query = query.where(eq(recurringServices.propertyId, filters.propertyId));
+    }
+    if (filters?.serviceCategory) {
+      query = query.where(eq(recurringServices.serviceCategory, filters.serviceCategory));
+    }
+    if (filters?.isActive !== undefined) {
+      query = query.where(eq(recurringServices.isActive, filters.isActive));
+    }
+
+    return query.orderBy(recurringServices.nextBillingDate);
+  }
+
+  async getRecurringService(id: number): Promise<RecurringService | undefined> {
+    const [service] = await db.select().from(recurringServices).where(eq(recurringServices.id, id));
+    return service;
+  }
+
+  async createRecurringService(service: InsertRecurringService): Promise<RecurringService> {
+    const [newService] = await db.insert(recurringServices).values(service).returning();
+    return newService;
+  }
+
+  async updateRecurringService(id: number, updates: Partial<InsertRecurringService>): Promise<RecurringService | undefined> {
+    const [updated] = await db
+      .update(recurringServices)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(recurringServices.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteRecurringService(id: number): Promise<boolean> {
+    const result = await db.delete(recurringServices).where(eq(recurringServices.id, id));
+    return result.rowCount > 0;
+  }
+
+  // Recurring Service Bills Operations
+  async getRecurringServiceBills(organizationId: string, filters?: {
+    serviceId?: number;
+    propertyId?: number;
+    status?: string;
+    billingRoute?: string;
+    fromDate?: Date;
+    toDate?: Date;
+  }): Promise<RecurringServiceBill[]> {
+    let query = db.select().from(recurringServiceBills).where(eq(recurringServiceBills.organizationId, organizationId));
+
+    if (filters?.serviceId) {
+      query = query.where(eq(recurringServiceBills.serviceId, filters.serviceId));
+    }
+    if (filters?.propertyId) {
+      query = query.where(eq(recurringServiceBills.propertyId, filters.propertyId));
+    }
+    if (filters?.status) {
+      query = query.where(eq(recurringServiceBills.status, filters.status));
+    }
+    if (filters?.billingRoute) {
+      query = query.where(eq(recurringServiceBills.billingRoute, filters.billingRoute));
+    }
+    if (filters?.fromDate) {
+      query = query.where(gte(recurringServiceBills.billDate, filters.fromDate));
+    }
+    if (filters?.toDate) {
+      query = query.where(lte(recurringServiceBills.billDate, filters.toDate));
+    }
+
+    return query.orderBy(desc(recurringServiceBills.billDate));
+  }
+
+  async getRecurringServiceBill(id: number): Promise<RecurringServiceBill | undefined> {
+    const [bill] = await db.select().from(recurringServiceBills).where(eq(recurringServiceBills.id, id));
+    return bill;
+  }
+
+  async createRecurringServiceBill(bill: InsertRecurringServiceBill): Promise<RecurringServiceBill> {
+    const [newBill] = await db.insert(recurringServiceBills).values(bill).returning();
+    return newBill;
+  }
+
+  async updateRecurringServiceBill(id: number, updates: Partial<InsertRecurringServiceBill>): Promise<RecurringServiceBill | undefined> {
+    const [updated] = await db
+      .update(recurringServiceBills)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(recurringServiceBills.id, id))
+      .returning();
+    return updated;
+  }
+
+  async markBillAsPaid(billId: number, paymentDetails: {
+    paidAmount: number;
+    paymentDate: Date;
+    paymentMethod: string;
+    paymentReference?: string;
+    processedBy: string;
+  }): Promise<RecurringServiceBill | undefined> {
+    const [updated] = await db
+      .update(recurringServiceBills)
+      .set({
+        status: 'paid',
+        paidAmount: paymentDetails.paidAmount.toString(),
+        paymentDate: paymentDetails.paymentDate,
+        paymentMethod: paymentDetails.paymentMethod,
+        paymentReference: paymentDetails.paymentReference,
+        processedBy: paymentDetails.processedBy,
+        updatedAt: new Date(),
+      })
+      .where(eq(recurringServiceBills.id, billId))
+      .returning();
+    return updated;
+  }
+
+  // Bill Reminders Operations
+  async getBillReminders(organizationId: string, filters?: {
+    reminderType?: string;
+    status?: string;
+    recipientUser?: string;
+  }): Promise<BillReminder[]> {
+    let query = db.select().from(billReminders).where(eq(billReminders.organizationId, organizationId));
+
+    if (filters?.reminderType) {
+      query = query.where(eq(billReminders.reminderType, filters.reminderType));
+    }
+    if (filters?.status) {
+      query = query.where(eq(billReminders.status, filters.status));
+    }
+    if (filters?.recipientUser) {
+      query = query.where(eq(billReminders.recipientUser, filters.recipientUser));
+    }
+
+    return query.orderBy(billReminders.reminderDate);
+  }
+
+  async createBillReminder(reminder: InsertBillReminder): Promise<BillReminder> {
+    const [newReminder] = await db.insert(billReminders).values(reminder).returning();
+    return newReminder;
+  }
+
+  async markReminderAsSent(reminderId: number): Promise<BillReminder | undefined> {
+    const [updated] = await db
+      .update(billReminders)
+      .set({
+        status: 'sent',
+        sentAt: new Date(),
+      })
+      .where(eq(billReminders.id, reminderId))
+      .returning();
+    return updated;
+  }
+
+  async getOverdueBills(organizationId: string): Promise<RecurringServiceBill[]> {
+    const today = new Date();
+    return db
+      .select()
+      .from(recurringServiceBills)
+      .where(
+        and(
+          eq(recurringServiceBills.organizationId, organizationId),
+          eq(recurringServiceBills.status, 'pending'),
+          lt(recurringServiceBills.dueDate, today)
+        )
+      )
+      .orderBy(recurringServiceBills.dueDate);
+  }
+
+  async getUpcomingBills(organizationId: string, daysAhead: number = 7): Promise<RecurringServiceBill[]> {
+    const today = new Date();
+    const futureDate = new Date();
+    futureDate.setDate(today.getDate() + daysAhead);
+
+    return db
+      .select()
+      .from(recurringServiceBills)
+      .where(
+        and(
+          eq(recurringServiceBills.organizationId, organizationId),
+          eq(recurringServiceBills.status, 'pending'),
+          gte(recurringServiceBills.dueDate, today),
+          lte(recurringServiceBills.dueDate, futureDate)
+        )
+      )
+      .orderBy(recurringServiceBills.dueDate);
+  }
+
+  // Service Performance Operations
+  async getServicePerformance(organizationId: string, filters?: {
+    serviceId?: number;
+    propertyId?: number;
+    performanceMonth?: string;
+  }): Promise<ServicePerformance[]> {
+    let query = db.select().from(servicePerformance).where(eq(servicePerformance.organizationId, organizationId));
+
+    if (filters?.serviceId) {
+      query = query.where(eq(servicePerformance.serviceId, filters.serviceId));
+    }
+    if (filters?.propertyId) {
+      query = query.where(eq(servicePerformance.propertyId, filters.propertyId));
+    }
+    if (filters?.performanceMonth) {
+      query = query.where(eq(servicePerformance.performanceMonth, filters.performanceMonth));
+    }
+
+    return query.orderBy(desc(servicePerformance.performanceMonth));
+  }
+
+  async createServicePerformance(performance: InsertServicePerformance): Promise<ServicePerformance> {
+    const [newPerformance] = await db.insert(servicePerformance).values(performance).returning();
+    return newPerformance;
+  }
+
+  async updateServicePerformance(id: number, updates: Partial<InsertServicePerformance>): Promise<ServicePerformance | undefined> {
+    const [updated] = await db
+      .update(servicePerformance)
+      .set(updates)
+      .where(eq(servicePerformance.id, id))
+      .returning();
+    return updated;
+  }
+
+  // Analytics for Recurring Services
+  async getRecurringServicesAnalytics(organizationId: string, filters?: {
+    fromDate?: Date;
+    toDate?: Date;
+    propertyId?: number;
+  }): Promise<{
+    totalServices: number;
+    totalMonthlyBilling: number;
+    servicesByCategory: { category: string; count: number; totalBilling: number }[];
+    upcomingBills: { count: number; totalAmount: number };
+    overdueBills: { count: number; totalAmount: number };
+    billingRouteBreakdown: { route: string; count: number; totalAmount: number }[];
+    performanceAverages: {
+      qualityRating: number;
+      timelinessRating: number;
+      costEffectiveness: number;
+      customerSatisfaction: number;
+    };
+  }> {
+    const [totalServices] = await db
+      .select({ count: count() })
+      .from(recurringServices)
+      .where(
+        and(
+          eq(recurringServices.organizationId, organizationId),
+          eq(recurringServices.isActive, true),
+          filters?.propertyId ? eq(recurringServices.propertyId, filters.propertyId) : undefined
+        )
+      );
+
+    const [totalMonthlyBilling] = await db
+      .select({ total: sum(recurringServices.billingAmount) })
+      .from(recurringServices)
+      .where(
+        and(
+          eq(recurringServices.organizationId, organizationId),
+          eq(recurringServices.isActive, true),
+          eq(recurringServices.billingFrequency, 'monthly'),
+          filters?.propertyId ? eq(recurringServices.propertyId, filters.propertyId) : undefined
+        )
+      );
+
+    const servicesByCategory = await db
+      .select({
+        category: recurringServices.serviceCategory,
+        count: count(),
+        totalBilling: sum(recurringServices.billingAmount),
+      })
+      .from(recurringServices)
+      .where(
+        and(
+          eq(recurringServices.organizationId, organizationId),
+          eq(recurringServices.isActive, true),
+          filters?.propertyId ? eq(recurringServices.propertyId, filters.propertyId) : undefined
+        )
+      )
+      .groupBy(recurringServices.serviceCategory);
+
+    const today = new Date();
+    const next7Days = new Date();
+    next7Days.setDate(today.getDate() + 7);
+
+    const [upcomingBills] = await db
+      .select({
+        count: count(),
+        totalAmount: sum(recurringServiceBills.billAmount),
+      })
+      .from(recurringServiceBills)
+      .where(
+        and(
+          eq(recurringServiceBills.organizationId, organizationId),
+          eq(recurringServiceBills.status, 'pending'),
+          gte(recurringServiceBills.dueDate, today),
+          lte(recurringServiceBills.dueDate, next7Days)
+        )
+      );
+
+    const [overdueBills] = await db
+      .select({
+        count: count(),
+        totalAmount: sum(recurringServiceBills.billAmount),
+      })
+      .from(recurringServiceBills)
+      .where(
+        and(
+          eq(recurringServiceBills.organizationId, organizationId),
+          eq(recurringServiceBills.status, 'pending'),
+          lt(recurringServiceBills.dueDate, today)
+        )
+      );
+
+    const billingRouteBreakdown = await db
+      .select({
+        route: recurringServiceBills.billingRoute,
+        count: count(),
+        totalAmount: sum(recurringServiceBills.billAmount),
+      })
+      .from(recurringServiceBills)
+      .where(eq(recurringServiceBills.organizationId, organizationId))
+      .groupBy(recurringServiceBills.billingRoute);
+
+    const [performanceAverages] = await db
+      .select({
+        qualityRating: avg(servicePerformance.qualityRating),
+        timelinessRating: avg(servicePerformance.timelinessRating),
+        costEffectiveness: avg(servicePerformance.costEffectiveness),
+        customerSatisfaction: avg(servicePerformance.customerSatisfaction),
+      })
+      .from(servicePerformance)
+      .where(eq(servicePerformance.organizationId, organizationId));
+
+    return {
+      totalServices: totalServices.count || 0,
+      totalMonthlyBilling: parseFloat(totalMonthlyBilling.total || '0'),
+      servicesByCategory: servicesByCategory.map(cat => ({
+        category: cat.category,
+        count: cat.count,
+        totalBilling: parseFloat(cat.totalBilling || '0'),
+      })),
+      upcomingBills: {
+        count: upcomingBills.count || 0,
+        totalAmount: parseFloat(upcomingBills.totalAmount || '0'),
+      },
+      overdueBills: {
+        count: overdueBills.count || 0,
+        totalAmount: parseFloat(overdueBills.totalAmount || '0'),
+      },
+      billingRouteBreakdown: billingRouteBreakdown.map(route => ({
+        route: route.route,
+        count: route.count,
+        totalAmount: parseFloat(route.totalAmount || '0'),
+      })),
+      performanceAverages: {
+        qualityRating: parseFloat(performanceAverages.qualityRating || '0'),
+        timelinessRating: parseFloat(performanceAverages.timelinessRating || '0'),
+        costEffectiveness: parseFloat(performanceAverages.costEffectiveness || '0'),
+        customerSatisfaction: parseFloat(performanceAverages.customerSatisfaction || '0'),
+      },
+    };
+  }
 }
 
 export const storage = new DatabaseStorage();
