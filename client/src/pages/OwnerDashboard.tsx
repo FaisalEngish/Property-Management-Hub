@@ -28,6 +28,25 @@ import {
   Download, 
   Upload, 
   X,
+  Eye,
+  EyeOff,
+  Camera,
+  MessageSquare,
+  Star,
+  MapPin,
+  Users,
+  Wifi,
+  Bot,
+  RefreshCw,
+  Filter,
+  ChevronDown,
+  ChevronUp,
+  PlusCircle,
+  Edit,
+  Trash,
+  Search,
+  MoreHorizontal,
+  ExternalLink
   Lightbulb,
   Wrench,
   BarChart3,
@@ -172,17 +191,41 @@ const preferencesSchema = z.object({
   notificationEmail: z.string().email().optional(),
 });
 
+// Enhanced schemas
+const aiSuggestionSchema = z.object({
+  suggestion: z.string().min(1, "Suggestion is required"),
+  estimatedCost: z.number().min(0, "Cost must be positive"),
+  priority: z.enum(["low", "medium", "high"]),
+  reason: z.string().min(1, "Reason is required"),
+});
+
+const invoiceSchema = z.object({
+  title: z.string().min(1, "Title is required"),
+  amount: z.number().min(0, "Amount must be positive"),
+  description: z.string().optional(),
+  dueDate: z.string().optional(),
+  recipientType: z.enum(["from_owner", "to_owner", "to_manager", "to_vendor"]),
+});
+
 export default function OwnerDashboard() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
+  
+  // Enhanced state management
   const [dateRange, setDateRange] = useState({
-    startDate: new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0],
+    startDate: startOfMonth(new Date()).toISOString().split('T')[0],
     endDate: new Date().toISOString().split('T')[0],
   });
+  const [earningsPeriod, setEarningsPeriod] = useState<'month' | 'year' | 'custom'>('month');
   const [selectedProperty, setSelectedProperty] = useState<string>("all");
   const [showPayoutDialog, setShowPayoutDialog] = useState(false);
+  const [showInvoiceDialog, setShowInvoiceDialog] = useState(false);
+  const [showAiSuggestionDialog, setShowAiSuggestionDialog] = useState(false);
+  const [selectedAiSuggestion, setSelectedAiSuggestion] = useState<any>(null);
+  const [expandedActivity, setExpandedActivity] = useState<number | null>(null);
 
-  // Dashboard stats query
+  // Enhanced queries for comprehensive dashboard data
   const { data: stats, isLoading: statsLoading } = useQuery<DashboardStats>({
     queryKey: ["/api/owner/dashboard/stats", dateRange.startDate, dateRange.endDate, selectedProperty],
     queryFn: async () => {
@@ -193,6 +236,94 @@ export default function OwnerDashboard() {
       });
       return apiRequest("GET", `/api/owner/dashboard/stats?${params}`);
     },
+  });
+
+  // Financial summary with enhanced breakdown
+  const { data: financialSummary, isLoading: financialLoading } = useQuery<FinancialSummary>({
+    queryKey: ["/api/owner/dashboard/financial-summary", dateRange.startDate, dateRange.endDate, selectedProperty],
+    queryFn: async () => {
+      const params = new URLSearchParams({
+        startDate: dateRange.startDate,
+        endDate: dateRange.endDate,
+        ...(selectedProperty !== "all" && { propertyId: selectedProperty }),
+      });
+      return apiRequest("GET", `/api/owner/dashboard/financial-summary?${params}`);
+    },
+  });
+
+  // AI suggestions for property improvements
+  const { data: aiSuggestions, isLoading: aiLoading } = useQuery({
+    queryKey: ["/api/owner/dashboard/ai-suggestions", selectedProperty],
+    queryFn: async () => {
+      const params = new URLSearchParams({
+        ...(selectedProperty !== "all" && { propertyId: selectedProperty }),
+      });
+      return apiRequest("GET", `/api/owner/dashboard/ai-suggestions?${params}`);
+    },
+  });
+
+  // Enhanced activity timeline with photos and AI insights
+  const { data: activityTimeline, isLoading: activityLoading } = useQuery<ActivityItem[]>({
+    queryKey: ["/api/owner/dashboard/activity-timeline", selectedProperty],
+    queryFn: async () => {
+      const params = new URLSearchParams({
+        ...(selectedProperty !== "all" && { propertyId: selectedProperty }),
+        days: "7", // Last 7 days
+      });
+      return apiRequest("GET", `/api/owner/dashboard/activity-timeline?${params}`);
+    },
+  });
+
+  // Recent bookings with enhanced details
+  const { data: recentBookings, isLoading: bookingsLoading } = useQuery<Booking[]>({
+    queryKey: ["/api/owner/dashboard/recent-bookings", selectedProperty],
+    queryFn: async () => {
+      const params = new URLSearchParams({
+        ...(selectedProperty !== "all" && { propertyId: selectedProperty }),
+        limit: "10",
+      });
+      return apiRequest("GET", `/api/owner/dashboard/recent-bookings?${params}`);
+    },
+  });
+
+  // Booking insights with OTA sync status
+  const { data: bookingInsights, isLoading: insightsLoading } = useQuery({
+    queryKey: ["/api/owner/dashboard/booking-insights", selectedProperty],
+    queryFn: async () => {
+      const params = new URLSearchParams({
+        ...(selectedProperty !== "all" && { propertyId: selectedProperty }),
+      });
+      return apiRequest("GET", `/api/owner/dashboard/booking-insights?${params}`);
+    },
+  });
+
+  // Payout requests and financial history
+  const { data: payoutRequests, isLoading: payoutsLoading } = useQuery<PayoutRequest[]>({
+    queryKey: ["/api/owner/dashboard/payout-requests"],
+    queryFn: () => apiRequest("GET", "/api/owner/dashboard/payout-requests"),
+  });
+
+  // Invoice history with enhanced filtering
+  const { data: invoices, isLoading: invoicesLoading } = useQuery<Invoice[]>({
+    queryKey: ["/api/owner/dashboard/invoices", selectedProperty],
+    queryFn: async () => {
+      const params = new URLSearchParams({
+        ...(selectedProperty !== "all" && { propertyId: selectedProperty }),
+      });
+      return apiRequest("GET", `/api/owner/dashboard/invoices?${params}`);
+    },
+  });
+
+  // Owner preferences
+  const { data: preferences, isLoading: preferencesLoading } = useQuery<OwnerPreferences>({
+    queryKey: ["/api/owner/dashboard/preferences"],
+    queryFn: () => apiRequest("GET", "/api/owner/dashboard/preferences"),
+  });
+
+  // Properties for filtering
+  const { data: properties } = useQuery({
+    queryKey: ["/api/properties"],
+    queryFn: () => apiRequest("GET", "/api/properties"),
   });
 
   // Financial summary query

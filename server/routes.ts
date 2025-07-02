@@ -2886,6 +2886,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // AI Companion - Get suggestions from guest reviews
+  app.get("/api/owner/dashboard/ai-suggestions", isDemoAuthenticated, async (req, res) => {
+    try {
+      const { propertyId } = req.query;
+      const filters = {
+        propertyId: propertyId ? parseInt(propertyId as string) : undefined,
+      };
+      
+      const suggestions = await storage.getOwnerAISuggestions((req.user as any).organizationId, (req.user as any).id, filters);
+      res.json(suggestions);
+    } catch (error) {
+      console.error("Error fetching AI suggestions:", error);
+      res.status(500).json({ message: "Failed to fetch AI suggestions" });
+    }
+  });
+
+  // Approve/reject AI suggestion
+  app.post("/api/owner/dashboard/ai-suggestions/:id/respond", isDemoAuthenticated, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { action, notes } = req.body; // action: 'approve', 'reject', 'request_quote'
+      
+      const suggestion = await storage.respondToAISuggestion(parseInt(id), action, notes, (req.user as any).id);
+      res.json(suggestion);
+    } catch (error) {
+      console.error("Error responding to AI suggestion:", error);
+      res.status(500).json({ message: "Failed to respond to suggestion" });
+    }
+  });
+
+  // Get enhanced booking insights with OTA sync status
+  app.get("/api/owner/dashboard/booking-insights", isDemoAuthenticated, async (req, res) => {
+    try {
+      const { propertyId } = req.query;
+      const filters = {
+        propertyId: propertyId ? parseInt(propertyId as string) : undefined,
+      };
+      
+      const insights = await storage.getOwnerBookingInsights((req.user as any).organizationId, (req.user as any).id, filters);
+      res.json(insights);
+    } catch (error) {
+      console.error("Error fetching booking insights:", error);
+      res.status(500).json({ message: "Failed to fetch booking insights" });
+    }
+  });
+
   // PM Invoice Builder
   app.post("/api/pm/dashboard/invoices", isDemoAuthenticated, async (req: any, res) => {
     try {
