@@ -2979,6 +2979,208 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ===== RETAIL AGENT INTERFACE API ENDPOINTS =====
+
+  // Agent Available Properties (for booking engine)
+  app.get("/api/agent/properties", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId } = req.user;
+      const { 
+        checkIn, 
+        checkOut, 
+        guests, 
+        bedrooms, 
+        priceMin, 
+        priceMax, 
+        amenities 
+      } = req.query;
+
+      const properties = await storage.getAgentAvailableProperties(organizationId, {
+        checkIn,
+        checkOut,
+        guests: guests ? parseInt(guests) : undefined,
+        bedrooms: bedrooms ? parseInt(bedrooms) : undefined,
+        priceMin: priceMin ? parseFloat(priceMin) : undefined,
+        priceMax: priceMax ? parseFloat(priceMax) : undefined,
+        amenities: amenities ? amenities.split(',') : undefined,
+      });
+
+      res.json(properties);
+    } catch (error) {
+      console.error("Error fetching agent properties:", error);
+      res.status(500).json({ message: "Failed to fetch properties" });
+    }
+  });
+
+  // Agent Bookings
+  app.get("/api/agent/bookings", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: agentId } = req.user;
+      const { status, propertyId, startDate, endDate } = req.query;
+
+      const bookings = await storage.getAgentBookings(organizationId, agentId, {
+        status,
+        propertyId: propertyId ? parseInt(propertyId) : undefined,
+        startDate,
+        endDate,
+      });
+
+      res.json(bookings);
+    } catch (error) {
+      console.error("Error fetching agent bookings:", error);
+      res.status(500).json({ message: "Failed to fetch bookings" });
+    }
+  });
+
+  app.post("/api/agent/bookings", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: agentId } = req.user;
+      
+      const bookingData = {
+        ...req.body,
+        organizationId,
+        retailAgentId: agentId,
+        bookingStatus: 'pending',
+        commissionStatus: 'pending',
+        createdAt: new Date(),
+      };
+
+      const booking = await storage.createAgentBooking(bookingData);
+      res.json(booking);
+    } catch (error) {
+      console.error("Error creating agent booking:", error);
+      res.status(500).json({ message: "Failed to create booking" });
+    }
+  });
+
+  // Agent Commission Summary
+  app.get("/api/agent/commission-summary", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: agentId } = req.user;
+      
+      const summary = await storage.getAgentCommissionSummary(organizationId, agentId);
+      res.json(summary);
+    } catch (error) {
+      console.error("Error fetching commission summary:", error);
+      res.status(500).json({ message: "Failed to fetch commission summary" });
+    }
+  });
+
+  // Agent Payouts
+  app.get("/api/agent/payouts", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: agentId } = req.user;
+      const { status, startDate, endDate } = req.query;
+
+      const payouts = await storage.getAgentPayouts(organizationId, agentId, {
+        status,
+        startDate,
+        endDate,
+      });
+
+      res.json(payouts);
+    } catch (error) {
+      console.error("Error fetching agent payouts:", error);
+      res.status(500).json({ message: "Failed to fetch payouts" });
+    }
+  });
+
+  app.post("/api/agent/payouts", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: agentId } = req.user;
+      
+      const payoutData = {
+        ...req.body,
+        organizationId,
+        agentId,
+        agentType: 'retail-agent',
+        payoutStatus: 'pending',
+        requestedAt: new Date(),
+      };
+
+      const payout = await storage.createAgentPayout(payoutData);
+      res.json(payout);
+    } catch (error) {
+      console.error("Error creating agent payout:", error);
+      res.status(500).json({ message: "Failed to create payout request" });
+    }
+  });
+
+  // Property Marketing Media
+  app.get("/api/agent/marketing-media", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId } = req.user;
+      const { propertyId, mediaType, category } = req.query;
+
+      const media = await storage.getPropertyMarketingMedia(organizationId, 
+        propertyId ? parseInt(propertyId) : undefined, {
+        mediaType,
+        category,
+        agentAccessLevel: 'all',
+      });
+
+      res.json(media);
+    } catch (error) {
+      console.error("Error fetching marketing media:", error);
+      res.status(500).json({ message: "Failed to fetch marketing media" });
+    }
+  });
+
+  // Agent Booking Requests
+  app.get("/api/agent/booking-requests", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: agentId } = req.user;
+      const { status, propertyId, urgencyLevel } = req.query;
+
+      const requests = await storage.getAgentBookingRequests(organizationId, agentId, {
+        status,
+        propertyId: propertyId ? parseInt(propertyId) : undefined,
+        urgencyLevel,
+      });
+
+      res.json(requests);
+    } catch (error) {
+      console.error("Error fetching booking requests:", error);
+      res.status(500).json({ message: "Failed to fetch booking requests" });
+    }
+  });
+
+  app.post("/api/agent/booking-requests", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: agentId } = req.user;
+      
+      const requestData = {
+        ...req.body,
+        organizationId,
+        agentId,
+        status: 'pending',
+        submittedAt: new Date(),
+      };
+
+      const request = await storage.createAgentBookingRequest(requestData);
+      res.json(request);
+    } catch (error) {
+      console.error("Error creating booking request:", error);
+      res.status(500).json({ message: "Failed to create booking request" });
+    }
+  });
+
+  // Property Commission Rules
+  app.get("/api/agent/commission-rules", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId } = req.user;
+      const { propertyId } = req.query;
+
+      const rules = await storage.getPropertyCommissionRules(organizationId, 
+        propertyId ? parseInt(propertyId) : undefined);
+
+      res.json(rules);
+    } catch (error) {
+      console.error("Error fetching commission rules:", error);
+      res.status(500).json({ message: "Failed to fetch commission rules" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

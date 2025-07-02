@@ -3813,6 +3813,390 @@ export class DatabaseStorage implements IStorage {
       pendingBalance: Number(balance?.currentBalance || 0),
     };
   }
+
+  // ====== RETAIL AGENT INTERFACE OPERATIONS ======
+
+  // Agent Bookings Operations  
+  async createAgentBooking(booking: any): Promise<any> {
+    const [newBooking] = await db.insert(agentBookings).values(booking).returning();
+    return newBooking;
+  }
+
+  async getAgentBookings(organizationId: string, agentId?: string, filters?: {
+    status?: string;
+    propertyId?: number;
+    startDate?: string;
+    endDate?: string;
+  }): Promise<any[]> {
+    let query = db
+      .select({
+        id: agentBookings.id,
+        organizationId: agentBookings.organizationId,
+        retailAgentId: agentBookings.retailAgentId,
+        propertyId: agentBookings.propertyId,
+        bookingId: agentBookings.bookingId,
+        guestName: agentBookings.guestName,
+        guestEmail: agentBookings.guestEmail,
+        guestPhone: agentBookings.guestPhone,
+        checkIn: agentBookings.checkIn,
+        checkOut: agentBookings.checkOut,
+        totalAmount: agentBookings.totalAmount,
+        commissionRate: agentBookings.commissionRate,
+        commissionAmount: agentBookings.commissionAmount,
+        bookingStatus: agentBookings.bookingStatus,
+        commissionStatus: agentBookings.commissionStatus,
+        hostawayBookingId: agentBookings.hostawayBookingId,
+        notes: agentBookings.notes,
+        createdAt: agentBookings.createdAt,
+        updatedAt: agentBookings.updatedAt,
+        propertyName: properties.name,
+      })
+      .from(agentBookings)
+      .leftJoin(properties, eq(agentBookings.propertyId, properties.id))
+      .where(eq(agentBookings.organizationId, organizationId));
+
+    if (agentId) {
+      query = query.where(eq(agentBookings.retailAgentId, agentId));
+    }
+    if (filters?.status) {
+      query = query.where(eq(agentBookings.bookingStatus, filters.status));
+    }
+    if (filters?.propertyId) {
+      query = query.where(eq(agentBookings.propertyId, filters.propertyId));
+    }
+    if (filters?.startDate) {
+      query = query.where(gte(agentBookings.checkIn, filters.startDate));
+    }
+    if (filters?.endDate) {
+      query = query.where(lte(agentBookings.checkOut, filters.endDate));
+    }
+
+    return query.orderBy(desc(agentBookings.createdAt));
+  }
+
+  async updateAgentBooking(id: number, updates: any): Promise<any | undefined> {
+    const [updated] = await db
+      .update(agentBookings)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(agentBookings.id, id))
+      .returning();
+    return updated;
+  }
+
+  // Agent Payouts Operations
+  async createAgentPayout(payout: any): Promise<any> {
+    const [newPayout] = await db.insert(agentPayouts).values(payout).returning();
+    return newPayout;
+  }
+
+  async getAgentPayouts(organizationId: string, agentId?: string, filters?: {
+    status?: string;
+    agentType?: string;
+    startDate?: string;
+    endDate?: string;
+  }): Promise<any[]> {
+    let query = db
+      .select()
+      .from(agentPayouts)
+      .where(eq(agentPayouts.organizationId, organizationId));
+
+    if (agentId) {
+      query = query.where(eq(agentPayouts.agentId, agentId));
+    }
+    if (filters?.status) {
+      query = query.where(eq(agentPayouts.payoutStatus, filters.status));
+    }
+    if (filters?.agentType) {
+      query = query.where(eq(agentPayouts.agentType, filters.agentType));
+    }
+    if (filters?.startDate) {
+      query = query.where(gte(agentPayouts.requestedAt, new Date(filters.startDate)));
+    }
+    if (filters?.endDate) {
+      query = query.where(lte(agentPayouts.requestedAt, new Date(filters.endDate)));
+    }
+
+    return query.orderBy(desc(agentPayouts.requestedAt));
+  }
+
+  async updateAgentPayout(id: number, updates: any): Promise<any | undefined> {
+    const [updated] = await db
+      .update(agentPayouts)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(agentPayouts.id, id))
+      .returning();
+    return updated;
+  }
+
+  // Property Commission Rules Operations
+  async getPropertyCommissionRules(organizationId: string, propertyId?: number): Promise<any[]> {
+    let query = db
+      .select()
+      .from(propertyCommissionRules)
+      .where(eq(propertyCommissionRules.organizationId, organizationId));
+
+    if (propertyId) {
+      query = query.where(eq(propertyCommissionRules.propertyId, propertyId));
+    }
+
+    return query.where(eq(propertyCommissionRules.isActive, true));
+  }
+
+  async createPropertyCommissionRule(rule: any): Promise<any> {
+    const [newRule] = await db.insert(propertyCommissionRules).values(rule).returning();
+    return newRule;
+  }
+
+  async updatePropertyCommissionRule(id: number, updates: any): Promise<any | undefined> {
+    const [updated] = await db
+      .update(propertyCommissionRules)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(propertyCommissionRules.id, id))
+      .returning();
+    return updated;
+  }
+
+  // Property Marketing Media Operations
+  async getPropertyMarketingMedia(organizationId: string, propertyId?: number, filters?: {
+    mediaType?: string;
+    category?: string;
+    agentAccessLevel?: string;
+  }): Promise<any[]> {
+    let query = db
+      .select()
+      .from(propertyMarketingMedia)
+      .where(eq(propertyMarketingMedia.organizationId, organizationId));
+
+    if (propertyId) {
+      query = query.where(eq(propertyMarketingMedia.propertyId, propertyId));
+    }
+    if (filters?.mediaType) {
+      query = query.where(eq(propertyMarketingMedia.mediaType, filters.mediaType));
+    }
+    if (filters?.category) {
+      query = query.where(eq(propertyMarketingMedia.category, filters.category));
+    }
+    if (filters?.agentAccessLevel) {
+      query = query.where(eq(propertyMarketingMedia.agentAccessLevel, filters.agentAccessLevel));
+    }
+
+    return query
+      .where(eq(propertyMarketingMedia.isPublic, true))
+      .orderBy(propertyMarketingMedia.sortOrder, propertyMarketingMedia.createdAt);
+  }
+
+  async createPropertyMarketingMedia(media: any): Promise<any> {
+    const [newMedia] = await db.insert(propertyMarketingMedia).values(media).returning();
+    return newMedia;
+  }
+
+  async updatePropertyMarketingMedia(id: number, updates: any): Promise<any | undefined> {
+    const [updated] = await db
+      .update(propertyMarketingMedia)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(propertyMarketingMedia.id, id))
+      .returning();
+    return updated;
+  }
+
+  // Agent Booking Requests Operations
+  async createAgentBookingRequest(request: any): Promise<any> {
+    const [newRequest] = await db.insert(agentBookingRequests).values(request).returning();
+    return newRequest;
+  }
+
+  async getAgentBookingRequests(organizationId: string, agentId?: string, filters?: {
+    status?: string;
+    propertyId?: number;
+    urgencyLevel?: string;
+  }): Promise<any[]> {
+    let query = db
+      .select({
+        ...agentBookingRequests,
+        propertyName: properties.name,
+      })
+      .from(agentBookingRequests)
+      .leftJoin(properties, eq(agentBookingRequests.propertyId, properties.id))
+      .where(eq(agentBookingRequests.organizationId, organizationId));
+
+    if (agentId) {
+      query = query.where(eq(agentBookingRequests.agentId, agentId));
+    }
+    if (filters?.status) {
+      query = query.where(eq(agentBookingRequests.status, filters.status));
+    }
+    if (filters?.propertyId) {
+      query = query.where(eq(agentBookingRequests.propertyId, filters.propertyId));
+    }
+    if (filters?.urgencyLevel) {
+      query = query.where(eq(agentBookingRequests.urgencyLevel, filters.urgencyLevel));
+    }
+
+    return query.orderBy(desc(agentBookingRequests.submittedAt));
+  }
+
+  async updateAgentBookingRequest(id: number, updates: any): Promise<any | undefined> {
+    const [updated] = await db
+      .update(agentBookingRequests)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(agentBookingRequests.id, id))
+      .returning();
+    return updated;
+  }
+
+  // Agent Commission Summary Operations
+  async getAgentCommissionSummary(organizationId: string, agentId: string): Promise<any> {
+    // Get total commission earned from bookings
+    const [commissionStats] = await db
+      .select({
+        totalEarned: sum(agentBookings.commissionAmount),
+        totalBookings: count(agentBookings.id),
+        avgCommission: avg(agentBookings.commissionAmount),
+      })
+      .from(agentBookings)
+      .where(and(
+        eq(agentBookings.organizationId, organizationId),
+        eq(agentBookings.retailAgentId, agentId),
+        eq(agentBookings.commissionStatus, 'approved')
+      ));
+
+    // Get total paid out
+    const [payoutStats] = await db
+      .select({
+        totalPaid: sum(agentPayouts.payoutAmount),
+        totalPayouts: count(agentPayouts.id),
+      })
+      .from(agentPayouts)
+      .where(and(
+        eq(agentPayouts.organizationId, organizationId),
+        eq(agentPayouts.agentId, agentId),
+        eq(agentPayouts.payoutStatus, 'paid')
+      ));
+
+    // Get pending commissions
+    const [pendingStats] = await db
+      .select({
+        pendingCommissions: sum(agentBookings.commissionAmount),
+        pendingBookings: count(agentBookings.id),
+      })
+      .from(agentBookings)
+      .where(and(
+        eq(agentBookings.organizationId, organizationId),
+        eq(agentBookings.retailAgentId, agentId),
+        eq(agentBookings.commissionStatus, 'pending')
+      ));
+
+    return {
+      totalEarned: commissionStats?.totalEarned || 0,
+      totalPaid: payoutStats?.totalPaid || 0,
+      currentBalance: (commissionStats?.totalEarned || 0) - (payoutStats?.totalPaid || 0),
+      pendingCommissions: pendingStats?.pendingCommissions || 0,
+      totalBookings: commissionStats?.totalBookings || 0,
+      totalPayouts: payoutStats?.totalPayouts || 0,
+      avgCommissionPerBooking: commissionStats?.avgCommission || 0,
+    };
+  }
+
+  // Agent Properties with Live Data (for booking engine)
+  async getAgentAvailableProperties(organizationId: string, filters?: {
+    checkIn?: string;
+    checkOut?: string;
+    guests?: number;
+    bedrooms?: number;
+    priceMin?: number;
+    priceMax?: number;
+    amenities?: string[];
+  }): Promise<any[]> {
+    let query = db
+      .select({
+        id: properties.id,
+        organizationId: properties.organizationId,
+        name: properties.name,
+        description: properties.description,
+        address: properties.address,
+        bedrooms: properties.bedrooms,
+        bathrooms: properties.bathrooms,
+        maxGuests: properties.maxGuests,
+        pricePerNight: properties.pricePerNight,
+        currency: properties.currency,
+        status: properties.status,
+        amenities: properties.amenities,
+        images: properties.images,
+        commission: propertyCommissionRules.defaultCommissionRate,
+        commissionRules: propertyCommissionRules,
+      })
+      .from(properties)
+      .leftJoin(propertyCommissionRules, eq(properties.id, propertyCommissionRules.propertyId))
+      .where(and(
+        eq(properties.organizationId, organizationId),
+        eq(properties.status, 'active')
+      ));
+
+    if (filters?.guests) {
+      query = query.where(gte(properties.maxGuests, filters.guests));
+    }
+    if (filters?.bedrooms) {
+      query = query.where(gte(properties.bedrooms, filters.bedrooms));
+    }
+    if (filters?.priceMin) {
+      query = query.where(gte(properties.pricePerNight, filters.priceMin.toString()));
+    }
+    if (filters?.priceMax) {
+      query = query.where(lte(properties.pricePerNight, filters.priceMax.toString()));
+    }
+
+    const propertiesResult = await query.orderBy(properties.name);
+
+    // For each property, check availability and get marketing media
+    const propertiesWithAvailability = await Promise.all(
+      propertiesResult.map(async (property) => {
+        // Check if property is available for the requested dates
+        let isAvailable = true;
+        if (filters?.checkIn && filters?.checkOut) {
+          const conflictingBookings = await db
+            .select()
+            .from(bookings)
+            .where(and(
+              eq(bookings.propertyId, property.id),
+              eq(bookings.status, 'confirmed'),
+              or(
+                and(
+                  lte(bookings.startDate, filters.checkIn),
+                  gte(bookings.endDate, filters.checkIn)
+                ),
+                and(
+                  lte(bookings.startDate, filters.checkOut),
+                  gte(bookings.endDate, filters.checkOut)
+                ),
+                and(
+                  gte(bookings.startDate, filters.checkIn),
+                  lte(bookings.endDate, filters.checkOut)
+                )
+              )
+            ));
+          
+          isAvailable = conflictingBookings.length === 0;
+        }
+
+        // Get marketing media for this property
+        const marketingMedia = await this.getPropertyMarketingMedia(
+          organizationId, 
+          property.id, 
+          { agentAccessLevel: 'all' }
+        );
+
+        return {
+          ...property,
+          isAvailable,
+          marketingMedia,
+        };
+      })
+    );
+
+    return propertiesWithAvailability.filter(property => 
+      !filters?.checkIn || property.isAvailable
+    );
+  }
 }
 
 export const storage = new DatabaseStorage();

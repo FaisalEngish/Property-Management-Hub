@@ -75,6 +75,16 @@ export const DEMO_USERS = [
     organizationId: "default-org",
     profileImageUrl: null,
   },
+  {
+    id: "agent1",
+    email: "agent1@example.com",
+    password: "test123",
+    firstName: "Agent",
+    lastName: "One",
+    role: "retail-agent",
+    organizationId: "default-org",
+    profileImageUrl: null,
+  },
 ];
 
 // Demo session configuration
