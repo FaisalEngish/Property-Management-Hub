@@ -26,7 +26,8 @@ import {
   UserCheck,
   Clock,
   TrendingUp,
-  Gift
+  Gift,
+  Calculator
 } from "lucide-react";
 
 // Define navigation modules with hierarchical structure
@@ -125,6 +126,13 @@ const navigationModules = [
         label: "Payouts", 
         roles: ["admin", "portfolio-manager", "owner"],
         description: "Owner earnings and distributions"
+      },
+      { 
+        path: "/financial-toolkit", 
+        icon: Calculator, 
+        label: "Financial Toolkit", 
+        roles: ["admin", "portfolio-manager", "staff"],
+        description: "Staff salaries, commissions, and invoicing"
       },
       { 
         path: "/reports", 

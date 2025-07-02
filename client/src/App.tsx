@@ -18,6 +18,7 @@ import Settings from "@/pages/Settings";
 import Hostaway from "@/pages/Hostaway";
 import WelcomePacks from "@/pages/WelcomePacks";
 import InventoryDashboard from "@/pages/InventoryDashboard";
+import FinancialToolkit from "@/pages/FinancialToolkit";
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -38,6 +39,7 @@ function Router() {
           <Route path="/inventory-dashboard" component={InventoryDashboard} />
           <Route path="/finances" component={Finances} />
           <Route path="/payouts" component={Payouts} />
+          <Route path="/financial-toolkit" component={FinancialToolkit} />
           <Route path="/hostaway" component={Hostaway} />
           <Route path="/settings" component={Settings} />
         </>
