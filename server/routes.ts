@@ -752,6 +752,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Inventory analytics endpoints
+  app.get("/api/inventory/stats", authenticatedTenantMiddleware, async (req, res) => {
+    try {
+      const { organizationId } = getTenantContext(req);
+      const { propertyId, staffId, fromDate, toDate } = req.query;
+      
+      const filters = {
+        propertyId: propertyId as string,
+        staffId: staffId as string,
+        fromDate: fromDate ? new Date(fromDate as string) : undefined,
+        toDate: toDate ? new Date(toDate as string) : undefined,
+      };
+      
+      const stats = await storage.getInventoryStats(organizationId, filters);
+      res.json(stats);
+    } catch (error) {
+      console.error("Error fetching inventory stats:", error);
+      res.status(500).json({ message: "Failed to fetch inventory stats" });
+    }
+  });
+
+  app.get("/api/welcome-pack-usage/detailed", authenticatedTenantMiddleware, async (req, res) => {
+    try {
+      const { organizationId } = getTenantContext(req);
+      const { propertyId, staffId, fromDate, toDate } = req.query;
+      
+      const filters = {
+        propertyId: propertyId as string,
+        staffId: staffId as string,
+        fromDate: fromDate ? new Date(fromDate as string) : undefined,
+        toDate: toDate ? new Date(toDate as string) : undefined,
+      };
+      
+      const usage = await storage.getDetailedWelcomePackUsage(organizationId, filters);
+      res.json(usage);
+    } catch (error) {
+      console.error("Error fetching detailed welcome pack usage:", error);
+      res.status(500).json({ message: "Failed to fetch detailed welcome pack usage" });
+    }
+  });
+
   // Owner Payout routes
   app.get("/api/owner-payouts", authenticatedTenantMiddleware, async (req, res) => {
     try {

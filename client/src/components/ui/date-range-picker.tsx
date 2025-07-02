@@ -24,7 +24,6 @@ export function DatePickerWithRange({
   from,
   to,
   onSelect,
-  ...props
 }: DatePickerWithRangeProps) {
   const [date, setDate] = React.useState<DateRange | undefined>({
     from,
@@ -41,7 +40,7 @@ export function DatePickerWithRange({
   }
 
   return (
-    <div className={cn("grid gap-2", className)} {...props}>
+    <div className={cn("grid gap-2", className)}>
       <Popover>
         <PopoverTrigger asChild>
           <Button

@@ -157,7 +157,7 @@ export default function InventoryDashboard() {
 
   const getStockStatusColor = (current: number, threshold: number) => {
     if (current <= threshold) return "destructive";
-    if (current <= threshold * 1.5) return "warning";
+    if (current <= threshold * 1.5) return "secondary";
     return "default";
   };
 

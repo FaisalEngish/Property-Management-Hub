@@ -161,6 +161,10 @@ export interface IStorage {
 
   // Welcome pack automation operations
   logWelcomePackUsageFromCheckout(bookingId: number, propertyId: number, processedBy: string): Promise<WelcomePackUsage[]>;
+  
+  // Inventory analytics operations
+  getInventoryStats(organizationId: string, filters?: { propertyId?: string; staffId?: string; fromDate?: Date; toDate?: Date }): Promise<any>;
+  getDetailedWelcomePackUsage(organizationId: string, filters?: { propertyId?: string; staffId?: string; fromDate?: Date; toDate?: Date }): Promise<any[]>;
 
   // Owner payout operations
   getOwnerPayouts(): Promise<OwnerPayout[]>;
@@ -795,6 +799,173 @@ export class DatabaseStorage implements IStorage {
     }
 
     return usageRecords;
+  }
+
+  // Inventory analytics operations
+  async getInventoryStats(organizationId: string, filters?: { propertyId?: string; staffId?: string; fromDate?: Date; toDate?: Date }): Promise<any> {
+    const { pool } = await import('./db');
+    
+    let query = `
+      SELECT 
+        COUNT(DISTINCT wi.id) as total_items,
+        COALESCE(SUM(wu.quantity_used), 0) as total_usage,
+        COALESCE(SUM(CAST(wu.total_cost AS DECIMAL)), 0) as total_cost,
+        COUNT(CASE WHEN wi.current_stock <= wi.restock_threshold THEN 1 END) as low_stock_alerts
+      FROM welcome_pack_items wi
+      LEFT JOIN welcome_pack_usage wu ON wi.id = wu.item_id
+      WHERE wi.organization_id = $1
+    `;
+    
+    const params = [organizationId];
+    let paramIndex = 2;
+    
+    if (filters?.propertyId) {
+      query += ` AND wu.property_id = $${paramIndex}`;
+      params.push(filters.propertyId);
+      paramIndex++;
+    }
+    
+    if (filters?.staffId) {
+      query += ` AND wu.processed_by = $${paramIndex}`;
+      params.push(filters.staffId);
+      paramIndex++;
+    }
+    
+    if (filters?.fromDate) {
+      query += ` AND wu.usage_date >= $${paramIndex}`;
+      params.push(filters.fromDate.toISOString().split('T')[0]);
+      paramIndex++;
+    }
+    
+    if (filters?.toDate) {
+      query += ` AND wu.usage_date <= $${paramIndex}`;
+      params.push(filters.toDate.toISOString().split('T')[0]);
+      paramIndex++;
+    }
+    
+    const result = await pool.query(query, params);
+    const stats = result.rows[0];
+    
+    // Get top used items
+    const topItemsQuery = `
+      SELECT 
+        wi.name as item_name,
+        wi.category,
+        SUM(wu.quantity_used) as total_used,
+        SUM(CAST(wu.total_cost AS DECIMAL)) as total_cost
+      FROM welcome_pack_usage wu
+      JOIN welcome_pack_items wi ON wu.item_id = wi.id
+      WHERE wi.organization_id = $1
+      ${filters?.propertyId ? `AND wu.property_id = '${filters.propertyId}'` : ''}
+      ${filters?.staffId ? `AND wu.processed_by = '${filters.staffId}'` : ''}
+      ${filters?.fromDate ? `AND wu.usage_date >= '${filters.fromDate.toISOString().split('T')[0]}'` : ''}
+      ${filters?.toDate ? `AND wu.usage_date <= '${filters.toDate.toISOString().split('T')[0]}'` : ''}
+      GROUP BY wi.id, wi.name, wi.category
+      ORDER BY total_used DESC
+      LIMIT 10
+    `;
+    
+    const topItemsResult = await pool.query(topItemsQuery, [organizationId]);
+    
+    // Get top properties
+    const topPropertiesQuery = `
+      SELECT 
+        p.name as property_name,
+        SUM(wu.quantity_used) as total_usage,
+        SUM(CAST(wu.total_cost AS DECIMAL)) as total_cost
+      FROM welcome_pack_usage wu
+      JOIN properties p ON wu.property_id = p.id
+      JOIN welcome_pack_items wi ON wu.item_id = wi.id
+      WHERE wi.organization_id = $1
+      ${filters?.staffId ? `AND wu.processed_by = '${filters.staffId}'` : ''}
+      ${filters?.fromDate ? `AND wu.usage_date >= '${filters.fromDate.toISOString().split('T')[0]}'` : ''}
+      ${filters?.toDate ? `AND wu.usage_date <= '${filters.toDate.toISOString().split('T')[0]}'` : ''}
+      GROUP BY p.id, p.name
+      ORDER BY total_usage DESC
+      LIMIT 10
+    `;
+    
+    const topPropertiesResult = await pool.query(topPropertiesQuery, [organizationId]);
+    
+    // Get staff usage
+    const staffUsageQuery = `
+      SELECT 
+        CONCAT(u.first_name, ' ', u.last_name) as staff_name,
+        SUM(wu.quantity_used) as total_usage,
+        SUM(CAST(wu.total_cost AS DECIMAL)) as total_cost
+      FROM welcome_pack_usage wu
+      JOIN users u ON wu.processed_by = u.id
+      JOIN welcome_pack_items wi ON wu.item_id = wi.id
+      WHERE wi.organization_id = $1
+      ${filters?.propertyId ? `AND wu.property_id = '${filters.propertyId}'` : ''}
+      ${filters?.fromDate ? `AND wu.usage_date >= '${filters.fromDate.toISOString().split('T')[0]}'` : ''}
+      ${filters?.toDate ? `AND wu.usage_date <= '${filters.toDate.toISOString().split('T')[0]}'` : ''}
+      GROUP BY u.id, u.first_name, u.last_name
+      ORDER BY total_usage DESC
+      LIMIT 10
+    `;
+    
+    const staffUsageResult = await pool.query(staffUsageQuery, [organizationId]);
+    
+    return {
+      totalItems: parseInt(stats.total_items) || 0,
+      totalUsage: parseInt(stats.total_usage) || 0,
+      totalCost: parseFloat(stats.total_cost) || 0,
+      lowStockAlerts: parseInt(stats.low_stock_alerts) || 0,
+      topUsedItems: topItemsResult.rows || [],
+      topProperties: topPropertiesResult.rows || [],
+      staffUsage: staffUsageResult.rows || [],
+      monthlyUsage: []
+    };
+  }
+
+  async getDetailedWelcomePackUsage(organizationId: string, filters?: { propertyId?: string; staffId?: string; fromDate?: Date; toDate?: Date }): Promise<any[]> {
+    const { pool } = await import('./db');
+    
+    let query = `
+      SELECT 
+        wu.*,
+        wi.name as item_name,
+        p.name as property_name,
+        CONCAT(u.first_name, ' ', u.last_name) as staff_name
+      FROM welcome_pack_usage wu
+      JOIN welcome_pack_items wi ON wu.item_id = wi.id
+      LEFT JOIN properties p ON wu.property_id = p.id
+      LEFT JOIN users u ON wu.processed_by = u.id
+      WHERE wi.organization_id = $1
+    `;
+    
+    const params = [organizationId];
+    let paramIndex = 2;
+    
+    if (filters?.propertyId) {
+      query += ` AND wu.property_id = $${paramIndex}`;
+      params.push(filters.propertyId);
+      paramIndex++;
+    }
+    
+    if (filters?.staffId) {
+      query += ` AND wu.processed_by = $${paramIndex}`;
+      params.push(filters.staffId);
+      paramIndex++;
+    }
+    
+    if (filters?.fromDate) {
+      query += ` AND wu.usage_date >= $${paramIndex}`;
+      params.push(filters.fromDate.toISOString().split('T')[0]);
+      paramIndex++;
+    }
+    
+    if (filters?.toDate) {
+      query += ` AND wu.usage_date <= $${paramIndex}`;
+      params.push(filters.toDate.toISOString().split('T')[0]);
+      paramIndex++;
+    }
+    
+    query += ` ORDER BY wu.usage_date DESC, wu.created_at DESC`;
+    
+    const result = await pool.query(query, params);
+    return result.rows || [];
   }
 
   // Owner payout operations
