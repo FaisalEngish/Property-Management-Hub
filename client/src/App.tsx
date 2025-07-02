@@ -17,6 +17,7 @@ import Payouts from "@/pages/Payouts";
 import Settings from "@/pages/Settings";
 import Hostaway from "@/pages/Hostaway";
 import WelcomePacks from "@/pages/WelcomePacks";
+import InventoryDashboard from "@/pages/InventoryDashboard";
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -34,6 +35,7 @@ function Router() {
           <Route path="/bookings" component={Bookings} />
           <Route path="/services" component={Services} />
           <Route path="/welcome-packs" component={WelcomePacks} />
+          <Route path="/inventory-dashboard" component={InventoryDashboard} />
           <Route path="/finances" component={Finances} />
           <Route path="/payouts" component={Payouts} />
           <Route path="/hostaway" component={Hostaway} />
