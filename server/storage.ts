@@ -14,6 +14,8 @@ import {
   welcomePackTemplates,
   welcomePackUsage,
   ownerPayouts,
+  notifications,
+  notificationPreferences,
   type User,
   type UpsertUser,
   type Property,
@@ -44,6 +46,10 @@ import {
   type InsertOwnerPayout,
   type TaskHistory,
   type InsertTaskHistory,
+  type Notification,
+  type InsertNotification,
+  type NotificationPreference,
+  type InsertNotificationPreference,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, asc } from "drizzle-orm";
@@ -175,6 +181,26 @@ export interface IStorage {
     commissionDeductions: number;
     pendingPayouts: number;
   }>;
+
+  // Notification operations
+  getNotifications(userId: string): Promise<Notification[]>;
+  getUnreadNotifications(userId: string): Promise<Notification[]>;
+  getNotificationsByType(userId: string, type: string): Promise<Notification[]>;
+  getNotification(id: number): Promise<Notification | undefined>;
+  createNotification(notification: InsertNotification): Promise<Notification>;
+  markNotificationRead(id: number): Promise<boolean>;
+  markAllNotificationsRead(userId: string): Promise<boolean>;
+  deleteNotification(id: number): Promise<boolean>;
+  
+  // Notification preferences operations
+  getUserNotificationPreferences(userId: string): Promise<NotificationPreference | undefined>;
+  upsertNotificationPreferences(preferences: InsertNotificationPreference): Promise<NotificationPreference>;
+  
+  // Notification trigger methods
+  notifyTaskAssignment(taskId: number, assigneeId: string, assignedBy: string): Promise<void>;
+  notifyBookingUpdate(bookingId: number, userIds: string[], updateType: string, message: string): Promise<void>;
+  notifyPayoutAction(payoutId: number, userId: string, action: string, actionBy: string): Promise<void>;
+  notifyMaintenanceApproval(taskId: number, requesterId: string, approverIds: string[]): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {

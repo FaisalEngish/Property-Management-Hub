@@ -478,6 +478,53 @@ export const ownerPayoutsRelations = relations(ownerPayouts, ({ one }) => ({
   confirmedByUser: one(users, { fields: [ownerPayouts.confirmedBy], references: [users.id], relationName: "payoutConfirmations" }),
 }));
 
+// Notifications system
+export const notifications = pgTable("notifications", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").notNull(),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  type: varchar("type").notNull(), // task_assignment, booking_update, payout_action, maintenance_approval
+  title: varchar("title").notNull(),
+  message: text("message").notNull(),
+  relatedEntityType: varchar("related_entity_type"), // task, booking, payout, property
+  relatedEntityId: integer("related_entity_id"),
+  priority: varchar("priority").default("normal"), // low, normal, high, urgent
+  isRead: boolean("is_read").default(false),
+  readAt: timestamp("read_at"),
+  actionUrl: varchar("action_url"), // optional URL for action buttons
+  actionLabel: varchar("action_label"), // optional label for action button
+  createdBy: varchar("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  expiresAt: timestamp("expires_at"), // optional expiration for time-sensitive notifications
+});
+
+// Notification preferences for users
+export const notificationPreferences = pgTable("notification_preferences", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").notNull(),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  enableInApp: boolean("enable_in_app").default(true),
+  enableEmail: boolean("enable_email").default(true),
+  enableSms: boolean("enable_sms").default(false),
+  enableWhatsapp: boolean("enable_whatsapp").default(false),
+  enableLine: boolean("enable_line").default(false),
+  taskAssignments: boolean("task_assignments").default(true),
+  bookingUpdates: boolean("booking_updates").default(true),
+  payoutActions: boolean("payout_actions").default(true),
+  maintenanceApprovals: boolean("maintenance_approvals").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const notificationsRelations = relations(notifications, ({ one }) => ({
+  user: one(users, { fields: [notifications.userId], references: [users.id] }),
+  createdByUser: one(users, { fields: [notifications.createdBy], references: [users.id] }),
+}));
+
+export const notificationPreferencesRelations = relations(notificationPreferences, ({ one }) => ({
+  user: one(users, { fields: [notificationPreferences.userId], references: [users.id] }),
+}));
+
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).omit({
   createdAt: true,
@@ -614,3 +661,20 @@ export type OwnerPayout = typeof ownerPayouts.$inferSelect;
 export const insertTaskHistorySchema = createInsertSchema(taskHistory);
 export type InsertTaskHistory = z.infer<typeof insertTaskHistorySchema>;
 export type TaskHistory = typeof taskHistory.$inferSelect;
+
+// Notification schemas and types
+export const insertNotificationSchema = createInsertSchema(notifications).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertNotificationPreferenceSchema = createInsertSchema(notificationPreferences).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertNotification = z.infer<typeof insertNotificationSchema>;
+export type Notification = typeof notifications.$inferSelect;
+export type InsertNotificationPreference = z.infer<typeof insertNotificationPreferenceSchema>;
+export type NotificationPreference = typeof notificationPreferences.$inferSelect;
