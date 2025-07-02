@@ -80,13 +80,13 @@ export default function UtilityCustomization() {
   
   // Search and filter states
   const [providerSearch, setProviderSearch] = useState("");
-  const [countryFilter, setCountryFilter] = useState("");
-  const [utilityTypeFilter, setUtilityTypeFilter] = useState("");
+  const [countryFilter, setCountryFilter] = useState("all");
+  const [utilityTypeFilter, setUtilityTypeFilter] = useState("all");
   const [categorySearch, setCategorySearch] = useState("");
 
   // Provider form state
   const [providerForm, setProviderForm] = useState({
-    utilityType: "",
+    utilityType: "electricity",
     providerName: "",
     country: "Thailand",
     isDefault: false,
@@ -305,7 +305,7 @@ export default function UtilityCustomization() {
   };
 
   const resetProviderForm = () => {
-    setProviderForm({ utilityType: "", providerName: "", country: "Thailand", isDefault: false, displayOrder: 1 });
+    setProviderForm({ utilityType: "electricity", providerName: "", country: "Thailand", isDefault: false, displayOrder: 1 });
     setEditingProvider(null);
   };
 
@@ -320,8 +320,8 @@ export default function UtilityCustomization() {
       provider.providerName.toLowerCase().includes(providerSearch.toLowerCase()) ||
       provider.country.toLowerCase().includes(providerSearch.toLowerCase());
     
-    const matchesCountry = countryFilter === "" || provider.country === countryFilter;
-    const matchesType = utilityTypeFilter === "" || provider.utilityType === utilityTypeFilter;
+    const matchesCountry = countryFilter === "" || countryFilter === "all" || provider.country === countryFilter;
+    const matchesType = utilityTypeFilter === "" || utilityTypeFilter === "all" || provider.utilityType === utilityTypeFilter;
     
     return matchesSearch && matchesCountry && matchesType;
   });
@@ -523,7 +523,7 @@ export default function UtilityCustomization() {
                 <SelectValue placeholder="All Countries" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Countries</SelectItem>
+                <SelectItem value="all">All Countries</SelectItem>
                 <SelectItem value="Thailand">🇹🇭 Thailand</SelectItem>
                 <SelectItem value="Philippines">🇵🇭 Philippines</SelectItem>
                 <SelectItem value="Vietnam">🇻🇳 Vietnam</SelectItem>
@@ -536,7 +536,7 @@ export default function UtilityCustomization() {
                 <SelectValue placeholder="All Types" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Types</SelectItem>
+                <SelectItem value="all">All Types</SelectItem>
                 <SelectItem value="electricity">⚡ Electricity</SelectItem>
                 <SelectItem value="water">💧 Water</SelectItem>
                 <SelectItem value="internet">📶 Internet</SelectItem>
