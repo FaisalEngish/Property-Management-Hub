@@ -3,6 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Building, Calendar, ListTodo, DollarSign, Users, Shield } from "lucide-react";
 
 export default function Landing() {
+  console.log("HostPilotPro: Landing page is rendering");
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
