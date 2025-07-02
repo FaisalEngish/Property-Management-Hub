@@ -224,6 +224,31 @@ export interface IStorage {
   // Inventory analytics operations
   getInventoryStats(organizationId: string, filters?: { propertyId?: string; staffId?: string; fromDate?: Date; toDate?: Date }): Promise<any>;
   getDetailedWelcomePackUsage(organizationId: string, filters?: { propertyId?: string; staffId?: string; fromDate?: Date; toDate?: Date }): Promise<any[]>;
+
+  // Financial & Invoice Toolkit operations
+  // Staff salary operations
+  getStaffSalary(userId: string): Promise<StaffSalary | undefined>;
+  createStaffSalary(salary: InsertStaffSalary): Promise<StaffSalary>;
+  updateStaffSalary(id: number, salary: Partial<InsertStaffSalary>): Promise<StaffSalary | undefined>;
+  
+  // Commission earnings operations
+  getCommissionEarnings(userId: string, period?: string): Promise<CommissionEarning[]>;
+  createCommissionEarning(earning: InsertCommissionEarning): Promise<CommissionEarning>;
+  updateCommissionEarning(id: number, earning: Partial<InsertCommissionEarning>): Promise<CommissionEarning | undefined>;
+  getPortfolioManagerEarnings(managerId: string, period?: string): Promise<any>;
+  
+  // Portfolio assignment operations
+  getPortfolioAssignments(managerId: string): Promise<PortfolioAssignment[]>;
+  assignPortfolioProperty(assignment: InsertPortfolioAssignment): Promise<PortfolioAssignment>;
+  unassignPortfolioProperty(managerId: string, propertyId: number): Promise<boolean>;
+  
+  // Invoice operations
+  getInvoices(organizationId: string, filters?: { userId?: string; type?: string; status?: string }): Promise<Invoice[]>;
+  getInvoice(id: number): Promise<Invoice | undefined>;
+  createInvoice(invoice: InsertInvoice, lineItems: InsertInvoiceLineItem[]): Promise<Invoice>;
+  updateInvoice(id: number, invoice: Partial<InsertInvoice>): Promise<Invoice | undefined>;
+  deleteInvoice(id: number): Promise<boolean>;
+  generateInvoiceNumber(organizationId: string): Promise<string>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -985,6 +1010,200 @@ export class DatabaseStorage implements IStorage {
     
     const result = await pool.query(query, params);
     return result.rows || [];
+  }
+
+  // Financial & Invoice Toolkit operations
+  
+  // Staff salary operations
+  async getStaffSalary(userId: string): Promise<StaffSalary | undefined> {
+    const [salary] = await db.select().from(staffSalaries)
+      .where(and(eq(staffSalaries.userId, userId), eq(staffSalaries.isActive, true)))
+      .orderBy(desc(staffSalaries.effectiveFrom));
+    return salary;
+  }
+
+  async createStaffSalary(salary: InsertStaffSalary): Promise<StaffSalary> {
+    const [newSalary] = await db.insert(staffSalaries).values(salary).returning();
+    return newSalary;
+  }
+
+  async updateStaffSalary(id: number, salary: Partial<InsertStaffSalary>): Promise<StaffSalary | undefined> {
+    const [updatedSalary] = await db
+      .update(staffSalaries)
+      .set({ ...salary, updatedAt: new Date() })
+      .where(eq(staffSalaries.id, id))
+      .returning();
+    return updatedSalary;
+  }
+
+  // Commission earnings operations
+  async getCommissionEarnings(userId: string, period?: string): Promise<CommissionEarning[]> {
+    const conditions = [eq(commissionEarnings.userId, userId)];
+    
+    if (period) {
+      conditions.push(eq(commissionEarnings.period, period));
+    }
+    
+    return await db.select().from(commissionEarnings)
+      .where(and(...conditions))
+      .orderBy(desc(commissionEarnings.createdAt));
+  }
+
+  async createCommissionEarning(earning: InsertCommissionEarning): Promise<CommissionEarning> {
+    const [newEarning] = await db.insert(commissionEarnings).values(earning).returning();
+    return newEarning;
+  }
+
+  async updateCommissionEarning(id: number, earning: Partial<InsertCommissionEarning>): Promise<CommissionEarning | undefined> {
+    const [updatedEarning] = await db
+      .update(commissionEarnings)
+      .set({ ...earning, updatedAt: new Date() })
+      .where(eq(commissionEarnings.id, id))
+      .returning();
+    return updatedEarning;
+  }
+
+  async getPortfolioManagerEarnings(managerId: string, period?: string): Promise<any> {
+    const currentPeriod = period || new Date().toISOString().slice(0, 7); // YYYY-MM format
+    
+    // Get assigned properties
+    const assignments = await db.select({
+      propertyId: portfolioAssignments.propertyId,
+      commissionRate: portfolioAssignments.commissionRate,
+      propertyName: properties.name,
+    })
+    .from(portfolioAssignments)
+    .leftJoin(properties, eq(portfolioAssignments.propertyId, properties.id))
+    .where(and(
+      eq(portfolioAssignments.managerId, managerId),
+      eq(portfolioAssignments.isActive, true)
+    ));
+
+    // Get commission earnings for the period
+    const earnings = await db.select().from(commissionEarnings)
+      .where(and(
+        eq(commissionEarnings.userId, managerId),
+        eq(commissionEarnings.period, currentPeriod)
+      ));
+
+    // Calculate rental revenue from bookings for assigned properties
+    const propertyIds = assignments.map(a => a.propertyId).filter(Boolean) as number[];
+    let rentalRevenue = 0;
+    
+    if (propertyIds.length > 0) {
+      const { pool } = await import('./db');
+      const revenueQuery = `
+        SELECT COALESCE(SUM(CAST(total_amount AS DECIMAL)), 0) as total_revenue
+        FROM bookings 
+        WHERE property_id = ANY($1)
+        AND status = 'confirmed'
+        AND DATE_TRUNC('month', check_in) = $2
+      `;
+      
+      const result = await pool.query(revenueQuery, [propertyIds, `${currentPeriod}-01`]);
+      rentalRevenue = parseFloat(result.rows[0]?.total_revenue) || 0;
+    }
+
+    return {
+      assignedProperties: assignments,
+      currentPeriod,
+      rentalRevenue,
+      commissionEarnings: earnings,
+      totalCommission: earnings.reduce((sum, e) => sum + parseFloat(e.amount.toString()), 0),
+    };
+  }
+
+  // Portfolio assignment operations
+  async getPortfolioAssignments(managerId: string): Promise<PortfolioAssignment[]> {
+    return await db.select().from(portfolioAssignments)
+      .where(and(
+        eq(portfolioAssignments.managerId, managerId),
+        eq(portfolioAssignments.isActive, true)
+      ));
+  }
+
+  async assignPortfolioProperty(assignment: InsertPortfolioAssignment): Promise<PortfolioAssignment> {
+    const [newAssignment] = await db.insert(portfolioAssignments).values(assignment).returning();
+    return newAssignment;
+  }
+
+  async unassignPortfolioProperty(managerId: string, propertyId: number): Promise<boolean> {
+    const result = await db
+      .update(portfolioAssignments)
+      .set({ isActive: false, unassignedAt: new Date() })
+      .where(and(
+        eq(portfolioAssignments.managerId, managerId),
+        eq(portfolioAssignments.propertyId, propertyId)
+      ));
+    return result.rowCount ? result.rowCount > 0 : false;
+  }
+
+  // Invoice operations
+  async getInvoices(organizationId: string, filters?: { userId?: string; type?: string; status?: string }): Promise<Invoice[]> {
+    const conditions = [eq(invoices.organizationId, organizationId)];
+    
+    if (filters?.userId) {
+      conditions.push(eq(invoices.senderId, filters.userId));
+    }
+    if (filters?.type) {
+      conditions.push(eq(invoices.invoiceType, filters.type));
+    }
+    if (filters?.status) {
+      conditions.push(eq(invoices.status, filters.status));
+    }
+    
+    return await db.select().from(invoices)
+      .where(and(...conditions))
+      .orderBy(desc(invoices.createdAt));
+  }
+
+  async getInvoice(id: number): Promise<Invoice | undefined> {
+    const [invoice] = await db.select().from(invoices).where(eq(invoices.id, id));
+    return invoice;
+  }
+
+  async createInvoice(invoice: InsertInvoice, lineItems: InsertInvoiceLineItem[]): Promise<Invoice> {
+    const [newInvoice] = await db.insert(invoices).values(invoice).returning();
+    
+    if (lineItems.length > 0) {
+      const itemsWithInvoiceId = lineItems.map(item => ({
+        ...item,
+        invoiceId: newInvoice.id,
+      }));
+      await db.insert(invoiceLineItems).values(itemsWithInvoiceId);
+    }
+    
+    return newInvoice;
+  }
+
+  async updateInvoice(id: number, invoice: Partial<InsertInvoice>): Promise<Invoice | undefined> {
+    const [updatedInvoice] = await db
+      .update(invoices)
+      .set({ ...invoice, updatedAt: new Date() })
+      .where(eq(invoices.id, id))
+      .returning();
+    return updatedInvoice;
+  }
+
+  async deleteInvoice(id: number): Promise<boolean> {
+    const result = await db.delete(invoices).where(eq(invoices.id, id));
+    return result.rowCount ? result.rowCount > 0 : false;
+  }
+
+  async generateInvoiceNumber(organizationId: string): Promise<string> {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    
+    // Count invoices for this month
+    const count = await db.select().from(invoices)
+      .where(and(
+        eq(invoices.organizationId, organizationId),
+        eq(invoices.createdAt, new Date(year, today.getMonth(), 1))
+      ));
+    
+    const sequence = String(count.length + 1).padStart(4, '0');
+    return `INV-${year}${month}-${sequence}`;
   }
 
   // Owner payout operations

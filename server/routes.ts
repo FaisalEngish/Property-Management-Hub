@@ -793,6 +793,166 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Financial & Invoice Toolkit routes
+
+  // Staff salary routes
+  app.get("/api/staff/salary/:userId", authenticatedTenantMiddleware, async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const salary = await storage.getStaffSalary(userId);
+      res.json(salary);
+    } catch (error) {
+      console.error("Error fetching staff salary:", error);
+      res.status(500).json({ message: "Failed to fetch staff salary" });
+    }
+  });
+
+  app.post("/api/staff/salary", authenticatedTenantMiddleware, async (req, res) => {
+    try {
+      const { organizationId } = getTenantContext(req);
+      const salaryData = { ...req.body, organizationId };
+      const salary = await storage.createStaffSalary(salaryData);
+      res.status(201).json(salary);
+    } catch (error) {
+      console.error("Error creating staff salary:", error);
+      res.status(500).json({ message: "Failed to create staff salary" });
+    }
+  });
+
+  // Commission earnings routes
+  app.get("/api/commission-earnings/:userId", authenticatedTenantMiddleware, async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const { period } = req.query;
+      const earnings = await storage.getCommissionEarnings(userId, period as string);
+      res.json(earnings);
+    } catch (error) {
+      console.error("Error fetching commission earnings:", error);
+      res.status(500).json({ message: "Failed to fetch commission earnings" });
+    }
+  });
+
+  app.get("/api/portfolio-manager/earnings/:managerId", authenticatedTenantMiddleware, async (req, res) => {
+    try {
+      const { managerId } = req.params;
+      const { period } = req.query;
+      const earnings = await storage.getPortfolioManagerEarnings(managerId, period as string);
+      res.json(earnings);
+    } catch (error) {
+      console.error("Error fetching portfolio manager earnings:", error);
+      res.status(500).json({ message: "Failed to fetch portfolio manager earnings" });
+    }
+  });
+
+  // Portfolio assignment routes
+  app.get("/api/portfolio-assignments/:managerId", authenticatedTenantMiddleware, async (req, res) => {
+    try {
+      const { managerId } = req.params;
+      const assignments = await storage.getPortfolioAssignments(managerId);
+      res.json(assignments);
+    } catch (error) {
+      console.error("Error fetching portfolio assignments:", error);
+      res.status(500).json({ message: "Failed to fetch portfolio assignments" });
+    }
+  });
+
+  app.post("/api/portfolio-assignments", authenticatedTenantMiddleware, async (req, res) => {
+    try {
+      const { organizationId } = getTenantContext(req);
+      const assignmentData = { ...req.body, organizationId };
+      const assignment = await storage.assignPortfolioProperty(assignmentData);
+      res.status(201).json(assignment);
+    } catch (error) {
+      console.error("Error creating portfolio assignment:", error);
+      res.status(500).json({ message: "Failed to create portfolio assignment" });
+    }
+  });
+
+  // Invoice routes
+  app.get("/api/invoices", authenticatedTenantMiddleware, async (req, res) => {
+    try {
+      const { organizationId } = getTenantContext(req);
+      const { userId, type, status } = req.query;
+      const filters = {
+        userId: userId as string,
+        type: type as string,
+        status: status as string,
+      };
+      const invoices = await storage.getInvoices(organizationId, filters);
+      res.json(invoices);
+    } catch (error) {
+      console.error("Error fetching invoices:", error);
+      res.status(500).json({ message: "Failed to fetch invoices" });
+    }
+  });
+
+  app.get("/api/invoices/:id", authenticatedTenantMiddleware, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const invoice = await storage.getInvoice(parseInt(id));
+      if (!invoice) {
+        return res.status(404).json({ message: "Invoice not found" });
+      }
+      res.json(invoice);
+    } catch (error) {
+      console.error("Error fetching invoice:", error);
+      res.status(500).json({ message: "Failed to fetch invoice" });
+    }
+  });
+
+  app.post("/api/invoices", authenticatedTenantMiddleware, async (req, res) => {
+    try {
+      const { organizationId } = getTenantContext(req);
+      const userData = req.user as any;
+      const { lineItems, ...invoiceData } = req.body;
+      
+      // Generate invoice number
+      const invoiceNumber = await storage.generateInvoiceNumber(organizationId);
+      
+      const invoice = await storage.createInvoice(
+        {
+          ...invoiceData,
+          organizationId,
+          invoiceNumber,
+          createdBy: userData.claims.sub,
+        },
+        lineItems || []
+      );
+      res.status(201).json(invoice);
+    } catch (error) {
+      console.error("Error creating invoice:", error);
+      res.status(500).json({ message: "Failed to create invoice" });
+    }
+  });
+
+  app.patch("/api/invoices/:id", authenticatedTenantMiddleware, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const invoice = await storage.updateInvoice(parseInt(id), req.body);
+      if (!invoice) {
+        return res.status(404).json({ message: "Invoice not found" });
+      }
+      res.json(invoice);
+    } catch (error) {
+      console.error("Error updating invoice:", error);
+      res.status(500).json({ message: "Failed to update invoice" });
+    }
+  });
+
+  app.delete("/api/invoices/:id", authenticatedTenantMiddleware, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const deleted = await storage.deleteInvoice(parseInt(id));
+      if (!deleted) {
+        return res.status(404).json({ message: "Invoice not found" });
+      }
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting invoice:", error);
+      res.status(500).json({ message: "Failed to delete invoice" });
+    }
+  });
+
   // Owner Payout routes
   app.get("/api/owner-payouts", authenticatedTenantMiddleware, async (req, res) => {
     try {
