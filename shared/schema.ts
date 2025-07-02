@@ -146,7 +146,6 @@ export const bookings = pgTable("bookings", {
   guests: integer("guests").notNull(),
   totalAmount: decimal("total_amount", { precision: 10, scale: 2 }),
   currency: varchar("currency").default("AUD"),
-  status: varchar("status").default("confirmed"), // confirmed, cancelled, pending
   status: varchar("status").notNull().default("confirmed"), // pending, confirmed, checked-in, checked-out, cancelled
   hostawayId: varchar("hostaway_id"),
   specialRequests: text("special_requests"),

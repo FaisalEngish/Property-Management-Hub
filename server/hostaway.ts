@@ -1,6 +1,6 @@
 import { getTenantContext, ApiKeyManager } from "./multiTenant";
 import { db } from "./db";
-import { properties, bookings, finances, users } from "@shared/schema";
+import { properties, bookings, finances, users, addonServices } from "@shared/schema";
 import type { Request } from "express";
 import { eq } from "drizzle-orm";
 
@@ -453,6 +453,77 @@ export async function syncHostawayData(req: Request, userId: string): Promise<{
           financesSync += 3;
         }
       }
+    }
+
+    // Create sample add-on services if none exist
+    const existingServices = await db.query.addonServices.findFirst({
+      where: (services, { eq }) => eq(services.organizationId, organizationId)
+    });
+
+    if (!existingServices) {
+      const addonServicesData = [
+        {
+          name: "Airport Pickup",
+          organizationId,
+          category: "transportation", 
+          pricingModel: "fixed",
+          basePrice: "85",
+          description: "Comfortable airport transfer service",
+          isActive: true,
+          duration: 60,
+          allowGuestBooking: true,
+          allowManagerBooking: true,
+        },
+        {
+          name: "In-Villa Massage",
+          organizationId,
+          category: "massage",
+          pricingModel: "variable", 
+          hourlyRate: "120",
+          description: "Professional massage therapist service",
+          isActive: true,
+          minimumCharge: "120",
+          allowGuestBooking: true,
+          allowManagerBooking: true,
+        },
+        {
+          name: "Private Chef",
+          organizationId,
+          category: "chef",
+          pricingModel: "variable",
+          hourlyRate: "85",
+          description: "Personal chef for in-villa dining",
+          isActive: true,
+          minimumCharge: "340",
+          allowGuestBooking: false,
+          allowManagerBooking: true,
+        },
+        {
+          name: "Extra Cleaning",
+          organizationId,
+          category: "cleaning",
+          pricingModel: "fixed",
+          basePrice: "75",
+          description: "Additional housekeeping service",
+          isActive: true,
+          duration: 120,
+          allowGuestBooking: true,
+          allowManagerBooking: true,
+        },
+        {
+          name: "Welcome Gift",
+          organizationId,
+          category: "concierge",
+          pricingModel: "complimentary",
+          basePrice: "0",
+          description: "Complimentary welcome basket",
+          isActive: true,
+          allowGuestBooking: false,
+          allowManagerBooking: true,
+        },
+      ];
+
+      await db.insert(addonServices).values(addonServicesData);
     }
     
     return { propertiesSync, bookingsSync, financesSync };
