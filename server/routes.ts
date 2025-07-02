@@ -4304,17 +4304,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         guestName,
         guestEmail,
         guestPhone,
+        bookingDate: new Date(),
         serviceDate: new Date(serviceDate),
         specialRequests: specialRequests || "",
-        quantity: quantity || 1,
         totalAmount: totalAmount.toString(),
         currency,
         status: "pending",
-        billingRoute: "guest-bill",
+        billingRoute: "guest_billable",
         bookedBy: "guest",
-        organizationId,
-        createdAt: new Date(),
-        updatedAt: new Date()
+        organizationId
       });
 
       res.status(201).json(booking);
@@ -4503,6 +4501,323 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error updating addon service:", error);
       res.status(500).json({ message: "Failed to update addon service" });
+    }
+  });
+
+  // ===== LOYALTY & REPEAT GUEST TRACKER + SMART MESSAGING SYSTEM API =====
+
+  // Get guest loyalty profiles (Admin/PM access)
+  app.get("/api/loyalty/guests", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId } = req.user;
+      const { role } = req.user;
+
+      if (!['admin', 'portfolio-manager', 'staff'].includes(role)) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const profiles = await storage.getAllGuestLoyaltyProfiles(organizationId);
+      res.json(profiles);
+    } catch (error) {
+      console.error("Error fetching guest loyalty profiles:", error);
+      res.status(500).json({ message: "Failed to fetch guest loyalty profiles" });
+    }
+  });
+
+  // Get repeat guests only
+  app.get("/api/loyalty/repeat-guests", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId } = req.user;
+      const { role } = req.user;
+
+      if (!['admin', 'portfolio-manager', 'staff'].includes(role)) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const repeatGuests = await storage.getRepeatGuests(organizationId);
+      res.json(repeatGuests);
+    } catch (error) {
+      console.error("Error fetching repeat guests:", error);
+      res.status(500).json({ message: "Failed to fetch repeat guests" });
+    }
+  });
+
+  // Get loyalty tiers
+  app.get("/api/loyalty/tiers", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId } = req.user;
+      const tiers = await storage.getLoyaltyTiers(organizationId);
+      res.json(tiers);
+    } catch (error) {
+      console.error("Error fetching loyalty tiers:", error);
+      res.status(500).json({ message: "Failed to fetch loyalty tiers" });
+    }
+  });
+
+  // Create loyalty tier (Admin only)
+  app.post("/api/loyalty/tiers", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role } = req.user;
+
+      if (!['admin'].includes(role)) {
+        return res.status(403).json({ message: "Access denied. Admin role required." });
+      }
+
+      const { tierName, minStays, tierColor, benefits, perks } = req.body;
+
+      const tierData = {
+        organizationId,
+        tierName,
+        minStays,
+        tierColor: tierColor || "#6B7280",
+        benefits: benefits || [],
+        perks: perks || {},
+        isActive: true,
+      };
+
+      const tier = await storage.createLoyaltyTier(tierData);
+      res.status(201).json(tier);
+    } catch (error) {
+      console.error("Error creating loyalty tier:", error);
+      res.status(500).json({ message: "Failed to create loyalty tier" });
+    }
+  });
+
+  // Check if guest is repeat guest
+  app.post("/api/loyalty/check-repeat-guest", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId } = req.user;
+      const { guestEmail, guestName, guestPhone } = req.body;
+
+      const result = await storage.identifyRepeatGuest(organizationId, guestEmail, guestName, guestPhone);
+      res.json(result);
+    } catch (error) {
+      console.error("Error checking repeat guest:", error);
+      res.status(500).json({ message: "Failed to check repeat guest status" });
+    }
+  });
+
+  // Update guest loyalty on new booking
+  app.post("/api/loyalty/update-on-booking", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId } = req.user;
+      const { 
+        guestEmail, 
+        guestName, 
+        guestPhone, 
+        propertyId, 
+        bookingAmount, 
+        checkInDate, 
+        checkOutDate 
+      } = req.body;
+
+      const profile = await storage.updateGuestLoyaltyOnBooking(
+        organizationId,
+        guestEmail,
+        guestName,
+        guestPhone,
+        propertyId,
+        parseFloat(bookingAmount),
+        new Date(checkInDate),
+        new Date(checkOutDate)
+      );
+
+      res.json(profile);
+    } catch (error) {
+      console.error("Error updating guest loyalty on booking:", error);
+      res.status(500).json({ message: "Failed to update guest loyalty" });
+    }
+  });
+
+  // ===== GUEST MESSAGING SYSTEM API =====
+
+  // Get guest messages
+  app.get("/api/messages", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId } = req.user;
+      const { threadId } = req.query;
+
+      const messages = await storage.getGuestMessages(organizationId, threadId);
+      res.json(messages);
+    } catch (error) {
+      console.error("Error fetching guest messages:", error);
+      res.status(500).json({ message: "Failed to fetch messages" });
+    }
+  });
+
+  // Create new message
+  app.post("/api/messages", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: userId, role } = req.user;
+      const { 
+        threadId, 
+        guestLoyaltyId, 
+        bookingId, 
+        propertyId, 
+        messageContent, 
+        messageType, 
+        attachments, 
+        urgencyLevel 
+      } = req.body;
+
+      const messageData = {
+        organizationId,
+        threadId,
+        guestLoyaltyId,
+        bookingId,
+        propertyId,
+        senderId: userId,
+        senderType: role,
+        senderName: req.user.firstName + " " + req.user.lastName,
+        messageContent,
+        messageType: messageType || "text",
+        attachments: attachments || [],
+        isAutomated: false,
+        urgencyLevel: urgencyLevel || "normal",
+        isRead: false,
+      };
+
+      const message = await storage.createGuestMessage(messageData);
+      res.status(201).json(message);
+    } catch (error) {
+      console.error("Error creating message:", error);
+      res.status(500).json({ message: "Failed to create message" });
+    }
+  });
+
+  // Mark message as read
+  app.patch("/api/messages/:messageId/read", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { id: userId } = req.user;
+      const { messageId } = req.params;
+
+      await storage.markMessageAsRead(parseInt(messageId), userId);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error marking message as read:", error);
+      res.status(500).json({ message: "Failed to mark message as read" });
+    }
+  });
+
+  // Get unread messages count
+  app.get("/api/messages/unread-count", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId } = req.user;
+      const count = await storage.getUnreadMessagesCount(organizationId);
+      res.json({ count });
+    } catch (error) {
+      console.error("Error fetching unread messages count:", error);
+      res.status(500).json({ message: "Failed to fetch unread count" });
+    }
+  });
+
+  // ===== SMART REPLY SUGGESTIONS API =====
+
+  // Get smart reply suggestions
+  app.get("/api/smart-replies", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId } = req.user;
+      const { category } = req.query;
+
+      const suggestions = await storage.getSmartReplySuggestions(organizationId, category);
+      res.json(suggestions);
+    } catch (error) {
+      console.error("Error fetching smart reply suggestions:", error);
+      res.status(500).json({ message: "Failed to fetch smart replies" });
+    }
+  });
+
+  // Create smart reply suggestion (Admin/PM)
+  app.post("/api/smart-replies", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: userId, role } = req.user;
+
+      if (!['admin', 'portfolio-manager'].includes(role)) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const { category, trigger, messageTemplate, userRole } = req.body;
+
+      const suggestionData = {
+        organizationId,
+        category,
+        trigger,
+        messageTemplate,
+        userRole: userRole || "all",
+        createdBy: userId,
+      };
+
+      const suggestion = await storage.createSmartReplySuggestion(suggestionData);
+      res.status(201).json(suggestion);
+    } catch (error) {
+      console.error("Error creating smart reply suggestion:", error);
+      res.status(500).json({ message: "Failed to create smart reply" });
+    }
+  });
+
+  // Use smart reply suggestion (increment usage)
+  app.post("/api/smart-replies/:suggestionId/use", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { suggestionId } = req.params;
+      await storage.incrementSmartReplyUsage(parseInt(suggestionId));
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error incrementing smart reply usage:", error);
+      res.status(500).json({ message: "Failed to update usage" });
+    }
+  });
+
+  // ===== MESSAGING TRIGGERS API =====
+
+  // Get messaging triggers
+  app.get("/api/messaging-triggers", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId } = req.user;
+      const triggers = await storage.getMessagingTriggers(organizationId);
+      res.json(triggers);
+    } catch (error) {
+      console.error("Error fetching messaging triggers:", error);
+      res.status(500).json({ message: "Failed to fetch messaging triggers" });
+    }
+  });
+
+  // Create messaging trigger (Admin only)
+  app.post("/api/messaging-triggers", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role } = req.user;
+
+      if (!['admin'].includes(role)) {
+        return res.status(403).json({ message: "Access denied. Admin role required." });
+      }
+
+      const {
+        triggerName,
+        triggerType,
+        triggerCondition,
+        delayMinutes,
+        messageTemplate,
+        loyaltyTierTargets,
+        propertyTargets
+      } = req.body;
+
+      const triggerData = {
+        organizationId,
+        triggerName,
+        triggerType,
+        triggerCondition,
+        delayMinutes: delayMinutes || 0,
+        messageTemplate,
+        isActive: true,
+        loyaltyTierTargets: loyaltyTierTargets || [],
+        propertyTargets: propertyTargets || [],
+        triggerCount: 0,
+      };
+
+      const trigger = await storage.createMessagingTrigger(triggerData);
+      res.status(201).json(trigger);
+    } catch (error) {
+      console.error("Error creating messaging trigger:", error);
+      res.status(500).json({ message: "Failed to create messaging trigger" });
     }
   });
 

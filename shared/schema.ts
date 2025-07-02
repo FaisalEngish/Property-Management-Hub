@@ -1860,6 +1860,136 @@ export type PropertyInternalNotes = typeof propertyInternalNotes.$inferSelect;
 export type InsertAgentMediaAccess = z.infer<typeof insertAgentMediaAccessSchema>;
 export type AgentMediaAccess = typeof agentMediaAccess.$inferSelect;
 
+// ===== LOYALTY & REPEAT GUEST TRACKER + SMART MESSAGING SYSTEM =====
+
+// Guest loyalty profile and repeat guest tracking
+export const guestLoyaltyProfiles = pgTable("guest_loyalty_profiles", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  guestEmail: varchar("guest_email").notNull(),
+  guestName: varchar("guest_name").notNull(),
+  guestPhone: varchar("guest_phone"),
+  totalStays: integer("total_stays").default(0),
+  firstStayDate: timestamp("first_stay_date"),
+  lastStayDate: timestamp("last_stay_date"),
+  loyaltyTier: varchar("loyalty_tier").default("new"), // new, silver, gold, platinum
+  totalSpent: decimal("total_spent", { precision: 10, scale: 2 }).default("0.00"),
+  averageStayDuration: integer("average_stay_duration"), // in days
+  preferredProperties: text("preferred_properties").array(),
+  specialPreferences: text("special_preferences"), // dietary, accessibility, etc
+  communicationPreferences: jsonb("communication_preferences"), // email, sms, preferences
+  loyaltyPoints: integer("loyalty_points").default(0),
+  isVip: boolean("is_vip").default(false),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Loyalty tier definitions and benefits
+export const loyaltyTiers = pgTable("loyalty_tiers", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  tierName: varchar("tier_name").notNull(), // Silver, Gold, Platinum
+  minStays: integer("min_stays").notNull(),
+  tierColor: varchar("tier_color").default("#6B7280"), // hex color for badges
+  benefits: text("benefits").array(), // array of benefit descriptions
+  perks: jsonb("perks"), // structured perks data
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Guest messaging threads and conversations
+export const guestMessages = pgTable("guest_messages", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  threadId: varchar("thread_id").notNull(), // unique thread identifier
+  guestLoyaltyId: integer("guest_loyalty_id").references(() => guestLoyaltyProfiles.id),
+  bookingId: integer("booking_id").references(() => bookings.id),
+  propertyId: integer("property_id").references(() => properties.id),
+  senderId: varchar("sender_id"), // user id or 'guest' or 'system'
+  senderType: varchar("sender_type").notNull(), // guest, staff, admin, system
+  senderName: varchar("sender_name").notNull(),
+  messageContent: text("message_content").notNull(),
+  messageType: varchar("message_type").default("text"), // text, image, file, automated
+  attachments: text("attachments").array(), // file URLs
+  isAutomated: boolean("is_automated").default(false),
+  urgencyLevel: varchar("urgency_level").default("normal"), // low, normal, high, urgent
+  isRead: boolean("is_read").default(false),
+  readAt: timestamp("read_at"),
+  readBy: varchar("read_by").references(() => users.id),
+  relatedTaskId: integer("related_task_id").references(() => tasks.id),
+  aiAnalysis: jsonb("ai_analysis"), // AI sentiment, topic classification, etc
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Automated messaging triggers and rules
+export const messagingTriggers = pgTable("messaging_triggers", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  triggerName: varchar("trigger_name").notNull(),
+  triggerType: varchar("trigger_type").notNull(), // check_in, check_out, post_stay, follow_up
+  triggerCondition: varchar("trigger_condition").notNull(), // after_check_in, before_check_out, 3_months_later
+  delayMinutes: integer("delay_minutes").default(0), // delay before sending
+  messageTemplate: text("message_template").notNull(),
+  isActive: boolean("is_active").default(true),
+  loyaltyTierTargets: text("loyalty_tier_targets").array(), // which tiers to target
+  propertyTargets: text("property_targets").array(), // which properties
+  lastTriggered: timestamp("last_triggered"),
+  triggerCount: integer("trigger_count").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Smart reply suggestions for staff
+export const smartReplySuggestions = pgTable("smart_reply_suggestions", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  category: varchar("category").notNull(), // greeting, confirmation, apology, upsell, etc
+  trigger: varchar("trigger"), // keywords that trigger this suggestion
+  messageTemplate: text("message_template").notNull(),
+  useCount: integer("use_count").default(0),
+  lastUsed: timestamp("last_used"),
+  isActive: boolean("is_active").default(true),
+  userRole: varchar("user_role"), // staff, admin, all
+  createdBy: varchar("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// AI feedback analysis and task generation
+export const aiMessageAnalysis = pgTable("ai_message_analysis", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  messageId: integer("message_id").references(() => guestMessages.id),
+  bookingId: integer("booking_id").references(() => bookings.id),
+  analysisType: varchar("analysis_type").notNull(), // sentiment, issue_detection, task_generation
+  sentiment: varchar("sentiment"), // positive, neutral, negative
+  detectedIssues: text("detected_issues").array(), // hot_water, pool_dirty, breakfast_quality
+  suggestedActions: text("suggested_actions").array(),
+  confidenceScore: decimal("confidence_score", { precision: 3, scale: 2 }),
+  taskGenerated: boolean("task_generated").default(false),
+  generatedTaskId: integer("generated_task_id").references(() => tasks.id),
+  reviewedBy: varchar("reviewed_by").references(() => users.id),
+  reviewedAt: timestamp("reviewed_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Message delivery tracking
+export const messageDeliveries = pgTable("message_deliveries", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  messageId: integer("message_id").references(() => guestMessages.id),
+  deliveryMethod: varchar("delivery_method").notNull(), // email, sms, whatsapp, in_app
+  recipientEmail: varchar("recipient_email"),
+  recipientPhone: varchar("recipient_phone"),
+  deliveryStatus: varchar("delivery_status").default("pending"), // pending, sent, delivered, failed
+  deliveredAt: timestamp("delivered_at"),
+  failureReason: text("failure_reason"),
+  retryCount: integer("retry_count").default(0),
+  lastRetryAt: timestamp("last_retry_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // ===== OWNER DASHBOARD PLATFORM =====
 
 // Owner Activity Timeline
@@ -2354,6 +2484,63 @@ export type InsertCommissionInvoiceItem = z.infer<typeof insertCommissionInvoice
 // Enhanced Agent Booking type (with new fields)
 export type AgentBooking = typeof agentBookings.$inferSelect;
 export type InsertAgentBooking = typeof agentBookings.$inferInsert;
+
+// ===== LOYALTY & MESSAGING SYSTEM SCHEMAS AND TYPES =====
+
+// Insert schemas for loyalty system
+export const insertGuestLoyaltyProfileSchema = createInsertSchema(guestLoyaltyProfiles).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertLoyaltyTierSchema = createInsertSchema(loyaltyTiers).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertGuestMessageSchema = createInsertSchema(guestMessages).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertMessagingTriggerSchema = createInsertSchema(messagingTriggers).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertSmartReplySuggestionSchema = createInsertSchema(smartReplySuggestions).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertAiMessageAnalysisSchema = createInsertSchema(aiMessageAnalysis).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertMessageDeliverySchema = createInsertSchema(messageDeliveries).omit({
+  id: true,
+  createdAt: true,
+});
+
+// Type definitions for loyalty system
+export type GuestLoyaltyProfile = typeof guestLoyaltyProfiles.$inferSelect;
+export type InsertGuestLoyaltyProfile = z.infer<typeof insertGuestLoyaltyProfileSchema>;
+export type LoyaltyTier = typeof loyaltyTiers.$inferSelect;
+export type InsertLoyaltyTier = z.infer<typeof insertLoyaltyTierSchema>;
+export type GuestMessage = typeof guestMessages.$inferSelect;
+export type InsertGuestMessage = z.infer<typeof insertGuestMessageSchema>;
+export type MessagingTrigger = typeof messagingTriggers.$inferSelect;
+export type InsertMessagingTrigger = z.infer<typeof insertMessagingTriggerSchema>;
+export type SmartReplySuggestion = typeof smartReplySuggestions.$inferSelect;
+export type InsertSmartReplySuggestion = z.infer<typeof insertSmartReplySuggestionSchema>;
+export type AiMessageAnalysis = typeof aiMessageAnalysis.$inferSelect;
+export type InsertAiMessageAnalysis = z.infer<typeof insertAiMessageAnalysisSchema>;
+export type MessageDelivery = typeof messageDeliveries.$inferSelect;
+export type InsertMessageDelivery = z.infer<typeof insertMessageDeliverySchema>;
 
 // ===== STAFF DASHBOARD TYPES =====
 

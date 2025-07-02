@@ -6065,14 +6065,16 @@ export class DatabaseStorage implements IStorage {
       guestName: guestAddonBookings.guestName,
       guestEmail: guestAddonBookings.guestEmail,
       guestPhone: guestAddonBookings.guestPhone,
+      bookingDate: guestAddonBookings.bookingDate,
       serviceDate: guestAddonBookings.serviceDate,
       specialRequests: guestAddonBookings.specialRequests,
-      quantity: guestAddonBookings.quantity,
       totalAmount: guestAddonBookings.totalAmount,
       currency: guestAddonBookings.currency,
       status: guestAddonBookings.status,
       billingRoute: guestAddonBookings.billingRoute,
       complimentaryType: guestAddonBookings.complimentaryType,
+      paymentStatus: guestAddonBookings.paymentStatus,
+      paymentMethod: guestAddonBookings.paymentMethod,
       internalNotes: guestAddonBookings.internalNotes,
       bookedBy: guestAddonBookings.bookedBy,
       confirmedBy: guestAddonBookings.confirmedBy,
@@ -6124,6 +6126,320 @@ export class DatabaseStorage implements IStorage {
         )
       );
     return booking;
+  }
+
+  // ===== LOYALTY & REPEAT GUEST TRACKER + SMART MESSAGING SYSTEM =====
+
+  // Guest Loyalty Profile operations
+  async getGuestLoyaltyProfile(organizationId: string, guestEmail: string): Promise<GuestLoyaltyProfile | undefined> {
+    const [profile] = await db.select()
+      .from(guestLoyaltyProfiles)
+      .where(
+        and(
+          eq(guestLoyaltyProfiles.organizationId, organizationId),
+          eq(guestLoyaltyProfiles.guestEmail, guestEmail)
+        )
+      );
+    return profile;
+  }
+
+  async createOrUpdateGuestLoyaltyProfile(profile: InsertGuestLoyaltyProfile): Promise<GuestLoyaltyProfile> {
+    const existingProfile = await this.getGuestLoyaltyProfile(profile.organizationId, profile.guestEmail);
+    
+    if (existingProfile) {
+      // Update existing profile
+      const [updated] = await db.update(guestLoyaltyProfiles)
+        .set({
+          ...profile,
+          updatedAt: new Date(),
+        })
+        .where(eq(guestLoyaltyProfiles.id, existingProfile.id))
+        .returning();
+      return updated;
+    } else {
+      // Create new profile
+      const [created] = await db.insert(guestLoyaltyProfiles)
+        .values(profile)
+        .returning();
+      return created;
+    }
+  }
+
+  async getAllGuestLoyaltyProfiles(organizationId: string): Promise<GuestLoyaltyProfile[]> {
+    return await db.select()
+      .from(guestLoyaltyProfiles)
+      .where(eq(guestLoyaltyProfiles.organizationId, organizationId))
+      .orderBy(desc(guestLoyaltyProfiles.lastStayDate));
+  }
+
+  async getRepeatGuests(organizationId: string): Promise<GuestLoyaltyProfile[]> {
+    return await db.select()
+      .from(guestLoyaltyProfiles)
+      .where(
+        and(
+          eq(guestLoyaltyProfiles.organizationId, organizationId),
+          gt(guestLoyaltyProfiles.totalStays, 1)
+        )
+      )
+      .orderBy(desc(guestLoyaltyProfiles.totalStays));
+  }
+
+  // Loyalty Tier operations
+  async getLoyaltyTiers(organizationId: string): Promise<LoyaltyTier[]> {
+    return await db.select()
+      .from(loyaltyTiers)
+      .where(
+        and(
+          eq(loyaltyTiers.organizationId, organizationId),
+          eq(loyaltyTiers.isActive, true)
+        )
+      )
+      .orderBy(loyaltyTiers.minStays);
+  }
+
+  async createLoyaltyTier(tier: InsertLoyaltyTier): Promise<LoyaltyTier> {
+    const [created] = await db.insert(loyaltyTiers)
+      .values(tier)
+      .returning();
+    return created;
+  }
+
+  // Guest Messages operations
+  async getGuestMessages(organizationId: string, threadId?: string): Promise<GuestMessage[]> {
+    let query = db.select()
+      .from(guestMessages)
+      .where(eq(guestMessages.organizationId, organizationId));
+
+    if (threadId) {
+      query = query.where(eq(guestMessages.threadId, threadId));
+    }
+
+    return await query.orderBy(desc(guestMessages.createdAt));
+  }
+
+  async createGuestMessage(message: InsertGuestMessage): Promise<GuestMessage> {
+    const [created] = await db.insert(guestMessages)
+      .values(message)
+      .returning();
+    return created;
+  }
+
+  async markMessageAsRead(messageId: number, readBy: string): Promise<void> {
+    await db.update(guestMessages)
+      .set({
+        isRead: true,
+        readAt: new Date(),
+        readBy,
+      })
+      .where(eq(guestMessages.id, messageId));
+  }
+
+  async getUnreadMessagesCount(organizationId: string): Promise<number> {
+    const result = await db.select({ count: count() })
+      .from(guestMessages)
+      .where(
+        and(
+          eq(guestMessages.organizationId, organizationId),
+          eq(guestMessages.isRead, false),
+          ne(guestMessages.senderType, 'system')
+        )
+      );
+    return result[0]?.count || 0;
+  }
+
+  // Messaging Triggers operations
+  async getMessagingTriggers(organizationId: string): Promise<MessagingTrigger[]> {
+    return await db.select()
+      .from(messagingTriggers)
+      .where(
+        and(
+          eq(messagingTriggers.organizationId, organizationId),
+          eq(messagingTriggers.isActive, true)
+        )
+      );
+  }
+
+  async createMessagingTrigger(trigger: InsertMessagingTrigger): Promise<MessagingTrigger> {
+    const [created] = await db.insert(messagingTriggers)
+      .values(trigger)
+      .returning();
+    return created;
+  }
+
+  // Smart Reply Suggestions operations
+  async getSmartReplySuggestions(organizationId: string, category?: string): Promise<SmartReplySuggestion[]> {
+    let query = db.select()
+      .from(smartReplySuggestions)
+      .where(
+        and(
+          eq(smartReplySuggestions.organizationId, organizationId),
+          eq(smartReplySuggestions.isActive, true)
+        )
+      );
+
+    if (category) {
+      query = query.where(eq(smartReplySuggestions.category, category));
+    }
+
+    return await query.orderBy(desc(smartReplySuggestions.useCount));
+  }
+
+  async createSmartReplySuggestion(suggestion: InsertSmartReplySuggestion): Promise<SmartReplySuggestion> {
+    const [created] = await db.insert(smartReplySuggestions)
+      .values(suggestion)
+      .returning();
+    return created;
+  }
+
+  async incrementSmartReplyUsage(suggestionId: number): Promise<void> {
+    await db.update(smartReplySuggestions)
+      .set({
+        useCount: sql`${smartReplySuggestions.useCount} + 1`,
+        lastUsed: new Date(),
+      })
+      .where(eq(smartReplySuggestions.id, suggestionId));
+  }
+
+  // AI Message Analysis operations
+  async createAiMessageAnalysis(analysis: InsertAiMessageAnalysis): Promise<AiMessageAnalysis> {
+    const [created] = await db.insert(aiMessageAnalysis)
+      .values(analysis)
+      .returning();
+    return created;
+  }
+
+  async getAiMessageAnalysis(organizationId: string, messageId: number): Promise<AiMessageAnalysis[]> {
+    return await db.select()
+      .from(aiMessageAnalysis)
+      .where(
+        and(
+          eq(aiMessageAnalysis.organizationId, organizationId),
+          eq(aiMessageAnalysis.messageId, messageId)
+        )
+      );
+  }
+
+  // Message Delivery Tracking operations
+  async createMessageDelivery(delivery: InsertMessageDelivery): Promise<MessageDelivery> {
+    const [created] = await db.insert(messageDeliveries)
+      .values(delivery)
+      .returning();
+    return created;
+  }
+
+  async updateMessageDeliveryStatus(deliveryId: number, status: string, failureReason?: string): Promise<void> {
+    await db.update(messageDeliveries)
+      .set({
+        deliveryStatus: status,
+        deliveredAt: status === 'delivered' ? new Date() : undefined,
+        failureReason,
+      })
+      .where(eq(messageDeliveries.id, deliveryId));
+  }
+
+  // Utility methods for repeat guest identification
+  async identifyRepeatGuest(organizationId: string, guestEmail: string, guestName: string, guestPhone?: string): Promise<{ isRepeat: boolean; profile?: GuestLoyaltyProfile }> {
+    // Try to find by email first
+    let profile = await this.getGuestLoyaltyProfile(organizationId, guestEmail);
+
+    // If not found by email, try by phone (if provided)
+    if (!profile && guestPhone) {
+      const [phoneProfile] = await db.select()
+        .from(guestLoyaltyProfiles)
+        .where(
+          and(
+            eq(guestLoyaltyProfiles.organizationId, organizationId),
+            eq(guestLoyaltyProfiles.guestPhone, guestPhone)
+          )
+        );
+      profile = phoneProfile;
+    }
+
+    // If still not found, try by name similarity
+    if (!profile) {
+      const [nameProfile] = await db.select()
+        .from(guestLoyaltyProfiles)
+        .where(
+          and(
+            eq(guestLoyaltyProfiles.organizationId, organizationId),
+            ilike(guestLoyaltyProfiles.guestName, `%${guestName}%`)
+          )
+        );
+      profile = nameProfile;
+    }
+
+    return {
+      isRepeat: !!profile && profile.totalStays > 0,
+      profile
+    };
+  }
+
+  // Update guest loyalty on new booking
+  async updateGuestLoyaltyOnBooking(
+    organizationId: string, 
+    guestEmail: string, 
+    guestName: string, 
+    guestPhone: string | undefined,
+    propertyId: number,
+    bookingAmount: number,
+    checkInDate: Date,
+    checkOutDate: Date
+  ): Promise<GuestLoyaltyProfile> {
+    const { profile } = await this.identifyRepeatGuest(organizationId, guestEmail, guestName, guestPhone);
+    
+    const stayDuration = Math.ceil((checkOutDate.getTime() - checkInDate.getTime()) / (1000 * 60 * 60 * 24));
+    
+    if (profile) {
+      // Update existing profile
+      const newTotalStays = profile.totalStays + 1;
+      const newTotalSpent = parseFloat(profile.totalSpent) + bookingAmount;
+      const newAverageStayDuration = Math.round(
+        ((profile.averageStayDuration || 0) * profile.totalStays + stayDuration) / newTotalStays
+      );
+
+      // Determine loyalty tier based on total stays
+      const tiers = await this.getLoyaltyTiers(organizationId);
+      let newTier = 'new';
+      for (const tier of tiers.reverse()) { // Start from highest tier
+        if (newTotalStays >= tier.minStays) {
+          newTier = tier.tierName.toLowerCase();
+          break;
+        }
+      }
+
+      const [updated] = await db.update(guestLoyaltyProfiles)
+        .set({
+          totalStays: newTotalStays,
+          totalSpent: newTotalSpent.toString(),
+          averageStayDuration: newAverageStayDuration,
+          lastStayDate: checkInDate,
+          loyaltyTier: newTier,
+          updatedAt: new Date(),
+        })
+        .where(eq(guestLoyaltyProfiles.id, profile.id))
+        .returning();
+      
+      return updated;
+    } else {
+      // Create new profile
+      const newProfile: InsertGuestLoyaltyProfile = {
+        organizationId,
+        guestEmail,
+        guestName,
+        guestPhone,
+        totalStays: 1,
+        firstStayDate: checkInDate,
+        lastStayDate: checkInDate,
+        loyaltyTier: 'new',
+        totalSpent: bookingAmount.toString(),
+        averageStayDuration: stayDuration,
+        preferredProperties: [propertyId.toString()],
+        loyaltyPoints: 0,
+        isVip: false,
+      };
+
+      return await this.createOrUpdateGuestLoyaltyProfile(newProfile);
+    }
   }
 }
 

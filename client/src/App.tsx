@@ -37,6 +37,7 @@ import PortfolioManagerDashboard from "@/pages/PortfolioManagerDashboard";
 import FinanceResetControl from "@/pages/FinanceResetControl";
 import UtilityCustomization from "@/pages/UtilityCustomization";
 import AgentCommissionDashboard from "@/pages/AgentCommissionDashboard";
+import LoyaltyGuestTracker from "@/pages/LoyaltyGuestTracker";
 
 function Router() {
   const { isAuthenticated, isLoading, user } = useAuth();
@@ -121,6 +122,7 @@ function Router() {
           <Route path="/pm/dashboard" component={PortfolioManagerDashboard} />
           <Route path="/admin/finance-reset" component={FinanceResetControl} />
           <Route path="/admin/utility-customization" component={UtilityCustomization} />
+          <Route path="/loyalty-tracker" component={LoyaltyGuestTracker} />
           <Route path="/hostaway" component={Hostaway} />
           <Route path="/settings" component={Settings} />
         </>
