@@ -18,6 +18,9 @@ import {
   ownerPayouts,
   notifications,
   notificationPreferences,
+  guestAddonServices,
+  guestAddonBookings,
+  guestPortalAccess,
   type User,
   type UpsertUser,
   type Property,
@@ -83,6 +86,12 @@ import {
   type InsertFeedbackProcessingLog,
   type AiConfiguration,
   type InsertAiConfiguration,
+  type GuestAddonService,
+  type InsertGuestAddonService,
+  type GuestAddonBooking,
+  type InsertGuestAddonBooking,
+  type GuestPortalAccess,
+  type InsertGuestPortalAccess,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, asc, lt, gte, lte, isNull, sql } from "drizzle-orm";
@@ -323,6 +332,37 @@ export interface IStorage {
     recommendedActions: string[];
   }>;
   createTaskFromFeedback(feedbackId: number, ruleId: number, assignedTo?: string): Promise<Task>;
+
+  // Guest Add-On Service Booking Platform operations
+  getGuestAddonServices(organizationId: string, filters?: { category?: string; isActive?: boolean }): Promise<GuestAddonService[]>;
+  getGuestAddonServiceById(id: number): Promise<GuestAddonService | undefined>;
+  createGuestAddonService(service: InsertGuestAddonService): Promise<GuestAddonService>;
+  updateGuestAddonService(id: number, service: Partial<InsertGuestAddonService>): Promise<GuestAddonService | undefined>;
+  deleteGuestAddonService(id: number): Promise<boolean>;
+  
+  // Guest add-on booking operations
+  getGuestAddonBookings(organizationId: string, filters?: { propertyId?: number; status?: string; billingRoute?: string }): Promise<GuestAddonBooking[]>;
+  getGuestAddonBookingById(id: number): Promise<GuestAddonBooking | undefined>;
+  createGuestAddonBooking(booking: InsertGuestAddonBooking): Promise<GuestAddonBooking>;
+  updateGuestAddonBooking(id: number, booking: Partial<InsertGuestAddonBooking>): Promise<GuestAddonBooking | undefined>;
+  confirmGuestAddonBooking(id: number, confirmedBy: string): Promise<GuestAddonBooking | undefined>;
+  cancelGuestAddonBooking(id: number, cancelledBy: string, reason?: string): Promise<GuestAddonBooking | undefined>;
+  updateBookingPaymentStatus(id: number, paymentStatus: string, paymentMethod?: string, stripePaymentIntentId?: string): Promise<GuestAddonBooking | undefined>;
+  
+  // Guest portal access operations
+  getGuestPortalAccess(accessToken: string): Promise<GuestPortalAccess | undefined>;
+  createGuestPortalAccess(access: InsertGuestPortalAccess): Promise<GuestPortalAccess>;
+  updateGuestPortalAccessActivity(accessToken: string): Promise<void>;
+  deactivateGuestPortalAccess(accessToken: string): Promise<boolean>;
+  
+  // Guest add-on service analytics
+  getGuestAddonServiceAnalytics(organizationId: string, filters?: { fromDate?: Date; toDate?: Date }): Promise<{
+    totalBookings: number;
+    totalRevenue: number;
+    popularServices: Array<{ serviceName: string; bookingCount: number; revenue: number }>;
+    billingRouteBreakdown: Record<string, number>;
+    monthlyStats: Array<{ month: string; bookings: number; revenue: number }>;
+  }>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -2113,6 +2153,240 @@ export class DatabaseStorage implements IStorage {
     });
     
     return task;
+  }
+
+  // Guest Add-On Service Booking Platform operations
+  async getGuestAddonServices(organizationId: string, filters?: { category?: string; isActive?: boolean }): Promise<GuestAddonService[]> {
+    let query = db.select().from(guestAddonServices).where(eq(guestAddonServices.organizationId, organizationId));
+    
+    if (filters?.category) {
+      query = query.where(eq(guestAddonServices.category, filters.category));
+    }
+    
+    if (filters?.isActive !== undefined) {
+      query = query.where(eq(guestAddonServices.isActive, filters.isActive));
+    }
+    
+    return await query.orderBy(asc(guestAddonServices.serviceName));
+  }
+
+  async getGuestAddonServiceById(id: number): Promise<GuestAddonService | undefined> {
+    const [service] = await db.select().from(guestAddonServices).where(eq(guestAddonServices.id, id));
+    return service;
+  }
+
+  async createGuestAddonService(service: InsertGuestAddonService): Promise<GuestAddonService> {
+    const [newService] = await db.insert(guestAddonServices).values(service).returning();
+    return newService;
+  }
+
+  async updateGuestAddonService(id: number, service: Partial<InsertGuestAddonService>): Promise<GuestAddonService | undefined> {
+    const [updatedService] = await db
+      .update(guestAddonServices)
+      .set({ ...service, updatedAt: new Date() })
+      .where(eq(guestAddonServices.id, id))
+      .returning();
+    return updatedService;
+  }
+
+  async deleteGuestAddonService(id: number): Promise<boolean> {
+    const result = await db.delete(guestAddonServices).where(eq(guestAddonServices.id, id));
+    return (result.rowCount || 0) > 0;
+  }
+
+  // Guest add-on booking operations
+  async getGuestAddonBookings(organizationId: string, filters?: { propertyId?: number; status?: string; billingRoute?: string }): Promise<GuestAddonBooking[]> {
+    let query = db.select().from(guestAddonBookings).where(eq(guestAddonBookings.organizationId, organizationId));
+    
+    if (filters?.propertyId) {
+      query = query.where(eq(guestAddonBookings.propertyId, filters.propertyId));
+    }
+    
+    if (filters?.status) {
+      query = query.where(eq(guestAddonBookings.status, filters.status));
+    }
+    
+    if (filters?.billingRoute) {
+      query = query.where(eq(guestAddonBookings.billingRoute, filters.billingRoute));
+    }
+    
+    return await query.orderBy(desc(guestAddonBookings.bookingDate));
+  }
+
+  async getGuestAddonBookingById(id: number): Promise<GuestAddonBooking | undefined> {
+    const [booking] = await db.select().from(guestAddonBookings).where(eq(guestAddonBookings.id, id));
+    return booking;
+  }
+
+  async createGuestAddonBooking(booking: InsertGuestAddonBooking): Promise<GuestAddonBooking> {
+    const [newBooking] = await db.insert(guestAddonBookings).values(booking).returning();
+    
+    // Auto-create task if service requires it
+    if (booking.assignedTaskId) {
+      const service = await this.getGuestAddonServiceById(booking.serviceId);
+      if (service?.autoCreateTask) {
+        const task = await this.createTask({
+          organizationId: booking.organizationId,
+          type: service.taskType || 'addon_service',
+          title: `${service.serviceName} - ${booking.guestName}`,
+          description: `Service: ${service.serviceName}\nGuest: ${booking.guestName}\nDate: ${booking.serviceDate}\nProperty: ${booking.propertyId}`,
+          status: 'pending',
+          priority: service.taskPriority || 'medium',
+          propertyId: booking.propertyId,
+          assignedTo: null, // Will be assigned by manager
+          department: service.taskType,
+        });
+
+        // Update booking with task ID
+        await db
+          .update(guestAddonBookings)
+          .set({ assignedTaskId: task.id })
+          .where(eq(guestAddonBookings.id, newBooking.id));
+        
+        newBooking.assignedTaskId = task.id;
+      }
+    }
+    
+    return newBooking;
+  }
+
+  async updateGuestAddonBooking(id: number, booking: Partial<InsertGuestAddonBooking>): Promise<GuestAddonBooking | undefined> {
+    const [updatedBooking] = await db
+      .update(guestAddonBookings)
+      .set(booking)
+      .where(eq(guestAddonBookings.id, id))
+      .returning();
+    return updatedBooking;
+  }
+
+  async confirmGuestAddonBooking(id: number, confirmedBy: string): Promise<GuestAddonBooking | undefined> {
+    const [updatedBooking] = await db
+      .update(guestAddonBookings)
+      .set({ 
+        status: 'confirmed',
+        internalNotes: `Confirmed by ${confirmedBy} at ${new Date().toISOString()}`
+      })
+      .where(eq(guestAddonBookings.id, id))
+      .returning();
+    return updatedBooking;
+  }
+
+  async cancelGuestAddonBooking(id: number, cancelledBy: string, reason?: string): Promise<GuestAddonBooking | undefined> {
+    const [updatedBooking] = await db
+      .update(guestAddonBookings)
+      .set({ 
+        status: 'cancelled',
+        internalNotes: `Cancelled by ${cancelledBy}: ${reason || 'No reason provided'}`
+      })
+      .where(eq(guestAddonBookings.id, id))
+      .returning();
+    return updatedBooking;
+  }
+
+  async updateBookingPaymentStatus(id: number, paymentStatus: string, paymentMethod?: string, stripePaymentIntentId?: string): Promise<GuestAddonBooking | undefined> {
+    const updateData: any = { paymentStatus };
+    if (paymentMethod) updateData.paymentMethod = paymentMethod;
+    if (stripePaymentIntentId) updateData.stripePaymentIntentId = stripePaymentIntentId;
+    
+    const [updatedBooking] = await db
+      .update(guestAddonBookings)
+      .set(updateData)
+      .where(eq(guestAddonBookings.id, id))
+      .returning();
+    return updatedBooking;
+  }
+
+  // Guest portal access operations
+  async getGuestPortalAccess(accessToken: string): Promise<GuestPortalAccess | undefined> {
+    const [access] = await db.select().from(guestPortalAccess).where(eq(guestPortalAccess.accessToken, accessToken));
+    return access;
+  }
+
+  async createGuestPortalAccess(access: InsertGuestPortalAccess): Promise<GuestPortalAccess> {
+    const [newAccess] = await db.insert(guestPortalAccess).values(access).returning();
+    return newAccess;
+  }
+
+  async updateGuestPortalAccessActivity(accessToken: string): Promise<void> {
+    await db
+      .update(guestPortalAccess)
+      .set({ lastAccessedAt: new Date() })
+      .where(eq(guestPortalAccess.accessToken, accessToken));
+  }
+
+  async deactivateGuestPortalAccess(accessToken: string): Promise<boolean> {
+    const result = await db
+      .update(guestPortalAccess)
+      .set({ isActive: false })
+      .where(eq(guestPortalAccess.accessToken, accessToken));
+    return (result.rowCount || 0) > 0;
+  }
+
+  // Guest add-on service analytics
+  async getGuestAddonServiceAnalytics(organizationId: string, filters?: { fromDate?: Date; toDate?: Date }): Promise<{
+    totalBookings: number;
+    totalRevenue: number;
+    popularServices: Array<{ serviceName: string; bookingCount: number; revenue: number }>;
+    billingRouteBreakdown: Record<string, number>;
+    monthlyStats: Array<{ month: string; bookings: number; revenue: number }>;
+  }> {
+    let bookingQuery = db.select().from(guestAddonBookings).where(eq(guestAddonBookings.organizationId, organizationId));
+    
+    if (filters?.fromDate) {
+      bookingQuery = bookingQuery.where(gte(guestAddonBookings.bookingDate, filters.fromDate));
+    }
+    
+    if (filters?.toDate) {
+      bookingQuery = bookingQuery.where(lte(guestAddonBookings.bookingDate, filters.toDate));
+    }
+    
+    const bookings = await bookingQuery;
+    
+    const totalBookings = bookings.length;
+    const totalRevenue = bookings.reduce((sum, booking) => sum + parseFloat(booking.totalAmount.toString()), 0);
+    
+    // Calculate popular services
+    const serviceStats = new Map<string, { bookingCount: number; revenue: number }>();
+    const billingRouteBreakdown: Record<string, number> = {};
+    const monthlyStatsMap = new Map<string, { bookings: number; revenue: number }>();
+    
+    for (const booking of bookings) {
+      // Get service name for this booking
+      const service = await this.getGuestAddonServiceById(booking.serviceId);
+      const serviceName = service?.serviceName || 'Unknown Service';
+      
+      // Update service stats
+      const existing = serviceStats.get(serviceName) || { bookingCount: 0, revenue: 0 };
+      existing.bookingCount++;
+      existing.revenue += parseFloat(booking.totalAmount.toString());
+      serviceStats.set(serviceName, existing);
+      
+      // Update billing route breakdown
+      billingRouteBreakdown[booking.billingRoute] = (billingRouteBreakdown[booking.billingRoute] || 0) + 1;
+      
+      // Update monthly stats
+      const month = booking.bookingDate.toISOString().slice(0, 7); // YYYY-MM format
+      const monthlyExisting = monthlyStatsMap.get(month) || { bookings: 0, revenue: 0 };
+      monthlyExisting.bookings++;
+      monthlyExisting.revenue += parseFloat(booking.totalAmount.toString());
+      monthlyStatsMap.set(month, monthlyExisting);
+    }
+    
+    const popularServices = Array.from(serviceStats.entries())
+      .map(([serviceName, stats]) => ({ serviceName, ...stats }))
+      .sort((a, b) => b.bookingCount - a.bookingCount);
+    
+    const monthlyStats = Array.from(monthlyStatsMap.entries())
+      .map(([month, stats]) => ({ month, ...stats }))
+      .sort((a, b) => a.month.localeCompare(b.month));
+    
+    return {
+      totalBookings,
+      totalRevenue,
+      popularServices,
+      billingRouteBreakdown,
+      monthlyStats,
+    };
   }
 }
 

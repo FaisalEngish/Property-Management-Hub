@@ -1526,6 +1526,288 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ===== GUEST ADD-ON SERVICE BOOKING PLATFORM =====
+  
+  // Guest add-on services CRUD
+  app.get("/api/guest-addon-services", isDemoAuthenticated, async (req, res) => {
+    try {
+      const organizationId = "demo-org";
+      const { category, isActive } = req.query;
+      
+      const filters: any = {};
+      if (category) filters.category = category as string;
+      if (isActive !== undefined) filters.isActive = isActive === 'true';
+      
+      const services = await storage.getGuestAddonServices(organizationId, filters);
+      res.json(services);
+    } catch (error) {
+      console.error("Error fetching guest addon services:", error);
+      res.status(500).json({ message: "Failed to fetch guest addon services" });
+    }
+  });
+
+  app.get("/api/guest-addon-services/:id", isDemoAuthenticated, async (req, res) => {
+    try {
+      const serviceId = parseInt(req.params.id);
+      const service = await storage.getGuestAddonServiceById(serviceId);
+      
+      if (!service) {
+        return res.status(404).json({ message: "Guest addon service not found" });
+      }
+      
+      res.json(service);
+    } catch (error) {
+      console.error("Error fetching guest addon service:", error);
+      res.status(500).json({ message: "Failed to fetch guest addon service" });
+    }
+  });
+
+  app.post("/api/guest-addon-services", isDemoAuthenticated, async (req, res) => {
+    try {
+      const organizationId = "demo-org";
+      const user = req.user as any;
+      
+      const serviceData = {
+        ...req.body,
+        organizationId,
+        createdBy: user.id,
+      };
+      
+      const service = await storage.createGuestAddonService(serviceData);
+      res.status(201).json(service);
+    } catch (error) {
+      console.error("Error creating guest addon service:", error);
+      res.status(500).json({ message: "Failed to create guest addon service" });
+    }
+  });
+
+  app.put("/api/guest-addon-services/:id", isDemoAuthenticated, async (req, res) => {
+    try {
+      const serviceId = parseInt(req.params.id);
+      const service = await storage.updateGuestAddonService(serviceId, req.body);
+      
+      if (!service) {
+        return res.status(404).json({ message: "Guest addon service not found" });
+      }
+      
+      res.json(service);
+    } catch (error) {
+      console.error("Error updating guest addon service:", error);
+      res.status(500).json({ message: "Failed to update guest addon service" });
+    }
+  });
+
+  app.delete("/api/guest-addon-services/:id", isDemoAuthenticated, async (req, res) => {
+    try {
+      const serviceId = parseInt(req.params.id);
+      const success = await storage.deleteGuestAddonService(serviceId);
+      res.json({ success });
+    } catch (error) {
+      console.error("Error deleting guest addon service:", error);
+      res.status(500).json({ message: "Failed to delete guest addon service" });
+    }
+  });
+
+  // Guest add-on bookings CRUD
+  app.get("/api/guest-addon-bookings", isDemoAuthenticated, async (req, res) => {
+    try {
+      const organizationId = "demo-org";
+      const { propertyId, status, billingRoute } = req.query;
+      
+      const filters: any = {};
+      if (propertyId) filters.propertyId = parseInt(propertyId as string);
+      if (status) filters.status = status as string;
+      if (billingRoute) filters.billingRoute = billingRoute as string;
+      
+      const bookings = await storage.getGuestAddonBookings(organizationId, filters);
+      res.json(bookings);
+    } catch (error) {
+      console.error("Error fetching guest addon bookings:", error);
+      res.status(500).json({ message: "Failed to fetch guest addon bookings" });
+    }
+  });
+
+  app.get("/api/guest-addon-bookings/:id", isDemoAuthenticated, async (req, res) => {
+    try {
+      const bookingId = parseInt(req.params.id);
+      const booking = await storage.getGuestAddonBookingById(bookingId);
+      
+      if (!booking) {
+        return res.status(404).json({ message: "Guest addon booking not found" });
+      }
+      
+      res.json(booking);
+    } catch (error) {
+      console.error("Error fetching guest addon booking:", error);
+      res.status(500).json({ message: "Failed to fetch guest addon booking" });
+    }
+  });
+
+  app.post("/api/guest-addon-bookings", isDemoAuthenticated, async (req, res) => {
+    try {
+      const organizationId = "demo-org";
+      
+      const bookingData = {
+        ...req.body,
+        organizationId,
+        bookingDate: new Date(),
+      };
+      
+      const booking = await storage.createGuestAddonBooking(bookingData);
+      res.status(201).json(booking);
+    } catch (error) {
+      console.error("Error creating guest addon booking:", error);
+      res.status(500).json({ message: "Failed to create guest addon booking" });
+    }
+  });
+
+  app.put("/api/guest-addon-bookings/:id", isDemoAuthenticated, async (req, res) => {
+    try {
+      const bookingId = parseInt(req.params.id);
+      const booking = await storage.updateGuestAddonBooking(bookingId, req.body);
+      
+      if (!booking) {
+        return res.status(404).json({ message: "Guest addon booking not found" });
+      }
+      
+      res.json(booking);
+    } catch (error) {
+      console.error("Error updating guest addon booking:", error);
+      res.status(500).json({ message: "Failed to update guest addon booking" });
+    }
+  });
+
+  app.put("/api/guest-addon-bookings/:id/confirm", isDemoAuthenticated, async (req, res) => {
+    try {
+      const bookingId = parseInt(req.params.id);
+      const user = req.user as any;
+      
+      const booking = await storage.confirmGuestAddonBooking(bookingId, user.username);
+      
+      if (!booking) {
+        return res.status(404).json({ message: "Guest addon booking not found" });
+      }
+      
+      res.json(booking);
+    } catch (error) {
+      console.error("Error confirming guest addon booking:", error);
+      res.status(500).json({ message: "Failed to confirm guest addon booking" });
+    }
+  });
+
+  app.put("/api/guest-addon-bookings/:id/cancel", isDemoAuthenticated, async (req, res) => {
+    try {
+      const bookingId = parseInt(req.params.id);
+      const user = req.user as any;
+      const { reason } = req.body;
+      
+      const booking = await storage.cancelGuestAddonBooking(bookingId, user.username, reason);
+      
+      if (!booking) {
+        return res.status(404).json({ message: "Guest addon booking not found" });
+      }
+      
+      res.json(booking);
+    } catch (error) {
+      console.error("Error cancelling guest addon booking:", error);
+      res.status(500).json({ message: "Failed to cancel guest addon booking" });
+    }
+  });
+
+  app.put("/api/guest-addon-bookings/:id/payment", isDemoAuthenticated, async (req, res) => {
+    try {
+      const bookingId = parseInt(req.params.id);
+      const { paymentStatus, paymentMethod, stripePaymentIntentId } = req.body;
+      
+      const booking = await storage.updateBookingPaymentStatus(
+        bookingId,
+        paymentStatus,
+        paymentMethod,
+        stripePaymentIntentId
+      );
+      
+      if (!booking) {
+        return res.status(404).json({ message: "Guest addon booking not found" });
+      }
+      
+      res.json(booking);
+    } catch (error) {
+      console.error("Error updating booking payment status:", error);
+      res.status(500).json({ message: "Failed to update booking payment status" });
+    }
+  });
+
+  // Guest portal access
+  app.get("/api/guest-portal/:accessToken", async (req, res) => {
+    try {
+      const { accessToken } = req.params;
+      const access = await storage.getGuestPortalAccess(accessToken);
+      
+      if (!access || !access.isActive || access.expiresAt < new Date()) {
+        return res.status(401).json({ message: "Invalid or expired access token" });
+      }
+      
+      // Update last accessed time
+      await storage.updateGuestPortalAccessActivity(accessToken);
+      
+      res.json(access);
+    } catch (error) {
+      console.error("Error verifying guest portal access:", error);
+      res.status(500).json({ message: "Failed to verify guest portal access" });
+    }
+  });
+
+  app.post("/api/guest-portal", isDemoAuthenticated, async (req, res) => {
+    try {
+      const organizationId = "demo-org";
+      const user = req.user as any;
+      
+      const accessData = {
+        ...req.body,
+        organizationId,
+        createdBy: user.id,
+        accessToken: `guest_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        isActive: true,
+        expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
+      };
+      
+      const access = await storage.createGuestPortalAccess(accessData);
+      res.status(201).json(access);
+    } catch (error) {
+      console.error("Error creating guest portal access:", error);
+      res.status(500).json({ message: "Failed to create guest portal access" });
+    }
+  });
+
+  app.put("/api/guest-portal/:accessToken/deactivate", isDemoAuthenticated, async (req, res) => {
+    try {
+      const { accessToken } = req.params;
+      const success = await storage.deactivateGuestPortalAccess(accessToken);
+      res.json({ success });
+    } catch (error) {
+      console.error("Error deactivating guest portal access:", error);
+      res.status(500).json({ message: "Failed to deactivate guest portal access" });
+    }
+  });
+
+  // Guest add-on service analytics
+  app.get("/api/guest-addon-analytics", isDemoAuthenticated, async (req, res) => {
+    try {
+      const organizationId = "demo-org";
+      const { fromDate, toDate } = req.query;
+      
+      const filters: any = {};
+      if (fromDate) filters.fromDate = new Date(fromDate as string);
+      if (toDate) filters.toDate = new Date(toDate as string);
+      
+      const analytics = await storage.getGuestAddonServiceAnalytics(organizationId, filters);
+      res.json(analytics);
+    } catch (error) {
+      console.error("Error fetching guest addon service analytics:", error);
+      res.status(500).json({ message: "Failed to fetch guest addon service analytics" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
