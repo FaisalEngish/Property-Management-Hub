@@ -22,7 +22,8 @@ import {
   Droplets,
   ShieldCheck,
   TreePine,
-  Bug
+  Bug,
+  Search
 } from "lucide-react";
 
 interface UtilityProvider {
@@ -32,6 +33,7 @@ interface UtilityProvider {
   providerName: string;
   country: string;
   isDefault: boolean;
+  isActive: boolean;
   displayOrder: number;
   createdBy: string;
   createdAt: string;
@@ -75,6 +77,12 @@ export default function UtilityCustomization() {
   const [isCategoryDialogOpen, setIsCategoryDialogOpen] = useState(false);
   const [editingProvider, setEditingProvider] = useState<UtilityProvider | null>(null);
   const [editingCategory, setEditingCategory] = useState<CustomExpenseCategory | null>(null);
+  
+  // Search and filter states
+  const [providerSearch, setProviderSearch] = useState("");
+  const [countryFilter, setCountryFilter] = useState("");
+  const [utilityTypeFilter, setUtilityTypeFilter] = useState("");
+  const [categorySearch, setCategorySearch] = useState("");
 
   // Provider form state
   const [providerForm, setProviderForm] = useState({
@@ -306,8 +314,19 @@ export default function UtilityCustomization() {
     setEditingCategory(null);
   };
 
-  // Group providers by utility type
-  const groupedProviders = providers.reduce((acc: any, provider: UtilityProvider) => {
+  // Filter and group providers by utility type
+  const filteredProviders = (providers as UtilityProvider[]).filter(provider => {
+    const matchesSearch = providerSearch === "" || 
+      provider.providerName.toLowerCase().includes(providerSearch.toLowerCase()) ||
+      provider.country.toLowerCase().includes(providerSearch.toLowerCase());
+    
+    const matchesCountry = countryFilter === "" || provider.country === countryFilter;
+    const matchesType = utilityTypeFilter === "" || provider.utilityType === utilityTypeFilter;
+    
+    return matchesSearch && matchesCountry && matchesType;
+  });
+
+  const groupedProviders = filteredProviders.reduce((acc: any, provider: UtilityProvider) => {
     if (!acc[provider.utilityType]) {
       acc[provider.utilityType] = [];
     }
@@ -390,10 +409,13 @@ export default function UtilityCustomization() {
                         <SelectValue placeholder="Select utility type" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="electricity">Electricity</SelectItem>
-                        <SelectItem value="water">Water</SelectItem>
-                        <SelectItem value="internet">Internet</SelectItem>
-                        <SelectItem value="gas">Gas</SelectItem>
+                        <SelectItem value="electricity">⚡ Electricity</SelectItem>
+                        <SelectItem value="water">💧 Water</SelectItem>
+                        <SelectItem value="internet">📶 Internet</SelectItem>
+                        <SelectItem value="gas">🔥 Gas</SelectItem>
+                        <SelectItem value="cable-tv">📺 Cable TV</SelectItem>
+                        <SelectItem value="trash-collection">🗑️ Trash Collection</SelectItem>
+                        <SelectItem value="other">🔧 Other</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -410,12 +432,33 @@ export default function UtilityCustomization() {
 
                   <div className="space-y-2">
                     <Label htmlFor="country">Country</Label>
-                    <Input
-                      id="country"
-                      value={providerForm.country}
-                      onChange={(e) => setProviderForm({ ...providerForm, country: e.target.value })}
-                      placeholder="Enter country"
-                    />
+                    <Select 
+                      value={providerForm.country} 
+                      onValueChange={(value) => setProviderForm({ ...providerForm, country: value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select country" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Thailand">🇹🇭 Thailand</SelectItem>
+                        <SelectItem value="Philippines">🇵🇭 Philippines</SelectItem>
+                        <SelectItem value="Vietnam">🇻🇳 Vietnam</SelectItem>
+                        <SelectItem value="Indonesia">🇮🇩 Indonesia</SelectItem>
+                        <SelectItem value="Malaysia">🇲🇾 Malaysia</SelectItem>
+                        <SelectItem value="Singapore">🇸🇬 Singapore</SelectItem>
+                        <SelectItem value="United States">🇺🇸 United States</SelectItem>
+                        <SelectItem value="United Kingdom">🇬🇧 United Kingdom</SelectItem>
+                        <SelectItem value="Australia">🇦🇺 Australia</SelectItem>
+                        <SelectItem value="Canada">🇨🇦 Canada</SelectItem>
+                        <SelectItem value="Germany">🇩🇪 Germany</SelectItem>
+                        <SelectItem value="France">🇫🇷 France</SelectItem>
+                        <SelectItem value="Japan">🇯🇵 Japan</SelectItem>
+                        <SelectItem value="South Korea">🇰🇷 South Korea</SelectItem>
+                        <SelectItem value="China">🇨🇳 China</SelectItem>
+                        <SelectItem value="India">🇮🇳 India</SelectItem>
+                        <SelectItem value="Other">🌍 Other</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
 
                   <div className="space-y-2">
@@ -460,6 +503,46 @@ export default function UtilityCustomization() {
                 </div>
               </DialogContent>
             </Dialog>
+          </div>
+
+          {/* Search and Filter Controls */}
+          <div className="flex gap-4 mb-6">
+            <div className="flex-1">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                <Input
+                  placeholder="Search providers..."
+                  value={providerSearch}
+                  onChange={(e) => setProviderSearch(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+            </div>
+            <Select value={countryFilter} onValueChange={setCountryFilter}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="All Countries" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">All Countries</SelectItem>
+                <SelectItem value="Thailand">🇹🇭 Thailand</SelectItem>
+                <SelectItem value="Philippines">🇵🇭 Philippines</SelectItem>
+                <SelectItem value="Vietnam">🇻🇳 Vietnam</SelectItem>
+                <SelectItem value="Malaysia">🇲🇾 Malaysia</SelectItem>
+                <SelectItem value="Singapore">🇸🇬 Singapore</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={utilityTypeFilter} onValueChange={setUtilityTypeFilter}>
+              <SelectTrigger className="w-[160px]">
+                <SelectValue placeholder="All Types" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">All Types</SelectItem>
+                <SelectItem value="electricity">⚡ Electricity</SelectItem>
+                <SelectItem value="water">💧 Water</SelectItem>
+                <SelectItem value="internet">📶 Internet</SelectItem>
+                <SelectItem value="gas">🔥 Gas</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           {/* Providers Grid */}

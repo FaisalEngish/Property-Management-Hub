@@ -6,6 +6,7 @@ import { setupDemoAuth, isDemoAuthenticated } from "./demoAuth";
 import { authenticatedTenantMiddleware, getTenantContext } from "./multiTenant";
 import { insertPropertySchema, insertTaskSchema, insertBookingSchema, insertFinanceSchema, insertPlatformSettingSchema, insertAddonServiceSchema, insertAddonBookingSchema, insertUtilityBillSchema, insertPropertyUtilityAccountSchema, insertUtilityBillReminderSchema, insertOwnerActivityTimelineSchema, insertOwnerPayoutRequestSchema, insertOwnerInvoiceSchema, insertOwnerPreferencesSchema } from "@shared/schema";
 import { z } from "zod";
+import { seedThailandUtilityProviders } from "./seedThailandUtilityProviders";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Setup demo authentication (for development/testing)
@@ -13,6 +14,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Also setup production auth (fallback)
   await setupAuth(app);
+
+  // Seed Thailand utility providers on startup
+  await seedThailandUtilityProviders("default-org");
 
   // Auth routes
   app.get('/api/auth/user', isDemoAuthenticated, async (req: any, res) => {
