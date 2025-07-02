@@ -9,6 +9,9 @@ import {
   addonServices,
   addonBookings,
   utilityBills,
+  welcomePackItems,
+  welcomePackTemplates,
+  welcomePackUsage,
   type User,
   type UpsertUser,
   type Property,
@@ -29,6 +32,12 @@ import {
   type InsertAddonBooking,
   type UtilityBill,
   type InsertUtilityBill,
+  type WelcomePackItem,
+  type InsertWelcomePackItem,
+  type WelcomePackTemplate,
+  type InsertWelcomePackTemplate,
+  type WelcomePackUsage,
+  type InsertWelcomePackUsage,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, asc } from "drizzle-orm";
@@ -105,6 +114,30 @@ export interface IStorage {
   createUtilityBill(bill: InsertUtilityBill): Promise<UtilityBill>;
   updateUtilityBill(id: number, bill: Partial<InsertUtilityBill>): Promise<UtilityBill | undefined>;
   deleteUtilityBill(id: number): Promise<boolean>;
+
+  // Welcome pack inventory operations
+  getWelcomePackItems(): Promise<WelcomePackItem[]>;
+  getWelcomePackItem(id: number): Promise<WelcomePackItem | undefined>;
+  createWelcomePackItem(item: InsertWelcomePackItem): Promise<WelcomePackItem>;
+  updateWelcomePackItem(id: number, item: Partial<InsertWelcomePackItem>): Promise<WelcomePackItem | undefined>;
+  deleteWelcomePackItem(id: number): Promise<boolean>;
+
+  // Welcome pack templates operations
+  getWelcomePackTemplates(): Promise<WelcomePackTemplate[]>;
+  getWelcomePackTemplatesByProperty(propertyId: number): Promise<WelcomePackTemplate[]>;
+  createWelcomePackTemplate(template: InsertWelcomePackTemplate): Promise<WelcomePackTemplate>;
+  updateWelcomePackTemplate(id: number, template: Partial<InsertWelcomePackTemplate>): Promise<WelcomePackTemplate | undefined>;
+  deleteWelcomePackTemplate(id: number): Promise<boolean>;
+
+  // Welcome pack usage operations
+  getWelcomePackUsage(): Promise<WelcomePackUsage[]>;
+  getWelcomePackUsageByProperty(propertyId: number): Promise<WelcomePackUsage[]>;
+  getWelcomePackUsageByBooking(bookingId: number): Promise<WelcomePackUsage[]>;
+  createWelcomePackUsage(usage: InsertWelcomePackUsage): Promise<WelcomePackUsage>;
+  updateWelcomePackUsage(id: number, usage: Partial<InsertWelcomePackUsage>): Promise<WelcomePackUsage | undefined>;
+
+  // Welcome pack automation operations
+  logWelcomePackUsageFromCheckout(bookingId: number, propertyId: number, processedBy: string): Promise<WelcomePackUsage[]>;
 }
 
 export class DatabaseStorage implements IStorage {
