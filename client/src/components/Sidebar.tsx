@@ -27,7 +27,8 @@ import {
   Clock,
   TrendingUp,
   Gift,
-  Calculator
+  Calculator,
+  Zap
 } from "lucide-react";
 
 // Define navigation modules with hierarchical structure
@@ -105,6 +106,13 @@ const navigationModules = [
         label: "Services", 
         roles: ["admin", "portfolio-manager", "owner", "staff"],
         description: "Add-on services and utilities"
+      },
+      { 
+        path: "/utility-tracking", 
+        icon: Zap, 
+        label: "Utility Tracking", 
+        roles: ["admin", "portfolio-manager", "staff"],
+        description: "Bill automation and expense tracking"
       },
     ]
   },

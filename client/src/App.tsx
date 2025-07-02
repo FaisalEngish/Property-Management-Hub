@@ -19,6 +19,7 @@ import Hostaway from "@/pages/Hostaway";
 import WelcomePacks from "@/pages/WelcomePacks";
 import InventoryDashboard from "@/pages/InventoryDashboard";
 import FinancialToolkit from "@/pages/FinancialToolkit";
+import UtilityTracking from "@/pages/UtilityTracking";
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -40,6 +41,7 @@ function Router() {
           <Route path="/finances" component={Finances} />
           <Route path="/payouts" component={Payouts} />
           <Route path="/financial-toolkit" component={FinancialToolkit} />
+          <Route path="/utility-tracking" component={UtilityTracking} />
           <Route path="/hostaway" component={Hostaway} />
           <Route path="/settings" component={Settings} />
         </>
