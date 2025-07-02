@@ -4,6 +4,16 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { NotificationDropdown } from "./NotificationDropdown";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { useMutation } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
 import { 
   Menu, 
   Bell, 
@@ -16,7 +26,9 @@ import {
   UserCheck,
   CreditCard,
   Users,
-  Clock
+  Clock,
+  LogOut,
+  User
 } from "lucide-react";
 
 interface TopBarProps {

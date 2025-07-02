@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { setupAuth, isAuthenticated } from "./replitAuth";
+import { setupAuth, isAuthenticated as prodAuth } from "./replitAuth";
 import { setupDemoAuth, isDemoAuthenticated } from "./demoAuth";
 import { authenticatedTenantMiddleware, getTenantContext } from "./multiTenant";
 import { insertPropertySchema, insertTaskSchema, insertBookingSchema, insertFinanceSchema, insertPlatformSettingSchema, insertAddonServiceSchema, insertAddonBookingSchema, insertUtilityBillSchema, insertPropertyUtilityAccountSchema, insertUtilityBillReminderSchema } from "@shared/schema";
@@ -44,7 +44,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/properties/:id", isAuthenticated, async (req, res) => {
+  app.get("/api/properties/:id", isDemoAuthenticated, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       const property = await storage.getProperty(id);
@@ -60,7 +60,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/properties", isAuthenticated, async (req: any, res) => {
+  app.post("/api/properties", isDemoAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const propertyData = insertPropertySchema.parse({ ...req.body, ownerId: userId });
@@ -75,7 +75,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/properties/:id", isAuthenticated, async (req, res) => {
+  app.put("/api/properties/:id", isDemoAuthenticated, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       const propertyData = req.body;
@@ -92,7 +92,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/properties/:id", isAuthenticated, async (req, res) => {
+  app.delete("/api/properties/:id", isDemoAuthenticated, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       const success = await storage.deleteProperty(id);
@@ -109,7 +109,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Task routes
-  app.get("/api/tasks", isAuthenticated, async (req: any, res) => {
+  app.get("/api/tasks", isDemoAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const user = await storage.getUser(userId);
@@ -128,7 +128,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/tasks", isAuthenticated, async (req: any, res) => {
+  app.post("/api/tasks", isDemoAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const taskData = insertTaskSchema.parse({ ...req.body, createdBy: userId });
@@ -149,7 +149,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/tasks/:id", isAuthenticated, async (req, res) => {
+  app.put("/api/tasks/:id", isDemoAuthenticated, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       const taskData = req.body;
@@ -274,7 +274,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Booking routes
-  app.get("/api/bookings", isAuthenticated, async (req, res) => {
+  app.get("/api/bookings", isDemoAuthenticated, async (req, res) => {
     try {
       const bookings = await storage.getBookings();
       res.json(bookings);
@@ -284,7 +284,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/bookings", isAuthenticated, async (req, res) => {
+  app.post("/api/bookings", isDemoAuthenticated, async (req, res) => {
     try {
       const bookingData = insertBookingSchema.parse(req.body);
       const booking = await storage.createBooking(bookingData);
@@ -299,7 +299,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Finance routes
-  app.get("/api/finances", isAuthenticated, async (req, res) => {
+  app.get("/api/finances", isDemoAuthenticated, async (req, res) => {
     try {
       const finances = await storage.getFinances();
       res.json(finances);
@@ -309,7 +309,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/finances", isAuthenticated, async (req, res) => {
+  app.post("/api/finances", isDemoAuthenticated, async (req, res) => {
     try {
       const financeData = insertFinanceSchema.parse(req.body);
       const finance = await storage.createFinance(financeData);
@@ -324,7 +324,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Inventory routes
-  app.get("/api/inventory/:propertyId", isAuthenticated, async (req, res) => {
+  app.get("/api/inventory/:propertyId", isDemoAuthenticated, async (req, res) => {
     try {
       const propertyId = parseInt(req.params.propertyId);
       const inventory = await storage.getInventoryByProperty(propertyId);
@@ -336,7 +336,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Dashboard stats
-  app.get("/api/dashboard/stats", isAuthenticated, async (req, res) => {
+  app.get("/api/dashboard/stats", isDemoAuthenticated, async (req, res) => {
     try {
       const properties = await storage.getProperties();
       const bookings = await storage.getBookings();
@@ -363,7 +363,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Platform Settings routes (Admin only)
-  app.get("/api/admin/settings", isAuthenticated, async (req: any, res) => {
+  app.get("/api/admin/settings", isDemoAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const user = await storage.getUser(userId);
@@ -380,7 +380,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/admin/settings/:category", isAuthenticated, async (req: any, res) => {
+  app.get("/api/admin/settings/:category", isDemoAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const user = await storage.getUser(userId);
@@ -398,7 +398,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/admin/settings/:key", isAuthenticated, async (req: any, res) => {
+  app.put("/api/admin/settings/:key", isDemoAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const user = await storage.getUser(userId);
@@ -426,7 +426,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/admin/settings/:key", isAuthenticated, async (req: any, res) => {
+  app.delete("/api/admin/settings/:key", isDemoAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const user = await storage.getUser(userId);
