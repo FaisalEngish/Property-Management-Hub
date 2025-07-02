@@ -3,6 +3,7 @@ import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { UIResetButton } from "@/components/UIResetButton";
 import { useAuth } from "@/hooks/useAuth";
 import { useEffect } from "react";
 import NotFound from "@/pages/not-found";
@@ -44,9 +45,9 @@ function Router() {
   useEffect(() => {
     if (isAuthenticated && user && location.startsWith('/dashboard/')) {
       const roleFromUrl = location.split('/dashboard/')[1];
-      if (roleFromUrl !== user.role) {
+      if (roleFromUrl !== (user as any)?.role) {
         // Redirect to correct role dashboard
-        setLocation(`/dashboard/${user.role}`);
+        setLocation(`/dashboard/${(user as any)?.role}`);
       }
     }
   }, [isAuthenticated, user, location, setLocation]);
@@ -117,6 +118,7 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <Toaster />
+        <UIResetButton />
         <Router />
       </TooltipProvider>
     </QueryClientProvider>

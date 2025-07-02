@@ -13,6 +13,8 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { formatDistanceToNow } from "date-fns";
+import { useState, useEffect } from "react";
+import { useModalManager } from "@/hooks/useModalManager";
 
 interface Notification {
   id: number;
@@ -28,6 +30,8 @@ interface Notification {
 
 export function NotificationDropdown() {
   const queryClient = useQueryClient();
+  const { openModal, closeModal } = useModalManager();
+  const [isOpen, setIsOpen] = useState(false);
 
   const { data: notifications = [] } = useQuery<Notification[]>({
     queryKey: ["/api/notifications"],
@@ -99,8 +103,43 @@ export function NotificationDropdown() {
 
   const unreadCount = unreadNotifications.length;
 
+  // Handle modal state changes
+  const handleOpenChange = (open: boolean) => {
+    setIsOpen(open);
+    if (open) {
+      openModal('notifications');
+    } else {
+      closeModal();
+    }
+  };
+
+  // Force close on escape or outside click
+  useEffect(() => {
+    const handleDocumentClick = (event: MouseEvent) => {
+      if (isOpen && !(event.target as Element)?.closest('[data-radix-popper-content-wrapper]')) {
+        handleOpenChange(false);
+      }
+    };
+
+    const handleEscapeKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && isOpen) {
+        handleOpenChange(false);
+      }
+    };
+
+    if (isOpen) {
+      document.addEventListener('click', handleDocumentClick);
+      document.addEventListener('keydown', handleEscapeKey);
+    }
+
+    return () => {
+      document.removeEventListener('click', handleDocumentClick);
+      document.removeEventListener('keydown', handleEscapeKey);
+    };
+  }, [isOpen]);
+
   return (
-    <DropdownMenu>
+    <DropdownMenu open={isOpen} onOpenChange={handleOpenChange}>
       <DropdownMenuTrigger asChild>
         <Button variant="outline" size="icon" className="relative">
           <Bell className="h-4 w-4" />
