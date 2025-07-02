@@ -20,6 +20,8 @@ import WelcomePacks from "@/pages/WelcomePacks";
 import InventoryDashboard from "@/pages/InventoryDashboard";
 import FinancialToolkit from "@/pages/FinancialToolkit";
 import UtilityTracking from "@/pages/UtilityTracking";
+import ReferralAgentDashboard from "@/pages/ReferralAgentDashboard";
+import RetailAgentBooking from "@/pages/RetailAgentBooking";
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -42,6 +44,8 @@ function Router() {
           <Route path="/payouts" component={Payouts} />
           <Route path="/financial-toolkit" component={FinancialToolkit} />
           <Route path="/utility-tracking" component={UtilityTracking} />
+          <Route path="/referral-agent" component={ReferralAgentDashboard} />
+          <Route path="/retail-booking" component={RetailAgentBooking} />
           <Route path="/hostaway" component={Hostaway} />
           <Route path="/settings" component={Settings} />
         </>
