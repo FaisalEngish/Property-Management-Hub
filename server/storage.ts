@@ -465,6 +465,131 @@ export class DatabaseStorage implements IStorage {
     const result = await db.delete(utilityBills).where(eq(utilityBills.id, id));
     return result.rowCount! > 0;
   }
+
+  // Welcome pack inventory operations
+  async getWelcomePackItems(): Promise<WelcomePackItem[]> {
+    return await db.select().from(welcomePackItems);
+  }
+
+  async getWelcomePackItem(id: number): Promise<WelcomePackItem | undefined> {
+    const [item] = await db.select().from(welcomePackItems).where(eq(welcomePackItems.id, id));
+    return item;
+  }
+
+  async createWelcomePackItem(item: InsertWelcomePackItem): Promise<WelcomePackItem> {
+    const [newItem] = await db
+      .insert(welcomePackItems)
+      .values(item)
+      .returning();
+    return newItem;
+  }
+
+  async updateWelcomePackItem(id: number, item: Partial<InsertWelcomePackItem>): Promise<WelcomePackItem | undefined> {
+    const [updatedItem] = await db
+      .update(welcomePackItems)
+      .set({ ...item, updatedAt: new Date() })
+      .where(eq(welcomePackItems.id, id))
+      .returning();
+    return updatedItem;
+  }
+
+  async deleteWelcomePackItem(id: number): Promise<boolean> {
+    const result = await db.delete(welcomePackItems).where(eq(welcomePackItems.id, id));
+    return result.rowCount! > 0;
+  }
+
+  // Welcome pack templates operations
+  async getWelcomePackTemplates(): Promise<WelcomePackTemplate[]> {
+    return await db.select().from(welcomePackTemplates);
+  }
+
+  async getWelcomePackTemplatesByProperty(propertyId: number): Promise<WelcomePackTemplate[]> {
+    return await db.select().from(welcomePackTemplates).where(eq(welcomePackTemplates.propertyId, propertyId));
+  }
+
+  async createWelcomePackTemplate(template: InsertWelcomePackTemplate): Promise<WelcomePackTemplate> {
+    const [newTemplate] = await db
+      .insert(welcomePackTemplates)
+      .values(template)
+      .returning();
+    return newTemplate;
+  }
+
+  async updateWelcomePackTemplate(id: number, template: Partial<InsertWelcomePackTemplate>): Promise<WelcomePackTemplate | undefined> {
+    const [updatedTemplate] = await db
+      .update(welcomePackTemplates)
+      .set({ ...template, updatedAt: new Date() })
+      .where(eq(welcomePackTemplates.id, id))
+      .returning();
+    return updatedTemplate;
+  }
+
+  async deleteWelcomePackTemplate(id: number): Promise<boolean> {
+    const result = await db.delete(welcomePackTemplates).where(eq(welcomePackTemplates.id, id));
+    return result.rowCount! > 0;
+  }
+
+  // Welcome pack usage operations
+  async getWelcomePackUsage(): Promise<WelcomePackUsage[]> {
+    return await db.select().from(welcomePackUsage);
+  }
+
+  async getWelcomePackUsageByProperty(propertyId: number): Promise<WelcomePackUsage[]> {
+    return await db.select().from(welcomePackUsage).where(eq(welcomePackUsage.propertyId, propertyId));
+  }
+
+  async getWelcomePackUsageByBooking(bookingId: number): Promise<WelcomePackUsage[]> {
+    return await db.select().from(welcomePackUsage).where(eq(welcomePackUsage.bookingId, bookingId));
+  }
+
+  async createWelcomePackUsage(usage: InsertWelcomePackUsage): Promise<WelcomePackUsage> {
+    const [newUsage] = await db
+      .insert(welcomePackUsage)
+      .values(usage)
+      .returning();
+    return newUsage;
+  }
+
+  async updateWelcomePackUsage(id: number, usage: Partial<InsertWelcomePackUsage>): Promise<WelcomePackUsage | undefined> {
+    const [updatedUsage] = await db
+      .update(welcomePackUsage)
+      .set({ ...usage, updatedAt: new Date() })
+      .where(eq(welcomePackUsage.id, id))
+      .returning();
+    return updatedUsage;
+  }
+
+  // Welcome pack automation - logs default welcome pack usage from checkout
+  async logWelcomePackUsageFromCheckout(bookingId: number, propertyId: number, processedBy: string): Promise<WelcomePackUsage[]> {
+    // Get the default welcome pack template for this property
+    const templates = await this.getWelcomePackTemplatesByProperty(propertyId);
+    const usageRecords = [];
+
+    for (const template of templates) {
+      const item = await this.getWelcomePackItem(template.itemId);
+      if (!item) continue;
+
+      const totalCost = template.isComplimentary ? 0 : (template.defaultQuantity * item.unitCost);
+      
+      const usage = await this.createWelcomePackUsage({
+        organizationId: item.organizationId,
+        propertyId: propertyId,
+        bookingId: bookingId,
+        itemId: template.itemId,
+        quantityUsed: template.defaultQuantity,
+        unitCost: item.unitCost,
+        totalCost: totalCost,
+        billingOption: template.isComplimentary ? 'complimentary' : 'owner_bill',
+        processedBy: processedBy,
+        usageDate: new Date().toISOString().split('T')[0],
+        notes: 'Auto-logged from checkout'
+      });
+      
+      usageRecords.push(usage);
+    }
+
+    return usageRecords;
+  }
 }
 
 export const storage = new DatabaseStorage();
