@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import Sidebar from "@/components/Sidebar";
 import TopBar from "@/components/TopBar";
+import CreateAddonBookingDialog from "@/components/CreateAddonBookingDialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -11,6 +12,9 @@ import { Plus, Utensils, Heart, Car, MapPin, Users, Calendar } from "lucide-reac
 
 export default function Services() {
   const [activeTab, setActiveTab] = useState("addon-services");
+  const [showBookingDialog, setShowBookingDialog] = useState(false);
+  const [selectedServiceId, setSelectedServiceId] = useState<number>();
+  const [selectedPropertyId, setSelectedPropertyId] = useState<number>();
 
   const { data: addonServices = [] } = useQuery({
     queryKey: ["/api/addon-services"],
@@ -111,12 +115,33 @@ export default function Services() {
                     </CardHeader>
                     <CardContent>
                       <p className="text-sm text-gray-600 mb-4">{service.description}</p>
-                      <div className="flex justify-between items-center">
-                        <span className="text-lg font-semibold text-primary">${service.price}</span>
-                        <span className="text-sm text-gray-500">
-                          {service.duration ? `${service.duration} min` : 'Custom duration'}
-                        </span>
+                      <div className="flex justify-between items-center mb-4">
+                        <div>
+                          <span className="text-lg font-semibold text-primary">
+                            {service.pricingModel === 'complimentary' ? 'Complimentary' : 
+                             service.pricingModel === 'variable' ? `$${service.hourlyRate}/hr` :
+                             `$${service.basePrice}`}
+                          </span>
+                          <div className="text-sm text-gray-500">
+                            {service.duration ? `${service.duration} min` : 'Custom duration'}
+                          </div>
+                        </div>
+                        <Badge variant="outline" className="capitalize">
+                          {service.pricingModel}
+                        </Badge>
                       </div>
+                      <Button 
+                        onClick={() => {
+                          setSelectedServiceId(service.id);
+                          setShowBookingDialog(true);
+                        }}
+                        className="w-full"
+                        size="sm"
+                        disabled={!service.isActive}
+                      >
+                        <Calendar className="w-4 h-4 mr-2" />
+                        Book Service
+                      </Button>
                     </CardContent>
                   </Card>
                 ))}
@@ -310,6 +335,15 @@ export default function Services() {
           )}
         </main>
       </div>
+
+      {/* Add-on Booking Dialog */}
+      <CreateAddonBookingDialog
+        open={showBookingDialog}
+        onOpenChange={setShowBookingDialog}
+        selectedServiceId={selectedServiceId}
+        selectedPropertyId={selectedPropertyId}
+        bookerRole="manager"
+      />
     </div>
   );
 }

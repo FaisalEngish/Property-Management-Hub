@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
 import { authenticatedTenantMiddleware, getTenantContext } from "./multiTenant";
-import { insertPropertySchema, insertTaskSchema, insertBookingSchema, insertFinanceSchema, insertPlatformSettingSchema } from "@shared/schema";
+import { insertPropertySchema, insertTaskSchema, insertBookingSchema, insertFinanceSchema, insertPlatformSettingSchema, insertAddonServiceSchema, insertAddonBookingSchema, insertUtilityBillSchema } from "@shared/schema";
 import { z } from "zod";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -423,6 +423,125 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching Hostaway earnings:", error);
       res.status(500).json({ message: "Failed to fetch Hostaway earnings" });
+    }
+  });
+
+  // Add-on Services routes
+  app.get("/api/addon-services", authenticatedTenantMiddleware, async (req, res) => {
+    try {
+      const { organizationId } = getTenantContext(req);
+      const services = await storage.getAddonServices();
+      // Filter by organization in production - for demo, return all
+      res.json(services);
+    } catch (error) {
+      console.error("Error fetching addon services:", error);
+      res.status(500).json({ message: "Failed to fetch addon services" });
+    }
+  });
+
+  app.post("/api/addon-services", authenticatedTenantMiddleware, async (req, res) => {
+    try {
+      const { organizationId } = getTenantContext(req);
+      const userData = req.user as any;
+      
+      const validatedData = insertAddonServiceSchema.parse({
+        ...req.body,
+        organizationId,
+      });
+
+      const service = await storage.createAddonService(validatedData);
+      res.status(201).json(service);
+    } catch (error) {
+      console.error("Error creating addon service:", error);
+      res.status(500).json({ message: "Failed to create addon service" });
+    }
+  });
+
+  // Add-on Bookings routes
+  app.get("/api/addon-bookings", authenticatedTenantMiddleware, async (req, res) => {
+    try {
+      const { organizationId } = getTenantContext(req);
+      const bookings = await storage.getAddonBookings();
+      // Filter by organization in production - for demo, return all
+      res.json(bookings);
+    } catch (error) {
+      console.error("Error fetching addon bookings:", error);
+      res.status(500).json({ message: "Failed to fetch addon bookings" });
+    }
+  });
+
+  app.post("/api/addon-bookings", authenticatedTenantMiddleware, async (req, res) => {
+    try {
+      const { organizationId } = getTenantContext(req);
+      const userData = req.user as any;
+      
+      const validatedData = insertAddonBookingSchema.parse({
+        ...req.body,
+        organizationId,
+        bookedBy: userData.id,
+        chargedTo: req.body.billingType?.includes('guest') ? 'guest' : 
+                   req.body.billingType?.includes('owner') ? 'owner' : 'company',
+      });
+
+      const booking = await storage.createAddonBooking(validatedData);
+
+      // Create financial record for billing
+      if (booking.totalPrice > 0) {
+        const financeData = {
+          organizationId,
+          propertyId: booking.propertyId,
+          type: booking.billingType?.includes('gift') ? 'expense' : 'income',
+          source: booking.billingType === 'owner-gift' ? 'complimentary' :
+                  booking.billingType === 'company-gift' ? 'complimentary' :
+                  booking.billingType === 'auto-bill-owner' ? 'owner-charge' : 'guest-payment',
+          sourceType: booking.billingType?.includes('gift') ? booking.billingType : null,
+          category: 'add-on-service',
+          subcategory: req.body.serviceCategory || 'general',
+          amount: booking.totalPrice.toString(),
+          description: `Add-on service: ${req.body.serviceName} for ${booking.guestName}`,
+          date: new Date().toISOString().split('T')[0],
+          status: booking.billingType?.includes('gift') ? 'paid' : 'pending',
+          processedBy: userData.id,
+          referenceNumber: `ADDON-${booking.id}`,
+        };
+
+        await storage.createFinance(financeData);
+      }
+
+      res.status(201).json(booking);
+    } catch (error) {
+      console.error("Error creating addon booking:", error);
+      res.status(500).json({ message: "Failed to create addon booking" });
+    }
+  });
+
+  // Utility Bills routes
+  app.get("/api/utility-bills", authenticatedTenantMiddleware, async (req, res) => {
+    try {
+      const { organizationId } = getTenantContext(req);
+      const bills = await storage.getUtilityBills();
+      // Filter by organization in production - for demo, return all
+      res.json(bills);
+    } catch (error) {
+      console.error("Error fetching utility bills:", error);
+      res.status(500).json({ message: "Failed to fetch utility bills" });
+    }
+  });
+
+  app.post("/api/utility-bills", authenticatedTenantMiddleware, async (req, res) => {
+    try {
+      const { organizationId } = getTenantContext(req);
+      
+      const validatedData = insertUtilityBillSchema.parse({
+        ...req.body,
+        organizationId,
+      });
+
+      const bill = await storage.createUtilityBill(validatedData);
+      res.status(201).json(bill);
+    } catch (error) {
+      console.error("Error creating utility bill:", error);
+      res.status(500).json({ message: "Failed to create utility bill" });
     }
   });
 
