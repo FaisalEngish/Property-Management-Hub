@@ -65,6 +65,13 @@ const navigationModules = [
         roles: ["portfolio-manager"],
         description: "Portfolio management, commissions, and invoicing"
       },
+      { 
+        path: "/staff", 
+        icon: UserCheck, 
+        label: "Staff Dashboard", 
+        roles: ["staff"],
+        description: "Task management, salary tracking, and performance analytics"
+      },
     ]
   },
   {
