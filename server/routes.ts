@@ -3584,6 +3584,105 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ===== ADMIN FINANCE RESET CONTROL API ENDPOINTS =====
+
+  // Admin only middleware for finance reset operations
+  const isAdminOnly = (req: any, res: any, next: any) => {
+    try {
+      const user = req.user;
+      if (!user) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      // Check if user is admin role
+      if (user.role !== 'admin') {
+        return res.status(403).json({ message: "Access denied. Admin privileges required." });
+      }
+
+      next();
+    } catch (error) {
+      console.error("Error checking admin privileges:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  };
+
+  // Get users available for balance reset
+  app.get("/api/admin/balance-reset/users", isDemoAuthenticated, isAdminOnly, async (req: any, res) => {
+    try {
+      const organizationId = "demo-org-1"; // Demo organization
+      const { userType } = req.query;
+      
+      const users = await storage.getUsersForBalanceReset(
+        organizationId, 
+        userType !== 'all' ? userType : undefined
+      );
+      res.json(users);
+    } catch (error) {
+      console.error("Error fetching users for reset:", error);
+      res.status(500).json({ message: "Failed to fetch users" });
+    }
+  });
+
+  // Get user balance summary
+  app.get("/api/admin/balance-reset/user/:userId/balance", isDemoAuthenticated, isAdminOnly, async (req: any, res) => {
+    try {
+      const { userId } = req.params;
+      
+      const balanceSummary = await storage.getUserBalanceSummary(userId);
+      res.json(balanceSummary);
+    } catch (error) {
+      console.error("Error fetching user balance:", error);
+      res.status(500).json({ message: "Failed to fetch balance information" });
+    }
+  });
+
+  // Execute balance reset
+  app.post("/api/admin/balance-reset/execute", isDemoAuthenticated, isAdminOnly, async (req: any, res) => {
+    try {
+      const adminUser = req.user;
+      const { userId, resetReason, propertyId } = req.body;
+      
+      if (!userId) {
+        return res.status(400).json({ message: "User ID is required" });
+      }
+
+      const auditRecord = await storage.resetUserBalance(
+        userId,
+        adminUser.id,
+        resetReason,
+        propertyId
+      );
+
+      res.json({
+        success: true,
+        message: "Balance reset successfully",
+        auditRecord
+      });
+    } catch (error) {
+      console.error("Error resetting balance:", error);
+      res.status(500).json({ message: "Failed to reset balance" });
+    }
+  });
+
+  // Get balance reset audit log
+  app.get("/api/admin/balance-reset/audit", isDemoAuthenticated, isAdminOnly, async (req: any, res) => {
+    try {
+      const organizationId = "demo-org-1"; // Demo organization
+      const { userId, fromDate, toDate } = req.query;
+      
+      const filters: any = {};
+      if (userId) filters.userId = userId;
+      if (fromDate) filters.fromDate = new Date(fromDate);
+      if (toDate) filters.toDate = new Date(toDate);
+
+      const auditLog = await storage.getBalanceResetAuditLog(organizationId, filters);
+      res.json(auditLog);
+    } catch (error) {
+      console.error("Error fetching audit log:", error);
+      res.status(500).json({ message: "Failed to fetch audit log" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

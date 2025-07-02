@@ -116,6 +116,9 @@ import {
   type InsertPropertyInternalNotes,
   type AgentMediaAccess,
   type InsertAgentMediaAccess,
+  agentPayouts,
+  type AgentPayout,
+  type InsertAgentPayout,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, asc, lt, gte, lte, isNull, sql } from "drizzle-orm";
@@ -387,6 +390,12 @@ export interface IStorage {
     billingRouteBreakdown: Record<string, number>;
     monthlyStats: Array<{ month: string; bookings: number; revenue: number }>;
   }>;
+  
+  // Balance reset operations (Admin only)
+  getUsersForBalanceReset(organizationId: string, userType?: string): Promise<User[]>;
+  getUserBalanceSummary(userId: string): Promise<{ currentBalance: number; userType: string }>;
+  resetUserBalance(userId: string, adminUserId: string, resetReason?: string, propertyId?: number): Promise<BalanceResetAudit>;
+  getBalanceResetAuditLog(organizationId: string, filters?: { userId?: string; fromDate?: Date; toDate?: Date }): Promise<BalanceResetAudit[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -2411,6 +2420,184 @@ export class DatabaseStorage implements IStorage {
       billingRouteBreakdown,
       monthlyStats,
     };
+  }
+
+  // ==================== BALANCE RESET OPERATIONS (ADMIN ONLY) ====================
+
+  async getUsersForBalanceReset(organizationId: string, userType?: string): Promise<User[]> {
+    let query = db.select().from(users).where(eq(users.organizationId, organizationId));
+    
+    if (userType) {
+      query = query.where(eq(users.role, userType));
+    } else {
+      // Only include user types that can have balances
+      query = query.where(
+        or(
+          eq(users.role, 'owner'),
+          eq(users.role, 'portfolio-manager'),
+          eq(users.role, 'referral-agent'),
+          eq(users.role, 'retail-agent')
+        )
+      );
+    }
+    
+    return await query.orderBy(asc(users.email));
+  }
+
+  async getUserBalanceSummary(userId: string): Promise<{ currentBalance: number; userType: string }> {
+    const user = await this.getUser(userId);
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    // Calculate current balance based on user type
+    let currentBalance = 0;
+    
+    if (user.role === 'owner') {
+      // For owners: sum of unpaid payouts
+      const ownerPayouts = await db
+        .select()
+        .from(ownerPayouts)
+        .where(and(
+          eq(ownerPayouts.ownerId, userId),
+          eq(ownerPayouts.status, 'pending')
+        ));
+      currentBalance = ownerPayouts.reduce((sum, payout) => sum + parseFloat(payout.amount.toString()), 0);
+    } else if (user.role === 'referral-agent' || user.role === 'retail-agent') {
+      // For agents: sum of unpaid commissions
+      const agentPayouts = await db
+        .select()
+        .from(agentPayouts)
+        .where(and(
+          eq(agentPayouts.agentId, userId),
+          eq(agentPayouts.status, 'pending')
+        ));
+      currentBalance = agentPayouts.reduce((sum, payout) => sum + parseFloat(payout.amount.toString()), 0);
+    } else if (user.role === 'portfolio-manager') {
+      // For portfolio managers: sum of unpaid commission earnings
+      const commissions = await db
+        .select()
+        .from(commissionEarnings)
+        .where(and(
+          eq(commissionEarnings.userId, userId),
+          eq(commissionEarnings.status, 'pending')
+        ));
+      currentBalance = commissions.reduce((sum, comm) => sum + parseFloat(comm.amount.toString()), 0);
+    }
+
+    return {
+      currentBalance,
+      userType: user.role
+    };
+  }
+
+  async resetUserBalance(userId: string, adminUserId: string, resetReason?: string, propertyId?: number): Promise<BalanceResetAudit> {
+    const user = await this.getUser(userId);
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    const balanceSummary = await this.getUserBalanceSummary(userId);
+    const previousBalance = balanceSummary.currentBalance;
+
+    // Reset balances based on user type
+    if (user.role === 'owner') {
+      // Reset owner payouts
+      await db
+        .update(ownerPayouts)
+        .set({ 
+          status: 'reset',
+          adminNotes: `Balance reset by admin: ${resetReason || 'No reason provided'}`,
+          updatedAt: new Date()
+        })
+        .where(and(
+          eq(ownerPayouts.ownerId, userId),
+          eq(ownerPayouts.status, 'pending')
+        ));
+    } else if (user.role === 'referral-agent' || user.role === 'retail-agent') {
+      // Reset agent payouts
+      await db
+        .update(agentPayouts)
+        .set({ 
+          status: 'reset',
+          notes: `Balance reset by admin: ${resetReason || 'No reason provided'}`,
+          updatedAt: new Date()
+        })
+        .where(and(
+          eq(agentPayouts.agentId, userId),
+          eq(agentPayouts.status, 'pending')
+        ));
+    } else if (user.role === 'portfolio-manager') {
+      // Reset portfolio manager commission earnings
+      await db
+        .update(commissionEarnings)
+        .set({ 
+          status: 'reset',
+          updatedAt: new Date()
+        })
+        .where(and(
+          eq(commissionEarnings.userId, userId),
+          eq(commissionEarnings.status, 'pending')
+        ));
+    }
+
+    // Create audit log entry
+    const auditData: InsertBalanceResetAudit = {
+      organizationId: user.organizationId,
+      userId,
+      userType: user.role,
+      previousBalance: previousBalance.toString(),
+      newBalance: '0.00',
+      resetReason,
+      adminUserId,
+      propertyId
+    };
+
+    const [auditRecord] = await db.insert(balanceResetAudit).values(auditData).returning();
+    return auditRecord;
+  }
+
+  async getBalanceResetAuditLog(organizationId: string, filters?: { userId?: string; fromDate?: Date; toDate?: Date }): Promise<BalanceResetAudit[]> {
+    const adminUsers = users.as('adminUsers');
+    
+    let query = db
+      .select({
+        id: balanceResetAudit.id,
+        organizationId: balanceResetAudit.organizationId,
+        userId: balanceResetAudit.userId,
+        userType: balanceResetAudit.userType,
+        previousBalance: balanceResetAudit.previousBalance,
+        newBalance: balanceResetAudit.newBalance,
+        resetReason: balanceResetAudit.resetReason,
+        adminUserId: balanceResetAudit.adminUserId,
+        propertyId: balanceResetAudit.propertyId,
+        createdAt: balanceResetAudit.createdAt,
+        // Include related user information
+        userEmail: users.email,
+        userFirstName: users.firstName,
+        userLastName: users.lastName,
+        adminEmail: adminUsers.email,
+        adminFirstName: adminUsers.firstName,
+        adminLastName: adminUsers.lastName,
+      })
+      .from(balanceResetAudit)
+      .leftJoin(users, eq(balanceResetAudit.userId, users.id))
+      .leftJoin(adminUsers, eq(balanceResetAudit.adminUserId, adminUsers.id))
+      .where(eq(balanceResetAudit.organizationId, organizationId));
+
+    if (filters?.userId) {
+      query = query.where(eq(balanceResetAudit.userId, filters.userId));
+    }
+    
+    if (filters?.fromDate) {
+      query = query.where(gte(balanceResetAudit.createdAt, filters.fromDate));
+    }
+    
+    if (filters?.toDate) {
+      query = query.where(lte(balanceResetAudit.createdAt, filters.toDate));
+    }
+
+    return await query.orderBy(desc(balanceResetAudit.createdAt)) as BalanceResetAudit[];
   }
 
   // ==================== RECURRING SERVICES & BILLS MANAGEMENT ====================
