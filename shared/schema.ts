@@ -1099,6 +1099,163 @@ export const insertGuestAddonBookingSchema = createInsertSchema(guestAddonBookin
   updatedAt: true,
 });
 
+// ================================
+// RETAIL AGENT INTERFACE ADDITIONAL SCHEMAS
+// ================================
+
+// Property Marketing Media - Links to marketing assets
+export const propertyMarketingMedia = pgTable("property_marketing_media", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").notNull(),
+  propertyId: integer("property_id").notNull(),
+  
+  // Media Information
+  mediaType: varchar("media_type").notNull(), // photo_folder, video_link, virtual_tour, brochure
+  title: varchar("title").notNull(),
+  description: text("description"),
+  
+  // Links and Access
+  mediaUrl: varchar("media_url").notNull(), // Google Drive link, etc.
+  thumbnailUrl: varchar("thumbnail_url"),
+  accessPassword: varchar("access_password"), // If protected
+  
+  // Organization
+  category: varchar("category"), // interior, exterior, amenities, location, etc.
+  sortOrder: integer("sort_order").default(0),
+  
+  // Visibility and Access Control
+  isPublic: boolean("is_public").default(true),
+  agentAccessLevel: varchar("agent_access_level").default("all"), // all, specific, restricted
+  
+  // Usage Tracking
+  viewCount: integer("view_count").default(0),
+  lastAccessed: timestamp("last_accessed"),
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Property Commission Rules - Customizable commission rates per property
+export const propertyCommissionRules = pgTable("property_commission_rules", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").notNull(),
+  propertyId: integer("property_id").notNull(),
+  
+  // Commission Configuration
+  defaultCommissionRate: decimal("default_commission_rate", { precision: 5, scale: 2 }).default(10.0),
+  seasonalRates: jsonb("seasonal_rates"), // JSON for date-based rates
+  minimumStayCommission: decimal("minimum_stay_commission", { precision: 5, scale: 2 }),
+  weeklyCommissionBonus: decimal("weekly_commission_bonus", { precision: 5, scale: 2 }),
+  monthlyCommissionBonus: decimal("monthly_commission_bonus", { precision: 5, scale: 2 }),
+  
+  // Agent-Specific Rules
+  agentSpecificRules: jsonb("agent_specific_rules"), // JSON for agent-specific rates
+  
+  // Rules and Conditions
+  minimumBookingValue: decimal("minimum_booking_value", { precision: 10, scale: 2 }),
+  maximumCommissionCap: decimal("maximum_commission_cap", { precision: 10, scale: 2 }),
+  
+  // Status
+  isActive: boolean("is_active").default(true),
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Agent Booking Requests - For properties not directly bookable
+export const agentBookingRequests = pgTable("agent_booking_requests", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").notNull(),
+  agentId: varchar("agent_id").notNull(),
+  propertyId: integer("property_id").notNull(),
+  
+  // Guest Information
+  guestName: varchar("guest_name").notNull(),
+  guestEmail: varchar("guest_email").notNull(),
+  guestPhone: varchar("guest_phone"),
+  guestCountry: varchar("guest_country"),
+  
+  // Requested Booking Details
+  requestedCheckIn: timestamp("requested_check_in").notNull(),
+  requestedCheckOut: timestamp("requested_check_out").notNull(),
+  requestedGuests: integer("requested_guests").default(1),
+  budgetRange: varchar("budget_range"),
+  
+  // Request Details
+  specialRequests: text("special_requests"),
+  agentNotes: text("agent_notes"),
+  urgencyLevel: varchar("urgency_level").default("normal"), // low, normal, high, urgent
+  
+  // Admin Response
+  adminResponse: text("admin_response"),
+  adminNotes: text("admin_notes"),
+  alternativeOffers: jsonb("alternative_offers"), // JSON array of alternative property suggestions
+  
+  // Status Tracking
+  status: varchar("status").default("pending"), // pending, under_review, approved, declined, converted_to_booking
+  
+  // Workflow Timestamps
+  submittedAt: timestamp("submitted_at").defaultNow(),
+  reviewedAt: timestamp("reviewed_at"),
+  reviewedBy: varchar("reviewed_by"),
+  respondedAt: timestamp("responded_at"),
+  
+  // Conversion Tracking
+  convertedToBookingId: integer("converted_to_booking_id"), // Links to agent_bookings if converted
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Relations for new agent tables
+export const propertyMarketingMediaRelations = relations(propertyMarketingMedia, ({ one }) => ({
+  property: one(properties, {
+    fields: [propertyMarketingMedia.propertyId],
+    references: [properties.id],
+  }),
+}));
+
+export const propertyCommissionRulesRelations = relations(propertyCommissionRules, ({ one }) => ({
+  property: one(properties, {
+    fields: [propertyCommissionRules.propertyId],
+    references: [properties.id],
+  }),
+}));
+
+export const agentBookingRequestsRelations = relations(agentBookingRequests, ({ one }) => ({
+  property: one(properties, {
+    fields: [agentBookingRequests.propertyId],
+    references: [properties.id],
+  }),
+  agent: one(users, {
+    fields: [agentBookingRequests.agentId],
+    references: [users.id],
+  }),
+}));
+
+// Additional Insert Schemas
+export const insertPropertyMarketingMediaSchema = createInsertSchema(propertyMarketingMedia).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertPropertyCommissionRuleSchema = createInsertSchema(propertyCommissionRules).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertAgentBookingRequestSchema = createInsertSchema(agentBookingRequests).omit({
+  id: true,
+  submittedAt: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 export const insertGuestPortalAccessSchema = createInsertSchema(guestPortalAccess).omit({
   id: true,
   createdAt: true,
