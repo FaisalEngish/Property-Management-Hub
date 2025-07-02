@@ -126,6 +126,13 @@ const navigationModules = [
     roles: ["admin", "portfolio-manager"],
     items: [
       { 
+        path: "/hostaway", 
+        icon: Building, 
+        label: "Hostaway Sync", 
+        roles: ["admin", "portfolio-manager"],
+        description: "Property and booking synchronization"
+      },
+      { 
         path: "/settings", 
         icon: Settings, 
         label: "Settings", 
