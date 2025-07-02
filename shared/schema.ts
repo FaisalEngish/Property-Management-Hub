@@ -188,6 +188,20 @@ export const utilityBills = pgTable("utility_bills", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// Platform settings for admin configuration
+export const platformSettings = pgTable("platform_settings", {
+  id: serial("id").primaryKey(),
+  settingKey: varchar("setting_key").unique().notNull(),
+  settingValue: text("setting_value"),
+  settingType: varchar("setting_type").notNull(), // string, number, boolean, json
+  category: varchar("category").notNull(), // currency, commission, billing, automation, api
+  description: text("description"),
+  isSecret: boolean("is_secret").default(false), // for API keys
+  updatedBy: varchar("updated_by").references(() => users.id),
+  updatedAt: timestamp("updated_at").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Relations
 export const usersRelations = relations(users, ({ many }) => ({
   ownedProperties: many(properties),
@@ -237,6 +251,10 @@ export const addonBookingsRelations = relations(addonBookings, ({ one }) => ({
 
 export const utilityBillsRelations = relations(utilityBills, ({ one }) => ({
   property: one(properties, { fields: [utilityBills.propertyId], references: [properties.id] }),
+}));
+
+export const platformSettingsRelations = relations(platformSettings, ({ one }) => ({
+  updatedByUser: one(users, { fields: [platformSettings.updatedBy], references: [users.id] }),
 }));
 
 // Insert schemas
@@ -293,6 +311,12 @@ export const insertUtilityBillSchema = createInsertSchema(utilityBills).omit({
   updatedAt: true,
 });
 
+export const insertPlatformSettingSchema = createInsertSchema(platformSettings).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 // Types
 export type UpsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
@@ -312,3 +336,5 @@ export type InsertAddonBooking = z.infer<typeof insertAddonBookingSchema>;
 export type AddonBooking = typeof addonBookings.$inferSelect;
 export type InsertUtilityBill = z.infer<typeof insertUtilityBillSchema>;
 export type UtilityBill = typeof utilityBills.$inferSelect;
+export type InsertPlatformSetting = z.infer<typeof insertPlatformSettingSchema>;
+export type PlatformSetting = typeof platformSettings.$inferSelect;

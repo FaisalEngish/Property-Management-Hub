@@ -5,6 +5,7 @@ import {
   bookings,
   finances,
   inventory,
+  platformSettings,
   type User,
   type UpsertUser,
   type Property,
@@ -17,6 +18,8 @@ import {
   type InsertFinance,
   type Inventory,
   type InsertInventory,
+  type PlatformSetting,
+  type InsertPlatformSetting,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, asc } from "drizzle-orm";
@@ -61,6 +64,13 @@ export interface IStorage {
   getInventoryByProperty(propertyId: number): Promise<Inventory[]>;
   createInventoryItem(item: InsertInventory): Promise<Inventory>;
   updateInventoryItem(id: number, item: Partial<InsertInventory>): Promise<Inventory | undefined>;
+
+  // Platform settings operations
+  getPlatformSettings(): Promise<PlatformSetting[]>;
+  getPlatformSettingsByCategory(category: string): Promise<PlatformSetting[]>;
+  getPlatformSetting(key: string): Promise<PlatformSetting | undefined>;
+  upsertPlatformSetting(setting: InsertPlatformSetting): Promise<PlatformSetting>;
+  deletePlatformSetting(key: string): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
