@@ -187,32 +187,17 @@ export default function CreateTaskDialog({ open, onOpenChange }: CreateTaskDialo
             </div>
             
             <div>
-              <Label htmlFor="priority">Priority</Label>
-              <Select value={formData.priority} onValueChange={(value) => handleChange("priority", value)}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="low">Low</SelectItem>
-                  <SelectItem value="medium">Medium</SelectItem>
-                  <SelectItem value="high">High</SelectItem>
-                  <SelectItem value="urgent">Urgent</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
               <Label htmlFor="dueDate">Due Date</Label>
               <Input
                 id="dueDate"
-                type="datetime-local"
+                type="date"
                 value={formData.dueDate}
                 onChange={(e) => handleChange("dueDate", e.target.value)}
               />
             </div>
-            
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <Label htmlFor="estimatedCost">Estimated Cost</Label>
               <Input
@@ -222,10 +207,53 @@ export default function CreateTaskDialog({ open, onOpenChange }: CreateTaskDialo
                 value={formData.estimatedCost}
                 onChange={(e) => handleChange("estimatedCost", e.target.value)}
                 placeholder="0.00"
-                min="0"
               />
             </div>
+            
+            <div className="flex items-center space-x-2 mt-6">
+              <input
+                type="checkbox"
+                id="isRecurring"
+                checked={formData.isRecurring}
+                onChange={(e) => handleChange("isRecurring", e.target.checked)}
+                className="w-4 h-4"
+              />
+              <Label htmlFor="isRecurring">Recurring Task</Label>
+            </div>
           </div>
+
+          {formData.isRecurring && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border p-4 rounded-lg bg-gray-50">
+              <div>
+                <Label htmlFor="recurringType">Recurrence Pattern</Label>
+                <Select value={formData.recurringType} onValueChange={(value) => handleChange("recurringType", value)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select pattern" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="daily">Daily</SelectItem>
+                    <SelectItem value="weekly">Weekly</SelectItem>
+                    <SelectItem value="monthly">Monthly</SelectItem>
+                    <SelectItem value="quarterly">Quarterly</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div>
+                <Label htmlFor="recurringInterval">Every</Label>
+                <Input
+                  id="recurringInterval"
+                  type="number"
+                  min="1"
+                  value={formData.recurringInterval}
+                  onChange={(e) => handleChange("recurringInterval", e.target.value)}
+                  placeholder="1"
+                />
+              </div>
+            </div>
+          )}
+
+
 
           <div className="flex justify-end space-x-2 pt-4">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
