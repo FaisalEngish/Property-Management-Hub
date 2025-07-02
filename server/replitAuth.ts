@@ -56,6 +56,7 @@ function updateUserSession(
 
 async function upsertUser(
   claims: any,
+  organizationId: string = "default-org"
 ) {
   await storage.upsertUser({
     id: claims["sub"],
@@ -63,6 +64,7 @@ async function upsertUser(
     firstName: claims["first_name"],
     lastName: claims["last_name"],
     profileImageUrl: claims["profile_image_url"],
+    organizationId: organizationId,
   });
 }
 
@@ -80,7 +82,7 @@ export async function setupAuth(app: Express) {
   ) => {
     const user = {};
     updateUserSession(user, tokens);
-    await upsertUser(tokens.claims());
+    await upsertUser(tokens.claims(), "default-org");
     verified(null, user);
   };
 
