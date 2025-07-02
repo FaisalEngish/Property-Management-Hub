@@ -262,6 +262,13 @@ const navigationModules = [
         description: "Admin-only balance management and audit controls"
       },
       { 
+        path: "/admin/utility-customization", 
+        icon: Zap, 
+        label: "Utility & Expense Customization", 
+        roles: ["admin"],
+        description: "Manage utility providers and custom expense categories"
+      },
+      { 
         path: "/settings", 
         icon: Settings, 
         label: "Settings", 
