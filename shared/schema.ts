@@ -525,6 +525,122 @@ export const notificationPreferencesRelations = relations(notificationPreference
   user: one(users, { fields: [notificationPreferences.userId], references: [users.id] }),
 }));
 
+// Financial & Invoice Toolkit Tables
+
+// Staff salaries table
+export const staffSalaries = pgTable("staff_salaries", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").notNull(),
+  userId: varchar("user_id").notNull(),
+  monthlySalary: decimal("monthly_salary", { precision: 10, scale: 2 }).notNull(),
+  currency: varchar("currency", { length: 3 }).default("USD"),
+  bonusStructure: jsonb("bonus_structure"), // Store bonus rules as JSON
+  commissionRate: decimal("commission_rate", { precision: 5, scale: 2 }).default("0"), // Percentage
+  isActive: boolean("is_active").default(true),
+  effectiveFrom: date("effective_from").notNull(),
+  effectiveTo: date("effective_to"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Commission earnings table
+export const commissionEarnings = pgTable("commission_earnings", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").notNull(),
+  userId: varchar("user_id").notNull(), // Staff/PM receiving commission
+  sourceType: varchar("source_type").notNull(), // 'booking', 'service', 'referral'
+  sourceId: integer("source_id"), // Reference to booking/service/etc
+  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+  currency: varchar("currency", { length: 3 }).default("USD"),
+  commissionRate: decimal("commission_rate", { precision: 5, scale: 2 }).notNull(),
+  baseAmount: decimal("base_amount", { precision: 10, scale: 2 }).notNull(),
+  period: varchar("period").notNull(), // 'YYYY-MM' format
+  status: varchar("status").default("pending"), // pending, approved, paid
+  processedBy: varchar("processed_by"),
+  processedAt: timestamp("processed_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Invoices table
+export const invoices = pgTable("invoices", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").notNull(),
+  invoiceNumber: varchar("invoice_number").notNull(),
+  senderType: varchar("sender_type").notNull(), // 'user', 'organization', 'external'
+  senderId: varchar("sender_id"), // User ID or external party
+  senderName: varchar("sender_name").notNull(),
+  senderAddress: text("sender_address"),
+  receiverType: varchar("receiver_type").notNull(), // 'user', 'organization', 'external'
+  receiverId: varchar("receiver_id"), // User ID or external party
+  receiverName: varchar("receiver_name").notNull(),
+  receiverAddress: text("receiver_address"),
+  invoiceType: varchar("invoice_type").notNull(), // 'rental_commission', 'service_fee', 'maintenance', 'payout_request'
+  description: text("description").notNull(),
+  subtotal: decimal("subtotal", { precision: 10, scale: 2 }).notNull(),
+  taxRate: decimal("tax_rate", { precision: 5, scale: 2 }).default("0"),
+  taxAmount: decimal("tax_amount", { precision: 10, scale: 2 }).default("0"),
+  totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).notNull(),
+  currency: varchar("currency", { length: 3 }).default("USD"),
+  status: varchar("status").default("draft"), // draft, sent, paid, overdue, cancelled
+  dueDate: date("due_date"),
+  paidDate: date("paid_date"),
+  referenceNumber: varchar("reference_number"), // Booking ID, etc.
+  notes: text("notes"),
+  attachments: jsonb("attachments"), // File URLs
+  createdBy: varchar("created_by").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Invoice line items table
+export const invoiceLineItems = pgTable("invoice_line_items", {
+  id: serial("id").primaryKey(),
+  invoiceId: integer("invoice_id").references(() => invoices.id, { onDelete: "cascade" }),
+  description: text("description").notNull(),
+  quantity: decimal("quantity", { precision: 10, scale: 2 }).default("1"),
+  unitPrice: decimal("unit_price", { precision: 10, scale: 2 }).notNull(),
+  totalPrice: decimal("total_price", { precision: 10, scale: 2 }).notNull(),
+  referenceId: varchar("reference_id"), // Property ID, booking ID, etc.
+  referenceType: varchar("reference_type"), // 'property', 'booking', 'service'
+});
+
+// Portfolio manager assignments table
+export const portfolioAssignments = pgTable("portfolio_assignments", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").notNull(),
+  managerId: varchar("manager_id").notNull(), // Portfolio manager user ID
+  propertyId: integer("property_id").references(() => properties.id, { onDelete: "cascade" }),
+  commissionRate: decimal("commission_rate", { precision: 5, scale: 2 }).default("50"), // Default 50%
+  assignedAt: timestamp("assigned_at").defaultNow(),
+  unassignedAt: timestamp("unassigned_at"),
+  isActive: boolean("is_active").default(true),
+});
+
+// Relations for new tables
+export const staffSalariesRelations = relations(staffSalaries, ({ one }) => ({
+  user: one(users, { fields: [staffSalaries.userId], references: [users.id] }),
+}));
+
+export const commissionEarningsRelations = relations(commissionEarnings, ({ one }) => ({
+  user: one(users, { fields: [commissionEarnings.userId], references: [users.id] }),
+  processedByUser: one(users, { fields: [commissionEarnings.processedBy], references: [users.id] }),
+}));
+
+export const invoicesRelations = relations(invoices, ({ one, many }) => ({
+  createdByUser: one(users, { fields: [invoices.createdBy], references: [users.id] }),
+  lineItems: many(invoiceLineItems),
+}));
+
+export const invoiceLineItemsRelations = relations(invoiceLineItems, ({ one }) => ({
+  invoice: one(invoices, { fields: [invoiceLineItems.invoiceId], references: [invoices.id] }),
+}));
+
+export const portfolioAssignmentsRelations = relations(portfolioAssignments, ({ one }) => ({
+  manager: one(users, { fields: [portfolioAssignments.managerId], references: [users.id] }),
+  property: one(properties, { fields: [portfolioAssignments.propertyId], references: [properties.id] }),
+}));
+
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).omit({
   createdAt: true,
@@ -678,3 +794,42 @@ export type InsertNotification = z.infer<typeof insertNotificationSchema>;
 export type Notification = typeof notifications.$inferSelect;
 export type InsertNotificationPreference = z.infer<typeof insertNotificationPreferenceSchema>;
 export type NotificationPreference = typeof notificationPreferences.$inferSelect;
+
+// Financial & Invoice Toolkit schemas and types
+export const insertStaffSalarySchema = createInsertSchema(staffSalaries).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertCommissionEarningSchema = createInsertSchema(commissionEarnings).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertInvoiceSchema = createInsertSchema(invoices).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertInvoiceLineItemSchema = createInsertSchema(invoiceLineItems).omit({
+  id: true,
+});
+
+export const insertPortfolioAssignmentSchema = createInsertSchema(portfolioAssignments).omit({
+  id: true,
+  assignedAt: true,
+});
+
+export type InsertStaffSalary = z.infer<typeof insertStaffSalarySchema>;
+export type StaffSalary = typeof staffSalaries.$inferSelect;
+export type InsertCommissionEarning = z.infer<typeof insertCommissionEarningSchema>;
+export type CommissionEarning = typeof commissionEarnings.$inferSelect;
+export type InsertInvoice = z.infer<typeof insertInvoiceSchema>;
+export type Invoice = typeof invoices.$inferSelect;
+export type InsertInvoiceLineItem = z.infer<typeof insertInvoiceLineItemSchema>;
+export type InvoiceLineItem = typeof invoiceLineItems.$inferSelect;
+export type InsertPortfolioAssignment = z.infer<typeof insertPortfolioAssignmentSchema>;
+export type PortfolioAssignment = typeof portfolioAssignments.$inferSelect;

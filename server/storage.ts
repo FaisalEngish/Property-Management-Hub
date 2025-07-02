@@ -50,6 +50,21 @@ import {
   type InsertNotification,
   type NotificationPreference,
   type InsertNotificationPreference,
+  staffSalaries,
+  commissionEarnings,
+  invoices,
+  invoiceLineItems,
+  portfolioAssignments,
+  type StaffSalary,
+  type InsertStaffSalary,
+  type CommissionEarning,
+  type InsertCommissionEarning,
+  type Invoice,
+  type InsertInvoice,
+  type InvoiceLineItem,
+  type InsertInvoiceLineItem,
+  type PortfolioAssignment,
+  type InsertPortfolioAssignment,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, asc } from "drizzle-orm";
