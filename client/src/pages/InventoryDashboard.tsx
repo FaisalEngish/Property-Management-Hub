@@ -18,7 +18,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { DatePickerWithRange } from "@/components/ui/date-range-picker";
+// import { DatePickerWithRange } from "@/components/ui/date-range-picker";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Progress } from "@/components/ui/progress";
 import TopBar from "@/components/TopBar";
@@ -218,11 +218,27 @@ export default function InventoryDashboard() {
               
               <div>
                 <label className="text-sm font-medium mb-2 block">Date Range</label>
-                <DatePickerWithRange
-                  from={dateRange.from}
-                  to={dateRange.to}
-                  onSelect={(range: any) => range && setDateRange(range)}
-                />
+                <div className="flex gap-2">
+                  <input
+                    type="date"
+                    value={dateRange?.from ? format(dateRange.from, 'yyyy-MM-dd') : ''}
+                    onChange={(e) => setDateRange(prev => ({ 
+                      ...prev, 
+                      from: e.target.value ? new Date(e.target.value) : undefined 
+                    }))}
+                    className="px-3 py-2 border rounded-md text-sm"
+                  />
+                  <span className="py-2 text-sm">to</span>
+                  <input
+                    type="date"
+                    value={dateRange?.to ? format(dateRange.to, 'yyyy-MM-dd') : ''}
+                    onChange={(e) => setDateRange(prev => ({ 
+                      ...prev, 
+                      to: e.target.value ? new Date(e.target.value) : undefined 
+                    }))}
+                    className="px-3 py-2 border rounded-md text-sm"
+                  />
+                </div>
               </div>
               
               <div className="flex items-end">

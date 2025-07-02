@@ -100,7 +100,7 @@ export default function StaffTasks() {
 
   const completeTaskMutation = useMutation({
     mutationFn: async (data: z.infer<typeof taskCompletionSchema> & { taskId: number }) => {
-      return await apiRequest(`/api/tasks/${data.taskId}/complete`, {
+      const response = await apiRequest(`/api/tasks/${data.taskId}/complete`, {
         method: "PATCH",
         body: JSON.stringify({
           notes: data.notes,
@@ -109,16 +109,40 @@ export default function StaffTasks() {
         }),
         headers: { "Content-Type": "application/json" },
       });
+
+      // Auto-log inventory usage for checkout cleaning tasks
+      if (selectedTask?.type === 'cleaning' && selectedTask?.department === 'checkout') {
+        try {
+          await apiRequest('/api/welcome-pack-usage/checkout', {
+            method: 'POST',
+            body: JSON.stringify({
+              bookingId: selectedTask.bookingId,
+              propertyId: selectedTask.propertyId,
+            }),
+            headers: { "Content-Type": "application/json" },
+          });
+        } catch (error) {
+          console.warn('Failed to auto-log inventory usage:', error);
+        }
+      }
+
+      return response;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/welcome-pack-usage"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/inventory/stats"] });
       setIsCompletionDialogOpen(false);
       setUploadedPhotos([]);
       setSelectedIssues([]);
       completionForm.reset();
+      
+      const isCheckoutCleaning = selectedTask?.type === 'cleaning' && selectedTask?.department === 'checkout';
       toast({
         title: "Task Completed",
-        description: "Task has been marked as completed with evidence recorded.",
+        description: isCheckoutCleaning 
+          ? "Task completed and welcome pack inventory automatically logged."
+          : "Task has been marked as completed with evidence recorded.",
       });
     },
   });

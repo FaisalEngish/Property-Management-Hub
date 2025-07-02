@@ -71,18 +71,18 @@ const navigationModules = [
         description: "Complete assigned tasks with photo evidence"
       },
       { 
-        path: "/inventory", 
-        icon: Package, 
-        label: "Inventory", 
-        roles: ["admin", "portfolio-manager", "owner", "staff"],
-        description: "Stock and supplies management"
-      },
-      { 
         path: "/welcome-packs", 
         icon: Gift, 
         label: "Welcome Packs", 
         roles: ["admin", "portfolio-manager", "owner", "staff"],
         description: "Guest welcome pack inventory and templates"
+      },
+      { 
+        path: "/inventory-dashboard", 
+        icon: BarChart3, 
+        label: "Inventory Analytics", 
+        roles: ["admin", "portfolio-manager", "owner", "staff"],
+        description: "Inventory usage tracking and analytics"
       },
     ]
   },

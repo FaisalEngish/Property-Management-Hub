@@ -205,6 +205,10 @@ export interface IStorage {
   notifyBookingUpdate(bookingId: number, userIds: string[], updateType: string, message: string): Promise<void>;
   notifyPayoutAction(payoutId: number, userId: string, action: string, actionBy: string): Promise<void>;
   notifyMaintenanceApproval(taskId: number, requesterId: string, approverIds: string[]): Promise<void>;
+
+  // Inventory analytics operations
+  getInventoryStats(organizationId: string, filters?: { propertyId?: string; staffId?: string; fromDate?: Date; toDate?: Date }): Promise<any>;
+  getDetailedWelcomePackUsage(organizationId: string, filters?: { propertyId?: string; staffId?: string; fromDate?: Date; toDate?: Date }): Promise<any[]>;
 }
 
 export class DatabaseStorage implements IStorage {
