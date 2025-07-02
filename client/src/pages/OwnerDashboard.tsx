@@ -46,13 +46,11 @@ import {
   Trash,
   Search,
   MoreHorizontal,
-  ExternalLink
+  ExternalLink,
   Lightbulb,
   Wrench,
   BarChart3,
   MessageCircle,
-  Eye,
-  Star,
   Building,
   Users,
   CreditCard,
@@ -64,9 +62,17 @@ import {
   WifiOff,
   ChevronRight,
   ChevronDown,
+  ChevronUp,
   ArrowUpRight,
   ArrowDownRight,
-  Target
+  Target,
+  MessageSquare,
+  Bot,
+  Wifi,
+  Lightbulb,
+  Wrench,
+  MessageCircle,
+  X
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
@@ -499,6 +505,993 @@ export default function OwnerDashboard() {
       </div>
     );
   }
+
+  return (
+    <div className="container mx-auto px-4 py-8 space-y-8">
+      {/* Header with controls */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Villa Logbook</h1>
+          <p className="text-gray-500 mt-1">Comprehensive property management dashboard</p>
+        </div>
+        
+        {/* Date Range and Property Filter */}
+        <div className="flex flex-col sm:flex-row gap-4">
+          <Select value={selectedProperty} onValueChange={setSelectedProperty}>
+            <SelectTrigger className="w-[200px]">
+              <SelectValue placeholder="All Properties" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Properties</SelectItem>
+              {properties?.map((property: any) => (
+                <SelectItem key={property.id} value={property.id.toString()}>
+                  {property.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          
+          <div className="flex gap-2">
+            <Button
+              variant={earningsPeriod === 'month' ? 'default' : 'outline'}
+              onClick={() => setEarningsPeriod('month')}
+              size="sm"
+            >
+              This Month
+            </Button>
+            <Button
+              variant={earningsPeriod === 'year' ? 'default' : 'outline'}
+              onClick={() => setEarningsPeriod('year')}
+              size="sm"
+            >
+              This Year
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      {/* Key Performance Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-500">Current Balance</p>
+                <p className="text-2xl font-bold text-green-600">
+                  ${stats?.currentBalance?.toLocaleString() || '0'}
+                </p>
+              </div>
+              <DollarSign className="h-8 w-8 text-green-600" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-500">Avg Nightly Rate</p>
+                <p className="text-2xl font-bold">
+                  ${stats?.averageNightlyRate?.toFixed(0) || '0'}
+                </p>
+              </div>
+              <TrendingUp className="h-8 w-8 text-blue-600" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-500">Upcoming Bookings</p>
+                <p className="text-2xl font-bold">
+                  {stats?.upcomingBookings || 0}
+                </p>
+              </div>
+              <Calendar className="h-8 w-8 text-purple-600" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-500">Properties</p>
+                <p className="text-2xl font-bold">
+                  {stats?.properties?.length || 0}
+                </p>
+              </div>
+              <Building className="h-8 w-8 text-orange-600" />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Main Dashboard Tabs */}
+      <Tabs defaultValue="overview" className="space-y-6">
+        <TabsList className="grid w-full grid-cols-5">
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="villa-logbook">Villa Logbook</TabsTrigger>
+          <TabsTrigger value="ai-companion">AI Companion</TabsTrigger>
+          <TabsTrigger value="finances">Finances</TabsTrigger>
+          <TabsTrigger value="settings">Settings</TabsTrigger>
+        </TabsList>
+
+        {/* Overview Tab */}
+        <TabsContent value="overview" className="space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Financial Summary */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <DollarSign className="h-5 w-5" />
+                  Financial Summary
+                </CardTitle>
+                <CardDescription>
+                  Revenue breakdown for {earningsPeriod === 'month' ? 'this month' : 'this year'}
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-gray-500">Rental Income</span>
+                    <span className="font-medium text-green-600">
+                      +${financialSummary?.rentalIncome?.toLocaleString() || '0'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-gray-500">Add-on Revenue</span>
+                    <span className="font-medium text-green-600">
+                      +${financialSummary?.addonRevenue?.toLocaleString() || '0'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-gray-500">Management Fees</span>
+                    <span className="font-medium text-red-600">
+                      -${financialSummary?.managementFees?.toLocaleString() || '0'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-gray-500">Service Deductions</span>
+                    <span className="font-medium text-red-600">
+                      -${financialSummary?.serviceDeductions?.toLocaleString() || '0'}
+                    </span>
+                  </div>
+                  <div className="border-t pt-3">
+                    <div className="flex justify-between items-center">
+                      <span className="font-medium">Net Balance</span>
+                      <span className="font-bold text-lg">
+                        ${financialSummary?.netBalance?.toLocaleString() || '0'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="pt-4">
+                  <Dialog open={showPayoutDialog} onOpenChange={setShowPayoutDialog}>
+                    <DialogTrigger asChild>
+                      <Button className="w-full">
+                        <Download className="mr-2 h-4 w-4" />
+                        Request Payout
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Request Payout</DialogTitle>
+                        <DialogDescription>
+                          Submit a payout request for your available balance
+                        </DialogDescription>
+                      </DialogHeader>
+                      <Form {...payoutForm}>
+                        <form onSubmit={payoutForm.handleSubmit(onPayoutSubmit)} className="space-y-4">
+                          <FormField
+                            control={payoutForm.control}
+                            name="amount"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Amount</FormLabel>
+                                <FormControl>
+                                  <Input placeholder="Enter amount" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          <FormField
+                            control={payoutForm.control}
+                            name="periodStart"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Period Start</FormLabel>
+                                <FormControl>
+                                  <Input type="date" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          <FormField
+                            control={payoutForm.control}
+                            name="periodEnd"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Period End</FormLabel>
+                                <FormControl>
+                                  <Input type="date" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          <FormField
+                            control={payoutForm.control}
+                            name="requestNotes"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Notes (Optional)</FormLabel>
+                                <FormControl>
+                                  <Textarea placeholder="Additional notes..." {...field} />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          <DialogFooter>
+                            <Button 
+                              type="submit" 
+                              disabled={payoutMutation.isPending}
+                            >
+                              {payoutMutation.isPending ? "Submitting..." : "Submit Request"}
+                            </Button>
+                          </DialogFooter>
+                        </form>
+                      </Form>
+                    </DialogContent>
+                  </Dialog>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Booking Sources Breakdown */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Users className="h-5 w-5" />
+                  Booking Sources
+                </CardTitle>
+                <CardDescription>
+                  Revenue distribution by platform
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-3">
+                  {stats?.bookingSources && Object.entries(stats.bookingSources).map(([source, count]: [string, any]) => (
+                    <div key={source} className="flex justify-between items-center">
+                      <span className="text-sm capitalize">{source.replace('_', ' ')}</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm text-gray-500">{count} bookings</span>
+                        <Badge variant="outline">{((count / Object.values(stats.bookingSources).reduce((a: any, b: any) => a + b, 0)) * 100).toFixed(0)}%</Badge>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Recent Activity Timeline */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Clock className="h-5 w-5" />
+                Recent Activity
+              </CardTitle>
+              <CardDescription>
+                Latest updates from your properties
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {activityTimeline?.slice(0, 5).map((activity, index) => (
+                  <div key={activity.id} className="flex items-start gap-4 p-4 border rounded-lg">
+                    <div className="flex-shrink-0 mt-1">
+                      {getActivityIcon(activity.activityType)}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between">
+                        <p className="font-medium">{activity.title}</p>
+                        <time className="text-sm text-gray-500">
+                          {format(new Date(activity.createdAt), 'MMM d, h:mm a')}
+                        </time>
+                      </div>
+                      <p className="text-sm text-gray-600 mt-1">{activity.description}</p>
+                      {activity.propertyName && (
+                        <Badge variant="secondary" className="mt-2 text-xs">
+                          {activity.propertyName}
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                ))}
+                {activityTimeline?.length === 0 && (
+                  <div className="text-center py-8 text-gray-500">
+                    No recent activity
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Villa Logbook Tab */}
+        <TabsContent value="villa-logbook" className="space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Enhanced Activity Timeline with Photos */}
+            <div className="lg:col-span-2 space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <MessageSquare className="h-5 w-5" />
+                    Guest Activity Timeline
+                  </CardTitle>
+                  <CardDescription>
+                    Real-time updates with photos and guest interactions
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {activityTimeline?.map((activity) => (
+                      <div key={activity.id} className="border rounded-lg p-4">
+                        <div className="flex items-start gap-4">
+                          <div className="flex-shrink-0 mt-1">
+                            {getActivityIcon(activity.activityType)}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between">
+                              <h4 className="font-medium">{activity.title}</h4>
+                              <time className="text-sm text-gray-500">
+                                {format(new Date(activity.createdAt), 'MMM d, h:mm a')}
+                              </time>
+                            </div>
+                            <p className="text-sm text-gray-600 mt-1">{activity.description}</p>
+                            
+                            {activity.propertyName && (
+                              <Badge variant="secondary" className="mt-2">
+                                {activity.propertyName}
+                              </Badge>
+                            )}
+
+                            {/* Enhanced metadata display */}
+                            {activity.metadata && (
+                              <div className="mt-3 space-y-2">
+                                {activity.metadata.photos && (
+                                  <div className="grid grid-cols-3 gap-2">
+                                    {activity.metadata.photos.map((photo, index) => (
+                                      <div key={index} className="relative group cursor-pointer">
+                                        <img 
+                                          src={photo}
+                                          alt={`Activity photo ${index + 1}`}
+                                          className="w-full h-20 object-cover rounded border"
+                                        />
+                                        <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-opacity rounded flex items-center justify-center">
+                                          <Eye className="h-4 w-4 text-white opacity-0 group-hover:opacity-100" />
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+
+                                {activity.metadata.guestName && (
+                                  <div className="flex items-center gap-2 text-sm">
+                                    <Users className="h-4 w-4" />
+                                    <span>{activity.metadata.guestName}</span>
+                                  </div>
+                                )}
+
+                                {activity.metadata.cost && (
+                                  <div className="flex items-center gap-2 text-sm">
+                                    <DollarSign className="h-4 w-4" />
+                                    <span>${activity.metadata.cost}</span>
+                                  </div>
+                                )}
+
+                                {activity.metadata.aiConfidence && (
+                                  <div className="flex items-center gap-2 text-sm">
+                                    <Bot className="h-4 w-4" />
+                                    <span>AI Confidence: {(activity.metadata.aiConfidence * 100).toFixed(0)}%</span>
+                                  </div>
+                                )}
+
+                                {activity.metadata.reviewSource && (
+                                  <div className="flex items-center gap-2 text-sm">
+                                    <Star className="h-4 w-4" />
+                                    <span>Review from {activity.metadata.reviewSource}</span>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+
+                            {/* Expandable details */}
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="mt-2 h-8"
+                              onClick={() => setExpandedActivity(expandedActivity === activity.id ? null : activity.id)}
+                            >
+                              {expandedActivity === activity.id ? (
+                                <>
+                                  <ChevronUp className="h-4 w-4 mr-1" />
+                                  Show Less
+                                </>
+                              ) : (
+                                <>
+                                  <ChevronDown className="h-4 w-4 mr-1" />
+                                  Show More
+                                </>
+                              )}
+                            </Button>
+
+                            {expandedActivity === activity.id && (
+                              <div className="mt-3 p-3 bg-gray-50 rounded border">
+                                <p className="text-sm text-gray-700">
+                                  Extended details about this activity would be shown here, including 
+                                  full guest communications, task progress, or maintenance reports.
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Property Quick Stats & Insights */}
+            <div className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <BarChart3 className="h-5 w-5" />
+                    Property Insights
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-500">Occupancy Rate</span>
+                      <span className="font-medium">{bookingInsights?.occupancyRate || 0}%</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-500">Average Rating</span>
+                      <div className="flex items-center gap-1">
+                        <Star className="h-4 w-4 text-yellow-500" />
+                        <span className="font-medium">{bookingInsights?.averageRating || 0}</span>
+                      </div>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-500">Response Rate</span>
+                      <span className="font-medium">{bookingInsights?.responseRate || 0}%</span>
+                    </div>
+                  </div>
+
+                  <div className="border-t pt-4">
+                    <h4 className="font-medium mb-3">OTA Sync Status</h4>
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm">Hostaway</span>
+                        <Badge variant={bookingInsights?.otaConnectionStatus?.hostaway === 'connected' ? 'default' : 'destructive'}>
+                          {bookingInsights?.otaConnectionStatus?.hostaway || 'Disconnected'}
+                        </Badge>
+                      </div>
+                      {bookingInsights?.otaConnectionStatus?.lastSync && (
+                        <p className="text-xs text-gray-500">
+                          Last sync: {format(new Date(bookingInsights.otaConnectionStatus.lastSync), 'MMM d, h:mm a')}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Wifi className="h-5 w-5" />
+                    Revenue Sources
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {bookingInsights?.sources && Object.entries(bookingInsights.sources).map(([source, data]: [string, any]) => (
+                      <div key={source} className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm capitalize">{source}</span>
+                          <Badge variant="outline" className="text-xs">
+                            {data.syncStatus}
+                          </Badge>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-sm font-medium">${data.revenue?.toLocaleString()}</p>
+                          <p className="text-xs text-gray-500">{data.bookings} bookings</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        </TabsContent>
+
+        {/* AI Companion Tab */}
+        <TabsContent value="ai-companion" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Bot className="h-5 w-5" />
+                AI Property Companion
+              </CardTitle>
+              <CardDescription>
+                Intelligent insights and suggestions based on guest feedback and property data
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* AI Suggestions */}
+                <div className="space-y-4">
+                  <h3 className="font-medium flex items-center gap-2">
+                    <Lightbulb className="h-4 w-4" />
+                    Smart Suggestions
+                  </h3>
+                  
+                  {aiSuggestions?.map((suggestion: any) => (
+                    <div key={suggestion.id} className="border rounded-lg p-4 space-y-3">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-2">
+                            <Badge variant={suggestion.priority === 'high' ? 'destructive' : suggestion.priority === 'medium' ? 'default' : 'secondary'}>
+                              {suggestion.priority} priority
+                            </Badge>
+                            <Badge variant="outline">
+                              {(suggestion.confidence * 100).toFixed(0)}% confidence
+                            </Badge>
+                          </div>
+                          <h4 className="font-medium">{suggestion.title}</h4>
+                          <p className="text-sm text-gray-600 mt-1">{suggestion.description}</p>
+                          
+                          <div className="flex items-center gap-4 mt-3 text-sm text-gray-500">
+                            <span>Est. Cost: ${suggestion.estimatedCost}</span>
+                            <span>Source: {suggestion.sourceCount} guest reviews</span>
+                          </div>
+                          
+                          {suggestion.aiAnalysis && (
+                            <div className="mt-3 p-2 bg-blue-50 rounded text-sm">
+                              <strong>AI Analysis:</strong> {suggestion.aiAnalysis}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      
+                      <div className="flex gap-2">
+                        <Button size="sm" variant="default">
+                          <CheckCircle className="h-4 w-4 mr-1" />
+                          Approve
+                        </Button>
+                        <Button size="sm" variant="outline">
+                          <FileText className="h-4 w-4 mr-1" />
+                          Get Quote
+                        </Button>
+                        <Button size="sm" variant="ghost">
+                          <X className="h-4 w-4 mr-1" />
+                          Dismiss
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+
+                  {(!aiSuggestions || aiSuggestions.length === 0) && (
+                    <div className="text-center py-8 text-gray-500">
+                      <Bot className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                      <p>No AI suggestions at the moment</p>
+                      <p className="text-sm">I'm analyzing guest feedback to provide insights</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Guest Review Analysis */}
+                <div className="space-y-4">
+                  <h3 className="font-medium flex items-center gap-2">
+                    <MessageCircle className="h-4 w-4" />
+                    Guest Sentiment Analysis
+                  </h3>
+                  
+                  <div className="space-y-3">
+                    <div className="border rounded-lg p-4">
+                      <h4 className="font-medium mb-2">Recent Review Sentiment</h4>
+                      <div className="space-y-2">
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm">Positive Mentions</span>
+                          <span className="font-medium text-green-600">87%</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm">Neutral Feedback</span>
+                          <span className="font-medium text-gray-600">10%</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm">Issues Identified</span>
+                          <span className="font-medium text-red-600">3%</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="border rounded-lg p-4">
+                      <h4 className="font-medium mb-2">Trending Keywords</h4>
+                      <div className="flex flex-wrap gap-2">
+                        {['Clean', 'Beautiful View', 'Great Location', 'Pool', 'WiFi Slow', 'Comfortable'].map((keyword) => (
+                          <Badge key={keyword} variant="outline" className="text-xs">
+                            {keyword}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="border rounded-lg p-4">
+                      <h4 className="font-medium mb-2">Improvement Areas</h4>
+                      <div className="space-y-2 text-sm">
+                        <div className="flex items-center gap-2">
+                          <Wifi className="h-4 w-4 text-red-500" />
+                          <span>Internet speed mentioned in 3 reviews</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Wrench className="h-4 w-4 text-yellow-500" />
+                          <span>Pool maintenance noted by 2 guests</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Finances Tab */}
+        <TabsContent value="finances" className="space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Financial Overview */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Financial Overview</CardTitle>
+                <CardDescription>Detailed breakdown of your property income and expenses</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center p-3 bg-green-50 rounded">
+                    <span className="font-medium">Total Revenue</span>
+                    <span className="font-bold text-green-600 text-lg">
+                      ${(financialSummary?.rentalIncome || 0) + (financialSummary?.addonRevenue || 0)}
+                    </span>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Rental Income</span>
+                      <span className="font-medium">${financialSummary?.rentalIncome || 0}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Add-on Services</span>
+                      <span className="font-medium">${financialSummary?.addonRevenue || 0}</span>
+                    </div>
+                  </div>
+
+                  <div className="border-t pt-4 space-y-2">
+                    <h4 className="font-medium text-red-600">Deductions</h4>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Management Fees</span>
+                      <span className="text-red-600">-${financialSummary?.managementFees || 0}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Service Charges</span>
+                      <span className="text-red-600">-${financialSummary?.serviceDeductions || 0}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Utility Costs</span>
+                      <span className="text-red-600">-${financialSummary?.utilityDeductions || 0}</span>
+                    </div>
+                  </div>
+
+                  <div className="border-t pt-4">
+                    <div className="flex justify-between items-center p-3 bg-gray-50 rounded">
+                      <span className="font-bold">Net Balance</span>
+                      <span className="font-bold text-lg">
+                        ${financialSummary?.netBalance || 0}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Payout History */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Payout Requests</CardTitle>
+                <CardDescription>Track your payout requests and payment history</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {payoutRequests?.slice(0, 5).map((payout) => (
+                    <div key={payout.id} className="border rounded-lg p-4">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <p className="font-medium">${payout.amount} {payout.currency}</p>
+                          <p className="text-sm text-gray-500">
+                            {format(new Date(payout.periodStart), 'MMM d')} - {format(new Date(payout.periodEnd), 'MMM d, yyyy')}
+                          </p>
+                          <p className="text-xs text-gray-400 mt-1">
+                            Requested {format(new Date(payout.requestedAt), 'MMM d, yyyy')}
+                          </p>
+                        </div>
+                        <StatusBadge status={payout.status} />
+                      </div>
+                      
+                      {payout.requestNotes && (
+                        <p className="text-sm text-gray-600 mt-2 italic">
+                          "{payout.requestNotes}"
+                        </p>
+                      )}
+                      
+                      {payout.adminNotes && (
+                        <div className="mt-2 p-2 bg-blue-50 rounded text-sm">
+                          <strong>Admin Note:</strong> {payout.adminNotes}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                  
+                  {(!payoutRequests || payoutRequests.length === 0) && (
+                    <div className="text-center py-8 text-gray-500">
+                      <CreditCard className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                      <p>No payout requests yet</p>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Invoice History */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Invoice History</CardTitle>
+              <CardDescription>View and download your property-related invoices</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {invoices?.map((invoice) => (
+                  <div key={invoice.id} className="flex items-center justify-between p-4 border rounded-lg">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3">
+                        <Receipt className="h-5 w-5 text-gray-400" />
+                        <div>
+                          <h4 className="font-medium">{invoice.title}</h4>
+                          <p className="text-sm text-gray-500">
+                            {invoice.invoiceNumber} • {format(new Date(invoice.createdAt), 'MMM d, yyyy')}
+                          </p>
+                          {invoice.propertyName && (
+                            <Badge variant="outline" className="mt-1 text-xs">
+                              {invoice.propertyName}
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center gap-4">
+                      <div className="text-right">
+                        <p className="font-medium">${invoice.amount} {invoice.currency}</p>
+                        <StatusBadge status={invoice.status} />
+                      </div>
+                      
+                      {invoice.pdfUrl && (
+                        <Button size="sm" variant="outline">
+                          <Download className="h-4 w-4 mr-1" />
+                          Download
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+                
+                {(!invoices || invoices.length === 0) && (
+                  <div className="text-center py-8 text-gray-500">
+                    <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                    <p>No invoices available</p>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Settings Tab */}
+        <TabsContent value="settings" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Notification Preferences</CardTitle>
+              <CardDescription>
+                Customize how you receive updates about your properties
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Form {...preferencesForm}>
+                <form onSubmit={preferencesForm.handleSubmit(onPreferencesSubmit)} className="space-y-6">
+                  <div className="space-y-4">
+                    <FormField
+                      control={preferencesForm.control}
+                      name="taskApprovalRequired"
+                      render={({ field }) => (
+                        <FormItem className="flex items-center justify-between">
+                          <div className="space-y-0.5">
+                            <FormLabel>Task Approval Required</FormLabel>
+                            <FormDescription>
+                              Require your approval before staff can complete high-cost maintenance tasks
+                            </FormDescription>
+                          </div>
+                          <FormControl>
+                            <Switch
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={preferencesForm.control}
+                      name="maintenanceAlerts"
+                      render={({ field }) => (
+                        <FormItem className="flex items-center justify-between">
+                          <div className="space-y-0.5">
+                            <FormLabel>Maintenance Alerts</FormLabel>
+                            <FormDescription>
+                              Get notified when maintenance issues are reported or completed
+                            </FormDescription>
+                          </div>
+                          <FormControl>
+                            <Switch
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={preferencesForm.control}
+                      name="guestAddonNotifications"
+                      render={({ field }) => (
+                        <FormItem className="flex items-center justify-between">
+                          <div className="space-y-0.5">
+                            <FormLabel>Guest Add-on Notifications</FormLabel>
+                            <FormDescription>
+                              Receive updates when guests book additional services
+                            </FormDescription>
+                          </div>
+                          <FormControl>
+                            <Switch
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={preferencesForm.control}
+                      name="financialNotifications"
+                      render={({ field }) => (
+                        <FormItem className="flex items-center justify-between">
+                          <div className="space-y-0.5">
+                            <FormLabel>Financial Notifications</FormLabel>
+                            <FormDescription>
+                              Get notified about payments, payouts, and financial summaries
+                            </FormDescription>
+                          </div>
+                          <FormControl>
+                            <Switch
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={preferencesForm.control}
+                      name="weeklyReports"
+                      render={({ field }) => (
+                        <FormItem className="flex items-center justify-between">
+                          <div className="space-y-0.5">
+                            <FormLabel>Weekly Reports</FormLabel>
+                            <FormDescription>
+                              Receive weekly property performance and financial summaries
+                            </FormDescription>
+                          </div>
+                          <FormControl>
+                            <Switch
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  <div className="space-y-4">
+                    <FormField
+                      control={preferencesForm.control}
+                      name="preferredCurrency"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Preferred Currency</FormLabel>
+                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select currency" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="USD">USD - US Dollar</SelectItem>
+                              <SelectItem value="EUR">EUR - Euro</SelectItem>
+                              <SelectItem value="GBP">GBP - British Pound</SelectItem>
+                              <SelectItem value="CAD">CAD - Canadian Dollar</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={preferencesForm.control}
+                      name="notificationEmail"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Notification Email</FormLabel>
+                          <FormControl>
+                            <Input placeholder="your@email.com" {...field} />
+                          </FormControl>
+                          <FormDescription>
+                            Alternative email for important notifications (optional)
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  <Button type="submit" disabled={preferencesMutation.isPending}>
+                    {preferencesMutation.isPending ? "Saving..." : "Save Preferences"}
+                  </Button>
+                </form>
+              </Form>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}
 
   return (
     <div className="space-y-6">
