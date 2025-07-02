@@ -1,0 +1,234 @@
+import {
+  users,
+  properties,
+  tasks,
+  bookings,
+  finances,
+  inventory,
+  type User,
+  type UpsertUser,
+  type Property,
+  type InsertProperty,
+  type Task,
+  type InsertTask,
+  type Booking,
+  type InsertBooking,
+  type Finance,
+  type InsertFinance,
+  type Inventory,
+  type InsertInventory,
+} from "@shared/schema";
+import { db } from "./db";
+import { eq, and, desc, asc } from "drizzle-orm";
+
+export interface IStorage {
+  // User operations (mandatory for Replit Auth)
+  getUser(id: string): Promise<User | undefined>;
+  upsertUser(user: UpsertUser): Promise<User>;
+
+  // Property operations
+  getProperties(): Promise<Property[]>;
+  getPropertiesByOwner(ownerId: string): Promise<Property[]>;
+  getProperty(id: number): Promise<Property | undefined>;
+  createProperty(property: InsertProperty): Promise<Property>;
+  updateProperty(id: number, property: Partial<InsertProperty>): Promise<Property | undefined>;
+  deleteProperty(id: number): Promise<boolean>;
+
+  // Task operations
+  getTasks(): Promise<Task[]>;
+  getTasksByProperty(propertyId: number): Promise<Task[]>;
+  getTasksByAssignee(assigneeId: string): Promise<Task[]>;
+  getTask(id: number): Promise<Task | undefined>;
+  createTask(task: InsertTask): Promise<Task>;
+  updateTask(id: number, task: Partial<InsertTask>): Promise<Task | undefined>;
+  deleteTask(id: number): Promise<boolean>;
+
+  // Booking operations
+  getBookings(): Promise<Booking[]>;
+  getBookingsByProperty(propertyId: number): Promise<Booking[]>;
+  getBooking(id: number): Promise<Booking | undefined>;
+  createBooking(booking: InsertBooking): Promise<Booking>;
+  updateBooking(id: number, booking: Partial<InsertBooking>): Promise<Booking | undefined>;
+  deleteBooking(id: number): Promise<boolean>;
+
+  // Finance operations
+  getFinances(): Promise<Finance[]>;
+  getFinancesByProperty(propertyId: number): Promise<Finance[]>;
+  createFinance(finance: InsertFinance): Promise<Finance>;
+  updateFinance(id: number, finance: Partial<InsertFinance>): Promise<Finance | undefined>;
+
+  // Inventory operations
+  getInventoryByProperty(propertyId: number): Promise<Inventory[]>;
+  createInventoryItem(item: InsertInventory): Promise<Inventory>;
+  updateInventoryItem(id: number, item: Partial<InsertInventory>): Promise<Inventory | undefined>;
+}
+
+export class DatabaseStorage implements IStorage {
+  // User operations
+  async getUser(id: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user;
+  }
+
+  async upsertUser(userData: UpsertUser): Promise<User> {
+    const [user] = await db
+      .insert(users)
+      .values(userData)
+      .onConflictDoUpdate({
+        target: users.id,
+        set: {
+          ...userData,
+          updatedAt: new Date(),
+        },
+      })
+      .returning();
+    return user;
+  }
+
+  // Property operations
+  async getProperties(): Promise<Property[]> {
+    return await db.select().from(properties).orderBy(desc(properties.createdAt));
+  }
+
+  async getPropertiesByOwner(ownerId: string): Promise<Property[]> {
+    return await db.select().from(properties).where(eq(properties.ownerId, ownerId)).orderBy(desc(properties.createdAt));
+  }
+
+  async getProperty(id: number): Promise<Property | undefined> {
+    const [property] = await db.select().from(properties).where(eq(properties.id, id));
+    return property;
+  }
+
+  async createProperty(property: InsertProperty): Promise<Property> {
+    const [newProperty] = await db.insert(properties).values(property).returning();
+    return newProperty;
+  }
+
+  async updateProperty(id: number, property: Partial<InsertProperty>): Promise<Property | undefined> {
+    const [updatedProperty] = await db
+      .update(properties)
+      .set({ ...property, updatedAt: new Date() })
+      .where(eq(properties.id, id))
+      .returning();
+    return updatedProperty;
+  }
+
+  async deleteProperty(id: number): Promise<boolean> {
+    const result = await db.delete(properties).where(eq(properties.id, id));
+    return result.rowCount > 0;
+  }
+
+  // Task operations
+  async getTasks(): Promise<Task[]> {
+    return await db.select().from(tasks).orderBy(desc(tasks.createdAt));
+  }
+
+  async getTasksByProperty(propertyId: number): Promise<Task[]> {
+    return await db.select().from(tasks).where(eq(tasks.propertyId, propertyId)).orderBy(desc(tasks.createdAt));
+  }
+
+  async getTasksByAssignee(assigneeId: string): Promise<Task[]> {
+    return await db.select().from(tasks).where(eq(tasks.assignedTo, assigneeId)).orderBy(desc(tasks.createdAt));
+  }
+
+  async getTask(id: number): Promise<Task | undefined> {
+    const [task] = await db.select().from(tasks).where(eq(tasks.id, id));
+    return task;
+  }
+
+  async createTask(task: InsertTask): Promise<Task> {
+    const [newTask] = await db.insert(tasks).values(task).returning();
+    return newTask;
+  }
+
+  async updateTask(id: number, task: Partial<InsertTask>): Promise<Task | undefined> {
+    const [updatedTask] = await db
+      .update(tasks)
+      .set({ ...task, updatedAt: new Date() })
+      .where(eq(tasks.id, id))
+      .returning();
+    return updatedTask;
+  }
+
+  async deleteTask(id: number): Promise<boolean> {
+    const result = await db.delete(tasks).where(eq(tasks.id, id));
+    return result.rowCount > 0;
+  }
+
+  // Booking operations
+  async getBookings(): Promise<Booking[]> {
+    return await db.select().from(bookings).orderBy(desc(bookings.createdAt));
+  }
+
+  async getBookingsByProperty(propertyId: number): Promise<Booking[]> {
+    return await db.select().from(bookings).where(eq(bookings.propertyId, propertyId)).orderBy(asc(bookings.checkIn));
+  }
+
+  async getBooking(id: number): Promise<Booking | undefined> {
+    const [booking] = await db.select().from(bookings).where(eq(bookings.id, id));
+    return booking;
+  }
+
+  async createBooking(booking: InsertBooking): Promise<Booking> {
+    const [newBooking] = await db.insert(bookings).values(booking).returning();
+    return newBooking;
+  }
+
+  async updateBooking(id: number, booking: Partial<InsertBooking>): Promise<Booking | undefined> {
+    const [updatedBooking] = await db
+      .update(bookings)
+      .set({ ...booking, updatedAt: new Date() })
+      .where(eq(bookings.id, id))
+      .returning();
+    return updatedBooking;
+  }
+
+  async deleteBooking(id: number): Promise<boolean> {
+    const result = await db.delete(bookings).where(eq(bookings.id, id));
+    return result.rowCount > 0;
+  }
+
+  // Finance operations
+  async getFinances(): Promise<Finance[]> {
+    return await db.select().from(finances).orderBy(desc(finances.date));
+  }
+
+  async getFinancesByProperty(propertyId: number): Promise<Finance[]> {
+    return await db.select().from(finances).where(eq(finances.propertyId, propertyId)).orderBy(desc(finances.date));
+  }
+
+  async createFinance(finance: InsertFinance): Promise<Finance> {
+    const [newFinance] = await db.insert(finances).values(finance).returning();
+    return newFinance;
+  }
+
+  async updateFinance(id: number, finance: Partial<InsertFinance>): Promise<Finance | undefined> {
+    const [updatedFinance] = await db
+      .update(finances)
+      .set({ ...finance, updatedAt: new Date() })
+      .where(eq(finances.id, id))
+      .returning();
+    return updatedFinance;
+  }
+
+  // Inventory operations
+  async getInventoryByProperty(propertyId: number): Promise<Inventory[]> {
+    return await db.select().from(inventory).where(eq(inventory.propertyId, propertyId)).orderBy(asc(inventory.itemName));
+  }
+
+  async createInventoryItem(item: InsertInventory): Promise<Inventory> {
+    const [newItem] = await db.insert(inventory).values(item).returning();
+    return newItem;
+  }
+
+  async updateInventoryItem(id: number, item: Partial<InsertInventory>): Promise<Inventory | undefined> {
+    const [updatedItem] = await db
+      .update(inventory)
+      .set({ ...item, updatedAt: new Date() })
+      .where(eq(inventory.id, id))
+      .returning();
+    return updatedItem;
+  }
+}
+
+export const storage = new DatabaseStorage();
