@@ -4821,6 +4821,505 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ===== COMPREHENSIVE PAYROLL, COMMISSION & INVOICE MANAGEMENT API =====
+
+  // ===== STAFF PAYROLL MANAGEMENT ROUTES =====
+
+  // Get staff payroll records
+  app.get("/api/payroll/staff", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: userId, role } = req.user;
+      const { staffId, year, month, paymentStatus } = req.query;
+
+      // Admin can see all, staff can only see their own
+      const targetStaffId = role === 'admin' ? staffId : userId;
+      
+      const records = await storage.getStaffPayrollRecords(organizationId, {
+        staffId: targetStaffId,
+        year: year ? parseInt(year) : undefined,
+        month: month ? parseInt(month) : undefined,
+        paymentStatus,
+      });
+
+      res.json(records);
+    } catch (error) {
+      console.error("Error fetching staff payroll records:", error);
+      res.status(500).json({ message: "Failed to fetch payroll records" });
+    }
+  });
+
+  // Create staff payroll record (admin only)
+  app.post("/api/payroll/staff", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: userId, role } = req.user;
+      
+      if (role !== 'admin') {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const payrollData = {
+        ...req.body,
+        organizationId,
+        processedBy: userId,
+      };
+
+      const record = await storage.createStaffPayrollRecord(payrollData);
+      res.status(201).json(record);
+    } catch (error) {
+      console.error("Error creating staff payroll record:", error);
+      res.status(500).json({ message: "Failed to create payroll record" });
+    }
+  });
+
+  // Mark payroll as paid (admin only)
+  app.patch("/api/payroll/staff/:id/mark-paid", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: userId, role } = req.user;
+      const { id } = req.params;
+      
+      if (role !== 'admin') {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const { paymentMethod, paymentReference, paymentSlipUrl, notes } = req.body;
+      
+      const record = await storage.markPayrollAsPaid(parseInt(id), userId, {
+        paymentMethod,
+        paymentReference,
+        paymentSlipUrl,
+        notes,
+      });
+
+      res.json(record);
+    } catch (error) {
+      console.error("Error marking payroll as paid:", error);
+      res.status(500).json({ message: "Failed to mark payroll as paid" });
+    }
+  });
+
+  // Get staff payroll summary
+  app.get("/api/payroll/staff/:staffId/summary", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: userId, role } = req.user;
+      const { staffId } = req.params;
+      const { year } = req.query;
+
+      // Admin can see any staff, staff can only see their own
+      if (role !== 'admin' && staffId !== userId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const summary = await storage.getStaffPayrollSummary(
+        organizationId, 
+        staffId, 
+        year ? parseInt(year) : undefined
+      );
+
+      res.json(summary);
+    } catch (error) {
+      console.error("Error fetching staff payroll summary:", error);
+      res.status(500).json({ message: "Failed to fetch payroll summary" });
+    }
+  });
+
+  // ===== PORTFOLIO MANAGER COMMISSION ROUTES =====
+
+  // Get portfolio manager commissions
+  app.get("/api/commissions/portfolio-manager", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: userId, role } = req.user;
+      const { managerId, year, month, payoutStatus } = req.query;
+
+      // Admin can see all, PM can only see their own
+      const targetManagerId = (role === 'admin') ? managerId : (role === 'portfolio-manager' ? userId : undefined);
+      
+      if (!targetManagerId && role !== 'admin') {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const commissions = await storage.getPortfolioManagerCommissions(organizationId, targetManagerId, {
+        year: year ? parseInt(year) : undefined,
+        month: month ? parseInt(month) : undefined,
+        payoutStatus,
+      });
+
+      res.json(commissions);
+    } catch (error) {
+      console.error("Error fetching portfolio manager commissions:", error);
+      res.status(500).json({ message: "Failed to fetch commissions" });
+    }
+  });
+
+  // Create portfolio manager commission
+  app.post("/api/commissions/portfolio-manager", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: userId, role } = req.user;
+      
+      if (role !== 'admin') {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const commissionData = {
+        ...req.body,
+        organizationId,
+        processedBy: userId,
+      };
+
+      const commission = await storage.createPortfolioManagerCommission(commissionData);
+      res.status(201).json(commission);
+    } catch (error) {
+      console.error("Error creating portfolio manager commission:", error);
+      res.status(500).json({ message: "Failed to create commission" });
+    }
+  });
+
+  // Request portfolio manager payout
+  app.patch("/api/commissions/portfolio-manager/:id/request-payout", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: userId, role } = req.user;
+      const { id } = req.params;
+
+      if (role !== 'portfolio-manager' && role !== 'admin') {
+        return res.status(403).json({ message: "Portfolio Manager or Admin access required" });
+      }
+
+      const commission = await storage.requestPortfolioManagerPayout(parseInt(id));
+      res.json(commission);
+    } catch (error) {
+      console.error("Error requesting portfolio manager payout:", error);
+      res.status(500).json({ message: "Failed to request payout" });
+    }
+  });
+
+  // Approve portfolio manager payout (admin only)
+  app.patch("/api/commissions/portfolio-manager/:id/approve", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: userId, role } = req.user;
+      const { id } = req.params;
+      const { notes } = req.body;
+
+      if (role !== 'admin') {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const commission = await storage.approvePortfolioManagerPayout(parseInt(id), userId, notes);
+      res.json(commission);
+    } catch (error) {
+      console.error("Error approving portfolio manager payout:", error);
+      res.status(500).json({ message: "Failed to approve payout" });
+    }
+  });
+
+  // Generate portfolio manager invoice
+  app.post("/api/commissions/portfolio-manager/:id/generate-invoice", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: userId, role } = req.user;
+      const { id } = req.params;
+
+      if (role !== 'portfolio-manager' && role !== 'admin') {
+        return res.status(403).json({ message: "Portfolio Manager or Admin access required" });
+      }
+
+      // Generate invoice number
+      const invoiceNumber = await storage.generateInvoiceNumber(organizationId, 'commission');
+      
+      // In a real implementation, you would generate the PDF here
+      const invoicePdfUrl = `/api/invoices/${invoiceNumber}.pdf`;
+
+      const commission = await storage.generatePortfolioManagerInvoice(parseInt(id), invoiceNumber, invoicePdfUrl);
+      res.json(commission);
+    } catch (error) {
+      console.error("Error generating portfolio manager invoice:", error);
+      res.status(500).json({ message: "Failed to generate invoice" });
+    }
+  });
+
+  // ===== REFERRAL AGENT COMMISSION ROUTES =====
+
+  // Get referral agent commission logs
+  app.get("/api/commissions/referral-agent", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: userId, role } = req.user;
+      const { agentId, year, month, propertyId, paymentStatus } = req.query;
+
+      // Admin can see all, referral agent can only see their own
+      const targetAgentId = (role === 'admin') ? agentId : (role === 'referral-agent' ? userId : undefined);
+      
+      if (!targetAgentId && role !== 'admin') {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const logs = await storage.getReferralAgentCommissionLogs(organizationId, targetAgentId, {
+        year: year ? parseInt(year) : undefined,
+        month: month ? parseInt(month) : undefined,
+        propertyId: propertyId ? parseInt(propertyId) : undefined,
+        paymentStatus,
+      });
+
+      res.json(logs);
+    } catch (error) {
+      console.error("Error fetching referral agent commission logs:", error);
+      res.status(500).json({ message: "Failed to fetch commission logs" });
+    }
+  });
+
+  // Create referral agent commission log
+  app.post("/api/commissions/referral-agent", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: userId, role } = req.user;
+      
+      if (role !== 'admin') {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const logData = {
+        ...req.body,
+        organizationId,
+        processedBy: userId,
+      };
+
+      const log = await storage.createReferralAgentCommissionLog(logData);
+      res.status(201).json(log);
+    } catch (error) {
+      console.error("Error creating referral agent commission log:", error);
+      res.status(500).json({ message: "Failed to create commission log" });
+    }
+  });
+
+  // Request referral agent payment
+  app.patch("/api/commissions/referral-agent/:id/request-payment", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: userId, role } = req.user;
+      const { id } = req.params;
+
+      if (role !== 'referral-agent' && role !== 'admin') {
+        return res.status(403).json({ message: "Referral Agent or Admin access required" });
+      }
+
+      const log = await storage.requestReferralAgentPayment(parseInt(id));
+      res.json(log);
+    } catch (error) {
+      console.error("Error requesting referral agent payment:", error);
+      res.status(500).json({ message: "Failed to request payment" });
+    }
+  });
+
+  // Confirm referral agent payment (admin only)
+  app.patch("/api/commissions/referral-agent/:id/confirm-payment", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: userId, role } = req.user;
+      const { id } = req.params;
+      const { paymentSlipUrl, notes } = req.body;
+
+      if (role !== 'admin') {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const log = await storage.confirmReferralAgentPayment(parseInt(id), userId, paymentSlipUrl, notes);
+      res.json(log);
+    } catch (error) {
+      console.error("Error confirming referral agent payment:", error);
+      res.status(500).json({ message: "Failed to confirm payment" });
+    }
+  });
+
+  // ===== UNIVERSAL INVOICE GENERATOR ROUTES =====
+
+  // Get universal invoices
+  app.get("/api/invoices/universal", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: userId, role } = req.user;
+      const { createdBy, invoiceType, status, fromDate, toDate } = req.query;
+
+      // Admin can see all, others can only see their own
+      const targetCreatedBy = (role === 'admin') ? createdBy : userId;
+
+      const invoices = await storage.getUniversalInvoices(organizationId, {
+        createdBy: targetCreatedBy,
+        invoiceType,
+        status,
+        fromDate: fromDate ? new Date(fromDate) : undefined,
+        toDate: toDate ? new Date(toDate) : undefined,
+      });
+
+      res.json(invoices);
+    } catch (error) {
+      console.error("Error fetching universal invoices:", error);
+      res.status(500).json({ message: "Failed to fetch invoices" });
+    }
+  });
+
+  // Create universal invoice
+  app.post("/api/invoices/universal", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: userId } = req.user;
+      
+      // Generate invoice number
+      const invoiceNumber = await storage.generateInvoiceNumber(organizationId, req.body.invoiceType || 'custom');
+      
+      const invoiceData = {
+        ...req.body,
+        organizationId,
+        createdBy: userId,
+        invoiceNumber,
+      };
+
+      const invoice = await storage.createUniversalInvoice(invoiceData);
+
+      // Add line items if provided
+      if (req.body.lineItems && req.body.lineItems.length > 0) {
+        const lineItemsData = req.body.lineItems.map((item: any) => ({
+          ...item,
+          organizationId,
+          invoiceId: invoice.id,
+        }));
+        
+        const lineItems = await storage.addInvoiceLineItems(lineItemsData);
+        res.status(201).json({ ...invoice, lineItems });
+      } else {
+        res.status(201).json({ ...invoice, lineItems: [] });
+      }
+    } catch (error) {
+      console.error("Error creating universal invoice:", error);
+      res.status(500).json({ message: "Failed to create invoice" });
+    }
+  });
+
+  // Update universal invoice
+  app.patch("/api/invoices/universal/:id", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: userId, role } = req.user;
+      const { id } = req.params;
+
+      // Check ownership or admin
+      const existingInvoices = await storage.getUniversalInvoices(organizationId, { createdBy: userId });
+      const canEdit = role === 'admin' || existingInvoices.some(inv => inv.id === parseInt(id));
+
+      if (!canEdit) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const invoice = await storage.updateUniversalInvoice(parseInt(id), req.body);
+      res.json(invoice);
+    } catch (error) {
+      console.error("Error updating universal invoice:", error);
+      res.status(500).json({ message: "Failed to update invoice" });
+    }
+  });
+
+  // Generate invoice number
+  app.get("/api/invoices/generate-number", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId } = req.user;
+      const { type } = req.query;
+
+      const invoiceNumber = await storage.generateInvoiceNumber(organizationId, type || 'custom');
+      res.json({ invoiceNumber });
+    } catch (error) {
+      console.error("Error generating invoice number:", error);
+      res.status(500).json({ message: "Failed to generate invoice number" });
+    }
+  });
+
+  // ===== PAYMENT CONFIRMATIONS ROUTES =====
+
+  // Create payment confirmation
+  app.post("/api/payments/confirmations", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: userId } = req.user;
+
+      const confirmationData = {
+        ...req.body,
+        organizationId,
+        uploadedBy: userId,
+      };
+
+      const confirmation = await storage.createPaymentConfirmation(confirmationData);
+      res.status(201).json(confirmation);
+    } catch (error) {
+      console.error("Error creating payment confirmation:", error);
+      res.status(500).json({ message: "Failed to create payment confirmation" });
+    }
+  });
+
+  // Get payment confirmations
+  app.get("/api/payments/confirmations", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role } = req.user;
+      const { paymentType, referenceEntityType, referenceEntityId, confirmationStatus } = req.query;
+
+      if (role !== 'admin') {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const confirmations = await storage.getPaymentConfirmations(organizationId, {
+        paymentType,
+        referenceEntityType,
+        referenceEntityId: referenceEntityId ? parseInt(referenceEntityId) : undefined,
+        confirmationStatus,
+      });
+
+      res.json(confirmations);
+    } catch (error) {
+      console.error("Error fetching payment confirmations:", error);
+      res.status(500).json({ message: "Failed to fetch payment confirmations" });
+    }
+  });
+
+  // Confirm payment (admin only)
+  app.patch("/api/payments/confirmations/:id/confirm", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: userId, role } = req.user;
+      const { id } = req.params;
+
+      if (role !== 'admin') {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const confirmation = await storage.confirmPayment(parseInt(id), userId);
+      res.json(confirmation);
+    } catch (error) {
+      console.error("Error confirming payment:", error);
+      res.status(500).json({ message: "Failed to confirm payment" });
+    }
+  });
+
+  // ===== FINANCIAL ANALYTICS ROUTES =====
+
+  // Get staff salary analytics (admin only)
+  app.get("/api/analytics/staff-salaries", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role } = req.user;
+
+      if (role !== 'admin') {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const analytics = await storage.getStaffSalaryAnalytics(organizationId);
+      res.json(analytics);
+    } catch (error) {
+      console.error("Error fetching staff salary analytics:", error);
+      res.status(500).json({ message: "Failed to fetch salary analytics" });
+    }
+  });
+
+  // Get commission analytics (admin only)
+  app.get("/api/analytics/commissions", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role } = req.user;
+
+      if (role !== 'admin') {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const analytics = await storage.getCommissionAnalytics(organizationId);
+      res.json(analytics);
+    } catch (error) {
+      console.error("Error fetching commission analytics:", error);
+      res.status(500).json({ message: "Failed to fetch commission analytics" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

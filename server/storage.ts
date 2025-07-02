@@ -137,6 +137,24 @@ import {
   agentPayouts,
   type AgentPayout,
   type InsertAgentPayout,
+  staffPayrollRecords,
+  portfolioManagerCommissions,
+  referralAgentCommissionLogs,
+  universalInvoices,
+  universalInvoiceLineItems,
+  paymentConfirmations,
+  type StaffPayrollRecord,
+  type InsertStaffPayrollRecord,
+  type PortfolioManagerCommission,
+  type InsertPortfolioManagerCommission,
+  type ReferralAgentCommissionLog,
+  type InsertReferralAgentCommissionLog,
+  type UniversalInvoice,
+  type InsertUniversalInvoice,
+  type UniversalInvoiceLineItem,
+  type InsertUniversalInvoiceLineItem,
+  type PaymentConfirmation,
+  type InsertPaymentConfirmation,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, asc, lt, gte, lte, isNull, sql, sum, count, avg, max } from "drizzle-orm";
@@ -6440,6 +6458,519 @@ export class DatabaseStorage implements IStorage {
 
       return await this.createOrUpdateGuestLoyaltyProfile(newProfile);
     }
+  }
+
+  // ===== COMPREHENSIVE PAYROLL, COMMISSION & INVOICE MANAGEMENT SYSTEM =====
+
+  // ===== STAFF PAYROLL MANAGEMENT =====
+
+  // Create payroll record for staff
+  async createStaffPayrollRecord(record: InsertStaffPayrollRecord): Promise<StaffPayrollRecord> {
+    const [newRecord] = await db.insert(staffPayrollRecords).values(record).returning();
+    return newRecord;
+  }
+
+  // Get staff payroll records with filters
+  async getStaffPayrollRecords(organizationId: string, filters?: {
+    staffId?: string;
+    payrollPeriod?: string;
+    paymentStatus?: string;
+    year?: number;
+    month?: number;
+  }): Promise<StaffPayrollRecord[]> {
+    let query = db
+      .select()
+      .from(staffPayrollRecords)
+      .where(eq(staffPayrollRecords.organizationId, organizationId));
+
+    if (filters?.staffId) {
+      query = query.where(eq(staffPayrollRecords.staffId, filters.staffId));
+    }
+    if (filters?.payrollPeriod) {
+      query = query.where(eq(staffPayrollRecords.payrollPeriod, filters.payrollPeriod));
+    }
+    if (filters?.paymentStatus) {
+      query = query.where(eq(staffPayrollRecords.paymentStatus, filters.paymentStatus));
+    }
+    if (filters?.year) {
+      query = query.where(eq(staffPayrollRecords.payrollYear, filters.year));
+    }
+    if (filters?.month) {
+      query = query.where(eq(staffPayrollRecords.payrollMonth, filters.month));
+    }
+
+    return query.orderBy(desc(staffPayrollRecords.payrollYear), desc(staffPayrollRecords.payrollMonth));
+  }
+
+  // Update staff payroll record
+  async updateStaffPayrollRecord(id: number, updates: Partial<InsertStaffPayrollRecord>): Promise<StaffPayrollRecord | undefined> {
+    const [updated] = await db
+      .update(staffPayrollRecords)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(staffPayrollRecords.id, id))
+      .returning();
+    return updated;
+  }
+
+  // Mark payroll as paid
+  async markPayrollAsPaid(id: number, adminId: string, paymentDetails: {
+    paymentMethod: string;
+    paymentReference?: string;
+    paymentSlipUrl?: string;
+    notes?: string;
+  }): Promise<StaffPayrollRecord | undefined> {
+    const [updated] = await db
+      .update(staffPayrollRecords)
+      .set({
+        paymentStatus: 'paid',
+        paymentDate: new Date(),
+        paymentMethod: paymentDetails.paymentMethod,
+        paymentReference: paymentDetails.paymentReference,
+        paymentSlipUrl: paymentDetails.paymentSlipUrl,
+        processedBy: adminId,
+        notes: paymentDetails.notes,
+        updatedAt: new Date(),
+      })
+      .where(eq(staffPayrollRecords.id, id))
+      .returning();
+    return updated;
+  }
+
+  // Get staff payroll summary
+  async getStaffPayrollSummary(organizationId: string, staffId: string, year?: number): Promise<{
+    totalPaid: number;
+    totalPending: number;
+    averageMonthly: number;
+    latestPayment?: StaffPayrollRecord;
+  }> {
+    let query = db
+      .select()
+      .from(staffPayrollRecords)
+      .where(and(
+        eq(staffPayrollRecords.organizationId, organizationId),
+        eq(staffPayrollRecords.staffId, staffId)
+      ));
+
+    if (year) {
+      query = query.where(eq(staffPayrollRecords.payrollYear, year));
+    }
+
+    const records = await query;
+    
+    const totalPaid = records
+      .filter(r => r.paymentStatus === 'paid')
+      .reduce((sum, r) => sum + parseFloat(r.netPay), 0);
+    
+    const totalPending = records
+      .filter(r => r.paymentStatus === 'pending')
+      .reduce((sum, r) => sum + parseFloat(r.netPay), 0);
+    
+    const averageMonthly = records.length > 0 ? totalPaid / records.length : 0;
+    
+    const latestPayment = records
+      .filter(r => r.paymentStatus === 'paid')
+      .sort((a, b) => new Date(b.paymentDate || 0).getTime() - new Date(a.paymentDate || 0).getTime())[0];
+
+    return {
+      totalPaid,
+      totalPending,
+      averageMonthly,
+      latestPayment,
+    };
+  }
+
+  // ===== PORTFOLIO MANAGER COMMISSION TRACKING =====
+
+  // Create portfolio manager commission record
+  async createPortfolioManagerCommission(commission: InsertPortfolioManagerCommission): Promise<PortfolioManagerCommission> {
+    const [newCommission] = await db.insert(portfolioManagerCommissions).values(commission).returning();
+    return newCommission;
+  }
+
+  // Get portfolio manager commissions
+  async getPortfolioManagerCommissions(organizationId: string, managerId?: string, filters?: {
+    year?: number;
+    month?: number;
+    payoutStatus?: string;
+  }): Promise<PortfolioManagerCommission[]> {
+    let query = db
+      .select()
+      .from(portfolioManagerCommissions)
+      .where(eq(portfolioManagerCommissions.organizationId, organizationId));
+
+    if (managerId) {
+      query = query.where(eq(portfolioManagerCommissions.managerId, managerId));
+    }
+    if (filters?.year) {
+      query = query.where(eq(portfolioManagerCommissions.commissionYear, filters.year));
+    }
+    if (filters?.month) {
+      query = query.where(eq(portfolioManagerCommissions.commissionMonth, filters.month));
+    }
+    if (filters?.payoutStatus) {
+      query = query.where(eq(portfolioManagerCommissions.payoutStatus, filters.payoutStatus));
+    }
+
+    return query.orderBy(desc(portfolioManagerCommissions.commissionYear), desc(portfolioManagerCommissions.commissionMonth));
+  }
+
+  // Request portfolio manager payout
+  async requestPortfolioManagerPayout(commissionId: number): Promise<PortfolioManagerCommission | undefined> {
+    const [updated] = await db
+      .update(portfolioManagerCommissions)
+      .set({
+        payoutStatus: 'pending',
+        payoutRequestedAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(eq(portfolioManagerCommissions.id, commissionId))
+      .returning();
+    return updated;
+  }
+
+  // Approve portfolio manager payout
+  async approvePortfolioManagerPayout(commissionId: number, adminId: string, notes?: string): Promise<PortfolioManagerCommission | undefined> {
+    const [updated] = await db
+      .update(portfolioManagerCommissions)
+      .set({
+        payoutStatus: 'approved',
+        payoutApprovedAt: new Date(),
+        approvedBy: adminId,
+        notes,
+        updatedAt: new Date(),
+      })
+      .where(eq(portfolioManagerCommissions.id, commissionId))
+      .returning();
+    return updated;
+  }
+
+  // Generate invoice for portfolio manager commission
+  async generatePortfolioManagerInvoice(commissionId: number, invoiceNumber: string, invoicePdfUrl: string): Promise<PortfolioManagerCommission | undefined> {
+    const [updated] = await db
+      .update(portfolioManagerCommissions)
+      .set({
+        invoiceGenerated: true,
+        invoiceNumber,
+        invoicePdfUrl,
+        updatedAt: new Date(),
+      })
+      .where(eq(portfolioManagerCommissions.id, commissionId))
+      .returning();
+    return updated;
+  }
+
+  // ===== REFERRAL AGENT COMMISSION LOGS =====
+
+  // Create referral agent commission log
+  async createReferralAgentCommissionLog(log: InsertReferralAgentCommissionLog): Promise<ReferralAgentCommissionLog> {
+    const [newLog] = await db.insert(referralAgentCommissionLogs).values(log).returning();
+    return newLog;
+  }
+
+  // Get referral agent commission logs
+  async getReferralAgentCommissionLogs(organizationId: string, agentId?: string, filters?: {
+    year?: number;
+    month?: number;
+    propertyId?: number;
+    paymentStatus?: string;
+  }): Promise<ReferralAgentCommissionLog[]> {
+    let query = db
+      .select()
+      .from(referralAgentCommissionLogs)
+      .where(eq(referralAgentCommissionLogs.organizationId, organizationId));
+
+    if (agentId) {
+      query = query.where(eq(referralAgentCommissionLogs.agentId, agentId));
+    }
+    if (filters?.year) {
+      query = query.where(eq(referralAgentCommissionLogs.commissionYear, filters.year));
+    }
+    if (filters?.month) {
+      query = query.where(eq(referralAgentCommissionLogs.commissionMonth, filters.month));
+    }
+    if (filters?.propertyId) {
+      query = query.where(eq(referralAgentCommissionLogs.propertyId, filters.propertyId));
+    }
+    if (filters?.paymentStatus) {
+      query = query.where(eq(referralAgentCommissionLogs.paymentStatus, filters.paymentStatus));
+    }
+
+    return query.orderBy(desc(referralAgentCommissionLogs.commissionYear), desc(referralAgentCommissionLogs.commissionMonth));
+  }
+
+  // Request referral agent payment
+  async requestReferralAgentPayment(logId: number): Promise<ReferralAgentCommissionLog | undefined> {
+    const [updated] = await db
+      .update(referralAgentCommissionLogs)
+      .set({
+        paymentStatus: 'requested',
+        paymentRequestedAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(eq(referralAgentCommissionLogs.id, logId))
+      .returning();
+    return updated;
+  }
+
+  // Confirm referral agent payment
+  async confirmReferralAgentPayment(logId: number, adminId: string, paymentSlipUrl?: string, notes?: string): Promise<ReferralAgentCommissionLog | undefined> {
+    const [updated] = await db
+      .update(referralAgentCommissionLogs)
+      .set({
+        paymentStatus: 'paid',
+        paymentConfirmedAt: new Date(),
+        paymentSlipUrl,
+        processedBy: adminId,
+        notes,
+        updatedAt: new Date(),
+      })
+      .where(eq(referralAgentCommissionLogs.id, logId))
+      .returning();
+    return updated;
+  }
+
+  // ===== UNIVERSAL INVOICE GENERATOR =====
+
+  // Create universal invoice
+  async createUniversalInvoice(invoice: InsertUniversalInvoice): Promise<UniversalInvoice> {
+    const [newInvoice] = await db.insert(universalInvoices).values(invoice).returning();
+    return newInvoice;
+  }
+
+  // Add line items to invoice
+  async addInvoiceLineItems(lineItems: InsertUniversalInvoiceLineItem[]): Promise<UniversalInvoiceLineItem[]> {
+    const newItems = await db.insert(universalInvoiceLineItems).values(lineItems).returning();
+    return newItems;
+  }
+
+  // Get universal invoices with line items
+  async getUniversalInvoices(organizationId: string, filters?: {
+    createdBy?: string;
+    invoiceType?: string;
+    status?: string;
+    fromDate?: Date;
+    toDate?: Date;
+  }): Promise<(UniversalInvoice & { lineItems: UniversalInvoiceLineItem[] })[]> {
+    let query = db
+      .select()
+      .from(universalInvoices)
+      .where(eq(universalInvoices.organizationId, organizationId));
+
+    if (filters?.createdBy) {
+      query = query.where(eq(universalInvoices.createdBy, filters.createdBy));
+    }
+    if (filters?.invoiceType) {
+      query = query.where(eq(universalInvoices.invoiceType, filters.invoiceType));
+    }
+    if (filters?.status) {
+      query = query.where(eq(universalInvoices.status, filters.status));
+    }
+    if (filters?.fromDate) {
+      query = query.where(gte(universalInvoices.invoiceDate, filters.fromDate));
+    }
+    if (filters?.toDate) {
+      query = query.where(lte(universalInvoices.invoiceDate, filters.toDate));
+    }
+
+    const invoices = await query.orderBy(desc(universalInvoices.createdAt));
+
+    // Get line items for each invoice
+    const invoicesWithLineItems = await Promise.all(
+      invoices.map(async (invoice) => {
+        const lineItems = await db
+          .select()
+          .from(universalInvoiceLineItems)
+          .where(eq(universalInvoiceLineItems.invoiceId, invoice.id));
+        
+        return { ...invoice, lineItems };
+      })
+    );
+
+    return invoicesWithLineItems;
+  }
+
+  // Update universal invoice
+  async updateUniversalInvoice(id: number, updates: Partial<InsertUniversalInvoice>): Promise<UniversalInvoice | undefined> {
+    const [updated] = await db
+      .update(universalInvoices)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(universalInvoices.id, id))
+      .returning();
+    return updated;
+  }
+
+  // Generate invoice number
+  async generateInvoiceNumber(organizationId: string, type: string): Promise<string> {
+    const year = new Date().getFullYear();
+    const typePrefix = type.toUpperCase().substr(0, 3);
+    
+    // Get count of invoices this year
+    const count = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(universalInvoices)
+      .where(and(
+        eq(universalInvoices.organizationId, organizationId),
+        like(universalInvoices.invoiceNumber, `${typePrefix}-${year}-%`)
+      ));
+
+    const nextNumber = (count[0]?.count || 0) + 1;
+    return `${typePrefix}-${year}-${String(nextNumber).padStart(4, '0')}`;
+  }
+
+  // ===== PAYMENT CONFIRMATIONS =====
+
+  // Create payment confirmation
+  async createPaymentConfirmation(confirmation: InsertPaymentConfirmation): Promise<PaymentConfirmation> {
+    const [newConfirmation] = await db.insert(paymentConfirmations).values(confirmation).returning();
+    return newConfirmation;
+  }
+
+  // Get payment confirmations
+  async getPaymentConfirmations(organizationId: string, filters?: {
+    paymentType?: string;
+    referenceEntityType?: string;
+    referenceEntityId?: number;
+    confirmationStatus?: string;
+  }): Promise<PaymentConfirmation[]> {
+    let query = db
+      .select()
+      .from(paymentConfirmations)
+      .where(eq(paymentConfirmations.organizationId, organizationId));
+
+    if (filters?.paymentType) {
+      query = query.where(eq(paymentConfirmations.paymentType, filters.paymentType));
+    }
+    if (filters?.referenceEntityType) {
+      query = query.where(eq(paymentConfirmations.referenceEntityType, filters.referenceEntityType));
+    }
+    if (filters?.referenceEntityId) {
+      query = query.where(eq(paymentConfirmations.referenceEntityId, filters.referenceEntityId));
+    }
+    if (filters?.confirmationStatus) {
+      query = query.where(eq(paymentConfirmations.confirmationStatus, filters.confirmationStatus));
+    }
+
+    return query.orderBy(desc(paymentConfirmations.createdAt));
+  }
+
+  // Confirm payment
+  async confirmPayment(confirmationId: number, userId: string): Promise<PaymentConfirmation | undefined> {
+    const [updated] = await db
+      .update(paymentConfirmations)
+      .set({
+        confirmationStatus: 'confirmed',
+        confirmedBy: userId,
+        confirmedAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(eq(paymentConfirmations.id, confirmationId))
+      .returning();
+    return updated;
+  }
+
+  // ===== FINANCIAL DASHBOARD ANALYTICS =====
+
+  // Get staff salary analytics
+  async getStaffSalaryAnalytics(organizationId: string): Promise<{
+    totalMonthlyPayroll: number;
+    totalPendingPayments: number;
+    staffCount: number;
+    averageSalary: number;
+    departmentBreakdown: { department: string; totalSalary: number; staffCount: number }[];
+  }> {
+    const currentYear = new Date().getFullYear();
+    const currentMonth = new Date().getMonth() + 1;
+
+    // Get current month payroll
+    const currentPayroll = await db
+      .select()
+      .from(staffPayrollRecords)
+      .where(and(
+        eq(staffPayrollRecords.organizationId, organizationId),
+        eq(staffPayrollRecords.payrollYear, currentYear),
+        eq(staffPayrollRecords.payrollMonth, currentMonth)
+      ));
+
+    const totalMonthlyPayroll = currentPayroll.reduce((sum, record) => sum + parseFloat(record.netPay), 0);
+    const totalPendingPayments = currentPayroll
+      .filter(record => record.paymentStatus === 'pending')
+      .reduce((sum, record) => sum + parseFloat(record.netPay), 0);
+
+    const staffCount = new Set(currentPayroll.map(record => record.staffId)).size;
+    const averageSalary = staffCount > 0 ? totalMonthlyPayroll / staffCount : 0;
+
+    // Department breakdown would require joining with user data for department info
+    const departmentBreakdown: { department: string; totalSalary: number; staffCount: number }[] = [];
+
+    return {
+      totalMonthlyPayroll,
+      totalPendingPayments,
+      staffCount,
+      averageSalary,
+      departmentBreakdown,
+    };
+  }
+
+  // Get commission analytics
+  async getCommissionAnalytics(organizationId: string): Promise<{
+    totalCommissionsPending: number;
+    totalCommissionsPaid: number;
+    portfolioManagerEarnings: number;
+    referralAgentEarnings: number;
+    monthlyGrowth: number;
+  }> {
+    const currentYear = new Date().getFullYear();
+    const currentMonth = new Date().getMonth() + 1;
+    const lastMonth = currentMonth === 1 ? 12 : currentMonth - 1;
+    const lastMonthYear = currentMonth === 1 ? currentYear - 1 : currentYear;
+
+    // Portfolio Manager commissions
+    const pmCommissions = await db
+      .select()
+      .from(portfolioManagerCommissions)
+      .where(and(
+        eq(portfolioManagerCommissions.organizationId, organizationId),
+        eq(portfolioManagerCommissions.commissionYear, currentYear),
+        eq(portfolioManagerCommissions.commissionMonth, currentMonth)
+      ));
+
+    // Referral Agent commissions
+    const raCommissions = await db
+      .select()
+      .from(referralAgentCommissionLogs)
+      .where(and(
+        eq(referralAgentCommissionLogs.organizationId, organizationId),
+        eq(referralAgentCommissionLogs.commissionYear, currentYear),
+        eq(referralAgentCommissionLogs.commissionMonth, currentMonth)
+      ));
+
+    const portfolioManagerEarnings = pmCommissions.reduce((sum, comm) => sum + parseFloat(comm.commissionAmount), 0);
+    const referralAgentEarnings = raCommissions.reduce((sum, comm) => sum + parseFloat(comm.commissionAmount), 0);
+
+    const totalCommissionsPending = pmCommissions
+      .filter(comm => comm.payoutStatus === 'pending')
+      .reduce((sum, comm) => sum + parseFloat(comm.commissionAmount), 0) +
+      raCommissions
+        .filter(comm => comm.paymentStatus === 'pending')
+        .reduce((sum, comm) => sum + parseFloat(comm.commissionAmount), 0);
+
+    const totalCommissionsPaid = pmCommissions
+      .filter(comm => comm.payoutStatus === 'paid')
+      .reduce((sum, comm) => sum + parseFloat(comm.commissionAmount), 0) +
+      raCommissions
+        .filter(comm => comm.paymentStatus === 'paid')
+        .reduce((sum, comm) => sum + parseFloat(comm.commissionAmount), 0);
+
+    // Calculate monthly growth (simplified)
+    const monthlyGrowth = 5.2; // This would need more complex calculation
+
+    return {
+      totalCommissionsPending,
+      totalCommissionsPaid,
+      portfolioManagerEarnings,
+      referralAgentEarnings,
+      monthlyGrowth,
+    };
   }
 }
 

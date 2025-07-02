@@ -1,655 +1,891 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useAuth } from "@/hooks/useAuth";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { 
   DollarSign, 
+  Receipt, 
   FileText, 
-  PlusCircle, 
   Calendar, 
-  TrendingUp, 
-  Building, 
-  User,
-  Receipt,
   Calculator,
-  BarChart3,
+  TrendingUp,
+  Users,
+  Building,
+  Plus,
   Download,
-  Send
+  Upload,
+  Edit3,
+  CheckCircle,
+  Clock,
+  AlertCircle
 } from "lucide-react";
 import { format } from "date-fns";
 
-// Schema for invoice creation
+// Form schemas
 const invoiceSchema = z.object({
-  senderId: z.string().min(1, "Sender is required"),
-  recipientId: z.string().min(1, "Recipient is required"),
   invoiceType: z.string().min(1, "Invoice type is required"),
-  description: z.string().min(1, "Description is required"),
-  amount: z.string().min(1, "Amount is required"),
-  dueDate: z.string().min(1, "Due date is required"),
-  currency: z.string().default("GBP"),
-  notes: z.string().optional(),
+  fromName: z.string().min(1, "From name is required"),
+  fromAddress: z.string().optional(),
+  fromEmail: z.string().email().optional(),
+  toName: z.string().min(1, "To name is required"),
+  toAddress: z.string().optional(),
+  toEmail: z.string().email().optional(),
+  description: z.string().optional(),
+  dueDate: z.string().optional(),
+  paymentTerms: z.string().optional(),
+  tags: z.array(z.string()).optional(),
   lineItems: z.array(z.object({
-    description: z.string().min(1, "Item description is required"),
-    quantity: z.number().min(1, "Quantity must be at least 1"),
-    unitPrice: z.number().min(0, "Unit price must be positive"),
-    total: z.number().min(0, "Total must be positive"),
-  })).default([]),
+    description: z.string().min(1, "Description is required"),
+    quantity: z.string().min(1, "Quantity is required"),
+    unitPrice: z.string().min(1, "Unit price is required"),
+    category: z.string().optional(),
+  })).min(1, "At least one line item is required"),
 });
 
 type InvoiceFormData = z.infer<typeof invoiceSchema>;
 
 export default function FinancialToolkit() {
-  const { user } = useAuth();
+  const [activeTab, setActiveTab] = useState("staff-salaries");
+  const [isCreateInvoiceOpen, setIsCreateInvoiceOpen] = useState(false);
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
+  
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState("staff-salary");
-  const [selectedPeriod, setSelectedPeriod] = useState(new Date().toISOString().slice(0, 7));
 
-  // Staff Salary Component
-  const StaffSalaryViewer = () => {
-    const { data: salary, isLoading } = useQuery({
-      queryKey: ["/api/staff/salary", user?.id],
-      enabled: !!user?.id,
+  // Form initialization
+  const invoiceForm = useForm<InvoiceFormData>({
+    resolver: zodResolver(invoiceSchema),
+    defaultValues: {
+      lineItems: [{ description: "", quantity: "1", unitPrice: "", category: "" }],
+      tags: [],
+    },
+  });
+
+  // Queries
+  const { data: staffPayrollRecords = [], isLoading: isLoadingPayroll } = useQuery({
+    queryKey: ["/api/payroll/staff", selectedYear, selectedMonth],
+    queryFn: () => apiRequest("GET", `/api/payroll/staff?year=${selectedYear}&month=${selectedMonth}`),
+  });
+
+  const { data: portfolioCommissions = [], isLoading: isLoadingPMCommissions } = useQuery({
+    queryKey: ["/api/commissions/portfolio-manager", selectedYear, selectedMonth],
+    queryFn: () => apiRequest("GET", `/api/commissions/portfolio-manager?year=${selectedYear}&month=${selectedMonth}`),
+  });
+
+  const { data: referralCommissions = [], isLoading: isLoadingRACommissions } = useQuery({
+    queryKey: ["/api/commissions/referral-agent", selectedYear, selectedMonth],
+    queryFn: () => apiRequest("GET", `/api/commissions/referral-agent?year=${selectedYear}&month=${selectedMonth}`),
+  });
+
+  const { data: universalInvoices = [], isLoading: isLoadingInvoices } = useQuery({
+    queryKey: ["/api/invoices/universal"],
+    queryFn: () => apiRequest("GET", "/api/invoices/universal"),
+  });
+
+  const { data: salaryAnalytics } = useQuery({
+    queryKey: ["/api/analytics/staff-salaries"],
+    queryFn: () => apiRequest("GET", "/api/analytics/staff-salaries"),
+  });
+
+  const { data: commissionAnalytics } = useQuery({
+    queryKey: ["/api/analytics/commissions"],
+    queryFn: () => apiRequest("GET", "/api/analytics/commissions"),
+  });
+
+  // Mutations
+  const markPayrollPaidMutation = useMutation({
+    mutationFn: (data: { id: number; paymentMethod: string; paymentReference?: string; notes?: string }) =>
+      apiRequest("PATCH", `/api/payroll/staff/${data.id}/mark-paid`, data),
+    onSuccess: () => {
+      toast({ title: "Success", description: "Payroll marked as paid successfully" });
+      queryClient.invalidateQueries({ queryKey: ["/api/payroll/staff"] });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to mark payroll as paid", variant: "destructive" });
+    },
+  });
+
+  const createInvoiceMutation = useMutation({
+    mutationFn: (data: InvoiceFormData) => apiRequest("POST", "/api/invoices/universal", data),
+    onSuccess: () => {
+      toast({ title: "Success", description: "Invoice created successfully" });
+      queryClient.invalidateQueries({ queryKey: ["/api/invoices/universal"] });
+      setIsCreateInvoiceOpen(false);
+      invoiceForm.reset();
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to create invoice", variant: "destructive" });
+    },
+  });
+
+  const requestPayoutMutation = useMutation({
+    mutationFn: (data: { id: number; type: "portfolio-manager" | "referral-agent" }) => {
+      const endpoint = data.type === "portfolio-manager" 
+        ? `/api/commissions/portfolio-manager/${data.id}/request-payout`
+        : `/api/commissions/referral-agent/${data.id}/request-payment`;
+      return apiRequest("PATCH", endpoint, {});
+    },
+    onSuccess: () => {
+      toast({ title: "Success", description: "Payout requested successfully" });
+      queryClient.invalidateQueries({ queryKey: ["/api/commissions/portfolio-manager"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/commissions/referral-agent"] });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to request payout", variant: "destructive" });
+    },
+  });
+
+  // Helper functions
+  const handleMarkPayrollPaid = (id: number) => {
+    markPayrollPaidMutation.mutate({
+      id,
+      paymentMethod: "bank_transfer",
+      paymentReference: `PAY-${Date.now()}`,
+      notes: "Marked as paid via Financial Toolkit",
     });
-
-    if (isLoading) return <div>Loading salary information...</div>;
-
-    return (
-      <div className="space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Monthly Salary</CardTitle>
-              <DollarSign className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                £{salary?.monthlySalary ? parseFloat(salary.monthlySalary.toString()).toLocaleString() : "0"}
-              </div>
-              <p className="text-xs text-muted-foreground">Base monthly salary</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Performance Bonus</CardTitle>
-              <TrendingUp className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                £{salary?.performanceBonus ? parseFloat(salary.performanceBonus.toString()).toLocaleString() : "0"}
-              </div>
-              <p className="text-xs text-muted-foreground">Current period bonus</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Earnings</CardTitle>
-              <Calculator className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                £{salary ? (
-                  parseFloat(salary.monthlySalary?.toString() || "0") + 
-                  parseFloat(salary.performanceBonus?.toString() || "0")
-                ).toLocaleString() : "0"}
-              </div>
-              <p className="text-xs text-muted-foreground">Salary + bonuses</p>
-            </CardContent>
-          </Card>
-        </div>
-
-        {salary && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Salary Details</CardTitle>
-              <CardDescription>Your current salary information</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label className="text-sm font-medium">Position</Label>
-                  <p className="text-sm text-muted-foreground">{salary.position || "Not specified"}</p>
-                </div>
-                <div>
-                  <Label className="text-sm font-medium">Department</Label>
-                  <p className="text-sm text-muted-foreground">{salary.department || "Not specified"}</p>
-                </div>
-                <div>
-                  <Label className="text-sm font-medium">Effective From</Label>
-                  <p className="text-sm text-muted-foreground">
-                    {salary.effectiveFrom ? format(new Date(salary.effectiveFrom), "PP") : "Not specified"}
-                  </p>
-                </div>
-                <div>
-                  <Label className="text-sm font-medium">Status</Label>
-                  <Badge variant={salary.isActive ? "default" : "secondary"}>
-                    {salary.isActive ? "Active" : "Inactive"}
-                  </Badge>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-      </div>
-    );
   };
 
-  // Portfolio Manager Earnings Component
-  const PortfolioManagerEarnings = () => {
-    const { data: earnings, isLoading } = useQuery({
-      queryKey: ["/api/portfolio-manager/earnings", user?.id, selectedPeriod],
-      enabled: !!user?.id,
-    });
-
-    if (isLoading) return <div>Loading portfolio earnings...</div>;
-
-    return (
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <h3 className="text-lg font-semibold">Portfolio Manager Earnings</h3>
-          <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
-            <SelectTrigger className="w-48">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {Array.from({ length: 12 }, (_, i) => {
-                const date = new Date();
-                date.setMonth(date.getMonth() - i);
-                const period = date.toISOString().slice(0, 7);
-                return (
-                  <SelectItem key={period} value={period}>
-                    {format(date, "MMMM yyyy")}
-                  </SelectItem>
-                );
-              })}
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Rental Revenue</CardTitle>
-              <Building className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                £{earnings?.rentalRevenue ? parseFloat(earnings.rentalRevenue.toString()).toLocaleString() : "0"}
-              </div>
-              <p className="text-xs text-muted-foreground">From managed properties</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Commission Earned</CardTitle>
-              <DollarSign className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                £{earnings?.totalCommission ? parseFloat(earnings.totalCommission.toString()).toLocaleString() : "0"}
-              </div>
-              <p className="text-xs text-muted-foreground">Total commission for period</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Properties Managed</CardTitle>
-              <Building className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {earnings?.assignedProperties?.length || 0}
-              </div>
-              <p className="text-xs text-muted-foreground">Active assignments</p>
-            </CardContent>
-          </Card>
-        </div>
-
-        {earnings?.assignedProperties && earnings.assignedProperties.length > 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Managed Properties</CardTitle>
-              <CardDescription>Properties currently under your management</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Property</TableHead>
-                    <TableHead>Commission Rate</TableHead>
-                    <TableHead>Status</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {earnings.assignedProperties.map((property: any, index: number) => (
-                    <TableRow key={index}>
-                      <TableCell>{property.propertyName || `Property #${property.propertyId}`}</TableCell>
-                      <TableCell>{property.commissionRate}%</TableCell>
-                      <TableCell>
-                        <Badge variant="default">Active</Badge>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-        )}
-      </div>
-    );
+  const handleRequestPayout = (id: number, type: "portfolio-manager" | "referral-agent") => {
+    requestPayoutMutation.mutate({ id, type });
   };
 
-  // Universal Invoice Tool Component
-  const UniversalInvoiceTool = () => {
-    const [showCreateInvoice, setShowCreateInvoice] = useState(false);
-    
-    const { data: invoices, isLoading } = useQuery({
-      queryKey: ["/api/invoices"],
-    });
+  const addLineItem = () => {
+    const currentItems = invoiceForm.getValues("lineItems");
+    invoiceForm.setValue("lineItems", [...currentItems, { description: "", quantity: "1", unitPrice: "", category: "" }]);
+  };
 
-    const { data: users } = useQuery({
-      queryKey: ["/api/users"],
-    });
+  const removeLineItem = (index: number) => {
+    const currentItems = invoiceForm.getValues("lineItems");
+    if (currentItems.length > 1) {
+      invoiceForm.setValue("lineItems", currentItems.filter((_, i) => i !== index));
+    }
+  };
 
-    const form = useForm<InvoiceFormData>({
-      resolver: zodResolver(invoiceSchema),
-      defaultValues: {
-        currency: "GBP",
-        lineItems: [{ description: "", quantity: 1, unitPrice: 0, total: 0 }],
-      },
-    });
+  const calculateInvoiceTotal = () => {
+    const lineItems = invoiceForm.watch("lineItems");
+    return lineItems.reduce((total, item) => {
+      const quantity = parseFloat(item.quantity) || 0;
+      const unitPrice = parseFloat(item.unitPrice) || 0;
+      return total + (quantity * unitPrice);
+    }, 0);
+  };
 
-    const createInvoiceMutation = useMutation({
-      mutationFn: (data: InvoiceFormData) => apiRequest("/api/invoices", "POST", data),
-      onSuccess: () => {
-        toast({ title: "Success", description: "Invoice created successfully" });
-        queryClient.invalidateQueries({ queryKey: ["/api/invoices"] });
-        setShowCreateInvoice(false);
-        form.reset();
-      },
-      onError: (error: Error) => {
-        toast({ 
-          title: "Error", 
-          description: error.message || "Failed to create invoice",
-          variant: "destructive" 
-        });
-      },
-    });
-
-    const onSubmit = (data: InvoiceFormData) => {
-      createInvoiceMutation.mutate(data);
+  const onSubmitInvoice = (data: InvoiceFormData) => {
+    const invoiceData = {
+      ...data,
+      invoiceDate: new Date().toISOString(),
+      dueDate: data.dueDate ? new Date(data.dueDate).toISOString() : undefined,
+      subtotal: calculateInvoiceTotal().toString(),
+      totalAmount: calculateInvoiceTotal().toString(),
+      currency: "THB",
+      status: "draft",
     };
-
-    if (isLoading) return <div>Loading invoices...</div>;
-
-    return (
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <h3 className="text-lg font-semibold">Universal Invoice Tool</h3>
-          <Dialog open={showCreateInvoice} onOpenChange={setShowCreateInvoice}>
-            <DialogTrigger asChild>
-              <Button>
-                <PlusCircle className="h-4 w-4 mr-2" />
-                Create Invoice
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-2xl">
-              <DialogHeader>
-                <DialogTitle>Create New Invoice</DialogTitle>
-                <DialogDescription>
-                  Generate professional invoices between any parties in your organization
-                </DialogDescription>
-              </DialogHeader>
-              <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="senderId"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>From (Sender)</FormLabel>
-                          <FormControl>
-                            <Select onValueChange={field.onChange} value={field.value}>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select sender" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {users?.map((user: any) => (
-                                  <SelectItem key={user.id} value={user.id}>
-                                    {user.firstName} {user.lastName}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="recipientId"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>To (Recipient)</FormLabel>
-                          <FormControl>
-                            <Select onValueChange={field.onChange} value={field.value}>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select recipient" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {users?.map((user: any) => (
-                                  <SelectItem key={user.id} value={user.id}>
-                                    {user.firstName} {user.lastName}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-
-                  <FormField
-                    control={form.control}
-                    name="invoiceType"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Invoice Type</FormLabel>
-                        <FormControl>
-                          <Select onValueChange={field.onChange} value={field.value}>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select invoice type" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="booking-commission">Booking Commission</SelectItem>
-                              <SelectItem value="maintenance-charge">Maintenance Charge</SelectItem>
-                              <SelectItem value="portfolio-commission">Portfolio Management Commission</SelectItem>
-                              <SelectItem value="service-fee">Service Fee</SelectItem>
-                              <SelectItem value="expense-reimbursement">Expense Reimbursement</SelectItem>
-                              <SelectItem value="other">Other</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="description"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Description</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Invoice description" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="amount"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Amount</FormLabel>
-                          <FormControl>
-                            <Input type="number" step="0.01" placeholder="0.00" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="dueDate"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Due Date</FormLabel>
-                          <FormControl>
-                            <Input type="date" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-
-                  <FormField
-                    control={form.control}
-                    name="notes"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Notes (Optional)</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Additional notes or terms" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <div className="flex justify-end space-x-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => setShowCreateInvoice(false)}
-                    >
-                      Cancel
-                    </Button>
-                    <Button type="submit" disabled={createInvoiceMutation.isPending}>
-                      {createInvoiceMutation.isPending ? "Creating..." : "Create Invoice"}
-                    </Button>
-                  </div>
-                </form>
-              </Form>
-            </DialogContent>
-          </Dialog>
-        </div>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Recent Invoices</CardTitle>
-            <CardDescription>Manage and track all invoices in your organization</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {invoices && invoices.length > 0 ? (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Invoice #</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Amount</TableHead>
-                    <TableHead>Due Date</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {invoices.map((invoice: any) => (
-                    <TableRow key={invoice.id}>
-                      <TableCell className="font-medium">{invoice.invoiceNumber}</TableCell>
-                      <TableCell>
-                        <Badge variant="outline">
-                          {invoice.invoiceType.replace("-", " ").replace(/\b\w/g, (l: string) => l.toUpperCase())}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>£{parseFloat(invoice.amount.toString()).toLocaleString()}</TableCell>
-                      <TableCell>{format(new Date(invoice.dueDate), "PP")}</TableCell>
-                      <TableCell>
-                        <Badge variant={
-                          invoice.status === "paid" ? "default" :
-                          invoice.status === "overdue" ? "destructive" : "secondary"
-                        }>
-                          {invoice.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex space-x-2">
-                          <Button size="sm" variant="outline">
-                            <Download className="h-4 w-4" />
-                          </Button>
-                          <Button size="sm" variant="outline">
-                            <Send className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            ) : (
-              <div className="text-center py-8 text-muted-foreground">
-                No invoices found. Create your first invoice to get started.
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-    );
-  };
-
-  // Financial Dashboard Component (placeholder for owner financial enhancements)
-  const FinancialDashboard = () => {
-    return (
-      <div className="space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
-              <BarChart3 className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">£24,500</div>
-              <p className="text-xs text-muted-foreground">+12.5% from last month</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Commission Paid</CardTitle>
-              <DollarSign className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">£3,250</div>
-              <p className="text-xs text-muted-foreground">To agents this month</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Pending Invoices</CardTitle>
-              <Receipt className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">8</div>
-              <p className="text-xs text-muted-foreground">Awaiting payment</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Staff Costs</CardTitle>
-              <User className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">£8,900</div>
-              <p className="text-xs text-muted-foreground">Salaries this month</p>
-            </CardContent>
-          </Card>
-        </div>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Financial Summary</CardTitle>
-            <CardDescription>Overview of your organization's financial performance</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="text-center py-8 text-muted-foreground">
-              <BarChart3 className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50" />
-              <p>Financial dashboard and reporting features coming soon</p>
-              <p className="text-sm">This will include comprehensive financial analytics, profit/loss statements, and detailed reporting</p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    );
+    createInvoiceMutation.mutate(invoiceData);
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="max-w-7xl mx-auto p-6">
-        <div className="mb-8">
+    <div className="container mx-auto p-6 space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
           <h1 className="text-3xl font-bold tracking-tight">Financial & Invoice Toolkit</h1>
           <p className="text-muted-foreground">
-            Comprehensive financial management tools for staff salaries, commission tracking, and universal invoicing
+            Comprehensive financial management for payroll, commissions, and invoice generation
           </p>
         </div>
-
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="staff-salary">
-              <DollarSign className="h-4 w-4 mr-2" />
-              Staff Salary
-            </TabsTrigger>
-            <TabsTrigger value="portfolio-earnings">
-              <TrendingUp className="h-4 w-4 mr-2" />
-              Portfolio Earnings
-            </TabsTrigger>
-            <TabsTrigger value="invoice-tool">
-              <FileText className="h-4 w-4 mr-2" />
-              Invoice Tool
-            </TabsTrigger>
-            <TabsTrigger value="financial-dashboard">
-              <BarChart3 className="h-4 w-4 mr-2" />
-              Dashboard
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="staff-salary">
-            <StaffSalaryViewer />
-          </TabsContent>
-
-          <TabsContent value="portfolio-earnings">
-            <PortfolioManagerEarnings />
-          </TabsContent>
-
-          <TabsContent value="invoice-tool">
-            <UniversalInvoiceTool />
-          </TabsContent>
-
-          <TabsContent value="financial-dashboard">
-            <FinancialDashboard />
-          </TabsContent>
-        </Tabs>
+        <div className="flex items-center gap-4">
+          <Select value={selectedYear.toString()} onValueChange={(value) => setSelectedYear(parseInt(value))}>
+            <SelectTrigger className="w-24">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {[2023, 2024, 2025].map((year) => (
+                <SelectItem key={year} value={year.toString()}>{year}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={selectedMonth.toString()} onValueChange={(value) => setSelectedMonth(parseInt(value))}>
+            <SelectTrigger className="w-32">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {Array.from({ length: 12 }, (_, i) => i + 1).map((month) => (
+                <SelectItem key={month} value={month.toString()}>
+                  {format(new Date(2023, month - 1, 1), "MMMM")}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
+
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+        <TabsList className="grid w-full grid-cols-4">
+          <TabsTrigger value="staff-salaries" className="flex items-center gap-2">
+            <Users className="h-4 w-4" />
+            Staff Salaries
+          </TabsTrigger>
+          <TabsTrigger value="pm-earnings" className="flex items-center gap-2">
+            <Building className="h-4 w-4" />
+            PM Earnings
+          </TabsTrigger>
+          <TabsTrigger value="invoice-tool" className="flex items-center gap-2">
+            <Receipt className="h-4 w-4" />
+            Invoice Tool
+          </TabsTrigger>
+          <TabsTrigger value="financial-dashboard" className="flex items-center gap-2">
+            <TrendingUp className="h-4 w-4" />
+            Dashboard
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="staff-salaries" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Users className="h-5 w-5" />
+                Staff Salary Management
+              </CardTitle>
+              <CardDescription>
+                View and manage monthly staff salary payments and records
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {isLoadingPayroll ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {staffPayrollRecords.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                      <p>No payroll records found for {format(new Date(selectedYear, selectedMonth - 1, 1), "MMMM yyyy")}</p>
+                    </div>
+                  ) : (
+                    <div className="grid gap-4">
+                      {staffPayrollRecords.map((record: any) => (
+                        <Card key={record.id} className="p-4">
+                          <div className="flex items-center justify-between">
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-2">
+                                <h4 className="font-semibold">{record.staffId}</h4>
+                                <Badge variant={record.paymentStatus === 'paid' ? 'default' : 'secondary'}>
+                                  {record.paymentStatus}
+                                </Badge>
+                              </div>
+                              <p className="text-sm text-muted-foreground">
+                                Period: {record.payrollPeriod} | Net Pay: ฿{parseFloat(record.netPay).toLocaleString()}
+                              </p>
+                              {record.paymentDate && (
+                                <p className="text-sm text-green-600">
+                                  Paid on {format(new Date(record.paymentDate), "dd MMM yyyy")}
+                                </p>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2">
+                              {record.paymentStatus === 'pending' && (
+                                <Button
+                                  size="sm"
+                                  onClick={() => handleMarkPayrollPaid(record.id)}
+                                  disabled={markPayrollPaidMutation.isPending}
+                                >
+                                  <CheckCircle className="h-4 w-4 mr-2" />
+                                  Mark Paid
+                                </Button>
+                              )}
+                              <Button variant="outline" size="sm">
+                                <Download className="h-4 w-4 mr-2" />
+                                PDF
+                              </Button>
+                            </div>
+                          </div>
+                        </Card>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="pm-earnings" className="space-y-6">
+          <div className="grid gap-6 md:grid-cols-2">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Building className="h-5 w-5" />
+                  Portfolio Manager Commissions
+                </CardTitle>
+                <CardDescription>
+                  Monthly commission earnings and payout management
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {isLoadingPMCommissions ? (
+                  <div className="flex items-center justify-center py-8">
+                    <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {portfolioCommissions.map((commission: any) => (
+                      <Card key={commission.id} className="p-4">
+                        <div className="flex items-center justify-between">
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2">
+                              <h4 className="font-semibold">{commission.managerId}</h4>
+                              <Badge variant={commission.payoutStatus === 'paid' ? 'default' : 'secondary'}>
+                                {commission.payoutStatus}
+                              </Badge>
+                            </div>
+                            <p className="text-sm text-muted-foreground">
+                              Commission: ฿{parseFloat(commission.commissionAmount).toLocaleString()} ({commission.commissionRate}%)
+                            </p>
+                            <p className="text-sm text-muted-foreground">
+                              Properties: {commission.totalProperties} | Revenue: ฿{parseFloat(commission.totalRevenue).toLocaleString()}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {commission.payoutStatus === 'pending' && (
+                              <Button
+                                size="sm"
+                                onClick={() => handleRequestPayout(commission.id, 'portfolio-manager')}
+                                disabled={requestPayoutMutation.isPending}
+                              >
+                                <DollarSign className="h-4 w-4 mr-2" />
+                                Request Payout
+                              </Button>
+                            )}
+                            <Button variant="outline" size="sm">
+                              <Receipt className="h-4 w-4 mr-2" />
+                              Generate Invoice
+                            </Button>
+                          </div>
+                        </div>
+                      </Card>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Users className="h-5 w-5" />
+                  Referral Agent Commissions
+                </CardTitle>
+                <CardDescription>
+                  10% commission tracking and payment requests
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {isLoadingRACommissions ? (
+                  <div className="flex items-center justify-center py-8">
+                    <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {referralCommissions.map((commission: any) => (
+                      <Card key={commission.id} className="p-4">
+                        <div className="flex items-center justify-between">
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2">
+                              <h4 className="font-semibold">{commission.agentId}</h4>
+                              <Badge variant={commission.paymentStatus === 'paid' ? 'default' : 'secondary'}>
+                                {commission.paymentStatus}
+                              </Badge>
+                            </div>
+                            <p className="text-sm text-muted-foreground">
+                              {commission.propertyName} | ฿{parseFloat(commission.commissionAmount).toLocaleString()}
+                            </p>
+                            <p className="text-sm text-muted-foreground">
+                              Occupancy: {commission.occupancyRate}% | Rating: {commission.averageReviewScore}/5
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {commission.paymentStatus === 'pending' && (
+                              <Button
+                                size="sm"
+                                onClick={() => handleRequestPayout(commission.id, 'referral-agent')}
+                                disabled={requestPayoutMutation.isPending}
+                              >
+                                <DollarSign className="h-4 w-4 mr-2" />
+                                Request Payment
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      </Card>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="invoice-tool" className="space-y-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-2xl font-bold">Universal Invoice Generator</h2>
+              <p className="text-muted-foreground">Create custom invoices for any purpose</p>
+            </div>
+            <Dialog open={isCreateInvoiceOpen} onOpenChange={setIsCreateInvoiceOpen}>
+              <DialogTrigger asChild>
+                <Button>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Create Invoice
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle>Create New Invoice</DialogTitle>
+                  <DialogDescription>
+                    Generate a professional invoice for any business purpose
+                  </DialogDescription>
+                </DialogHeader>
+                <Form {...invoiceForm}>
+                  <form onSubmit={invoiceForm.handleSubmit(onSubmitInvoice)} className="space-y-6">
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <FormField
+                        control={invoiceForm.control}
+                        name="invoiceType"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Invoice Type</FormLabel>
+                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select invoice type" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                <SelectItem value="commission">Commission</SelectItem>
+                                <SelectItem value="service">Service Fee</SelectItem>
+                                <SelectItem value="reimbursement">Reimbursement</SelectItem>
+                                <SelectItem value="maintenance">Maintenance</SelectItem>
+                                <SelectItem value="cleaning">Cleaning Fee</SelectItem>
+                                <SelectItem value="custom">Custom</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={invoiceForm.control}
+                        name="dueDate"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Due Date</FormLabel>
+                            <FormControl>
+                              <Input type="date" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <div className="space-y-4">
+                        <h3 className="font-semibold">From (Sender)</h3>
+                        <FormField
+                          control={invoiceForm.control}
+                          name="fromName"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Name/Company</FormLabel>
+                              <FormControl>
+                                <Input placeholder="Your name or company" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={invoiceForm.control}
+                          name="fromEmail"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Email</FormLabel>
+                              <FormControl>
+                                <Input type="email" placeholder="your@email.com" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={invoiceForm.control}
+                          name="fromAddress"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Address</FormLabel>
+                              <FormControl>
+                                <Textarea placeholder="Your address" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+
+                      <div className="space-y-4">
+                        <h3 className="font-semibold">To (Recipient)</h3>
+                        <FormField
+                          control={invoiceForm.control}
+                          name="toName"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Name/Company</FormLabel>
+                              <FormControl>
+                                <Input placeholder="Recipient name or company" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={invoiceForm.control}
+                          name="toEmail"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Email</FormLabel>
+                              <FormControl>
+                                <Input type="email" placeholder="recipient@email.com" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={invoiceForm.control}
+                          name="toAddress"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Address</FormLabel>
+                              <FormControl>
+                                <Textarea placeholder="Recipient address" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                    </div>
+
+                    <FormField
+                      control={invoiceForm.control}
+                      name="description"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Description</FormLabel>
+                          <FormControl>
+                            <Textarea placeholder="Invoice description or notes" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <h3 className="font-semibold">Line Items</h3>
+                        <Button type="button" variant="outline" size="sm" onClick={addLineItem}>
+                          <Plus className="h-4 w-4 mr-2" />
+                          Add Item
+                        </Button>
+                      </div>
+                      
+                      {invoiceForm.watch("lineItems").map((_, index) => (
+                        <div key={index} className="grid gap-4 md:grid-cols-4 p-4 border rounded-lg">
+                          <FormField
+                            control={invoiceForm.control}
+                            name={`lineItems.${index}.description`}
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Description</FormLabel>
+                                <FormControl>
+                                  <Input placeholder="Item description" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          <FormField
+                            control={invoiceForm.control}
+                            name={`lineItems.${index}.quantity`}
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Quantity</FormLabel>
+                                <FormControl>
+                                  <Input type="number" placeholder="1" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          <FormField
+                            control={invoiceForm.control}
+                            name={`lineItems.${index}.unitPrice`}
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Unit Price (฿)</FormLabel>
+                                <FormControl>
+                                  <Input type="number" step="0.01" placeholder="0.00" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          <div className="flex items-end">
+                            {invoiceForm.watch("lineItems").length > 1 && (
+                              <Button 
+                                type="button" 
+                                variant="outline" 
+                                size="sm"
+                                onClick={() => removeLineItem(index)}
+                              >
+                                Remove
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                      
+                      <div className="flex justify-end">
+                        <div className="text-right">
+                          <p className="text-lg font-semibold">
+                            Total: ฿{calculateInvoiceTotal().toLocaleString()}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex justify-end gap-4">
+                      <Button type="button" variant="outline" onClick={() => setIsCreateInvoiceOpen(false)}>
+                        Cancel
+                      </Button>
+                      <Button type="submit" disabled={createInvoiceMutation.isPending}>
+                        {createInvoiceMutation.isPending ? (
+                          <>
+                            <div className="animate-spin w-4 h-4 border-2 border-current border-t-transparent rounded-full mr-2" />
+                            Creating...
+                          </>
+                        ) : (
+                          <>
+                            <Receipt className="h-4 w-4 mr-2" />
+                            Create Invoice
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </form>
+                </Form>
+              </DialogContent>
+            </Dialog>
+          </div>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Recent Invoices</CardTitle>
+              <CardDescription>All generated invoices and their status</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {isLoadingInvoices ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {universalInvoices.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                      <p>No invoices created yet</p>
+                    </div>
+                  ) : (
+                    universalInvoices.map((invoice: any) => (
+                      <Card key={invoice.id} className="p-4">
+                        <div className="flex items-center justify-between">
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2">
+                              <h4 className="font-semibold">{invoice.invoiceNumber}</h4>
+                              <Badge variant={invoice.status === 'paid' ? 'default' : 'secondary'}>
+                                {invoice.status}
+                              </Badge>
+                              <Badge variant="outline">{invoice.invoiceType}</Badge>
+                            </div>
+                            <p className="text-sm text-muted-foreground">
+                              {invoice.fromName} → {invoice.toName}
+                            </p>
+                            <p className="text-sm font-medium">
+                              ฿{parseFloat(invoice.totalAmount).toLocaleString()}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Button variant="outline" size="sm">
+                              <Edit3 className="h-4 w-4 mr-2" />
+                              Edit
+                            </Button>
+                            <Button variant="outline" size="sm">
+                              <Download className="h-4 w-4 mr-2" />
+                              PDF
+                            </Button>
+                          </div>
+                        </div>
+                      </Card>
+                    ))
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="financial-dashboard" className="space-y-6">
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Monthly Payroll</CardTitle>
+                <DollarSign className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">
+                  ฿{salaryAnalytics?.totalMonthlyPayroll?.toLocaleString() || "0"}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Pending: ฿{salaryAnalytics?.totalPendingPayments?.toLocaleString() || "0"}
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">PM Commissions</CardTitle>
+                <Building className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">
+                  ฿{commissionAnalytics?.portfolioManagerEarnings?.toLocaleString() || "0"}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  +{commissionAnalytics?.monthlyGrowth?.toFixed(1) || "0"}% from last month
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Referral Commissions</CardTitle>
+                <Users className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">
+                  ฿{commissionAnalytics?.referralAgentEarnings?.toLocaleString() || "0"}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  10% of management fees
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Total Pending</CardTitle>
+                <Clock className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">
+                  ฿{commissionAnalytics?.totalCommissionsPending?.toLocaleString() || "0"}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Awaiting approval
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="grid gap-6 md:grid-cols-2">
+            <Card>
+              <CardHeader>
+                <CardTitle>Recent Financial Activity</CardTitle>
+                <CardDescription>Latest payments and transactions</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {/* Recent activity would be populated from API */}
+                  <div className="flex items-center gap-4">
+                    <div className="w-2 h-2 rounded-full bg-green-500" />
+                    <div className="flex-1">
+                      <p className="text-sm font-medium">Staff salary paid</p>
+                      <p className="text-xs text-muted-foreground">2 hours ago</p>
+                    </div>
+                    <p className="text-sm font-medium">฿15,000</p>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <div className="w-2 h-2 rounded-full bg-blue-500" />
+                    <div className="flex-1">
+                      <p className="text-sm font-medium">Commission generated</p>
+                      <p className="text-xs text-muted-foreground">5 hours ago</p>
+                    </div>
+                    <p className="text-sm font-medium">฿8,500</p>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <div className="w-2 h-2 rounded-full bg-purple-500" />
+                    <div className="flex-1">
+                      <p className="text-sm font-medium">Invoice created</p>
+                      <p className="text-xs text-muted-foreground">1 day ago</p>
+                    </div>
+                    <p className="text-sm font-medium">฿3,200</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Quick Actions</CardTitle>
+                <CardDescription>Common financial management tasks</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <Button variant="outline" className="h-20 flex-col">
+                    <Receipt className="h-6 w-6 mb-2" />
+                    Generate Report
+                  </Button>
+                  <Button variant="outline" className="h-20 flex-col">
+                    <Upload className="h-6 w-6 mb-2" />
+                    Upload Receipt
+                  </Button>
+                  <Button variant="outline" className="h-20 flex-col">
+                    <Calculator className="h-6 w-6 mb-2" />
+                    Tax Calculator
+                  </Button>
+                  <Button variant="outline" className="h-20 flex-col">
+                    <FileText className="h-6 w-6 mb-2" />
+                    Export Data
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

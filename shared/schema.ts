@@ -2542,6 +2542,301 @@ export type InsertAiMessageAnalysis = z.infer<typeof insertAiMessageAnalysisSche
 export type MessageDelivery = typeof messageDeliveries.$inferSelect;
 export type InsertMessageDelivery = z.infer<typeof insertMessageDeliverySchema>;
 
+// ===== PAYROLL, COMMISSION & INVOICE MANAGEMENT SYSTEM =====
+
+// Enhanced Staff Payroll Tracking
+export const staffPayrollRecords = pgTable("staff_payroll_records", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  staffId: varchar("staff_id").references(() => users.id).notNull(),
+  
+  // Payroll Period
+  payrollPeriod: varchar("payroll_period").notNull(), // "2025-01" format
+  payrollYear: integer("payroll_year").notNull(),
+  payrollMonth: integer("payroll_month").notNull(),
+  
+  // Salary Components
+  baseSalary: decimal("base_salary", { precision: 10, scale: 2 }).notNull(),
+  taskBonuses: decimal("task_bonuses", { precision: 10, scale: 2 }).default("0"),
+  commissionEarned: decimal("commission_earned", { precision: 10, scale: 2 }).default("0"),
+  overtime: decimal("overtime", { precision: 10, scale: 2 }).default("0"),
+  tips: decimal("tips", { precision: 10, scale: 2 }).default("0"),
+  allowances: decimal("allowances", { precision: 10, scale: 2 }).default("0"),
+  
+  // Deductions
+  deductions: decimal("deductions", { precision: 10, scale: 2 }).default("0"),
+  taxes: decimal("taxes", { precision: 10, scale: 2 }).default("0"),
+  socialSecurity: decimal("social_security", { precision: 10, scale: 2 }).default("0"),
+  
+  // Total Calculations
+  grossPay: decimal("gross_pay", { precision: 10, scale: 2 }).notNull(),
+  netPay: decimal("net_pay", { precision: 10, scale: 2 }).notNull(),
+  
+  // Payment Details
+  paymentStatus: varchar("payment_status").default("pending"), // pending, paid, overdue
+  paymentDate: timestamp("payment_date"),
+  paymentMethod: varchar("payment_method"), // bank_transfer, cash, check
+  paymentReference: varchar("payment_reference"),
+  paymentSlipUrl: varchar("payment_slip_url"),
+  
+  // Admin Actions
+  processedBy: varchar("processed_by").references(() => users.id),
+  approvedBy: varchar("approved_by").references(() => users.id),
+  notes: text("notes"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Portfolio Manager Commission Tracking
+export const portfolioManagerCommissions = pgTable("portfolio_manager_commissions", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  managerId: varchar("manager_id").references(() => users.id).notNull(),
+  
+  // Commission Period
+  commissionPeriod: varchar("commission_period").notNull(), // "2025-01"
+  commissionYear: integer("commission_year").notNull(),
+  commissionMonth: integer("commission_month").notNull(),
+  
+  // Property Portfolio
+  propertyIds: varchar("property_ids").array().notNull(),
+  totalProperties: integer("total_properties").notNull(),
+  
+  // Revenue Data
+  totalRevenue: decimal("total_revenue", { precision: 12, scale: 2 }).notNull(),
+  managementFees: decimal("management_fees", { precision: 12, scale: 2 }).notNull(),
+  commissionRate: decimal("commission_rate", { precision: 5, scale: 2 }).default("50"), // 50%
+  commissionAmount: decimal("commission_amount", { precision: 12, scale: 2 }).notNull(),
+  
+  // Performance Metrics
+  averageOccupancy: decimal("average_occupancy", { precision: 5, scale: 2 }),
+  averageReviewScore: decimal("average_review_score", { precision: 3, scale: 2 }),
+  totalBookings: integer("total_bookings").default(0),
+  
+  // Payment Status
+  payoutStatus: varchar("payout_status").default("pending"), // pending, approved, paid
+  payoutRequestedAt: timestamp("payout_requested_at"),
+  payoutApprovedAt: timestamp("payout_approved_at"),
+  payoutPaidAt: timestamp("payout_paid_at"),
+  
+  // Invoice Generation
+  invoiceGenerated: boolean("invoice_generated").default(false),
+  invoiceNumber: varchar("invoice_number"),
+  invoicePdfUrl: varchar("invoice_pdf_url"),
+  
+  // Admin Actions
+  approvedBy: varchar("approved_by").references(() => users.id),
+  processedBy: varchar("processed_by").references(() => users.id),
+  notes: text("notes"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Referral Agent Commission Logs
+export const referralAgentCommissionLogs = pgTable("referral_agent_commission_logs", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  agentId: varchar("agent_id").references(() => users.id).notNull(),
+  
+  // Commission Period
+  commissionPeriod: varchar("commission_period").notNull(), // "2025-01"
+  commissionYear: integer("commission_year").notNull(),
+  commissionMonth: integer("commission_month").notNull(),
+  
+  // Property Referrals
+  propertyId: integer("property_id").references(() => properties.id).notNull(),
+  propertyName: varchar("property_name").notNull(),
+  
+  // Revenue Data
+  managementRevenue: decimal("management_revenue", { precision: 10, scale: 2 }).notNull(),
+  commissionRate: decimal("commission_rate", { precision: 5, scale: 2 }).default("10"), // 10%
+  commissionAmount: decimal("commission_amount", { precision: 10, scale: 2 }).notNull(),
+  
+  // Property Performance
+  occupancyRate: decimal("occupancy_rate", { precision: 5, scale: 2 }),
+  averageReviewScore: decimal("average_review_score", { precision: 3, scale: 2 }),
+  monthlyBookings: integer("monthly_bookings").default(0),
+  
+  // Payment Tracking
+  paymentStatus: varchar("payment_status").default("pending"), // pending, requested, paid
+  paymentRequestedAt: timestamp("payment_requested_at"),
+  paymentConfirmedAt: timestamp("payment_confirmed_at"),
+  paymentSlipUrl: varchar("payment_slip_url"),
+  
+  // Admin Actions
+  processedBy: varchar("processed_by").references(() => users.id),
+  notes: text("notes"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Universal Invoice Generator
+export const universalInvoices = pgTable("universal_invoices", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  
+  // Invoice Details
+  invoiceNumber: varchar("invoice_number").unique().notNull(),
+  invoiceType: varchar("invoice_type").notNull(), // payroll, commission, service, reimbursement, custom
+  
+  // Parties
+  fromName: varchar("from_name").notNull(),
+  fromAddress: text("from_address"),
+  fromEmail: varchar("from_email"),
+  fromPhone: varchar("from_phone"),
+  
+  toName: varchar("to_name").notNull(),
+  toAddress: text("to_address"),
+  toEmail: varchar("to_email"),
+  toPhone: varchar("to_phone"),
+  
+  // Invoice Content
+  invoiceDate: timestamp("invoice_date").notNull(),
+  dueDate: timestamp("due_date"),
+  description: text("description"),
+  
+  // Financial Details
+  subtotal: decimal("subtotal", { precision: 12, scale: 2 }).notNull(),
+  taxRate: decimal("tax_rate", { precision: 5, scale: 2 }).default("0"),
+  taxAmount: decimal("tax_amount", { precision: 12, scale: 2 }).default("0"),
+  discountAmount: decimal("discount_amount", { precision: 12, scale: 2 }).default("0"),
+  totalAmount: decimal("total_amount", { precision: 12, scale: 2 }).notNull(),
+  
+  // Currency & Payment
+  currency: varchar("currency").default("THB"),
+  paymentTerms: varchar("payment_terms"),
+  paymentMethod: varchar("payment_method"),
+  
+  // Status
+  status: varchar("status").default("draft"), // draft, sent, paid, overdue, cancelled
+  
+  // File Attachments
+  invoicePdfUrl: varchar("invoice_pdf_url"),
+  receiptUrl: varchar("receipt_url"),
+  attachmentUrls: varchar("attachment_urls").array(),
+  
+  // Metadata
+  createdBy: varchar("created_by").references(() => users.id).notNull(),
+  tags: varchar("tags").array(),
+  relatedEntityType: varchar("related_entity_type"), // payroll, commission, property, booking
+  relatedEntityId: varchar("related_entity_id"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Invoice Line Items
+export const universalInvoiceLineItems = pgTable("universal_invoice_line_items", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  invoiceId: integer("invoice_id").references(() => universalInvoices.id).notNull(),
+  
+  // Line Item Details
+  description: text("description").notNull(),
+  quantity: decimal("quantity", { precision: 10, scale: 2 }).default("1"),
+  unitPrice: decimal("unit_price", { precision: 10, scale: 2 }).notNull(),
+  lineTotal: decimal("line_total", { precision: 10, scale: 2 }).notNull(),
+  
+  // Categorization
+  category: varchar("category"), // cleaning, maintenance, commission, salary, bonus, reimbursement
+  tags: varchar("tags").array(),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Payment Confirmations & Slips
+export const paymentConfirmations = pgTable("payment_confirmations", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  
+  // Payment Reference
+  paymentType: varchar("payment_type").notNull(), // payroll, commission, invoice
+  referenceEntityType: varchar("reference_entity_type").notNull(), // payroll_record, commission, invoice
+  referenceEntityId: integer("reference_entity_id").notNull(),
+  
+  // Payment Details
+  paymentAmount: decimal("payment_amount", { precision: 12, scale: 2 }).notNull(),
+  paymentDate: timestamp("payment_date").notNull(),
+  paymentMethod: varchar("payment_method").notNull(),
+  paymentReference: varchar("payment_reference"),
+  
+  // Bank/Transfer Details
+  bankName: varchar("bank_name"),
+  accountNumber: varchar("account_number"),
+  transactionId: varchar("transaction_id"),
+  
+  // File Uploads
+  paymentSlipUrl: varchar("payment_slip_url"),
+  receiptUrl: varchar("receipt_url"),
+  
+  // Status & Confirmation
+  confirmationStatus: varchar("confirmation_status").default("pending"), // pending, confirmed, disputed
+  confirmedBy: varchar("confirmed_by").references(() => users.id),
+  confirmedAt: timestamp("confirmed_at"),
+  
+  // Metadata
+  uploadedBy: varchar("uploaded_by").references(() => users.id).notNull(),
+  notes: text("notes"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// ===== PAYROLL, COMMISSION & INVOICE SYSTEM SCHEMAS AND TYPES =====
+
+// Insert schemas for payroll system
+export const insertStaffPayrollRecordSchema = createInsertSchema(staffPayrollRecords).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertPortfolioManagerCommissionSchema = createInsertSchema(portfolioManagerCommissions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertReferralAgentCommissionLogSchema = createInsertSchema(referralAgentCommissionLogs).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertUniversalInvoiceSchema = createInsertSchema(universalInvoices).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertUniversalInvoiceLineItemSchema = createInsertSchema(universalInvoiceLineItems).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertPaymentConfirmationSchema = createInsertSchema(paymentConfirmations).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+// Type definitions for payroll system
+export type StaffPayrollRecord = typeof staffPayrollRecords.$inferSelect;
+export type InsertStaffPayrollRecord = z.infer<typeof insertStaffPayrollRecordSchema>;
+export type PortfolioManagerCommission = typeof portfolioManagerCommissions.$inferSelect;
+export type InsertPortfolioManagerCommission = z.infer<typeof insertPortfolioManagerCommissionSchema>;
+export type ReferralAgentCommissionLog = typeof referralAgentCommissionLogs.$inferSelect;
+export type InsertReferralAgentCommissionLog = z.infer<typeof insertReferralAgentCommissionLogSchema>;
+export type UniversalInvoice = typeof universalInvoices.$inferSelect;
+export type InsertUniversalInvoice = z.infer<typeof insertUniversalInvoiceSchema>;
+export type UniversalInvoiceLineItem = typeof universalInvoiceLineItems.$inferSelect;
+export type InsertUniversalInvoiceLineItem = z.infer<typeof insertUniversalInvoiceLineItemSchema>;
+export type PaymentConfirmation = typeof paymentConfirmations.$inferSelect;
+export type InsertPaymentConfirmation = z.infer<typeof insertPaymentConfirmationSchema>;
+
 // ===== STAFF DASHBOARD TYPES =====
 
 
