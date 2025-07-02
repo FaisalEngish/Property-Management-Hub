@@ -3683,6 +3683,260 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ===== UTILITY PROVIDERS & CUSTOM EXPENSE MANAGEMENT API ENDPOINTS =====
+
+  // Get utility providers
+  app.get("/api/utility-providers", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = "demo-org-1"; // Demo organization
+      const { utilityType } = req.query;
+      
+      const providers = await storage.getUtilityProviders(organizationId, utilityType);
+      res.json(providers);
+    } catch (error) {
+      console.error("Error fetching utility providers:", error);
+      res.status(500).json({ message: "Failed to fetch utility providers" });
+    }
+  });
+
+  // Create utility provider
+  app.post("/api/utility-providers", isDemoAuthenticated, isAdminOnly, async (req: any, res) => {
+    try {
+      const organizationId = "demo-org-1"; // Demo organization
+      const user = req.user;
+      
+      const providerData = {
+        ...req.body,
+        organizationId,
+        createdBy: user.id,
+      };
+
+      const provider = await storage.createUtilityProvider(providerData);
+      res.json(provider);
+    } catch (error) {
+      console.error("Error creating utility provider:", error);
+      res.status(500).json({ message: "Failed to create utility provider" });
+    }
+  });
+
+  // Update utility provider
+  app.put("/api/utility-providers/:id", isDemoAuthenticated, isAdminOnly, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const provider = await storage.updateUtilityProvider(parseInt(id), req.body);
+      res.json(provider);
+    } catch (error) {
+      console.error("Error updating utility provider:", error);
+      res.status(500).json({ message: "Failed to update utility provider" });
+    }
+  });
+
+  // Delete utility provider
+  app.delete("/api/utility-providers/:id", isDemoAuthenticated, isAdminOnly, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      await storage.deleteUtilityProvider(parseInt(id));
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting utility provider:", error);
+      res.status(500).json({ message: "Failed to delete utility provider" });
+    }
+  });
+
+  // Get custom expense categories
+  app.get("/api/custom-expense-categories", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = "demo-org-1"; // Demo organization
+      const categories = await storage.getCustomExpenseCategories(organizationId);
+      res.json(categories);
+    } catch (error) {
+      console.error("Error fetching custom expense categories:", error);
+      res.status(500).json({ message: "Failed to fetch custom expense categories" });
+    }
+  });
+
+  // Create custom expense category
+  app.post("/api/custom-expense-categories", isDemoAuthenticated, isAdminOnly, async (req: any, res) => {
+    try {
+      const organizationId = "demo-org-1"; // Demo organization
+      const user = req.user;
+      
+      const categoryData = {
+        ...req.body,
+        organizationId,
+        createdBy: user.id,
+      };
+
+      const category = await storage.createCustomExpenseCategory(categoryData);
+      res.json(category);
+    } catch (error) {
+      console.error("Error creating custom expense category:", error);
+      res.status(500).json({ message: "Failed to create custom expense category" });
+    }
+  });
+
+  // Update custom expense category
+  app.put("/api/custom-expense-categories/:id", isDemoAuthenticated, isAdminOnly, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const category = await storage.updateCustomExpenseCategory(parseInt(id), req.body);
+      res.json(category);
+    } catch (error) {
+      console.error("Error updating custom expense category:", error);
+      res.status(500).json({ message: "Failed to update custom expense category" });
+    }
+  });
+
+  // Delete custom expense category
+  app.delete("/api/custom-expense-categories/:id", isDemoAuthenticated, isAdminOnly, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      await storage.deleteCustomExpenseCategory(parseInt(id));
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting custom expense category:", error);
+      res.status(500).json({ message: "Failed to delete custom expense category" });
+    }
+  });
+
+  // Get property utility settings
+  app.get("/api/property-utility-settings", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = "demo-org-1"; // Demo organization
+      const { propertyId } = req.query;
+      
+      const settings = await storage.getPropertyUtilitySettings(
+        organizationId, 
+        propertyId ? parseInt(propertyId) : undefined
+      );
+      res.json(settings);
+    } catch (error) {
+      console.error("Error fetching property utility settings:", error);
+      res.status(500).json({ message: "Failed to fetch property utility settings" });
+    }
+  });
+
+  // Create property utility settings
+  app.post("/api/property-utility-settings", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = "demo-org-1"; // Demo organization
+      const user = req.user;
+      
+      const settingsData = {
+        ...req.body,
+        organizationId,
+        createdBy: user.id,
+      };
+
+      const settings = await storage.createPropertyUtilitySettings(settingsData);
+      res.json(settings);
+    } catch (error) {
+      console.error("Error creating property utility settings:", error);
+      res.status(500).json({ message: "Failed to create property utility settings" });
+    }
+  });
+
+  // Update property utility settings
+  app.put("/api/property-utility-settings/:id", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const settings = await storage.updatePropertyUtilitySettings(parseInt(id), req.body);
+      res.json(settings);
+    } catch (error) {
+      console.error("Error updating property utility settings:", error);
+      res.status(500).json({ message: "Failed to update property utility settings" });
+    }
+  });
+
+  // Delete property utility settings
+  app.delete("/api/property-utility-settings/:id", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      await storage.deletePropertyUtilitySettings(parseInt(id));
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting property utility settings:", error);
+      res.status(500).json({ message: "Failed to delete property utility settings" });
+    }
+  });
+
+  // Get property custom expenses
+  app.get("/api/property-custom-expenses", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = "demo-org-1"; // Demo organization
+      const { propertyId } = req.query;
+      
+      const expenses = await storage.getPropertyCustomExpenses(
+        organizationId, 
+        propertyId ? parseInt(propertyId) : undefined
+      );
+      res.json(expenses);
+    } catch (error) {
+      console.error("Error fetching property custom expenses:", error);
+      res.status(500).json({ message: "Failed to fetch property custom expenses" });
+    }
+  });
+
+  // Create property custom expenses
+  app.post("/api/property-custom-expenses", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = "demo-org-1"; // Demo organization
+      const user = req.user;
+      
+      const expenseData = {
+        ...req.body,
+        organizationId,
+        createdBy: user.id,
+      };
+
+      const expense = await storage.createPropertyCustomExpenses(expenseData);
+      res.json(expense);
+    } catch (error) {
+      console.error("Error creating property custom expenses:", error);
+      res.status(500).json({ message: "Failed to create property custom expenses" });
+    }
+  });
+
+  // Update property custom expenses
+  app.put("/api/property-custom-expenses/:id", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const expense = await storage.updatePropertyCustomExpenses(parseInt(id), req.body);
+      res.json(expense);
+    } catch (error) {
+      console.error("Error updating property custom expenses:", error);
+      res.status(500).json({ message: "Failed to update property custom expenses" });
+    }
+  });
+
+  // Delete property custom expenses
+  app.delete("/api/property-custom-expenses/:id", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      await storage.deletePropertyCustomExpenses(parseInt(id));
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting property custom expenses:", error);
+      res.status(500).json({ message: "Failed to delete property custom expenses" });
+    }
+  });
+
+  // Seed default providers and categories (Admin only)
+  app.post("/api/admin/seed-defaults", isDemoAuthenticated, isAdminOnly, async (req: any, res) => {
+    try {
+      const organizationId = "demo-org-1"; // Demo organization
+      const user = req.user;
+      
+      await storage.seedDefaultUtilityProviders(organizationId, user.id);
+      await storage.seedDefaultCustomExpenseCategories(organizationId, user.id);
+      
+      res.json({ success: true, message: "Default providers and categories seeded successfully" });
+    } catch (error) {
+      console.error("Error seeding defaults:", error);
+      res.status(500).json({ message: "Failed to seed default data" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
