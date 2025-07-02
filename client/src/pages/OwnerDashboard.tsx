@@ -14,19 +14,62 @@ import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, For
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { format, parseISO } from "date-fns";
-import { Calendar, DollarSign, Clock, CheckCircle, AlertCircle, TrendingUp, Settings, FileText, Bell, Download, Upload, X } from "lucide-react";
+import { format, parseISO, startOfMonth, endOfMonth, startOfYear, endOfYear } from "date-fns";
+import { 
+  Calendar, 
+  DollarSign, 
+  Clock, 
+  CheckCircle, 
+  AlertCircle, 
+  TrendingUp, 
+  Settings, 
+  FileText, 
+  Bell, 
+  Download, 
+  Upload, 
+  X,
+  Lightbulb,
+  Wrench,
+  BarChart3,
+  MessageCircle,
+  Eye,
+  Star,
+  Building,
+  Users,
+  CreditCard,
+  Receipt,
+  PlusCircle,
+  CalendarDays,
+  Activity,
+  Wifi,
+  WifiOff,
+  ChevronRight,
+  ChevronDown,
+  ArrowUpRight,
+  ArrowDownRight,
+  Target
+} from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { useAuth } from "@/hooks/useAuth";
 
-// Types for owner dashboard data
+// Enhanced types for comprehensive owner dashboard
 interface DashboardStats {
-  totalRevenue: number;
-  totalBookings: number;
+  currentBalance: number;
+  averageNightlyRate: number;
+  totalEarnings: {
+    thisMonth: number;
+    thisYear: number;
+    customPeriod: number;
+  };
   upcomingBookings: number;
-  completedTasks: number;
-  pendingPayouts: number;
-  pendingPayoutAmount: number;
+  bookingSources: {
+    airbnb: number;
+    vrbo: number;
+    bookingCom: number;
+    direct: number;
+    marriott: number;
+  };
   properties: any[];
 }
 
@@ -36,18 +79,26 @@ interface FinancialSummary {
   addonRevenue: number;
   utilityDeductions: number;
   serviceDeductions: number;
+  welcomePackCosts: number;
   netBalance: number;
   breakdown: any[];
 }
 
 interface ActivityItem {
   id: number;
-  activityType: string;
+  activityType: 'check_in' | 'check_out' | 'task_completed' | 'maintenance_suggestion' | 'ai_suggestion' | 'guest_feedback';
   title: string;
   description?: string;
   propertyName?: string;
   createdAt: string;
-  metadata?: any;
+  metadata?: {
+    photos?: string[];
+    guestName?: string;
+    taskId?: number;
+    cost?: number;
+    aiConfidence?: number;
+    reviewSource?: string;
+  };
 }
 
 interface Booking {

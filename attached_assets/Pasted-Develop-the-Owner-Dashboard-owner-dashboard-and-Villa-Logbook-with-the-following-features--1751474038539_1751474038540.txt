@@ -1,0 +1,107 @@
+Develop the Owner Dashboard (/owner/dashboard) and Villa Logbook with the following features:
+
+---
+
+### 1. **Dashboard Overview**
+
+Owner sees:
+- Current balance (updated only on completed bookings)
+- Average nightly rate
+- Total earnings:
+  - This month
+  - This year
+  - Custom period (dropdown selector)
+- Total upcoming bookings
+- Booking source breakdown:
+  - Airbnb
+  - VRBO
+  - Booking.com
+  - Direct
+  - Marriott (if applicable)
+
+---
+
+### 2. **Recent Activity Timeline**
+- Booking log:
+  - “Guest A checked in – 12 June”
+  - “Guest B checked out – 16 June”
+- Task log:
+  - “Housekeeping cleaned – 17 June”
+  - “Pool cleaned – 17 June (Photos attached)”
+  - “Manager: ‘Front door lock needs replacement.’”
+    - → Confirm? → Leads to maintenance page with full task & optional cost
+- Maintenance suggestions (with reason + photos)
+- AI-generated suggestions from guest reviews (see below)
+
+---
+
+### 3. **AI Companion – Smart Suggestions**
+Tab: **“Improvements Suggested by AI”**
+- Reads guest reviews and flags concerns:
+  - e.g., “Several reviews mention uncomfortable mattress”
+  - Suggests: “Upgrade King Mattress – est. 12,000 THB”
+  - Owner can approve or request quote
+
+---
+
+### 4. **Finances & Balance Management**
+
+#### - Owner can:
+- View full breakdown of:
+  - Rental income
+  - Management commission
+  - Expenses per task
+  - Add-on services
+  - Utilities
+  - Welcome Pack & restocking
+- Request a payout:
+  - → Click “Request Balance Payout”
+  - → Notifies admin and assigned portfolio manager
+  - → System asks manager to upload proof of transfer
+  - → Owner receives notification + “Confirm Received” button
+- View payout logs
+- Upload receipts (in reverse: if owner pays a bill)
+
+---
+
+### 5. **Invoices & Reporting**
+- Auto-generated invoices from the system per month
+- Owner can also manually create invoices (to or from)
+  - With dynamic input: Title / Amount / Reason
+- Downloadable PDF format
+- All finance data exported monthly into downloadable report
+- Each report item links to task or booking reference
+
+---
+
+### 6. **Booking Insights**
+- Guest review log (all platforms)
+- Calendar of past and future guests
+- OTA sync status:
+  - Airbnb: Connected ✅
+  - VRBO: Connected ✅
+  - Direct: Active ✅
+  - Booking.com: Error ❌ (Optional)
+
+---
+
+### 7. **Custom Settings Per Owner**
+- Owner can:
+  - Set custom welcome pack cost (default: 300 THB per guest)
+  - Upload task checklist overrides
+  - Approve auto-payments (e.g., recurring maintenance)
+
+---
+
+### Login Sample:
+- test_owner@example.com / test123
+
+---
+
+### Visual / UI Suggestions:
+- “Smart Insights” area with icons: 💡🛠️📈
+- Timeline should feel like a Facebook feed (vertical log)
+- Button styles:
+  - ✅ Confirm
+  - 📎 View Details
+  - 💬 Chat With Manager (optional)
