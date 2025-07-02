@@ -33,6 +33,7 @@ import AdminAddonBookings from "@/pages/AdminAddonBookings";
 import AdminAddonSettings from "@/pages/AdminAddonSettings";
 import OwnerDashboard from "@/pages/OwnerDashboard";
 import PortfolioManagerDashboard from "@/pages/PortfolioManagerDashboard";
+import FinanceResetControl from "@/pages/FinanceResetControl";
 
 function Router() {
   const { isAuthenticated, isLoading, user } = useAuth();
@@ -99,6 +100,7 @@ function Router() {
           <Route path="/admin/add-ons-settings" component={AdminAddonSettings} />
           <Route path="/owner/dashboard" component={OwnerDashboard} />
           <Route path="/pm/dashboard" component={PortfolioManagerDashboard} />
+          <Route path="/admin/finance-reset" component={FinanceResetControl} />
           <Route path="/hostaway" component={Hostaway} />
           <Route path="/settings" component={Settings} />
         </>

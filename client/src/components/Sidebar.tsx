@@ -255,6 +255,13 @@ const navigationModules = [
         description: "Smart guest feedback monitoring and automatic task creation"
       },
       { 
+        path: "/admin/finance-reset", 
+        icon: Shield, 
+        label: "Finance Reset Control", 
+        roles: ["admin"],
+        description: "Admin-only balance management and audit controls"
+      },
+      { 
         path: "/settings", 
         icon: Settings, 
         label: "Settings", 
