@@ -103,6 +103,8 @@ HostPilotPro is a comprehensive property management platform designed for hospit
 - **Development Banner**: Replit environment detection
 
 ## Changelog
+- July 02, 2025. Added modular navigation system with role-based access control and collapsible sidebar
+- July 02, 2025. Enhanced navigation with Services and Payouts pages, department tagging for tasks
 - July 02, 2025. Initial setup
 
 ## User Preferences

@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import Sidebar from "@/components/Sidebar";
 import TopBar from "@/components/TopBar";
@@ -7,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Building, Calendar, ListTodo, DollarSign, Plus, Home, ClipboardList, TrendingUp } from "lucide-react";
 
 export default function Dashboard() {
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const { data: stats } = useQuery({
     queryKey: ["/api/dashboard/stats"],
   });
@@ -31,7 +33,11 @@ export default function Dashboard() {
       <Sidebar />
       
       <div className="flex-1 flex flex-col lg:ml-0">
-        <TopBar title="Dashboard" />
+        <TopBar 
+          title="Dashboard" 
+          subtitle="Welcome back! Here's your property overview"
+          onMobileMenuToggle={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+        />
         
         <main className="flex-1 overflow-auto p-6">
           {/* Stats Cards */}
