@@ -152,52 +152,6 @@ export default function TopBar({ title, subtitle, action, onMobileMenuToggle }: 
           </div>
         </div>
       </div>
-
-      {/* Notifications dropdown */}
-      {showNotifications && (
-        <div className="absolute right-4 top-16 w-80 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-50">
-          <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-            <h3 className="font-medium text-gray-900 dark:text-white">Notifications</h3>
-          </div>
-          <div className="max-h-96 overflow-y-auto">
-            <div className="p-4 hover:bg-gray-50 dark:hover:bg-gray-700 border-b border-gray-100 dark:border-gray-600">
-              <div className="flex items-start gap-3">
-                <div className="w-2 h-2 bg-blue-500 rounded-full mt-2"></div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-900 dark:text-white">New booking received</p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">Ocean View Suite for July 15-20</p>
-                  <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">2 minutes ago</p>
-                </div>
-              </div>
-            </div>
-            <div className="p-4 hover:bg-gray-50 dark:hover:bg-gray-700 border-b border-gray-100 dark:border-gray-600">
-              <div className="flex items-start gap-3">
-                <div className="w-2 h-2 bg-orange-500 rounded-full mt-2"></div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-900 dark:text-white">Task completed</p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">Pool maintenance at Villa Aurora</p>
-                  <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">1 hour ago</p>
-                </div>
-              </div>
-            </div>
-            <div className="p-4 hover:bg-gray-50 dark:hover:bg-gray-700">
-              <div className="flex items-start gap-3">
-                <div className="w-2 h-2 bg-green-500 rounded-full mt-2"></div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-900 dark:text-white">Payment received</p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">$2,450 from Ocean View Suite</p>
-                  <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">3 hours ago</p>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div className="p-2 border-t border-gray-200 dark:border-gray-700">
-            <Button variant="ghost" size="sm" className="w-full text-xs">
-              View all notifications
-            </Button>
-          </div>
-        </div>
-      )}
     </header>
   );
 }
