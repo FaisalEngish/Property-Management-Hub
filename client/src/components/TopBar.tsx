@@ -49,7 +49,6 @@ const roleColors = {
 
 export default function TopBar({ title, subtitle, action, onMobileMenuToggle }: TopBarProps) {
   const { user } = useAuth();
-  const [showNotifications, setShowNotifications] = useState(false);
   
   const userRole = (user as any)?.role || "guest";
   const RoleIcon = roleIcons[userRole as keyof typeof roleIcons] || Clock;

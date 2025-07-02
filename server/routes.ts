@@ -828,6 +828,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Owner payout not found" });
       }
       
+      // Send notification to the requester
+      await storage.notifyPayoutAction(payoutId, updatedPayout.requestedBy, 'approved', userData.claims.sub);
+      
       res.json(updatedPayout);
     } catch (error) {
       console.error("Error approving owner payout:", error);
@@ -999,6 +1002,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error deleting notification:", error);
       res.status(500).json({ message: "Failed to delete notification" });
+    }
+  });
+
+  // Test notification route for development
+  app.post("/api/test-notification", authenticatedTenantMiddleware, async (req, res) => {
+    try {
+      const { organizationId } = getTenantContext(req);
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: "User not authenticated" });
+      }
+
+      const notification = await storage.createNotification({
+        organizationId,
+        userId,
+        type: 'task_assignment',
+        title: 'Test Notification',
+        message: 'This is a test notification to verify the system is working',
+        relatedEntityType: 'test',
+        relatedEntityId: 1,
+        priority: 'normal',
+        actionUrl: '/dashboard',
+        actionLabel: 'View Dashboard',
+        createdBy: userId,
+      });
+
+      res.json(notification);
+    } catch (error) {
+      console.error("Error creating test notification:", error);
+      res.status(500).json({ message: "Failed to create test notification" });
     }
   });
 

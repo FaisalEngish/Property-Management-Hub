@@ -40,10 +40,7 @@ export function NotificationDropdown() {
 
   const markReadMutation = useMutation({
     mutationFn: async (id: number) => {
-      return apiRequest(`/api/notifications/${id}/read`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-      });
+      return apiRequest(`/api/notifications/${id}/read`, "POST");
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/notifications"] });
@@ -53,10 +50,7 @@ export function NotificationDropdown() {
 
   const markAllReadMutation = useMutation({
     mutationFn: async () => {
-      return apiRequest("/api/notifications/read-all", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-      });
+      return apiRequest("/api/notifications/read-all", "POST");
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/notifications"] });
@@ -66,10 +60,7 @@ export function NotificationDropdown() {
 
   const deleteNotificationMutation = useMutation({
     mutationFn: async (id: number) => {
-      return apiRequest(`/api/notifications/${id}`, {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-      });
+      return apiRequest(`/api/notifications/${id}`, "DELETE");
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/notifications"] });
