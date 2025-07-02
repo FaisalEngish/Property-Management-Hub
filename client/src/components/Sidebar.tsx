@@ -33,7 +33,9 @@ import {
   UserPlus,
   ShoppingCart,
   Brain,
-  RefreshCw
+  RefreshCw,
+  ClipboardList,
+  Plus
 } from "lucide-react";
 
 // Define navigation modules with hierarchical structure
@@ -153,6 +155,27 @@ const navigationModules = [
         label: "Property Media Library", 
         roles: ["admin", "portfolio-manager", "retail-agent", "referral-agent"],
         description: "Property photos, videos, and marketing materials with agent access controls"
+      },
+      { 
+        path: "/guest/add-ons", 
+        icon: Plus, 
+        label: "Guest Add-On Booking", 
+        roles: ["guest"],
+        description: "Book additional services during stay"
+      },
+      { 
+        path: "/admin/add-ons-bookings", 
+        icon: ClipboardList, 
+        label: "Add-On Bookings", 
+        roles: ["admin", "portfolio-manager", "staff"],
+        description: "Manage guest add-on service bookings"
+      },
+      { 
+        path: "/admin/add-ons-settings", 
+        icon: Settings, 
+        label: "Add-On Services", 
+        roles: ["admin", "portfolio-manager"],
+        description: "Configure available add-on services"
       },
     ]
   },

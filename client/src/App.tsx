@@ -88,6 +88,9 @@ function Router() {
           <Route path="/referral-agent" component={ReferralAgentDashboard} />
           <Route path="/retail-booking" component={RetailAgentBooking} />
           <Route path="/agent-media-library" component={PropertyMediaLibrary} />
+          <Route path="/guest/add-ons" component={GuestAddonBooking} />
+          <Route path="/admin/add-ons-bookings" component={AdminAddonBookings} />
+          <Route path="/admin/add-ons-settings" component={AdminAddonSettings} />
           <Route path="/hostaway" component={Hostaway} />
           <Route path="/settings" component={Settings} />
         </>
