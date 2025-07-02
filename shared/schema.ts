@@ -691,6 +691,96 @@ export const portfolioAssignmentsRelations = relations(portfolioAssignments, ({ 
   property: one(properties, { fields: [portfolioAssignments.propertyId], references: [properties.id] }),
 }));
 
+// Guest Add-On Service Booking Platform
+export const guestAddonServices = pgTable("guest_addon_services", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  serviceName: varchar("service_name").notNull(),
+  description: text("description"),
+  category: varchar("category").notNull(), // wellness, transport, cleaning, catering, etc.
+  pricingType: varchar("pricing_type").notNull(), // fixed, variable, hourly
+  basePrice: decimal("base_price", { precision: 10, scale: 2 }).notNull(),
+  currency: varchar("currency").default("AUD"),
+  isActive: boolean("is_active").default(true),
+  requiresTimeSlot: boolean("requires_time_slot").default(false),
+  maxAdvanceBookingDays: integer("max_advance_booking_days").default(30),
+  cancellationPolicyHours: integer("cancellation_policy_hours").default(24),
+  autoCreateTask: boolean("auto_create_task").default(true),
+  taskType: varchar("task_type"), // cleaning, transport, catering, etc.
+  taskPriority: varchar("task_priority").default("medium"), // high, medium, low
+  createdBy: varchar("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const guestAddonBookings = pgTable("guest_addon_bookings", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  serviceId: integer("service_id").references(() => guestAddonServices.id).notNull(),
+  propertyId: integer("property_id").references(() => properties.id).notNull(),
+  guestName: varchar("guest_name").notNull(),
+  guestEmail: varchar("guest_email"),
+  guestPhone: varchar("guest_phone"),
+  bookingDate: timestamp("booking_date").notNull(),
+  serviceDate: timestamp("service_date").notNull(),
+  status: varchar("status").notNull().default("pending"), // pending, confirmed, completed, cancelled
+  totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).notNull(),
+  currency: varchar("currency").default("AUD"),
+  billingRoute: varchar("billing_route").notNull(), // guest_billable, owner_billable, company_expense, complimentary
+  complimentaryType: varchar("complimentary_type"), // owner_gift, company_gift
+  paymentStatus: varchar("payment_status").default("pending"), // pending, paid, partial, failed
+  paymentMethod: varchar("payment_method"), // stripe, cash, bank_transfer, manual
+  stripePaymentIntentId: varchar("stripe_payment_intent_id"),
+  specialRequests: text("special_requests"),
+  internalNotes: text("internal_notes"),
+  assignedTaskId: integer("assigned_task_id").references(() => tasks.id), // auto-created task
+  bookedBy: varchar("booked_by").references(() => users.id).notNull(), // user ID who made the booking
+  confirmedBy: varchar("confirmed_by").references(() => users.id), // staff who confirmed
+  cancelledBy: varchar("cancelled_by").references(() => users.id), // who cancelled
+  cancellationReason: text("cancellation_reason"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const guestPortalAccess = pgTable("guest_portal_access", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  accessToken: varchar("access_token").notNull().unique(),
+  propertyId: integer("property_id").references(() => properties.id).notNull(),
+  guestName: varchar("guest_name").notNull(),
+  guestEmail: varchar("guest_email").notNull(),
+  checkInDate: timestamp("check_in_date").notNull(),
+  checkOutDate: timestamp("check_out_date").notNull(),
+  isActive: boolean("is_active").default(true),
+  createdBy: varchar("created_by").references(() => users.id).notNull(), // staff who created access
+  lastAccessedAt: timestamp("last_accessed_at"),
+  expiresAt: timestamp("expires_at").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Guest Add-On Service Relations
+export const guestAddonServicesRelations = relations(guestAddonServices, ({ one, many }) => ({
+  organization: one(organizations, { fields: [guestAddonServices.organizationId], references: [organizations.id] }),
+  createdByUser: one(users, { fields: [guestAddonServices.createdBy], references: [users.id] }),
+  bookings: many(guestAddonBookings),
+}));
+
+export const guestAddonBookingsRelations = relations(guestAddonBookings, ({ one }) => ({
+  organization: one(organizations, { fields: [guestAddonBookings.organizationId], references: [organizations.id] }),
+  service: one(guestAddonServices, { fields: [guestAddonBookings.serviceId], references: [guestAddonServices.id] }),
+  property: one(properties, { fields: [guestAddonBookings.propertyId], references: [properties.id] }),
+  bookedByUser: one(users, { fields: [guestAddonBookings.bookedBy], references: [users.id] }),
+  confirmedByUser: one(users, { fields: [guestAddonBookings.confirmedBy], references: [users.id] }),
+  cancelledByUser: one(users, { fields: [guestAddonBookings.cancelledBy], references: [users.id] }),
+  assignedTask: one(tasks, { fields: [guestAddonBookings.assignedTaskId], references: [tasks.id] }),
+}));
+
+export const guestPortalAccessRelations = relations(guestPortalAccess, ({ one }) => ({
+  organization: one(organizations, { fields: [guestPortalAccess.organizationId], references: [organizations.id] }),
+  property: one(properties, { fields: [guestPortalAccess.propertyId], references: [properties.id] }),
+  createdByUser: one(users, { fields: [guestPortalAccess.createdBy], references: [users.id] }),
+}));
+
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).omit({
   createdAt: true,
@@ -888,6 +978,24 @@ export const insertPortfolioAssignmentSchema = createInsertSchema(portfolioAssig
   assignedAt: true,
 });
 
+// Guest Add-On Service Insert schemas  
+export const insertGuestAddonServiceSchema = createInsertSchema(guestAddonServices).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertGuestAddonBookingSchema = createInsertSchema(guestAddonBookings).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertGuestPortalAccessSchema = createInsertSchema(guestPortalAccess).omit({
+  id: true,
+  createdAt: true,
+});
+
 export type InsertStaffSalary = z.infer<typeof insertStaffSalarySchema>;
 export type StaffSalary = typeof staffSalaries.$inferSelect;
 export type InsertCommissionEarning = z.infer<typeof insertCommissionEarningSchema>;
@@ -898,6 +1006,14 @@ export type InsertInvoiceLineItem = z.infer<typeof insertInvoiceLineItemSchema>;
 export type InvoiceLineItem = typeof invoiceLineItems.$inferSelect;
 export type InsertPortfolioAssignment = z.infer<typeof insertPortfolioAssignmentSchema>;
 export type PortfolioAssignment = typeof portfolioAssignments.$inferSelect;
+
+// Guest Add-On Service types
+export type InsertGuestAddonService = z.infer<typeof insertGuestAddonServiceSchema>;
+export type GuestAddonService = typeof guestAddonServices.$inferSelect;
+export type InsertGuestAddonBooking = z.infer<typeof insertGuestAddonBookingSchema>;
+export type GuestAddonBooking = typeof guestAddonBookings.$inferSelect;
+export type InsertGuestPortalAccess = z.infer<typeof insertGuestPortalAccessSchema>;
+export type GuestPortalAccess = typeof guestPortalAccess.$inferSelect;
 
 // ===== AGENT COMMISSION SYSTEM =====
 
