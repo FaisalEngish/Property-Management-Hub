@@ -36,6 +36,7 @@ import OwnerDashboard from "@/pages/OwnerDashboard";
 import PortfolioManagerDashboard from "@/pages/PortfolioManagerDashboard";
 import FinanceResetControl from "@/pages/FinanceResetControl";
 import UtilityCustomization from "@/pages/UtilityCustomization";
+import AgentCommissionDashboard from "@/pages/AgentCommissionDashboard";
 
 function Router() {
   const { isAuthenticated, isLoading, user } = useAuth();
@@ -110,6 +111,7 @@ function Router() {
           <Route path="/recurring-services" component={RecurringServicesBilling} />
           <Route path="/referral-agent" component={ReferralAgentDashboard} />
           <Route path="/retail-booking" component={RetailAgentBooking} />
+          <Route path="/agent-commission" component={AgentCommissionDashboard} />
           <Route path="/staff" component={StaffDashboard} />
           <Route path="/agent-media-library" component={PropertyMediaLibrary} />
           <Route path="/guest/add-ons" component={GuestAddonBooking} />

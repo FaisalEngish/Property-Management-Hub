@@ -3941,6 +3941,332 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ===== ENHANCED COMMISSION MANAGEMENT API =====
+
+  // Agent Commission Summary with KPIs (Agent Access)
+  app.get("/api/agent/commission-summary", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: agentId, role } = req.user;
+      
+      if (!['retail-agent', 'referral-agent'].includes(role)) {
+        return res.status(403).json({ message: "Access denied. Agent role required." });
+      }
+
+      const summary = await storage.getAgentCommissionSummary(organizationId, agentId, role);
+      res.json(summary);
+    } catch (error) {
+      console.error("Error fetching commission summary:", error);
+      res.status(500).json({ message: "Failed to fetch commission summary" });
+    }
+  });
+
+  // Agent Commission Log (Agent Access)
+  app.get("/api/agent/commission-log", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: agentId, role } = req.user;
+      const { propertyId, status, startDate, endDate, limit } = req.query;
+
+      if (!['retail-agent', 'referral-agent'].includes(role)) {
+        return res.status(403).json({ message: "Access denied. Agent role required." });
+      }
+
+      const commissions = await storage.getCommissionLog(organizationId, {
+        agentId,
+        agentType: role,
+        propertyId: propertyId ? parseInt(propertyId as string) : undefined,
+        status: status as string,
+        startDate: startDate as string,
+        endDate: endDate as string,
+        limit: limit ? parseInt(limit as string) : undefined,
+      });
+
+      res.json(commissions);
+    } catch (error) {
+      console.error("Error fetching commission log:", error);
+      res.status(500).json({ message: "Failed to fetch commission log" });
+    }
+  });
+
+  // Generate Commission Invoice (Agent Access)
+  app.post("/api/agent/generate-invoice", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: agentId, role } = req.user;
+      const { periodStart, periodEnd, description, agentNotes } = req.body;
+
+      if (!['retail-agent', 'referral-agent'].includes(role)) {
+        return res.status(403).json({ message: "Access denied. Agent role required." });
+      }
+
+      // Get pending commissions for the period
+      const commissions = await storage.getCommissionLog(organizationId, {
+        agentId,
+        agentType: role,
+        status: 'pending',
+        startDate: periodStart,
+        endDate: periodEnd,
+      });
+
+      if (commissions.length === 0) {
+        return res.status(400).json({ message: "No pending commissions found for the selected period" });
+      }
+
+      const totalCommissions = commissions.reduce((sum, comm) => sum + Number(comm.commissionAmount), 0);
+
+      // Generate invoice number
+      const invoiceNumber = await storage.generateInvoiceNumber(organizationId, role);
+
+      // Create invoice
+      const invoice = await storage.createCommissionInvoice({
+        organizationId,
+        agentId,
+        agentType: role,
+        invoiceNumber,
+        invoiceDate: new Date().toISOString().split('T')[0],
+        periodStart,
+        periodEnd,
+        totalCommissions: totalCommissions.toString(),
+        currency: 'THB',
+        description,
+        agentNotes,
+        generatedBy: agentId,
+      });
+
+      // Create line items
+      for (const commission of commissions) {
+        await storage.createInvoiceLineItem({
+          organizationId,
+          invoiceId: invoice.id,
+          commissionLogId: commission.id,
+          description: `Commission for ${commission.propertyName || 'Property'} - ${commission.referenceNumber}`,
+          propertyName: commission.propertyName || 'Property',
+          referenceNumber: commission.referenceNumber,
+          commissionDate: commission.createdAt.toISOString().split('T')[0],
+          commissionAmount: commission.commissionAmount,
+        });
+      }
+
+      res.json(invoice);
+    } catch (error) {
+      console.error("Error generating invoice:", error);
+      res.status(500).json({ message: "Failed to generate invoice" });
+    }
+  });
+
+  // Agent Invoices (Agent Access)
+  app.get("/api/agent/invoices", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: agentId, role } = req.user;
+      const { status, startDate, endDate } = req.query;
+
+      if (!['retail-agent', 'referral-agent'].includes(role)) {
+        return res.status(403).json({ message: "Access denied. Agent role required." });
+      }
+
+      const invoices = await storage.getAgentInvoices(organizationId, agentId, {
+        status: status as string,
+        startDate: startDate as string,
+        endDate: endDate as string,
+      });
+
+      res.json(invoices);
+    } catch (error) {
+      console.error("Error fetching agent invoices:", error);
+      res.status(500).json({ message: "Failed to fetch invoices" });
+    }
+  });
+
+  // Submit Invoice for Approval (Agent Access)
+  app.patch("/api/agent/invoices/:id/submit", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: agentId, role } = req.user;
+      const { id } = req.params;
+
+      if (!['retail-agent', 'referral-agent'].includes(role)) {
+        return res.status(403).json({ message: "Access denied. Agent role required." });
+      }
+
+      const invoice = await storage.submitInvoiceForApproval(parseInt(id), agentId);
+      
+      if (!invoice) {
+        return res.status(404).json({ message: "Invoice not found" });
+      }
+
+      res.json(invoice);
+    } catch (error) {
+      console.error("Error submitting invoice:", error);
+      res.status(500).json({ message: "Failed to submit invoice" });
+    }
+  });
+
+  // ===== ADMIN COMMISSION MANAGEMENT API =====
+
+  // Admin Commission Overview with CSV Export (Admin Access)
+  app.get("/api/admin/commission-overview", isDemoAuthenticated, isAdminOnly, async (req: any, res) => {
+    try {
+      const { organizationId } = req.user;
+      const { agentType, startDate, endDate, status, format } = req.query;
+
+      const commissions = await storage.getCommissionOverviewForExport(organizationId, {
+        agentType: agentType as 'retail-agent' | 'referral-agent',
+        startDate: startDate as string,
+        endDate: endDate as string,
+        status: status as string,
+      });
+
+      if (format === 'csv') {
+        const csv = [
+          'Agent ID,Agent Name,Agent Email,Agent Type,Property,Reference,Date,Base Amount,Rate %,Commission Amount,Currency,Status,Processed By,Processed Date',
+          ...commissions.map(c => 
+            `${c.agentId},"${c.agentName}","${c.agentEmail}",${c.agentType},"${c.propertyName}",${c.referenceNumber},${c.commissionDate.toISOString().split('T')[0]},${c.baseAmount},${c.commissionRate},${c.commissionAmount},${c.currency},${c.status},"${c.processedBy || ''}","${c.processedAt ? c.processedAt.toISOString().split('T')[0] : ''}"`
+          )
+        ].join('\n');
+
+        res.setHeader('Content-Type', 'text/csv');
+        res.setHeader('Content-Disposition', `attachment; filename="commission-overview-${new Date().toISOString().split('T')[0]}.csv"`);
+        res.send(csv);
+      } else {
+        res.json(commissions);
+      }
+    } catch (error) {
+      console.error("Error fetching commission overview:", error);
+      res.status(500).json({ message: "Failed to fetch commission overview" });
+    }
+  });
+
+  // Mark Commission as Paid (Admin Access)
+  app.patch("/api/admin/commissions/:id/mark-paid", isDemoAuthenticated, isAdminOnly, async (req: any, res) => {
+    try {
+      const { id: adminId } = req.user;
+      const { id } = req.params;
+      const { notes } = req.body;
+
+      const commission = await storage.markCommissionAsPaid(parseInt(id), adminId, notes);
+      
+      if (!commission) {
+        return res.status(404).json({ message: "Commission not found" });
+      }
+
+      res.json(commission);
+    } catch (error) {
+      console.error("Error marking commission as paid:", error);
+      res.status(500).json({ message: "Failed to mark commission as paid" });
+    }
+  });
+
+  // Adjust Commission Amount (Admin Access)
+  app.patch("/api/admin/commissions/:id/adjust", isDemoAuthenticated, isAdminOnly, async (req: any, res) => {
+    try {
+      const { id: adminId } = req.user;
+      const { id } = req.params;
+      const { newAmount, reason } = req.body;
+
+      if (!newAmount || !reason) {
+        return res.status(400).json({ message: "New amount and reason are required" });
+      }
+
+      const result = await storage.adjustCommissionAmount(parseInt(id), parseFloat(newAmount), adminId, reason);
+      res.json(result);
+    } catch (error) {
+      console.error("Error adjusting commission:", error);
+      res.status(500).json({ message: "Failed to adjust commission" });
+    }
+  });
+
+  // Approve Invoice (Admin Access)
+  app.patch("/api/admin/invoices/:id/approve", isDemoAuthenticated, isAdminOnly, async (req: any, res) => {
+    try {
+      const { id: adminId } = req.user;
+      const { id } = req.params;
+      const { notes } = req.body;
+
+      const invoice = await storage.approveInvoice(parseInt(id), adminId, notes);
+      
+      if (!invoice) {
+        return res.status(404).json({ message: "Invoice not found" });
+      }
+
+      res.json(invoice);
+    } catch (error) {
+      console.error("Error approving invoice:", error);
+      res.status(500).json({ message: "Failed to approve invoice" });
+    }
+  });
+
+  // Reject Invoice (Admin Access)
+  app.patch("/api/admin/invoices/:id/reject", isDemoAuthenticated, isAdminOnly, async (req: any, res) => {
+    try {
+      const { id: adminId } = req.user;
+      const { id } = req.params;
+      const { reason } = req.body;
+
+      if (!reason) {
+        return res.status(400).json({ message: "Rejection reason is required" });
+      }
+
+      const invoice = await storage.rejectInvoice(parseInt(id), adminId, reason);
+      
+      if (!invoice) {
+        return res.status(404).json({ message: "Invoice not found" });
+      }
+
+      res.json(invoice);
+    } catch (error) {
+      console.error("Error rejecting invoice:", error);
+      res.status(500).json({ message: "Failed to reject invoice" });
+    }
+  });
+
+  // Trigger Commission Payout (Admin Access)
+  app.post("/api/admin/commissions/trigger-payout", isDemoAuthenticated, isAdminOnly, async (req: any, res) => {
+    try {
+      const { organizationId, id: adminId } = req.user;
+      const { agentId, amount, agentType } = req.body;
+
+      if (!agentId || !amount || !agentType) {
+        return res.status(400).json({ message: "Agent ID, amount, and agent type are required" });
+      }
+
+      const payout = await storage.triggerCommissionPayout(
+        agentId, 
+        organizationId, 
+        parseFloat(amount), 
+        agentType, 
+        adminId
+      );
+
+      res.json(payout);
+    } catch (error) {
+      console.error("Error triggering payout:", error);
+      res.status(500).json({ message: "Failed to trigger payout" });
+    }
+  });
+
+  // ===== PORTFOLIO MANAGER COMMISSION ACCESS =====
+
+  // PM Commission Overview (PM Access)
+  app.get("/api/pm/commission-overview", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role } = req.user;
+      const { agentType, startDate, endDate, status } = req.query;
+
+      if (!['admin', 'portfolio-manager'].includes(role)) {
+        return res.status(403).json({ message: "Access denied. Admin or PM role required." });
+      }
+
+      const commissions = await storage.getCommissionLog(organizationId, {
+        agentType: agentType as 'retail-agent' | 'referral-agent',
+        startDate: startDate as string,
+        endDate: endDate as string,
+        status: status as string,
+      });
+
+      res.json(commissions);
+    } catch (error) {
+      console.error("Error fetching PM commission overview:", error);
+      res.status(500).json({ message: "Failed to fetch commission overview" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

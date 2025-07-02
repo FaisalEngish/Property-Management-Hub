@@ -2,6 +2,7 @@ import type { Express, RequestHandler } from "express";
 import { storage } from "./storage";
 import session from "express-session";
 import connectPg from "connect-pg-simple";
+import { seedDemoCommissionData } from "./seedDemoCommissionData";
 
 // Demo users for testing
 export const DEMO_USERS = [
@@ -182,6 +183,9 @@ export async function setupDemoAuth(app: Express) {
 
   // Seed demo users
   await seedDemoUsers();
+  
+  // Seed demo commission data
+  await seedDemoCommissionData();
 
   // Demo login route
   app.post("/api/auth/demo-login", async (req: any, res) => {

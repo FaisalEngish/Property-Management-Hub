@@ -25,6 +25,12 @@ import {
   recurringServiceBills,
   billReminders,
   servicePerformance,
+  commissionLog,
+  commissionInvoices,
+  commissionInvoiceItems,
+  agentBookings,
+  agentPayouts,
+  referralEarnings,
   type User,
   type UpsertUser,
   type Property,
@@ -133,7 +139,7 @@ import {
   type InsertAgentPayout,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, desc, asc, lt, gte, lte, isNull, sql } from "drizzle-orm";
+import { eq, and, desc, asc, lt, gte, lte, isNull, sql, sum, count, avg, max } from "drizzle-orm";
 
 export interface IStorage {
   // User operations (mandatory for Replit Auth)
@@ -5507,6 +5513,504 @@ export class DatabaseStorage implements IStorage {
         ...category
       });
     }
+  }
+
+  // ===== ENHANCED COMMISSION MANAGEMENT SYSTEM =====
+
+  // Commission Log Operations
+  async createCommissionLog(commission: typeof commissionLog.$inferInsert): Promise<typeof commissionLog.$inferSelect> {
+    const [newCommission] = await db.insert(commissionLog).values(commission).returning();
+    return newCommission;
+  }
+
+  async getCommissionLog(organizationId: string, filters?: {
+    agentId?: string;
+    agentType?: 'retail-agent' | 'referral-agent';
+    propertyId?: number;
+    status?: string;
+    startDate?: string;
+    endDate?: string;
+    limit?: number;
+  }): Promise<(typeof commissionLog.$inferSelect & { 
+    propertyName?: string; 
+    agentName?: string;
+    agentEmail?: string;
+  })[]> {
+    let query = db
+      .select({
+        ...commissionLog,
+        propertyName: properties.name,
+        agentName: sql<string>`CONCAT(${users.firstName}, ' ', ${users.lastName})`,
+        agentEmail: users.email,
+      })
+      .from(commissionLog)
+      .leftJoin(properties, eq(commissionLog.propertyId, properties.id))
+      .leftJoin(users, eq(commissionLog.agentId, users.id))
+      .where(eq(commissionLog.organizationId, organizationId));
+
+    if (filters?.agentId) {
+      query = query.where(eq(commissionLog.agentId, filters.agentId));
+    }
+    if (filters?.agentType) {
+      query = query.where(eq(commissionLog.agentType, filters.agentType));
+    }
+    if (filters?.propertyId) {
+      query = query.where(eq(commissionLog.propertyId, filters.propertyId));
+    }
+    if (filters?.status) {
+      query = query.where(eq(commissionLog.status, filters.status));
+    }
+    if (filters?.startDate) {
+      query = query.where(gte(commissionLog.createdAt, new Date(filters.startDate)));
+    }
+    if (filters?.endDate) {
+      query = query.where(lte(commissionLog.createdAt, new Date(filters.endDate)));
+    }
+
+    return query
+      .orderBy(desc(commissionLog.createdAt))
+      .limit(filters?.limit || 100);
+  }
+
+  async updateCommissionLog(id: number, updates: Partial<typeof commissionLog.$inferSelect>): Promise<typeof commissionLog.$inferSelect | undefined> {
+    const [updated] = await db
+      .update(commissionLog)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(commissionLog.id, id))
+      .returning();
+    return updated;
+  }
+
+  // Agent Commission Summary with KPIs
+  async getAgentCommissionSummary(organizationId: string, agentId: string, agentType: 'retail-agent' | 'referral-agent'): Promise<{
+    totalEarned: number;
+    pendingCommissions: number;
+    paidCommissions: number;
+    currentBalance: number;
+    totalBookings?: number;
+    thisMonthEarnings: number;
+    averageCommissionRate: number;
+    lastPaymentDate?: Date;
+  }> {
+    // Get commission totals from commission log
+    const [commissionStats] = await db
+      .select({
+        totalEarned: sum(commissionLog.commissionAmount),
+        pendingAmount: sum(sql`CASE WHEN ${commissionLog.status} = 'pending' THEN ${commissionLog.commissionAmount} ELSE 0 END`),
+        paidAmount: sum(sql`CASE WHEN ${commissionLog.status} = 'paid' THEN ${commissionLog.commissionAmount} ELSE 0 END`),
+        avgRate: avg(commissionLog.commissionRate),
+        totalTransactions: count(commissionLog.id),
+      })
+      .from(commissionLog)
+      .where(and(
+        eq(commissionLog.organizationId, organizationId),
+        eq(commissionLog.agentId, agentId),
+        eq(commissionLog.agentType, agentType)
+      ));
+
+    // Get this month's earnings
+    const startOfMonth = new Date();
+    startOfMonth.setDate(1);
+    startOfMonth.setHours(0, 0, 0, 0);
+
+    const [thisMonthStats] = await db
+      .select({
+        thisMonthEarnings: sum(commissionLog.commissionAmount),
+      })
+      .from(commissionLog)
+      .where(and(
+        eq(commissionLog.organizationId, organizationId),
+        eq(commissionLog.agentId, agentId),
+        eq(commissionLog.agentType, agentType),
+        gte(commissionLog.createdAt, startOfMonth)
+      ));
+
+    // Get last payment date from payouts
+    const [lastPayment] = await db
+      .select({ lastPaymentDate: max(agentPayouts.paidAt) })
+      .from(agentPayouts)
+      .where(and(
+        eq(agentPayouts.organizationId, organizationId),
+        eq(agentPayouts.agentId, agentId),
+        eq(agentPayouts.agentType, agentType),
+        eq(agentPayouts.payoutStatus, 'paid')
+      ));
+
+    // Get total bookings for retail agents
+    let totalBookings = 0;
+    if (agentType === 'retail-agent') {
+      const [bookingStats] = await db
+        .select({ count: count() })
+        .from(agentBookings)
+        .where(and(
+          eq(agentBookings.organizationId, organizationId),
+          eq(agentBookings.retailAgentId, agentId)
+        ));
+      totalBookings = bookingStats?.count || 0;
+    }
+
+    return {
+      totalEarned: Number(commissionStats?.totalEarned || 0),
+      pendingCommissions: Number(commissionStats?.pendingAmount || 0),
+      paidCommissions: Number(commissionStats?.paidAmount || 0),
+      currentBalance: Number(commissionStats?.totalEarned || 0) - Number(commissionStats?.paidAmount || 0),
+      totalBookings: agentType === 'retail-agent' ? totalBookings : undefined,
+      thisMonthEarnings: Number(thisMonthStats?.thisMonthEarnings || 0),
+      averageCommissionRate: Number(commissionStats?.avgRate || 0),
+      lastPaymentDate: lastPayment?.lastPaymentDate,
+    };
+  }
+
+  // Admin Commission Management Functions
+  async markCommissionAsPaid(id: number, adminId: string, notes?: string): Promise<typeof commissionLog.$inferSelect | undefined> {
+    const [updated] = await db
+      .update(commissionLog)
+      .set({
+        status: 'paid',
+        processedBy: adminId,
+        processedAt: new Date(),
+        adminNotes: notes,
+        updatedAt: new Date(),
+      })
+      .where(eq(commissionLog.id, id))
+      .returning();
+    return updated;
+  }
+
+  async adjustCommissionAmount(
+    id: number, 
+    newAmount: number, 
+    adminId: string, 
+    reason: string
+  ): Promise<{ original: typeof commissionLog.$inferSelect; adjustment: typeof commissionLog.$inferSelect }> {
+    // Get original commission
+    const [original] = await db
+      .select()
+      .from(commissionLog)
+      .where(eq(commissionLog.id, id));
+
+    if (!original) {
+      throw new Error('Commission not found');
+    }
+
+    // Update original as cancelled
+    const [updatedOriginal] = await db
+      .update(commissionLog)
+      .set({
+        status: 'cancelled',
+        processedBy: adminId,
+        processedAt: new Date(),
+        adminNotes: `Original commission cancelled due to adjustment: ${reason}`,
+        updatedAt: new Date(),
+      })
+      .where(eq(commissionLog.id, id))
+      .returning();
+
+    // Create adjustment commission
+    const [adjustment] = await db
+      .insert(commissionLog)
+      .values({
+        organizationId: original.organizationId,
+        agentId: original.agentId,
+        agentType: original.agentType,
+        propertyId: original.propertyId,
+        bookingId: original.bookingId,
+        referenceNumber: original.referenceNumber,
+        baseAmount: original.baseAmount,
+        commissionRate: original.commissionRate,
+        commissionAmount: newAmount.toString(),
+        currency: original.currency,
+        status: 'pending',
+        isAdjustment: true,
+        originalCommissionId: original.id,
+        adjustmentReason: reason,
+        processedBy: adminId,
+        processedAt: new Date(),
+        commissionMonth: original.commissionMonth,
+        commissionYear: original.commissionYear,
+      })
+      .returning();
+
+    return { original: updatedOriginal, adjustment };
+  }
+
+  // Commission Invoice Operations
+  async createCommissionInvoice(invoice: typeof commissionInvoices.$inferInsert): Promise<typeof commissionInvoices.$inferSelect> {
+    const [newInvoice] = await db.insert(commissionInvoices).values(invoice).returning();
+    return newInvoice;
+  }
+
+  async getAgentInvoices(organizationId: string, agentId: string, filters?: {
+    status?: string;
+    startDate?: string;
+    endDate?: string;
+  }): Promise<typeof commissionInvoices.$inferSelect[]> {
+    let query = db
+      .select()
+      .from(commissionInvoices)
+      .where(and(
+        eq(commissionInvoices.organizationId, organizationId),
+        eq(commissionInvoices.agentId, agentId)
+      ));
+
+    if (filters?.status) {
+      query = query.where(eq(commissionInvoices.status, filters.status));
+    }
+    if (filters?.startDate) {
+      query = query.where(gte(commissionInvoices.invoiceDate, filters.startDate));
+    }
+    if (filters?.endDate) {
+      query = query.where(lte(commissionInvoices.invoiceDate, filters.endDate));
+    }
+
+    return query.orderBy(desc(commissionInvoices.createdAt));
+  }
+
+  async generateInvoiceNumber(organizationId: string, agentType: 'retail-agent' | 'referral-agent'): Promise<string> {
+    const prefix = agentType === 'retail-agent' ? 'INV-RA' : 'INV-RF';
+    const date = new Date();
+    const year = date.getFullYear().toString().slice(-2);
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    
+    // Get count of invoices this month
+    const startOfMonth = new Date(date.getFullYear(), date.getMonth(), 1);
+    const endOfMonth = new Date(date.getFullYear(), date.getMonth() + 1, 0);
+    
+    const [count] = await db
+      .select({ count: count() })
+      .from(commissionInvoices)
+      .where(and(
+        eq(commissionInvoices.organizationId, organizationId),
+        eq(commissionInvoices.agentType, agentType),
+        gte(commissionInvoices.createdAt, startOfMonth),
+        lte(commissionInvoices.createdAt, endOfMonth)
+      ));
+
+    const sequence = ((count?.count || 0) + 1).toString().padStart(3, '0');
+    return `${prefix}-${year}${month}-${sequence}`;
+  }
+
+  async submitInvoiceForApproval(id: number, agentId: string): Promise<typeof commissionInvoices.$inferSelect | undefined> {
+    const [updated] = await db
+      .update(commissionInvoices)
+      .set({
+        status: 'submitted',
+        submittedAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(and(
+        eq(commissionInvoices.id, id),
+        eq(commissionInvoices.agentId, agentId)
+      ))
+      .returning();
+    return updated;
+  }
+
+  async approveInvoice(id: number, adminId: string, notes?: string): Promise<typeof commissionInvoices.$inferSelect | undefined> {
+    const [updated] = await db
+      .update(commissionInvoices)
+      .set({
+        status: 'approved',
+        approvedBy: adminId,
+        approvedAt: new Date(),
+        adminNotes: notes,
+        updatedAt: new Date(),
+      })
+      .where(eq(commissionInvoices.id, id))
+      .returning();
+    return updated;
+  }
+
+  async rejectInvoice(id: number, adminId: string, reason: string): Promise<typeof commissionInvoices.$inferSelect | undefined> {
+    const [updated] = await db
+      .update(commissionInvoices)
+      .set({
+        status: 'rejected',
+        rejectedReason: reason,
+        adminNotes: reason,
+        updatedAt: new Date(),
+      })
+      .where(eq(commissionInvoices.id, id))
+      .returning();
+    return updated;
+  }
+
+  // Commission Invoice Line Items
+  async createInvoiceLineItem(item: typeof commissionInvoiceItems.$inferInsert): Promise<typeof commissionInvoiceItems.$inferSelect> {
+    const [newItem] = await db.insert(commissionInvoiceItems).values(item).returning();
+    return newItem;
+  }
+
+  async getInvoiceLineItems(invoiceId: number): Promise<typeof commissionInvoiceItems.$inferSelect[]> {
+    return db
+      .select()
+      .from(commissionInvoiceItems)
+      .where(eq(commissionInvoiceItems.invoiceId, invoiceId))
+      .orderBy(commissionInvoiceItems.commissionDate);
+  }
+
+  // Admin Commission Overview for CSV Export
+  async getCommissionOverviewForExport(organizationId: string, filters?: {
+    agentType?: 'retail-agent' | 'referral-agent';
+    startDate?: string;
+    endDate?: string;
+    status?: string;
+  }): Promise<{
+    organizationId: string;
+    agentId: string;
+    agentName: string;
+    agentEmail: string;
+    agentType: string;
+    propertyName: string;
+    referenceNumber: string;
+    commissionDate: Date;
+    baseAmount: string;
+    commissionRate: string;
+    commissionAmount: string;
+    currency: string;
+    status: string;
+    processedBy?: string;
+    processedAt?: Date;
+  }[]> {
+    let query = db
+      .select({
+        organizationId: commissionLog.organizationId,
+        agentId: commissionLog.agentId,
+        agentName: sql<string>`CONCAT(${users.firstName}, ' ', ${users.lastName})`,
+        agentEmail: users.email,
+        agentType: commissionLog.agentType,
+        propertyName: properties.name,
+        referenceNumber: commissionLog.referenceNumber,
+        commissionDate: commissionLog.createdAt,
+        baseAmount: commissionLog.baseAmount,
+        commissionRate: commissionLog.commissionRate,
+        commissionAmount: commissionLog.commissionAmount,
+        currency: commissionLog.currency,
+        status: commissionLog.status,
+        processedBy: commissionLog.processedBy,
+        processedAt: commissionLog.processedAt,
+      })
+      .from(commissionLog)
+      .leftJoin(users, eq(commissionLog.agentId, users.id))
+      .leftJoin(properties, eq(commissionLog.propertyId, properties.id))
+      .where(eq(commissionLog.organizationId, organizationId));
+
+    if (filters?.agentType) {
+      query = query.where(eq(commissionLog.agentType, filters.agentType));
+    }
+    if (filters?.startDate) {
+      query = query.where(gte(commissionLog.createdAt, new Date(filters.startDate)));
+    }
+    if (filters?.endDate) {
+      query = query.where(lte(commissionLog.createdAt, new Date(filters.endDate)));
+    }
+    if (filters?.status) {
+      query = query.where(eq(commissionLog.status, filters.status));
+    }
+
+    return query.orderBy(desc(commissionLog.createdAt));
+  }
+
+  // Trigger Payout Process
+  async triggerCommissionPayout(agentId: string, organizationId: string, amount: number, agentType: 'retail-agent' | 'referral-agent', adminId: string): Promise<typeof agentPayouts.$inferSelect> {
+    const [payout] = await db
+      .insert(agentPayouts)
+      .values({
+        organizationId,
+        agentId,
+        agentType,
+        payoutAmount: amount.toString(),
+        payoutStatus: 'pending',
+        requestedAt: new Date(),
+        requestedBy: adminId,
+        currency: 'THB',
+      })
+      .returning();
+
+    // Update related commission log entries as being paid out
+    await db
+      .update(commissionLog)
+      .set({
+        payoutId: payout.id,
+        updatedAt: new Date(),
+      })
+      .where(and(
+        eq(commissionLog.organizationId, organizationId),
+        eq(commissionLog.agentId, agentId),
+        eq(commissionLog.agentType, agentType),
+        eq(commissionLog.status, 'pending')
+      ));
+
+    return payout;
+  }
+
+  // Agent-specific commission methods
+  async getRetailAgentBookingCommissions(organizationId: string, agentId: string, filters?: {
+    propertyId?: number;
+    status?: string;
+    startDate?: string;
+    endDate?: string;
+  }): Promise<(typeof agentBookings.$inferSelect & { propertyName?: string })[]> {
+    let query = db
+      .select({
+        ...agentBookings,
+        propertyName: properties.name,
+      })
+      .from(agentBookings)
+      .leftJoin(properties, eq(agentBookings.propertyId, properties.id))
+      .where(and(
+        eq(agentBookings.organizationId, organizationId),
+        eq(agentBookings.retailAgentId, agentId)
+      ));
+
+    if (filters?.propertyId) {
+      query = query.where(eq(agentBookings.propertyId, filters.propertyId));
+    }
+    if (filters?.status) {
+      query = query.where(eq(agentBookings.commissionStatus, filters.status));
+    }
+    if (filters?.startDate) {
+      query = query.where(gte(agentBookings.checkIn, filters.startDate));
+    }
+    if (filters?.endDate) {
+      query = query.where(lte(agentBookings.checkOut, filters.endDate));
+    }
+
+    return query.orderBy(desc(agentBookings.createdAt));
+  }
+
+  async getReferralAgentCommissions(organizationId: string, agentId: string, filters?: {
+    propertyId?: number;
+    year?: number;
+    month?: number;
+    status?: string;
+  }): Promise<(typeof referralEarnings.$inferSelect & { propertyName?: string })[]> {
+    let query = db
+      .select({
+        ...referralEarnings,
+        propertyName: properties.name,
+      })
+      .from(referralEarnings)
+      .leftJoin(properties, eq(referralEarnings.propertyId, properties.id))
+      .where(and(
+        eq(referralEarnings.organizationId, organizationId),
+        eq(referralEarnings.referralAgentId, agentId)
+      ));
+
+    if (filters?.propertyId) {
+      query = query.where(eq(referralEarnings.propertyId, filters.propertyId));
+    }
+    if (filters?.year) {
+      query = query.where(eq(referralEarnings.year, filters.year));
+    }
+    if (filters?.month) {
+      query = query.where(eq(referralEarnings.month, filters.month));
+    }
+    if (filters?.status) {
+      query = query.where(eq(referralEarnings.status, filters.status));
+    }
+
+    return query.orderBy(desc(referralEarnings.year), desc(referralEarnings.month));
   }
 }
 

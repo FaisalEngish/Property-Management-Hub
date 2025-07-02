@@ -1466,9 +1466,112 @@ export const agentBookings = pgTable("agent_bookings", {
   bookingStatus: varchar("booking_status").default("confirmed"), // confirmed, cancelled, completed
   commissionStatus: varchar("commission_status").default("pending"), // pending, approved, paid
   hostawayBookingId: varchar("hostaway_booking_id"), // Integration with Hostaway
+  
+  // Admin Management Fields
+  processedBy: varchar("processed_by").references(() => users.id), // Admin who processed commission
+  processedAt: timestamp("processed_at"),
+  adjustmentReason: text("adjustment_reason"), // Reason for manual adjustments
+  originalAmount: decimal("original_amount", { precision: 10, scale: 2 }), // Original amount before adjustments
+  bookingReference: varchar("booking_reference"), // External booking reference
+  
   notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Commission Log - Unified tracking for all agent commission activities
+export const commissionLog = pgTable("commission_log", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  agentId: varchar("agent_id").references(() => users.id).notNull(),
+  agentType: varchar("agent_type").notNull(), // retail-agent, referral-agent
+  
+  // Transaction Details
+  propertyId: integer("property_id").references(() => properties.id).notNull(),
+  bookingId: integer("booking_id").references(() => bookings.id),
+  referenceNumber: varchar("reference_number").notNull(), // B1245, R1167, etc.
+  
+  // Commission Calculation
+  baseAmount: decimal("base_amount", { precision: 10, scale: 2 }).notNull(), // Original booking/rental amount
+  commissionRate: decimal("commission_rate", { precision: 5, scale: 2 }).notNull(),
+  commissionAmount: decimal("commission_amount", { precision: 10, scale: 2 }).notNull(),
+  currency: varchar("currency", { length: 3 }).default("THB"),
+  
+  // Status and Processing
+  status: varchar("status").default("pending"), // pending, approved, paid, cancelled
+  processedBy: varchar("processed_by").references(() => users.id), // Admin who processed
+  processedAt: timestamp("processed_at"),
+  payoutId: integer("payout_id"), // Reference to agent_payouts when paid
+  
+  // Adjustments and Notes
+  isAdjustment: boolean("is_adjustment").default(false),
+  adjustmentReason: text("adjustment_reason"),
+  originalCommissionId: integer("original_commission_id"), // Reference to original commission if adjustment
+  adminNotes: text("admin_notes"),
+  
+  // Period tracking (for referral agents)
+  commissionMonth: integer("commission_month"), // 1-12 for monthly referral tracking
+  commissionYear: integer("commission_year"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Commission Invoices - Agent-generated invoices for commission payouts  
+export const commissionInvoices = pgTable("commission_invoices", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  agentId: varchar("agent_id").references(() => users.id).notNull(),
+  agentType: varchar("agent_type").notNull(), // retail-agent, referral-agent
+  
+  // Invoice Details
+  invoiceNumber: varchar("invoice_number").notNull().unique(),
+  invoiceDate: date("invoice_date").notNull(),
+  dueDate: date("due_date"),
+  
+  // Commission Period
+  periodStart: date("period_start").notNull(),
+  periodEnd: date("period_end").notNull(),
+  
+  // Financial Summary
+  totalCommissions: decimal("total_commissions", { precision: 10, scale: 2 }).notNull(),
+  currency: varchar("currency", { length: 3 }).default("THB"),
+  
+  // Status Management
+  status: varchar("status").default("draft"), // draft, submitted, approved, paid, rejected
+  submittedAt: timestamp("submitted_at"),
+  approvedBy: varchar("approved_by").references(() => users.id),
+  approvedAt: timestamp("approved_at"),
+  rejectedReason: text("rejected_reason"),
+  
+  // Invoice Content
+  description: text("description"),
+  agentNotes: text("agent_notes"),
+  adminNotes: text("admin_notes"),
+  
+  // File Management
+  invoiceFileUrl: varchar("invoice_file_url"), // PDF file path
+  generatedBy: varchar("generated_by").references(() => users.id).notNull(),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Commission Invoice Line Items - Individual commission entries in invoices
+export const commissionInvoiceItems = pgTable("commission_invoice_items", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").notNull(),
+  invoiceId: integer("invoice_id").references(() => commissionInvoices.id).notNull(),
+  commissionLogId: integer("commission_log_id").references(() => commissionLog.id).notNull(),
+  
+  // Line Item Details
+  description: text("description").notNull(),
+  propertyName: varchar("property_name").notNull(),
+  referenceNumber: varchar("reference_number").notNull(),
+  commissionDate: date("commission_date").notNull(),
+  commissionAmount: decimal("commission_amount", { precision: 10, scale: 2 }).notNull(),
+  
+  createdAt: timestamp("created_at").defaultNow(),
 });
 
 
@@ -2218,6 +2321,39 @@ export type PropertyUtilitySettings = typeof propertyUtilitySettings.$inferSelec
 export type InsertPropertyUtilitySettings = z.infer<typeof insertPropertyUtilitySettingsSchema>;
 export type PropertyCustomExpenses = typeof propertyCustomExpenses.$inferSelect;
 export type InsertPropertyCustomExpenses = z.infer<typeof insertPropertyCustomExpensesSchema>;
+
+// ===== COMMISSION SYSTEM SCHEMAS AND TYPES =====
+
+// Commission Log schema
+export const insertCommissionLogSchema = createInsertSchema(commissionLog).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+// Commission Invoice schemas
+export const insertCommissionInvoicesSchema = createInsertSchema(commissionInvoices).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertCommissionInvoiceItemsSchema = createInsertSchema(commissionInvoiceItems).omit({
+  id: true,
+  createdAt: true,
+});
+
+// Commission types
+export type CommissionLog = typeof commissionLog.$inferSelect;
+export type InsertCommissionLog = z.infer<typeof insertCommissionLogSchema>;
+export type CommissionInvoice = typeof commissionInvoices.$inferSelect;
+export type InsertCommissionInvoice = z.infer<typeof insertCommissionInvoicesSchema>;
+export type CommissionInvoiceItem = typeof commissionInvoiceItems.$inferSelect;
+export type InsertCommissionInvoiceItem = z.infer<typeof insertCommissionInvoiceItemsSchema>;
+
+// Enhanced Agent Booking type (with new fields)
+export type AgentBooking = typeof agentBookings.$inferSelect;
+export type InsertAgentBooking = typeof agentBookings.$inferInsert;
 
 // ===== STAFF DASHBOARD TYPES =====
 
