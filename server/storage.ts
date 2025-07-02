@@ -12,6 +12,7 @@ import {
   welcomePackItems,
   welcomePackTemplates,
   welcomePackUsage,
+  ownerPayouts,
   type User,
   type UpsertUser,
   type Property,
@@ -38,6 +39,8 @@ import {
   type InsertWelcomePackTemplate,
   type WelcomePackUsage,
   type InsertWelcomePackUsage,
+  type OwnerPayout,
+  type InsertOwnerPayout,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, asc } from "drizzle-orm";
@@ -138,6 +141,26 @@ export interface IStorage {
 
   // Welcome pack automation operations
   logWelcomePackUsageFromCheckout(bookingId: number, propertyId: number, processedBy: string): Promise<WelcomePackUsage[]>;
+
+  // Owner payout operations
+  getOwnerPayouts(): Promise<OwnerPayout[]>;
+  getOwnerPayoutsByOwner(ownerId: string): Promise<OwnerPayout[]>;
+  getOwnerPayoutsByProperty(propertyId: number): Promise<OwnerPayout[]>;
+  getOwnerPayoutsByStatus(status: string): Promise<OwnerPayout[]>;
+  getOwnerPayout(id: number): Promise<OwnerPayout | undefined>;
+  createOwnerPayout(payout: InsertOwnerPayout): Promise<OwnerPayout>;
+  updateOwnerPayout(id: number, payout: Partial<InsertOwnerPayout>): Promise<OwnerPayout | undefined>;
+  approveOwnerPayout(id: number, approvedBy: string, approvalNotes?: string): Promise<OwnerPayout | undefined>;
+  markOwnerPayoutPaid(id: number, paidBy: string, paymentMethod: string, paymentReference?: string): Promise<OwnerPayout | undefined>;
+  uploadOwnerPayoutReceipt(id: number, receiptUrl: string, uploadedBy: string): Promise<OwnerPayout | undefined>;
+  confirmOwnerPayoutReceived(id: number, confirmedBy: string): Promise<OwnerPayout | undefined>;
+  calculateOwnerBalance(ownerId: string, propertyId?: number, startDate?: string, endDate?: string): Promise<{
+    totalIncome: number;
+    totalExpenses: number;
+    netBalance: number;
+    commissionDeductions: number;
+    pendingPayouts: number;
+  }>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -589,6 +612,154 @@ export class DatabaseStorage implements IStorage {
     }
 
     return usageRecords;
+  }
+
+  // Owner payout operations
+  async getOwnerPayouts(): Promise<OwnerPayout[]> {
+    return await db.select().from(ownerPayouts).orderBy(desc(ownerPayouts.createdAt));
+  }
+
+  async getOwnerPayoutsByOwner(ownerId: string): Promise<OwnerPayout[]> {
+    return await db.select().from(ownerPayouts)
+      .where(eq(ownerPayouts.ownerId, ownerId))
+      .orderBy(desc(ownerPayouts.createdAt));
+  }
+
+  async getOwnerPayoutsByProperty(propertyId: number): Promise<OwnerPayout[]> {
+    return await db.select().from(ownerPayouts)
+      .where(eq(ownerPayouts.propertyId, propertyId))
+      .orderBy(desc(ownerPayouts.createdAt));
+  }
+
+  async getOwnerPayoutsByStatus(status: string): Promise<OwnerPayout[]> {
+    return await db.select().from(ownerPayouts)
+      .where(eq(ownerPayouts.status, status))
+      .orderBy(desc(ownerPayouts.createdAt));
+  }
+
+  async getOwnerPayout(id: number): Promise<OwnerPayout | undefined> {
+    const [payout] = await db.select().from(ownerPayouts).where(eq(ownerPayouts.id, id));
+    return payout;
+  }
+
+  async createOwnerPayout(payout: InsertOwnerPayout): Promise<OwnerPayout> {
+    const [newPayout] = await db.insert(ownerPayouts).values(payout).returning();
+    return newPayout;
+  }
+
+  async updateOwnerPayout(id: number, payout: Partial<InsertOwnerPayout>): Promise<OwnerPayout | undefined> {
+    const [updatedPayout] = await db.update(ownerPayouts)
+      .set({ ...payout, updatedAt: new Date() })
+      .where(eq(ownerPayouts.id, id))
+      .returning();
+    return updatedPayout;
+  }
+
+  async approveOwnerPayout(id: number, approvedBy: string, approvalNotes?: string): Promise<OwnerPayout | undefined> {
+    const [updatedPayout] = await db.update(ownerPayouts)
+      .set({
+        status: 'approved',
+        approvedBy: approvedBy,
+        approvedDate: new Date(),
+        approvalNotes: approvalNotes,
+        updatedAt: new Date()
+      })
+      .where(eq(ownerPayouts.id, id))
+      .returning();
+    return updatedPayout;
+  }
+
+  async markOwnerPayoutPaid(id: number, paidBy: string, paymentMethod: string, paymentReference?: string): Promise<OwnerPayout | undefined> {
+    const [updatedPayout] = await db.update(ownerPayouts)
+      .set({
+        status: 'paid',
+        paidBy: paidBy,
+        paymentMethod: paymentMethod,
+        paymentReference: paymentReference,
+        paymentDate: new Date(),
+        updatedAt: new Date()
+      })
+      .where(eq(ownerPayouts.id, id))
+      .returning();
+    return updatedPayout;
+  }
+
+  async uploadOwnerPayoutReceipt(id: number, receiptUrl: string, uploadedBy: string): Promise<OwnerPayout | undefined> {
+    const [updatedPayout] = await db.update(ownerPayouts)
+      .set({
+        receiptUrl: receiptUrl,
+        receiptUploadedBy: uploadedBy,
+        receiptUploadedDate: new Date(),
+        updatedAt: new Date()
+      })
+      .where(eq(ownerPayouts.id, id))
+      .returning();
+    return updatedPayout;
+  }
+
+  async confirmOwnerPayoutReceived(id: number, confirmedBy: string): Promise<OwnerPayout | undefined> {
+    const [updatedPayout] = await db.update(ownerPayouts)
+      .set({
+        status: 'completed',
+        confirmedBy: confirmedBy,
+        confirmedDate: new Date(),
+        updatedAt: new Date()
+      })
+      .where(eq(ownerPayouts.id, id))
+      .returning();
+    return updatedPayout;
+  }
+
+  async calculateOwnerBalance(ownerId: string, propertyId?: number, startDate?: string, endDate?: string): Promise<{
+    totalIncome: number;
+    totalExpenses: number;
+    netBalance: number;
+    commissionDeductions: number;
+    pendingPayouts: number;
+  }> {
+    let whereConditions = [eq(finances.ownerId, ownerId)];
+    
+    if (propertyId) {
+      whereConditions.push(eq(finances.propertyId, propertyId));
+    }
+    
+    if (startDate && endDate) {
+      // Add date range conditions if needed
+    }
+
+    // Get income records
+    const incomeRecords = await db.select().from(finances)
+      .where(and(...whereConditions, eq(finances.type, 'income')));
+    
+    // Get expense records  
+    const expenseRecords = await db.select().from(finances)
+      .where(and(...whereConditions, eq(finances.type, 'expense')));
+
+    // Get commission deductions
+    const commissionRecords = await db.select().from(finances)
+      .where(and(...whereConditions, eq(finances.type, 'commission')));
+
+    // Get pending payouts
+    let payoutConditions = [eq(ownerPayouts.ownerId, ownerId), eq(ownerPayouts.status, 'pending')];
+    if (propertyId) {
+      payoutConditions.push(eq(ownerPayouts.propertyId, propertyId));
+    }
+    
+    const pendingPayouts = await db.select().from(ownerPayouts)
+      .where(and(...payoutConditions));
+
+    const totalIncome = incomeRecords.reduce((sum, record) => sum + parseFloat(record.amount), 0);
+    const totalExpenses = expenseRecords.reduce((sum, record) => sum + parseFloat(record.amount), 0);
+    const commissionDeductions = commissionRecords.reduce((sum, record) => sum + parseFloat(record.amount), 0);
+    const pendingPayoutAmount = pendingPayouts.reduce((sum, payout) => sum + parseFloat(payout.requestedAmount), 0);
+
+    return {
+      totalIncome,
+      totalExpenses,
+      commissionDeductions,
+      pendingPayouts: pendingPayoutAmount,
+      netBalance: totalIncome - totalExpenses - commissionDeductions
+    };
   }
 }
 

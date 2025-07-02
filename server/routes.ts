@@ -639,6 +639,176 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Owner Payout routes
+  app.get("/api/owner-payouts", authenticatedTenantMiddleware, async (req, res) => {
+    try {
+      const { status, ownerId, propertyId } = req.query;
+      
+      let payouts;
+      if (status) {
+        payouts = await storage.getOwnerPayoutsByStatus(status as string);
+      } else if (ownerId) {
+        payouts = await storage.getOwnerPayoutsByOwner(ownerId as string);
+      } else if (propertyId) {
+        payouts = await storage.getOwnerPayoutsByProperty(parseInt(propertyId as string));
+      } else {
+        payouts = await storage.getOwnerPayouts();
+      }
+      
+      res.json(payouts);
+    } catch (error) {
+      console.error("Error fetching owner payouts:", error);
+      res.status(500).json({ message: "Failed to fetch owner payouts" });
+    }
+  });
+
+  app.get("/api/owner-payouts/:id", authenticatedTenantMiddleware, async (req, res) => {
+    try {
+      const payoutId = parseInt(req.params.id);
+      const payout = await storage.getOwnerPayout(payoutId);
+      
+      if (!payout) {
+        return res.status(404).json({ message: "Owner payout not found" });
+      }
+      
+      res.json(payout);
+    } catch (error) {
+      console.error("Error fetching owner payout:", error);
+      res.status(500).json({ message: "Failed to fetch owner payout" });
+    }
+  });
+
+  app.post("/api/owner-payouts", authenticatedTenantMiddleware, async (req, res) => {
+    try {
+      const userData = req.user as any;
+      const { organizationId } = getTenantContext(req);
+      
+      const validatedData = {
+        ...req.body,
+        organizationId,
+        requestedBy: userData.claims.sub,
+        status: 'pending',
+        requestDate: new Date(),
+      };
+
+      const payout = await storage.createOwnerPayout(validatedData);
+      res.status(201).json(payout);
+    } catch (error) {
+      console.error("Error creating owner payout:", error);
+      res.status(500).json({ message: "Failed to create owner payout" });
+    }
+  });
+
+  app.patch("/api/owner-payouts/:id/approve", authenticatedTenantMiddleware, async (req, res) => {
+    try {
+      const userData = req.user as any;
+      const payoutId = parseInt(req.params.id);
+      const { approvalNotes } = req.body;
+      
+      const updatedPayout = await storage.approveOwnerPayout(
+        payoutId, 
+        userData.claims.sub, 
+        approvalNotes
+      );
+      
+      if (!updatedPayout) {
+        return res.status(404).json({ message: "Owner payout not found" });
+      }
+      
+      res.json(updatedPayout);
+    } catch (error) {
+      console.error("Error approving owner payout:", error);
+      res.status(500).json({ message: "Failed to approve owner payout" });
+    }
+  });
+
+  app.patch("/api/owner-payouts/:id/mark-paid", authenticatedTenantMiddleware, async (req, res) => {
+    try {
+      const userData = req.user as any;
+      const payoutId = parseInt(req.params.id);
+      const { paymentMethod, paymentReference } = req.body;
+      
+      const updatedPayout = await storage.markOwnerPayoutPaid(
+        payoutId, 
+        userData.claims.sub, 
+        paymentMethod, 
+        paymentReference
+      );
+      
+      if (!updatedPayout) {
+        return res.status(404).json({ message: "Owner payout not found" });
+      }
+      
+      res.json(updatedPayout);
+    } catch (error) {
+      console.error("Error marking owner payout as paid:", error);
+      res.status(500).json({ message: "Failed to mark owner payout as paid" });
+    }
+  });
+
+  app.patch("/api/owner-payouts/:id/upload-receipt", authenticatedTenantMiddleware, async (req, res) => {
+    try {
+      const userData = req.user as any;
+      const payoutId = parseInt(req.params.id);
+      const { receiptUrl } = req.body;
+      
+      const updatedPayout = await storage.uploadOwnerPayoutReceipt(
+        payoutId, 
+        receiptUrl, 
+        userData.claims.sub
+      );
+      
+      if (!updatedPayout) {
+        return res.status(404).json({ message: "Owner payout not found" });
+      }
+      
+      res.json(updatedPayout);
+    } catch (error) {
+      console.error("Error uploading owner payout receipt:", error);
+      res.status(500).json({ message: "Failed to upload owner payout receipt" });
+    }
+  });
+
+  app.patch("/api/owner-payouts/:id/confirm-received", authenticatedTenantMiddleware, async (req, res) => {
+    try {
+      const userData = req.user as any;
+      const payoutId = parseInt(req.params.id);
+      
+      const updatedPayout = await storage.confirmOwnerPayoutReceived(
+        payoutId, 
+        userData.claims.sub
+      );
+      
+      if (!updatedPayout) {
+        return res.status(404).json({ message: "Owner payout not found" });
+      }
+      
+      res.json(updatedPayout);
+    } catch (error) {
+      console.error("Error confirming owner payout received:", error);
+      res.status(500).json({ message: "Failed to confirm owner payout received" });
+    }
+  });
+
+  app.get("/api/owner-balance/:ownerId", authenticatedTenantMiddleware, async (req, res) => {
+    try {
+      const { ownerId } = req.params;
+      const { propertyId, startDate, endDate } = req.query;
+      
+      const balance = await storage.calculateOwnerBalance(
+        ownerId,
+        propertyId ? parseInt(propertyId as string) : undefined,
+        startDate as string,
+        endDate as string
+      );
+      
+      res.json(balance);
+    } catch (error) {
+      console.error("Error calculating owner balance:", error);
+      res.status(500).json({ message: "Failed to calculate owner balance" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
