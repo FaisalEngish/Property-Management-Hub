@@ -3181,6 +3181,130 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ===== REFERRAL AGENT API ROUTES =====
+
+  // Get referral agent's assigned properties
+  app.get("/api/referral-agent/properties", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: referralAgentId } = req.user;
+      
+      const properties = await storage.getReferralAgentProperties(organizationId, referralAgentId);
+      res.json(properties);
+    } catch (error) {
+      console.error("Error fetching referral agent properties:", error);
+      res.status(500).json({ message: "Failed to fetch properties" });
+    }
+  });
+
+  // Get referral earnings
+  app.get("/api/referral-agent/earnings", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: referralAgentId } = req.user;
+      const { month, year, propertyId, status } = req.query;
+      
+      const earnings = await storage.getReferralEarnings(organizationId, referralAgentId, {
+        month: month ? parseInt(month) : undefined,
+        year: year ? parseInt(year) : undefined,
+        propertyId: propertyId ? parseInt(propertyId) : undefined,
+        status,
+      });
+      res.json(earnings);
+    } catch (error) {
+      console.error("Error fetching referral earnings:", error);
+      res.status(500).json({ message: "Failed to fetch earnings" });
+    }
+  });
+
+  // Get referral commission summary
+  app.get("/api/referral-agent/commission-summary", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: referralAgentId } = req.user;
+      
+      const summary = await storage.getReferralCommissionSummary(organizationId, referralAgentId);
+      res.json(summary);
+    } catch (error) {
+      console.error("Error fetching commission summary:", error);
+      res.status(500).json({ message: "Failed to fetch commission summary" });
+    }
+  });
+
+  // Get referral payouts
+  app.get("/api/referral-agent/payouts", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: referralAgentId } = req.user;
+      const { status, startDate, endDate } = req.query;
+      
+      const payouts = await storage.getReferralPayouts(organizationId, referralAgentId, {
+        status,
+        startDate,
+        endDate,
+      });
+      res.json(payouts);
+    } catch (error) {
+      console.error("Error fetching referral payouts:", error);
+      res.status(500).json({ message: "Failed to fetch payouts" });
+    }
+  });
+
+  // Create referral payout request
+  app.post("/api/referral-agent/payouts", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: referralAgentId } = req.user;
+      
+      const payoutData = {
+        ...req.body,
+        organizationId,
+        agentId: referralAgentId,
+        agentType: 'referral-agent',
+        payoutStatus: 'pending',
+        requestedAt: new Date(),
+      };
+
+      const payout = await storage.createReferralPayout(payoutData);
+      res.json(payout);
+    } catch (error) {
+      console.error("Error creating referral payout:", error);
+      res.status(500).json({ message: "Failed to create payout request" });
+    }
+  });
+
+  // Get referral program rules
+  app.get("/api/referral-agent/program-rules", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId } = req.user;
+      const { ruleType, isActive } = req.query;
+      
+      const rules = await storage.getReferralProgramRules(organizationId, {
+        ruleType,
+        isActive: isActive !== undefined ? isActive === 'true' : undefined,
+      });
+      res.json(rules);
+    } catch (error) {
+      console.error("Error fetching program rules:", error);
+      res.status(500).json({ message: "Failed to fetch program rules" });
+    }
+  });
+
+  // Get property performance analytics
+  app.get("/api/referral-agent/analytics", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: referralAgentId } = req.user;
+      const { propertyId, startMonth, startYear, endMonth, endYear } = req.query;
+      
+      const analytics = await storage.getPropertyPerformanceAnalytics(organizationId, referralAgentId, {
+        propertyId: propertyId ? parseInt(propertyId) : undefined,
+        startMonth: startMonth ? parseInt(startMonth) : undefined,
+        startYear: startYear ? parseInt(startYear) : undefined,
+        endMonth: endMonth ? parseInt(endMonth) : undefined,
+        endYear: endYear ? parseInt(endYear) : undefined,
+      });
+      res.json(analytics);
+    } catch (error) {
+      console.error("Error fetching performance analytics:", error);
+      res.status(500).json({ message: "Failed to fetch analytics" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
