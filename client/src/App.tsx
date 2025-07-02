@@ -31,6 +31,7 @@ import GuestAddonBooking from "@/pages/GuestAddonBooking";
 import AdminAddonBookings from "@/pages/AdminAddonBookings";
 import AdminAddonSettings from "@/pages/AdminAddonSettings";
 import OwnerDashboard from "@/pages/OwnerDashboard";
+import PortfolioManagerDashboard from "@/pages/PortfolioManagerDashboard";
 
 function Router() {
   const { isAuthenticated, isLoading, user } = useAuth();

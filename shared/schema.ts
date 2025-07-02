@@ -691,6 +691,114 @@ export const portfolioAssignmentsRelations = relations(portfolioAssignments, ({ 
   property: one(properties, { fields: [portfolioAssignments.propertyId], references: [properties.id] }),
 }));
 
+// Portfolio Manager Commission Balance Table
+export const pmCommissionBalance = pgTable("pm_commission_balance", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").notNull(),
+  managerId: varchar("manager_id").notNull(),
+  totalEarned: decimal("total_earned", { precision: 12, scale: 2 }).default("0"),
+  totalPaid: decimal("total_paid", { precision: 12, scale: 2 }).default("0"),
+  currentBalance: decimal("current_balance", { precision: 12, scale: 2 }).default("0"),
+  lastPayoutDate: timestamp("last_payout_date"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Portfolio Manager Payout Requests Table
+export const pmPayoutRequests = pgTable("pm_payout_requests", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").notNull(),
+  managerId: varchar("manager_id").notNull(),
+  amount: decimal("amount", { precision: 12, scale: 2 }).notNull(),
+  currency: varchar("currency", { length: 3 }).default("AUD"),
+  requestNotes: text("request_notes"),
+  adminNotes: text("admin_notes"),
+  status: varchar("status").default("pending"), // pending, approved, paid, rejected
+  receiptUrl: varchar("receipt_url"), // Admin uploaded receipt
+  requestedAt: timestamp("requested_at").defaultNow(),
+  approvedAt: timestamp("approved_at"),
+  paidAt: timestamp("paid_at"),
+  processedBy: varchar("processed_by"),
+});
+
+// Portfolio Manager Task Logs Table
+export const pmTaskLogs = pgTable("pm_task_logs", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").notNull(),
+  managerId: varchar("manager_id").notNull(),
+  taskId: integer("task_id").references(() => tasks.id, { onDelete: "cascade" }),
+  propertyId: integer("property_id").references(() => properties.id),
+  taskTitle: varchar("task_title").notNull(),
+  department: varchar("department").notNull(),
+  staffAssigned: varchar("staff_assigned"),
+  status: varchar("status").notNull(),
+  completedAt: timestamp("completed_at"),
+  evidencePhotos: jsonb("evidence_photos"), // Array of photo URLs
+  receipts: jsonb("receipts"), // Array of receipt URLs
+  result: text("result"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Portfolio Manager Property Performance Table
+export const pmPropertyPerformance = pgTable("pm_property_performance", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").notNull(),
+  managerId: varchar("manager_id").notNull(),
+  propertyId: integer("property_id").references(() => properties.id),
+  period: varchar("period").notNull(), // YYYY-MM format
+  totalRevenue: decimal("total_revenue", { precision: 12, scale: 2 }).default("0"),
+  commissionEarned: decimal("commission_earned", { precision: 12, scale: 2 }).default("0"),
+  bookingCount: integer("booking_count").default(0),
+  occupancyRate: decimal("occupancy_rate", { precision: 5, scale: 2 }).default("0"), // Percentage
+  averageRating: decimal("average_rating", { precision: 3, scale: 2 }).default("0"),
+  taskCount: integer("task_count").default(0),
+  issueCount: integer("issue_count").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Portfolio Manager Notifications Table
+export const pmNotifications = pgTable("pm_notifications", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").notNull(),
+  managerId: varchar("manager_id").notNull(),
+  type: varchar("type").notNull(), // guest_issue, owner_approval, bill_upload, system_suggestion
+  title: varchar("title").notNull(),
+  message: text("message").notNull(),
+  severity: varchar("severity").default("info"), // info, warning, urgent
+  relatedType: varchar("related_type"), // property, booking, task
+  relatedId: varchar("related_id"),
+  actionRequired: boolean("action_required").default(false),
+  isRead: boolean("is_read").default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Relations for PM tables
+export const pmCommissionBalanceRelations = relations(pmCommissionBalance, ({ one }) => ({
+  manager: one(users, { fields: [pmCommissionBalance.managerId], references: [users.id] }),
+}));
+
+export const pmPayoutRequestsRelations = relations(pmPayoutRequests, ({ one }) => ({
+  manager: one(users, { fields: [pmPayoutRequests.managerId], references: [users.id] }),
+  processedByUser: one(users, { fields: [pmPayoutRequests.processedBy], references: [users.id] }),
+}));
+
+export const pmTaskLogsRelations = relations(pmTaskLogs, ({ one }) => ({
+  manager: one(users, { fields: [pmTaskLogs.managerId], references: [users.id] }),
+  task: one(tasks, { fields: [pmTaskLogs.taskId], references: [tasks.id] }),
+  property: one(properties, { fields: [pmTaskLogs.propertyId], references: [properties.id] }),
+}));
+
+export const pmPropertyPerformanceRelations = relations(pmPropertyPerformance, ({ one }) => ({
+  manager: one(users, { fields: [pmPropertyPerformance.managerId], references: [users.id] }),
+  property: one(properties, { fields: [pmPropertyPerformance.propertyId], references: [properties.id] }),
+}));
+
+export const pmNotificationsRelations = relations(pmNotifications, ({ one }) => ({
+  manager: one(users, { fields: [pmNotifications.managerId], references: [users.id] }),
+}));
+
 // Guest Add-On Service Booking Platform
 export const guestAddonServices = pgTable("guest_addon_services", {
   id: serial("id").primaryKey(),

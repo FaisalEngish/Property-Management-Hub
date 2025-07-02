@@ -2689,6 +2689,296 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ===== PORTFOLIO MANAGER DASHBOARD ROUTES =====
+
+  // PM Financial Overview
+  app.get("/api/pm/dashboard/financial-overview", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: managerId } = req.user;
+      const { startDate, endDate, propertyId } = req.query;
+      
+      const overview = await storage.getPMFinancialOverview(organizationId, managerId, {
+        startDate,
+        endDate,
+        propertyId: propertyId ? parseInt(propertyId) : undefined,
+      });
+      
+      res.json(overview);
+    } catch (error) {
+      console.error("Error fetching PM financial overview:", error);
+      res.status(500).json({ message: "Failed to fetch financial overview" });
+    }
+  });
+
+  // PM Commission Balance
+  app.get("/api/pm/dashboard/balance", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: managerId } = req.user;
+      
+      const balance = await storage.getPMCommissionBalance(organizationId, managerId);
+      
+      res.json(balance || {
+        totalEarned: 0,
+        totalPaid: 0,
+        currentBalance: 0,
+        lastPayoutDate: null,
+      });
+    } catch (error) {
+      console.error("Error fetching PM balance:", error);
+      res.status(500).json({ message: "Failed to fetch balance" });
+    }
+  });
+
+  // PM Payout Requests
+  app.get("/api/pm/dashboard/payouts", isAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: managerId } = req.user;
+      const { status, startDate, endDate } = req.query;
+      
+      const payouts = await storage.getPMPayoutRequests(organizationId, managerId, {
+        status,
+        startDate,
+        endDate,
+      });
+      
+      res.json(payouts);
+    } catch (error) {
+      console.error("Error fetching PM payouts:", error);
+      res.status(500).json({ message: "Failed to fetch payouts" });
+    }
+  });
+
+  app.post("/api/pm/dashboard/payouts", isAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: managerId } = req.user;
+      const { amount, requestNotes } = req.body;
+      
+      const payoutRequest = await storage.createPMPayoutRequest({
+        organizationId,
+        managerId,
+        amount: parseFloat(amount),
+        requestNotes,
+        currency: 'AUD',
+      });
+      
+      // Create notification for admin
+      await storage.createNotification({
+        organizationId,
+        userId: 'admin', // TODO: Get actual admin users
+        type: 'payout_request',
+        title: 'New PM Payout Request',
+        message: `Portfolio Manager has requested a payout of $${amount}`,
+        relatedType: 'payout',
+        relatedId: payoutRequest.id.toString(),
+        priority: 'medium',
+      });
+      
+      res.json(payoutRequest);
+    } catch (error) {
+      console.error("Error creating PM payout request:", error);
+      res.status(500).json({ message: "Failed to create payout request" });
+    }
+  });
+
+  app.patch("/api/pm/dashboard/payouts/:id/received", isAuthenticated, async (req: any, res) => {
+    try {
+      const { id: managerId } = req.user;
+      const { id } = req.params;
+      
+      const updated = await storage.markPMPaymentReceived(parseInt(id), managerId);
+      
+      if (!updated) {
+        return res.status(404).json({ message: "Payout request not found" });
+      }
+      
+      res.json(updated);
+    } catch (error) {
+      console.error("Error marking payment received:", error);
+      res.status(500).json({ message: "Failed to mark payment received" });
+    }
+  });
+
+  // PM Task Logs
+  app.get("/api/pm/dashboard/task-logs", isAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: managerId } = req.user;
+      const { propertyId, department, status, startDate, endDate, limit } = req.query;
+      
+      const taskLogs = await storage.getPMTaskLogs(organizationId, managerId, {
+        propertyId: propertyId ? parseInt(propertyId) : undefined,
+        department,
+        status,
+        startDate,
+        endDate,
+        limit: limit ? parseInt(limit) : undefined,
+      });
+      
+      res.json(taskLogs);
+    } catch (error) {
+      console.error("Error fetching PM task logs:", error);
+      res.status(500).json({ message: "Failed to fetch task logs" });
+    }
+  });
+
+  // PM Portfolio Properties
+  app.get("/api/pm/dashboard/portfolio", isAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: managerId } = req.user;
+      
+      const properties = await storage.getPMPortfolioProperties(organizationId, managerId);
+      
+      res.json(properties);
+    } catch (error) {
+      console.error("Error fetching PM portfolio:", error);
+      res.status(500).json({ message: "Failed to fetch portfolio" });
+    }
+  });
+
+  // PM Notifications
+  app.get("/api/pm/dashboard/notifications", isAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: managerId } = req.user;
+      const { type, severity, isRead, actionRequired, limit } = req.query;
+      
+      const notifications = await storage.getPMNotifications(organizationId, managerId, {
+        type,
+        severity,
+        isRead: isRead ? JSON.parse(isRead) : undefined,
+        actionRequired: actionRequired ? JSON.parse(actionRequired) : undefined,
+        limit: limit ? parseInt(limit) : undefined,
+      });
+      
+      res.json(notifications);
+    } catch (error) {
+      console.error("Error fetching PM notifications:", error);
+      res.status(500).json({ message: "Failed to fetch notifications" });
+    }
+  });
+
+  app.patch("/api/pm/dashboard/notifications/:id/read", isAuthenticated, async (req: any, res) => {
+    try {
+      const { id: managerId } = req.user;
+      const { id } = req.params;
+      
+      const updated = await storage.markPMNotificationAsRead(parseInt(id), managerId);
+      
+      if (!updated) {
+        return res.status(404).json({ message: "Notification not found" });
+      }
+      
+      res.json(updated);
+    } catch (error) {
+      console.error("Error marking notification as read:", error);
+      res.status(500).json({ message: "Failed to mark notification as read" });
+    }
+  });
+
+  app.patch("/api/pm/dashboard/notifications/read-all", isAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: managerId } = req.user;
+      
+      await storage.markAllPMNotificationsAsRead(organizationId, managerId);
+      
+      res.json({ message: "All notifications marked as read" });
+    } catch (error) {
+      console.error("Error marking all notifications as read:", error);
+      res.status(500).json({ message: "Failed to mark all notifications as read" });
+    }
+  });
+
+  // PM Invoice Builder
+  app.post("/api/pm/dashboard/invoices", isAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: managerId } = req.user;
+      const { 
+        receiverType, 
+        receiverId, 
+        receiverName, 
+        receiverAddress,
+        invoiceType,
+        description,
+        lineItems,
+        taxRate,
+        notes,
+        dueDate,
+        referenceNumber 
+      } = req.body;
+      
+      // Generate invoice number
+      const invoiceNumber = `PM-${Date.now()}`;
+      
+      // Calculate totals
+      const subtotal = lineItems.reduce((sum: number, item: any) => 
+        sum + (parseFloat(item.quantity || 1) * parseFloat(item.unitPrice || 0)), 0);
+      const taxAmount = subtotal * (parseFloat(taxRate || 0) / 100);
+      const totalAmount = subtotal + taxAmount;
+      
+      // Get user info for sender
+      const pmUser = await storage.getUser(managerId);
+      
+      // Create invoice
+      const invoice = await storage.createInvoice({
+        organizationId,
+        invoiceNumber,
+        senderType: 'user',
+        senderId: managerId,
+        senderName: `${pmUser?.firstName || ''} ${pmUser?.lastName || ''}`.trim() || 'Portfolio Manager',
+        senderAddress: pmUser?.email || '',
+        receiverType,
+        receiverId,
+        receiverName,
+        receiverAddress,
+        invoiceType,
+        description,
+        subtotal,
+        taxRate: parseFloat(taxRate || 0),
+        taxAmount,
+        totalAmount,
+        dueDate,
+        referenceNumber,
+        notes,
+        createdBy: managerId,
+      });
+      
+      // Create line items
+      for (const item of lineItems) {
+        await storage.createInvoiceLineItem({
+          invoiceId: invoice.id,
+          description: item.description,
+          quantity: parseFloat(item.quantity || 1),
+          unitPrice: parseFloat(item.unitPrice || 0),
+          totalPrice: parseFloat(item.quantity || 1) * parseFloat(item.unitPrice || 0),
+          referenceId: item.referenceId,
+          referenceType: item.referenceType,
+        });
+      }
+      
+      res.json(invoice);
+    } catch (error) {
+      console.error("Error creating PM invoice:", error);
+      res.status(500).json({ message: "Failed to create invoice" });
+    }
+  });
+
+  app.get("/api/pm/dashboard/invoices", isAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: managerId } = req.user;
+      const { status, startDate, endDate } = req.query;
+      
+      const invoices = await storage.getInvoices(organizationId, {
+        createdBy: managerId,
+        status,
+        startDate,
+        endDate,
+      });
+      
+      res.json(invoices);
+    } catch (error) {
+      console.error("Error fetching PM invoices:", error);
+      res.status(500).json({ message: "Failed to fetch invoices" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

@@ -3411,6 +3411,408 @@ export class DatabaseStorage implements IStorage {
       })),
     };
   }
+
+  // ===== PORTFOLIO MANAGER DASHBOARD PLATFORM =====
+
+  // PM Commission Balance Operations
+  async getPMCommissionBalance(organizationId: string, managerId: string): Promise<typeof pmCommissionBalance.$inferSelect | undefined> {
+    const [balance] = await db
+      .select()
+      .from(pmCommissionBalance)
+      .where(and(
+        eq(pmCommissionBalance.organizationId, organizationId),
+        eq(pmCommissionBalance.managerId, managerId)
+      ));
+    return balance;
+  }
+
+  async updatePMCommissionBalance(organizationId: string, managerId: string, updates: {
+    totalEarned?: number;
+    totalPaid?: number;
+    currentBalance?: number;
+    lastPayoutDate?: Date;
+  }): Promise<typeof pmCommissionBalance.$inferSelect> {
+    const [updated] = await db
+      .insert(pmCommissionBalance)
+      .values({
+        organizationId,
+        managerId,
+        ...updates,
+        updatedAt: new Date(),
+      })
+      .onConflictDoUpdate({
+        target: [pmCommissionBalance.organizationId, pmCommissionBalance.managerId],
+        set: {
+          ...updates,
+          updatedAt: new Date(),
+        },
+      })
+      .returning();
+    return updated;
+  }
+
+  // PM Payout Request Operations
+  async createPMPayoutRequest(request: typeof pmPayoutRequests.$inferInsert): Promise<typeof pmPayoutRequests.$inferSelect> {
+    const [newRequest] = await db.insert(pmPayoutRequests).values(request).returning();
+    return newRequest;
+  }
+
+  async getPMPayoutRequests(organizationId: string, managerId: string, filters?: {
+    status?: string;
+    startDate?: string;
+    endDate?: string;
+  }): Promise<typeof pmPayoutRequests.$inferSelect[]> {
+    let query = db
+      .select()
+      .from(pmPayoutRequests)
+      .where(and(
+        eq(pmPayoutRequests.organizationId, organizationId),
+        eq(pmPayoutRequests.managerId, managerId)
+      ));
+
+    if (filters?.status) {
+      query = query.where(eq(pmPayoutRequests.status, filters.status));
+    }
+    if (filters?.startDate) {
+      query = query.where(gte(pmPayoutRequests.requestedAt, new Date(filters.startDate)));
+    }
+    if (filters?.endDate) {
+      query = query.where(lte(pmPayoutRequests.requestedAt, new Date(filters.endDate)));
+    }
+
+    return query.orderBy(desc(pmPayoutRequests.requestedAt));
+  }
+
+  async updatePMPayoutRequest(id: number, updates: Partial<typeof pmPayoutRequests.$inferSelect>): Promise<typeof pmPayoutRequests.$inferSelect | undefined> {
+    const [updated] = await db
+      .update(pmPayoutRequests)
+      .set(updates)
+      .where(eq(pmPayoutRequests.id, id))
+      .returning();
+    return updated;
+  }
+
+  async markPMPaymentReceived(id: number, managerId: string): Promise<typeof pmPayoutRequests.$inferSelect | undefined> {
+    const [updated] = await db
+      .update(pmPayoutRequests)
+      .set({
+        status: 'paid',
+        paidAt: new Date(),
+      })
+      .where(and(
+        eq(pmPayoutRequests.id, id),
+        eq(pmPayoutRequests.managerId, managerId)
+      ))
+      .returning();
+    return updated;
+  }
+
+  // PM Task Logs Operations
+  async createPMTaskLog(log: typeof pmTaskLogs.$inferInsert): Promise<typeof pmTaskLogs.$inferSelect> {
+    const [newLog] = await db.insert(pmTaskLogs).values(log).returning();
+    return newLog;
+  }
+
+  async getPMTaskLogs(organizationId: string, managerId: string, filters?: {
+    propertyId?: number;
+    department?: string;
+    status?: string;
+    startDate?: string;
+    endDate?: string;
+    limit?: number;
+  }): Promise<(typeof pmTaskLogs.$inferSelect & { propertyName?: string })[]> {
+    let query = db
+      .select({
+        ...pmTaskLogs,
+        propertyName: properties.name,
+      })
+      .from(pmTaskLogs)
+      .leftJoin(properties, eq(pmTaskLogs.propertyId, properties.id))
+      .where(and(
+        eq(pmTaskLogs.organizationId, organizationId),
+        eq(pmTaskLogs.managerId, managerId)
+      ));
+
+    if (filters?.propertyId) {
+      query = query.where(eq(pmTaskLogs.propertyId, filters.propertyId));
+    }
+    if (filters?.department) {
+      query = query.where(eq(pmTaskLogs.department, filters.department));
+    }
+    if (filters?.status) {
+      query = query.where(eq(pmTaskLogs.status, filters.status));
+    }
+    if (filters?.startDate) {
+      query = query.where(gte(pmTaskLogs.createdAt, new Date(filters.startDate)));
+    }
+    if (filters?.endDate) {
+      query = query.where(lte(pmTaskLogs.createdAt, new Date(filters.endDate)));
+    }
+
+    const result = await query
+      .orderBy(desc(pmTaskLogs.createdAt))
+      .limit(filters?.limit || 100);
+
+    return result;
+  }
+
+  // PM Property Performance Operations
+  async getPMPropertyPerformance(organizationId: string, managerId: string, filters?: {
+    propertyId?: number;
+    period?: string;
+    startPeriod?: string;
+    endPeriod?: string;
+  }): Promise<(typeof pmPropertyPerformance.$inferSelect & { propertyName?: string })[]> {
+    let query = db
+      .select({
+        ...pmPropertyPerformance,
+        propertyName: properties.name,
+      })
+      .from(pmPropertyPerformance)
+      .leftJoin(properties, eq(pmPropertyPerformance.propertyId, properties.id))
+      .where(and(
+        eq(pmPropertyPerformance.organizationId, organizationId),
+        eq(pmPropertyPerformance.managerId, managerId)
+      ));
+
+    if (filters?.propertyId) {
+      query = query.where(eq(pmPropertyPerformance.propertyId, filters.propertyId));
+    }
+    if (filters?.period) {
+      query = query.where(eq(pmPropertyPerformance.period, filters.period));
+    }
+    if (filters?.startPeriod) {
+      query = query.where(gte(pmPropertyPerformance.period, filters.startPeriod));
+    }
+    if (filters?.endPeriod) {
+      query = query.where(lte(pmPropertyPerformance.period, filters.endPeriod));
+    }
+
+    return query.orderBy(desc(pmPropertyPerformance.period));
+  }
+
+  async upsertPMPropertyPerformance(performance: typeof pmPropertyPerformance.$inferInsert): Promise<typeof pmPropertyPerformance.$inferSelect> {
+    const [result] = await db
+      .insert(pmPropertyPerformance)
+      .values(performance)
+      .onConflictDoUpdate({
+        target: [pmPropertyPerformance.organizationId, pmPropertyPerformance.managerId, pmPropertyPerformance.propertyId, pmPropertyPerformance.period],
+        set: {
+          ...performance,
+          updatedAt: new Date(),
+        },
+      })
+      .returning();
+    return result;
+  }
+
+  // PM Notifications Operations
+  async createPMNotification(notification: typeof pmNotifications.$inferInsert): Promise<typeof pmNotifications.$inferSelect> {
+    const [newNotification] = await db.insert(pmNotifications).values(notification).returning();
+    return newNotification;
+  }
+
+  async getPMNotifications(organizationId: string, managerId: string, filters?: {
+    type?: string;
+    severity?: string;
+    isRead?: boolean;
+    actionRequired?: boolean;
+    limit?: number;
+  }): Promise<typeof pmNotifications.$inferSelect[]> {
+    let query = db
+      .select()
+      .from(pmNotifications)
+      .where(and(
+        eq(pmNotifications.organizationId, organizationId),
+        eq(pmNotifications.managerId, managerId)
+      ));
+
+    if (filters?.type) {
+      query = query.where(eq(pmNotifications.type, filters.type));
+    }
+    if (filters?.severity) {
+      query = query.where(eq(pmNotifications.severity, filters.severity));
+    }
+    if (filters?.isRead !== undefined) {
+      query = query.where(eq(pmNotifications.isRead, filters.isRead));
+    }
+    if (filters?.actionRequired !== undefined) {
+      query = query.where(eq(pmNotifications.actionRequired, filters.actionRequired));
+    }
+
+    return query
+      .orderBy(desc(pmNotifications.createdAt))
+      .limit(filters?.limit || 50);
+  }
+
+  async markPMNotificationAsRead(id: number, managerId: string): Promise<typeof pmNotifications.$inferSelect | undefined> {
+    const [updated] = await db
+      .update(pmNotifications)
+      .set({ isRead: true })
+      .where(and(
+        eq(pmNotifications.id, id),
+        eq(pmNotifications.managerId, managerId)
+      ))
+      .returning();
+    return updated;
+  }
+
+  async markAllPMNotificationsAsRead(organizationId: string, managerId: string): Promise<void> {
+    await db
+      .update(pmNotifications)
+      .set({ isRead: true })
+      .where(and(
+        eq(pmNotifications.organizationId, organizationId),
+        eq(pmNotifications.managerId, managerId),
+        eq(pmNotifications.isRead, false)
+      ));
+  }
+
+  // PM Portfolio Operations
+  async getPMPortfolioProperties(organizationId: string, managerId: string): Promise<any[]> {
+    const result = await db
+      .select({
+        ...properties,
+        commissionRate: portfolioAssignments.commissionRate,
+        assignedAt: portfolioAssignments.assignedAt,
+      })
+      .from(properties)
+      .innerJoin(portfolioAssignments, and(
+        eq(portfolioAssignments.propertyId, properties.id),
+        eq(portfolioAssignments.managerId, managerId),
+        eq(portfolioAssignments.isActive, true)
+      ))
+      .where(eq(properties.organizationId, organizationId));
+
+    return result;
+  }
+
+  async assignPMToProperty(organizationId: string, managerId: string, propertyId: number, commissionRate: number = 50): Promise<typeof portfolioAssignments.$inferSelect> {
+    // First deactivate any existing assignment
+    await db
+      .update(portfolioAssignments)
+      .set({ 
+        isActive: false,
+        unassignedAt: new Date()
+      })
+      .where(and(
+        eq(portfolioAssignments.propertyId, propertyId),
+        eq(portfolioAssignments.isActive, true)
+      ));
+
+    // Create new assignment
+    const [assignment] = await db
+      .insert(portfolioAssignments)
+      .values({
+        organizationId,
+        managerId,
+        propertyId,
+        commissionRate,
+      })
+      .returning();
+
+    return assignment;
+  }
+
+  // PM Financial Overview
+  async getPMFinancialOverview(organizationId: string, managerId: string, filters?: {
+    startDate?: string;
+    endDate?: string;
+    propertyId?: number;
+  }) {
+    // Get PM's portfolio properties
+    const portfolioProperties = await this.getPMPortfolioProperties(organizationId, managerId);
+    const propertyIds = portfolioProperties.map(p => p.id);
+
+    if (propertyIds.length === 0) {
+      return {
+        totalCommissionEarnings: 0,
+        propertyBreakdown: [],
+        monthlyTrend: [],
+        pendingBalance: 0,
+      };
+    }
+
+    // Get commission earnings from management fees
+    let commissionsQuery = db
+      .select({
+        propertyId: finances.propertyId,
+        propertyName: properties.name,
+        totalRevenue: sum(finances.amount),
+        count: count(),
+        period: sql<string>`TO_CHAR(${finances.date}, 'YYYY-MM')`.as('period'),
+      })
+      .from(finances)
+      .leftJoin(properties, eq(finances.propertyId, properties.id))
+      .where(and(
+        eq(finances.organizationId, organizationId),
+        inArray(finances.propertyId, propertyIds),
+        eq(finances.type, 'income'),
+        eq(finances.source, 'booking_payment')
+      ));
+
+    if (filters?.startDate) {
+      commissionsQuery = commissionsQuery.where(gte(finances.date, filters.startDate));
+    }
+    if (filters?.endDate) {
+      commissionsQuery = commissionsQuery.where(lte(finances.date, filters.endDate));
+    }
+    if (filters?.propertyId) {
+      commissionsQuery = commissionsQuery.where(eq(finances.propertyId, filters.propertyId));
+    }
+
+    const revenueData = await commissionsQuery
+      .groupBy(finances.propertyId, properties.name, sql`TO_CHAR(${finances.date}, 'YYYY-MM')`)
+      .orderBy(sql`TO_CHAR(${finances.date}, 'YYYY-MM')`, properties.name);
+
+    // Calculate commission earnings (typically 10% of management fees, which are ~20% of revenue)
+    const propertyBreakdown = new Map();
+    const monthlyTrend = new Map();
+    let totalCommissionEarnings = 0;
+
+    revenueData.forEach(item => {
+      const revenue = Number(item.totalRevenue || 0);
+      const managementFee = revenue * 0.20; // 20% management fee
+      const commission = managementFee * 0.10; // 10% of management fee goes to PM
+
+      totalCommissionEarnings += commission;
+
+      // Property breakdown
+      const propertyKey = `${item.propertyId}-${item.propertyName}`;
+      if (!propertyBreakdown.has(propertyKey)) {
+        propertyBreakdown.set(propertyKey, {
+          propertyId: item.propertyId,
+          propertyName: item.propertyName,
+          totalRevenue: 0,
+          commissionEarned: 0,
+          bookingCount: 0,
+        });
+      }
+      const propertyData = propertyBreakdown.get(propertyKey);
+      propertyData.totalRevenue += revenue;
+      propertyData.commissionEarned += commission;
+      propertyData.bookingCount += Number(item.count || 0);
+
+      // Monthly trend
+      if (!monthlyTrend.has(item.period)) {
+        monthlyTrend.set(item.period, 0);
+      }
+      monthlyTrend.set(item.period, monthlyTrend.get(item.period) + commission);
+    });
+
+    // Get pending balance
+    const balance = await this.getPMCommissionBalance(organizationId, managerId);
+
+    return {
+      totalCommissionEarnings,
+      propertyBreakdown: Array.from(propertyBreakdown.values()),
+      monthlyTrend: Array.from(monthlyTrend.entries()).map(([period, earnings]) => ({
+        period,
+        earnings,
+      })),
+      pendingBalance: Number(balance?.currentBalance || 0),
+    };
+  }
 }
 
 export const storage = new DatabaseStorage();
