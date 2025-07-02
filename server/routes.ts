@@ -29,6 +29,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/properties", isDemoAuthenticated, async (req: any, res) => {
     try {
       const user = req.user;
+      const userId = req.user?.id;
       
       let properties;
       if (user?.role === 'admin' || user?.role === 'portfolio-manager') {
