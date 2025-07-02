@@ -2730,7 +2730,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // PM Payout Requests
-  app.get("/api/pm/dashboard/payouts", isAuthenticated, async (req: any, res) => {
+  app.get("/api/pm/dashboard/payouts", isDemoAuthenticated, async (req: any, res) => {
     try {
       const { organizationId, id: managerId } = req.user;
       const { status, startDate, endDate } = req.query;
@@ -2748,7 +2748,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/pm/dashboard/payouts", isAuthenticated, async (req: any, res) => {
+  app.post("/api/pm/dashboard/payouts", isDemoAuthenticated, async (req: any, res) => {
     try {
       const { organizationId, id: managerId } = req.user;
       const { amount, requestNotes } = req.body;
@@ -2780,7 +2780,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/pm/dashboard/payouts/:id/received", isAuthenticated, async (req: any, res) => {
+  app.patch("/api/pm/dashboard/payouts/:id/received", isDemoAuthenticated, async (req: any, res) => {
     try {
       const { id: managerId } = req.user;
       const { id } = req.params;
@@ -2799,7 +2799,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // PM Task Logs
-  app.get("/api/pm/dashboard/task-logs", isAuthenticated, async (req: any, res) => {
+  app.get("/api/pm/dashboard/task-logs", isDemoAuthenticated, async (req: any, res) => {
     try {
       const { organizationId, id: managerId } = req.user;
       const { propertyId, department, status, startDate, endDate, limit } = req.query;
@@ -2821,7 +2821,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // PM Portfolio Properties
-  app.get("/api/pm/dashboard/portfolio", isAuthenticated, async (req: any, res) => {
+  app.get("/api/pm/dashboard/portfolio", isDemoAuthenticated, async (req: any, res) => {
     try {
       const { organizationId, id: managerId } = req.user;
       
@@ -2835,7 +2835,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // PM Notifications
-  app.get("/api/pm/dashboard/notifications", isAuthenticated, async (req: any, res) => {
+  app.get("/api/pm/dashboard/notifications", isDemoAuthenticated, async (req: any, res) => {
     try {
       const { organizationId, id: managerId } = req.user;
       const { type, severity, isRead, actionRequired, limit } = req.query;
@@ -2855,7 +2855,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/pm/dashboard/notifications/:id/read", isAuthenticated, async (req: any, res) => {
+  app.patch("/api/pm/dashboard/notifications/:id/read", isDemoAuthenticated, async (req: any, res) => {
     try {
       const { id: managerId } = req.user;
       const { id } = req.params;
@@ -2873,7 +2873,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/pm/dashboard/notifications/read-all", isAuthenticated, async (req: any, res) => {
+  app.patch("/api/pm/dashboard/notifications/read-all", isDemoAuthenticated, async (req: any, res) => {
     try {
       const { organizationId, id: managerId } = req.user;
       
@@ -2887,7 +2887,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // PM Invoice Builder
-  app.post("/api/pm/dashboard/invoices", isAuthenticated, async (req: any, res) => {
+  app.post("/api/pm/dashboard/invoices", isDemoAuthenticated, async (req: any, res) => {
     try {
       const { organizationId, id: managerId } = req.user;
       const { 
@@ -2960,7 +2960,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/pm/dashboard/invoices", isAuthenticated, async (req: any, res) => {
+  app.get("/api/pm/dashboard/invoices", isDemoAuthenticated, async (req: any, res) => {
     try {
       const { organizationId, id: managerId } = req.user;
       const { status, startDate, endDate } = req.query;

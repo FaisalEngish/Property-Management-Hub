@@ -94,6 +94,7 @@ function Router() {
           <Route path="/admin/add-ons-bookings" component={AdminAddonBookings} />
           <Route path="/admin/add-ons-settings" component={AdminAddonSettings} />
           <Route path="/owner/dashboard" component={OwnerDashboard} />
+          <Route path="/pm/dashboard" component={PortfolioManagerDashboard} />
           <Route path="/hostaway" component={Hostaway} />
           <Route path="/settings" component={Settings} />
         </>

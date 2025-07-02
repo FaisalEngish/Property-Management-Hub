@@ -58,6 +58,13 @@ const navigationModules = [
         roles: ["owner"],
         description: "Property performance, financials, and payout management"
       },
+      { 
+        path: "/pm/dashboard", 
+        icon: Briefcase, 
+        label: "PM Dashboard", 
+        roles: ["portfolio-manager"],
+        description: "Portfolio management, commissions, and invoicing"
+      },
     ]
   },
   {
