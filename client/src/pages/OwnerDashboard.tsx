@@ -60,14 +60,7 @@ import {
   ChevronRight,
   ArrowUpRight,
   ArrowDownRight,
-  Target,
-  MessageSquare,
-  Bot,
-  Wifi,
-  Lightbulb,
-  Wrench,
-  MessageCircle,
-  X
+  Target
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
@@ -327,18 +320,7 @@ export default function OwnerDashboard() {
     queryFn: () => apiRequest("GET", "/api/properties"),
   });
 
-  // Financial summary query
-  const { data: financialSummary, isLoading: financialLoading } = useQuery<FinancialSummary>({
-    queryKey: ["/api/owner/dashboard/financial-summary", dateRange.startDate, dateRange.endDate, selectedProperty],
-    queryFn: async () => {
-      const params = new URLSearchParams({
-        startDate: dateRange.startDate,
-        endDate: dateRange.endDate,
-        ...(selectedProperty !== "all" && { propertyId: selectedProperty }),
-      });
-      return apiRequest("GET", `/api/owner/dashboard/financial-summary?${params}`);
-    },
-  });
+
 
   // Activity timeline query
   const { data: activities, isLoading: activitiesLoading } = useQuery<ActivityItem[]>({
@@ -352,41 +334,13 @@ export default function OwnerDashboard() {
     },
   });
 
-  // Bookings query
-  const { data: bookings, isLoading: bookingsLoading } = useQuery<Booking[]>({
-    queryKey: ["/api/owner/dashboard/bookings", dateRange.startDate, dateRange.endDate, selectedProperty],
-    queryFn: async () => {
-      const params = new URLSearchParams({
-        startDate: dateRange.startDate,
-        endDate: dateRange.endDate,
-        ...(selectedProperty !== "all" && { propertyId: selectedProperty }),
-      });
-      return apiRequest("GET", `/api/owner/dashboard/bookings?${params}`);
-    },
-  });
 
-  // Payout requests query
-  const { data: payouts, isLoading: payoutsLoading } = useQuery<PayoutRequest[]>({
-    queryKey: ["/api/owner/dashboard/payouts"],
-    queryFn: () => apiRequest("GET", "/api/owner/dashboard/payouts"),
-  });
 
-  // Invoices query
-  const { data: invoices, isLoading: invoicesLoading } = useQuery<Invoice[]>({
-    queryKey: ["/api/owner/dashboard/invoices", selectedProperty],
-    queryFn: async () => {
-      const params = new URLSearchParams({
-        ...(selectedProperty !== "all" && { propertyId: selectedProperty }),
-      });
-      return apiRequest("GET", `/api/owner/dashboard/invoices?${params}`);
-    },
-  });
 
-  // Preferences query
-  const { data: preferences } = useQuery<OwnerPreferences>({
-    queryKey: ["/api/owner/dashboard/preferences"],
-    queryFn: () => apiRequest("GET", "/api/owner/dashboard/preferences"),
-  });
+
+
+
+
 
   // Payout request mutation
   const payoutMutation = useMutation({
