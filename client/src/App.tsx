@@ -152,6 +152,7 @@ function Router() {
           <Route path="/utility-tracking" component={UtilityTracking} />
           <Route path="/ai-feedback" component={AiFeedbackMonitor} />
           <Route path="/guest-portal-messaging" component={GuestPortalMessaging} />
+          <Route path="/guest-communication-center" component={GuestCommunicationCenter} />
           <Route path="/guest-portal-ai-feedback" component={GuestPortalAiFeedbackDashboard} />
           <Route path="/guest-addon-services" component={GuestAddonServices} />
           <Route path="/recurring-services" component={RecurringServicesBilling} />

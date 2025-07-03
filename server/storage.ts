@@ -24,9 +24,18 @@ import {
   staffCommissions,
   paySlips,
   staffAdvanceRequests,
+  staffClockEntries,
   staffOvertimeLogs,
   staffOvertimeSettings,
   staffMonthlySummary,
+  // Communication System tables
+  communicationChannels,
+  channelMembers,
+  internalMessages,
+  ownerPmCommunication,
+  guestSmartRequests,
+  communicationLogs,
+  smartRequestConfig,
   notifications,
   notificationPreferences,
   guestAddonServices,
@@ -203,6 +212,25 @@ import {
   balanceResetAudit,
   type BalanceResetAudit,
   type InsertBalanceResetAudit,
+  // Communication System types
+  type CommunicationChannel,
+  type InsertCommunicationChannel,
+  type ChannelMember,
+  type InsertChannelMember,
+  type InternalMessage,
+  type InsertInternalMessage,
+  type OwnerPmCommunication,
+  type InsertOwnerPmCommunication,
+  type GuestSmartRequest,
+  type InsertGuestSmartRequest,
+  type CommunicationLog,
+  type InsertCommunicationLog,
+  type SmartRequestConfig,
+  type InsertSmartRequestConfig,
+  type StaffAdvanceRequest,
+  type InsertStaffAdvanceRequest,
+  type StaffClockEntry,
+  type InsertStaffClockEntry,
   utilityProviders,
   customExpenseCategories,
   propertyUtilitySettings,
@@ -17833,6 +17861,466 @@ Plant Care:
     
     const sequence = invoicesThisMonth.length + 1;
     return `INV-${year}${month}-${String(sequence).padStart(4, '0')}`;
+  }
+
+  // ===== COMMUNICATION SYSTEM OPERATIONS =====
+
+  // Communication Channels
+  async getCommunicationChannels(organizationId: string, filters?: { channelType?: string; department?: string; propertyId?: number }): Promise<CommunicationChannel[]> {
+    let query = db.select().from(communicationChannels).where(eq(communicationChannels.organizationId, organizationId));
+    
+    if (filters?.channelType) {
+      query = query.where(eq(communicationChannels.channelType, filters.channelType));
+    }
+    
+    if (filters?.department) {
+      query = query.where(eq(communicationChannels.department, filters.department));
+    }
+    
+    if (filters?.propertyId) {
+      query = query.where(eq(communicationChannels.propertyId, filters.propertyId));
+    }
+    
+    return await query.where(eq(communicationChannels.isActive, true)).orderBy(asc(communicationChannels.name));
+  }
+
+  async createCommunicationChannel(channelData: InsertCommunicationChannel): Promise<CommunicationChannel> {
+    const [channel] = await db.insert(communicationChannels).values(channelData).returning();
+    return channel;
+  }
+
+  async updateCommunicationChannel(id: number, updates: Partial<InsertCommunicationChannel>): Promise<CommunicationChannel | undefined> {
+    const [channel] = await db.update(communicationChannels)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(communicationChannels.id, id))
+      .returning();
+    return channel;
+  }
+
+  // Channel Members
+  async getChannelMembers(channelId: number): Promise<ChannelMember[]> {
+    return await db.select().from(channelMembers).where(eq(channelMembers.channelId, channelId));
+  }
+
+  async addChannelMember(memberData: InsertChannelMember): Promise<ChannelMember> {
+    const [member] = await db.insert(channelMembers).values(memberData).returning();
+    return member;
+  }
+
+  async removeChannelMember(channelId: number, userId: string): Promise<void> {
+    await db.delete(channelMembers)
+      .where(and(eq(channelMembers.channelId, channelId), eq(channelMembers.userId, userId)));
+  }
+
+  async updateLastReadAt(channelId: number, userId: string): Promise<void> {
+    await db.update(channelMembers)
+      .set({ lastReadAt: new Date() })
+      .where(and(eq(channelMembers.channelId, channelId), eq(channelMembers.userId, userId)));
+  }
+
+  // Internal Messages
+  async getInternalMessages(channelId: number, limit: number = 50, offset: number = 0): Promise<InternalMessage[]> {
+    return await db.select().from(internalMessages)
+      .where(and(eq(internalMessages.channelId, channelId), isNull(internalMessages.deletedAt)))
+      .orderBy(desc(internalMessages.sentAt))
+      .limit(limit)
+      .offset(offset);
+  }
+
+  async createInternalMessage(messageData: InsertInternalMessage): Promise<InternalMessage> {
+    const [message] = await db.insert(internalMessages).values(messageData).returning();
+    
+    // If message should be logged to property timeline, create communication log
+    if (messageData.logToPropertyTimeline && messageData.relatedPropertyId) {
+      await this.createCommunicationLog({
+        organizationId: messageData.organizationId,
+        logType: 'property_activity',
+        sourceType: 'internal_message',
+        sourceId: message.id,
+        propertyId: messageData.relatedPropertyId,
+        userId: messageData.senderId,
+        summary: `Internal message: ${messageData.message.substring(0, 100)}...`,
+        details: messageData.message,
+        attachmentUrl: messageData.attachmentUrl,
+      });
+    }
+    
+    return message;
+  }
+
+  async markMessageAsImportant(messageId: number): Promise<void> {
+    await db.update(internalMessages)
+      .set({ isImportant: true })
+      .where(eq(internalMessages.id, messageId));
+  }
+
+  async deleteInternalMessage(messageId: number): Promise<void> {
+    await db.update(internalMessages)
+      .set({ deletedAt: new Date() })
+      .where(eq(internalMessages.id, messageId));
+  }
+
+  // Owner ↔ PM Communication
+  async getOwnerPmCommunication(organizationId: string, filters?: { propertyId?: number; senderId?: string; recipientId?: string; status?: string }): Promise<OwnerPmCommunication[]> {
+    let query = db.select().from(ownerPmCommunication).where(eq(ownerPmCommunication.organizationId, organizationId));
+    
+    if (filters?.propertyId) {
+      query = query.where(eq(ownerPmCommunication.propertyId, filters.propertyId));
+    }
+    
+    if (filters?.senderId) {
+      query = query.where(eq(ownerPmCommunication.senderId, filters.senderId));
+    }
+    
+    if (filters?.recipientId) {
+      query = query.where(eq(ownerPmCommunication.recipientId, filters.recipientId));
+    }
+    
+    if (filters?.status) {
+      query = query.where(eq(ownerPmCommunication.status, filters.status));
+    }
+    
+    return await query.orderBy(desc(ownerPmCommunication.sentAt));
+  }
+
+  async createOwnerPmCommunication(communicationData: InsertOwnerPmCommunication): Promise<OwnerPmCommunication> {
+    const [communication] = await db.insert(ownerPmCommunication).values(communicationData).returning();
+    
+    // Create communication log for property timeline
+    await this.createCommunicationLog({
+      organizationId: communicationData.organizationId,
+      logType: 'property_activity',
+      sourceType: 'owner_pm_communication',
+      sourceId: communication.id,
+      propertyId: communicationData.propertyId,
+      userId: communicationData.senderId,
+      summary: `${communicationData.senderType.toUpperCase()} → ${communicationData.recipientType.toUpperCase()}: ${communicationData.subject || 'Update'}`,
+      details: communicationData.message,
+      attachmentUrl: communicationData.attachmentUrl,
+    });
+    
+    return communication;
+  }
+
+  async markOwnerPmCommunicationAsRead(communicationId: number): Promise<void> {
+    await db.update(ownerPmCommunication)
+      .set({ status: 'read', readAt: new Date() })
+      .where(eq(ownerPmCommunication.id, communicationId));
+  }
+
+  async approveOwnerPmRequest(communicationId: number, approvedBy: string): Promise<void> {
+    await db.update(ownerPmCommunication)
+      .set({ 
+        approvalStatus: 'approved', 
+        approvedBy, 
+        approvedAt: new Date(),
+        status: 'approved'
+      })
+      .where(eq(ownerPmCommunication.id, communicationId));
+  }
+
+  async rejectOwnerPmRequest(communicationId: number, approvedBy: string): Promise<void> {
+    await db.update(ownerPmCommunication)
+      .set({ 
+        approvalStatus: 'rejected', 
+        approvedBy, 
+        approvedAt: new Date(),
+        status: 'rejected'
+      })
+      .where(eq(ownerPmCommunication.id, communicationId));
+  }
+
+  // Guest Smart Requests
+  async getGuestSmartRequests(organizationId: string, filters?: { propertyId?: number; status?: string; urgencyLevel?: string; routedToDepartment?: string }): Promise<GuestSmartRequest[]> {
+    let query = db.select().from(guestSmartRequests).where(eq(guestSmartRequests.organizationId, organizationId));
+    
+    if (filters?.propertyId) {
+      query = query.where(eq(guestSmartRequests.propertyId, filters.propertyId));
+    }
+    
+    if (filters?.status) {
+      query = query.where(eq(guestSmartRequests.status, filters.status));
+    }
+    
+    if (filters?.urgencyLevel) {
+      query = query.where(eq(guestSmartRequests.urgencyLevel, filters.urgencyLevel));
+    }
+    
+    if (filters?.routedToDepartment) {
+      query = query.where(eq(guestSmartRequests.routedToDepartment, filters.routedToDepartment));
+    }
+    
+    return await query.orderBy(desc(guestSmartRequests.createdAt));
+  }
+
+  async createGuestSmartRequest(requestData: InsertGuestSmartRequest): Promise<GuestSmartRequest> {
+    // Generate AI analysis and routing (mock implementation)
+    const aiAnalysis = this.generateAIAnalysis(requestData.requestCategory, requestData.description);
+    const routedToDepartment = this.routeRequestToDepartment(requestData.requestCategory, requestData.requestSubcategory);
+    const autoReplyMessage = this.generateAutoReply(requestData.requestCategory, requestData.urgencyLevel || 'medium');
+    
+    const [request] = await db.insert(guestSmartRequests).values({
+      ...requestData,
+      aiAnalysis,
+      aiConfidence: 0.85, // Mock confidence score
+      routedToDepartment,
+      autoReplyMessage,
+      estimatedResolutionTime: this.getEstimatedResolutionTime(requestData.requestCategory, requestData.urgencyLevel || 'medium'),
+    }).returning();
+    
+    // Create communication log for guest stay timeline
+    await this.createCommunicationLog({
+      organizationId: requestData.organizationId,
+      logType: 'guest_stay',
+      sourceType: 'guest_request',
+      sourceId: request.id,
+      propertyId: requestData.propertyId,
+      bookingId: requestData.bookingId || undefined,
+      userId: 'system', // System-generated log
+      summary: `Guest request: ${requestData.requestCategory} - ${requestData.urgencyLevel} priority`,
+      details: requestData.description,
+    });
+    
+    return request;
+  }
+
+  async acknowledgeGuestRequest(requestId: number, assignedUserId: string): Promise<void> {
+    await db.update(guestSmartRequests)
+      .set({ 
+        status: 'acknowledged', 
+        assignedToUserId: assignedUserId,
+        acknowledgedAt: new Date() 
+      })
+      .where(eq(guestSmartRequests.id, requestId));
+  }
+
+  async updateGuestRequestStatus(requestId: number, status: string, internalNotes?: string): Promise<void> {
+    const updates: any = { status };
+    
+    if (status === 'resolved') {
+      updates.resolvedAt = new Date();
+      updates.actualResolutionTime = new Date();
+    }
+    
+    if (internalNotes) {
+      updates.internalNotes = internalNotes;
+    }
+    
+    await db.update(guestSmartRequests)
+      .set(updates)
+      .where(eq(guestSmartRequests.id, requestId));
+  }
+
+  async rateGuestRequest(requestId: number, rating: number, feedback?: string): Promise<void> {
+    await db.update(guestSmartRequests)
+      .set({ 
+        guestSatisfactionRating: rating,
+        guestFeedback: feedback
+      })
+      .where(eq(guestSmartRequests.id, requestId));
+  }
+
+  // Communication Logs
+  async createCommunicationLog(logData: InsertCommunicationLog): Promise<CommunicationLog> {
+    const [log] = await db.insert(communicationLogs).values(logData).returning();
+    return log;
+  }
+
+  async getCommunicationLogs(organizationId: string, filters?: { logType?: string; propertyId?: number; bookingId?: number; isArchived?: boolean }): Promise<CommunicationLog[]> {
+    let query = db.select().from(communicationLogs).where(eq(communicationLogs.organizationId, organizationId));
+    
+    if (filters?.logType) {
+      query = query.where(eq(communicationLogs.logType, filters.logType));
+    }
+    
+    if (filters?.propertyId) {
+      query = query.where(eq(communicationLogs.propertyId, filters.propertyId));
+    }
+    
+    if (filters?.bookingId) {
+      query = query.where(eq(communicationLogs.bookingId, filters.bookingId));
+    }
+    
+    if (filters?.isArchived !== undefined) {
+      query = query.where(eq(communicationLogs.isArchived, filters.isArchived));
+    }
+    
+    return await query.orderBy(desc(communicationLogs.createdAt));
+  }
+
+  async archiveCommunicationLogs(organizationId: string, olderThanDays: number = 30): Promise<number> {
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - olderThanDays);
+    
+    const result = await db.update(communicationLogs)
+      .set({ isArchived: true, archivedAt: new Date() })
+      .where(
+        and(
+          eq(communicationLogs.organizationId, organizationId),
+          lt(communicationLogs.createdAt, cutoffDate),
+          eq(communicationLogs.isArchived, false)
+        )
+      );
+    
+    return result.rowCount || 0;
+  }
+
+  // Smart Request Configuration
+  async getSmartRequestConfig(organizationId: string, category?: string): Promise<SmartRequestConfig[]> {
+    let query = db.select().from(smartRequestConfig).where(eq(smartRequestConfig.organizationId, organizationId));
+    
+    if (category) {
+      query = query.where(eq(smartRequestConfig.category, category));
+    }
+    
+    return await query.where(eq(smartRequestConfig.isActive, true));
+  }
+
+  async createSmartRequestConfig(configData: InsertSmartRequestConfig): Promise<SmartRequestConfig> {
+    const [config] = await db.insert(smartRequestConfig).values(configData).returning();
+    return config;
+  }
+
+  async updateSmartRequestConfig(id: number, updates: Partial<InsertSmartRequestConfig>): Promise<SmartRequestConfig | undefined> {
+    const [config] = await db.update(smartRequestConfig)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(smartRequestConfig.id, id))
+      .returning();
+    return config;
+  }
+
+  // Missing Staff Tables Methods (fixing database errors)
+  async getStaffAdvanceRequests(organizationId: string, filters?: { staffId?: string; status?: string }): Promise<StaffAdvanceRequest[]> {
+    let query = db.select().from(staffAdvanceRequests).where(eq(staffAdvanceRequests.organizationId, organizationId));
+    
+    if (filters?.staffId) {
+      query = query.where(eq(staffAdvanceRequests.staffId, filters.staffId));
+    }
+    
+    if (filters?.status) {
+      query = query.where(eq(staffAdvanceRequests.status, filters.status));
+    }
+    
+    return await query.orderBy(desc(staffAdvanceRequests.requestDate));
+  }
+
+  async createStaffAdvanceRequest(requestData: InsertStaffAdvanceRequest): Promise<StaffAdvanceRequest> {
+    const [request] = await db.insert(staffAdvanceRequests).values(requestData).returning();
+    return request;
+  }
+
+  async updateStaffAdvanceRequest(id: number, updates: Partial<InsertStaffAdvanceRequest>): Promise<StaffAdvanceRequest | undefined> {
+    const [request] = await db.update(staffAdvanceRequests)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(staffAdvanceRequests.id, id))
+      .returning();
+    return request;
+  }
+
+  async getStaffClockEntries(organizationId: string, filters?: { staffId?: string; workDate?: string; status?: string }): Promise<StaffClockEntry[]> {
+    let query = db.select().from(staffClockEntries).where(eq(staffClockEntries.organizationId, organizationId));
+    
+    if (filters?.staffId) {
+      query = query.where(eq(staffClockEntries.staffId, filters.staffId));
+    }
+    
+    if (filters?.workDate) {
+      query = query.where(eq(staffClockEntries.workDate, filters.workDate));
+    }
+    
+    if (filters?.status) {
+      query = query.where(eq(staffClockEntries.status, filters.status));
+    }
+    
+    return await query.orderBy(desc(staffClockEntries.workDate), desc(staffClockEntries.clockInTime));
+  }
+
+  async createStaffClockEntry(entryData: InsertStaffClockEntry): Promise<StaffClockEntry> {
+    const [entry] = await db.insert(staffClockEntries).values(entryData).returning();
+    return entry;
+  }
+
+  async updateStaffClockEntry(id: number, updates: Partial<InsertStaffClockEntry>): Promise<StaffClockEntry | undefined> {
+    const [entry] = await db.update(staffClockEntries)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(staffClockEntries.id, id))
+      .returning();
+    return entry;
+  }
+
+  // Helper methods for AI processing
+  private generateAIAnalysis(category: string, description: string): string {
+    const analyses: Record<string, string> = {
+      'ac_water_electricity': 'Technical issue detected. Requires immediate maintenance attention. High priority routing to technical team.',
+      'extra_cleaning': 'Housekeeping request identified. Standard cleaning protocol applicable. Route to housekeeping supervisor.',
+      'order_services': 'Service order request. Requires concierge coordination. Standard fulfillment process.',
+      'other': 'General inquiry requiring manual review and appropriate department routing.'
+    };
+    
+    return analyses[category] || analyses['other'];
+  }
+
+  private routeRequestToDepartment(category: string, subcategory?: string): string {
+    const routing: Record<string, string> = {
+      'ac_water_electricity': 'maintenance',
+      'extra_cleaning': 'cleaning',
+      'order_services': 'concierge',
+      'other': 'concierge'
+    };
+    
+    return routing[category] || 'concierge';
+  }
+
+  private generateAutoReply(category: string, urgencyLevel: string): string {
+    const urgencyResponseTime: Record<string, string> = {
+      'emergency': 'within 30 minutes',
+      'high': 'within 1 hour',
+      'medium': 'within 2 hours',
+      'low': 'within 4 hours'
+    };
+    
+    const categoryMessages: Record<string, string> = {
+      'ac_water_electricity': 'We\'ve received your technical support request and our maintenance team has been notified.',
+      'extra_cleaning': 'Your cleaning request has been forwarded to our housekeeping team.',
+      'order_services': 'Thank you for your service request. Our concierge team will contact you shortly.',
+      'other': 'We\'ve received your request and will respond appropriately.'
+    };
+    
+    const timeframe = urgencyResponseTime[urgencyLevel] || urgencyResponseTime['medium'];
+    const baseMessage = categoryMessages[category] || categoryMessages['other'];
+    
+    return `${baseMessage} You can expect a response ${timeframe}. Thank you for staying with us!`;
+  }
+
+  private getEstimatedResolutionTime(category: string, urgencyLevel: string): string {
+    const resolutionTimes: Record<string, Record<string, string>> = {
+      'ac_water_electricity': {
+        'emergency': '30 minutes',
+        'high': '1 hour',
+        'medium': '2 hours',
+        'low': '4 hours'
+      },
+      'extra_cleaning': {
+        'emergency': '1 hour',
+        'high': '2 hours',
+        'medium': '4 hours',
+        'low': '8 hours'
+      },
+      'order_services': {
+        'emergency': '1 hour',
+        'high': '2 hours',
+        'medium': '4 hours',
+        'low': '24 hours'
+      },
+      'other': {
+        'emergency': '1 hour',
+        'high': '2 hours',
+        'medium': '4 hours',
+        'low': '24 hours'
+      }
+    };
+    
+    return resolutionTimes[category]?.[urgencyLevel] || resolutionTimes['other'][urgencyLevel] || '4 hours';
   }
 }
 

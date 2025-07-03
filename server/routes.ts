@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { setupAuth, isDemoAuthenticated as prodAuth } from "./replitAuth";
+import { setupAuth, isAuthenticated as prodAuth } from "./replitAuth";
 import { setupDemoAuth, isDemoAuthenticated } from "./demoAuth";
 import { authenticatedTenantMiddleware, getTenantContext } from "./multiTenant";
 import { insertPropertySchema, insertTaskSchema, insertBookingSchema, insertFinanceSchema, insertPlatformSettingSchema, insertAddonServiceSchema, insertAddonBookingSchema, insertUtilityBillSchema, insertPropertyUtilityAccountSchema, insertUtilityBillReminderSchema, insertOwnerActivityTimelineSchema, insertOwnerPayoutRequestSchema, insertOwnerInvoiceSchema, insertOwnerPreferencesSchema } from "@shared/schema";
@@ -14091,6 +14091,264 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching pay slips:", error);
       res.status(500).json({ message: "Failed to fetch pay slips" });
+    }
+  });
+
+  // ===== COMMUNICATION SYSTEM ROUTES =====
+  
+  // Internal Chat Routes
+
+  // Get communication channels
+  app.get("/api/communication/channels", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: userId } = req.user;
+      const channels = await storage.getCommunicationChannels(organizationId, userId);
+      res.json(channels);
+    } catch (error) {
+      console.error("Error fetching communication channels:", error);
+      res.status(500).json({ message: "Failed to fetch channels" });
+    }
+  });
+
+  // Create communication channel (Admin/PM)
+  app.post("/api/communication/channels", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: userId, role } = req.user;
+      
+      if (!['admin', 'portfolio-manager'].includes(role)) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const { name, description, isPrivate, memberIds } = req.body;
+      
+      const channelData = {
+        organizationId,
+        name,
+        description,
+        isPrivate: isPrivate || false,
+        createdBy: userId,
+      };
+
+      const channel = await storage.createCommunicationChannel(channelData, memberIds);
+      res.status(201).json(channel);
+    } catch (error) {
+      console.error("Error creating communication channel:", error);
+      res.status(500).json({ message: "Failed to create channel" });
+    }
+  });
+
+  // Get messages for a channel
+  app.get("/api/communication/channels/:channelId/messages", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: userId } = req.user;
+      const { channelId } = req.params;
+      const { limit = 50, offset = 0 } = req.query;
+
+      const messages = await storage.getChannelMessages(organizationId, parseInt(channelId), userId, parseInt(limit), parseInt(offset));
+      res.json(messages);
+    } catch (error) {
+      console.error("Error fetching channel messages:", error);
+      res.status(500).json({ message: "Failed to fetch messages" });
+    }
+  });
+
+  // Send message to channel
+  app.post("/api/communication/channels/:channelId/messages", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: userId } = req.user;
+      const { channelId } = req.params;
+      const { content, messageType, attachmentUrl } = req.body;
+
+      const messageData = {
+        organizationId,
+        channelId: parseInt(channelId),
+        senderId: userId,
+        content,
+        messageType: messageType || 'text',
+        attachmentUrl,
+      };
+
+      const message = await storage.createInternalMessage(messageData);
+      res.status(201).json(message);
+    } catch (error) {
+      console.error("Error sending message:", error);
+      res.status(500).json({ message: "Failed to send message" });
+    }
+  });
+
+  // Owner-PM Communication Routes
+
+  // Get owner-PM conversations
+  app.get("/api/communication/owner-pm", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: userId, role } = req.user;
+      const conversations = await storage.getOwnerPmCommunications(organizationId, userId, role);
+      res.json(conversations);
+    } catch (error) {
+      console.error("Error fetching owner-PM communications:", error);
+      res.status(500).json({ message: "Failed to fetch conversations" });
+    }
+  });
+
+  // Send owner-PM message
+  app.post("/api/communication/owner-pm", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: userId, role } = req.user;
+      const { receiverId, subject, message, priority, attachmentUrl } = req.body;
+
+      const communicationData = {
+        organizationId,
+        senderId: userId,
+        receiverId,
+        subject,
+        message,
+        priority: priority || 'medium',
+        senderType: role,
+        receiverType: role === 'owner' ? 'portfolio-manager' : 'owner',
+        attachmentUrl,
+      };
+
+      const communication = await storage.createOwnerPmCommunication(communicationData);
+      res.status(201).json(communication);
+    } catch (error) {
+      console.error("Error sending owner-PM message:", error);
+      res.status(500).json({ message: "Failed to send message" });
+    }
+  });
+
+  // Guest Smart Requests Routes
+
+  // Get guest smart requests
+  app.get("/api/communication/guest-requests", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId } = req.user;
+      const { status, priority, propertyId } = req.query;
+      
+      const filters = {
+        status: status,
+        priority: priority,
+        propertyId: propertyId ? parseInt(propertyId) : undefined,
+      };
+
+      const requests = await storage.getGuestSmartRequests(organizationId, filters);
+      res.json(requests);
+    } catch (error) {
+      console.error("Error fetching guest smart requests:", error);
+      res.status(500).json({ message: "Failed to fetch requests" });
+    }
+  });
+
+  // Create guest smart request (Guest Portal)
+  app.post("/api/communication/guest-requests", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId } = req.user;
+      const { guestName, guestEmail, propertyId, requestType, subject, description, priority, urgencyLevel } = req.body;
+
+      const requestData = {
+        organizationId,
+        guestName,
+        guestEmail,
+        propertyId,
+        requestType,
+        subject,
+        description,
+        priority: priority || 'medium',
+        urgencyLevel: urgencyLevel || 'normal',
+      };
+
+      const request = await storage.createGuestSmartRequest(requestData);
+      res.status(201).json(request);
+    } catch (error) {
+      console.error("Error creating guest smart request:", error);
+      res.status(500).json({ message: "Failed to create request" });
+    }
+  });
+
+  // Update guest smart request status (Staff/PM/Admin)
+  app.put("/api/communication/guest-requests/:requestId", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: userId, role } = req.user;
+      const { requestId } = req.params;
+      const { status, response, assignedTo } = req.body;
+
+      if (!['admin', 'portfolio-manager', 'staff'].includes(role)) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const updateData = {
+        status,
+        response,
+        assignedTo,
+        processedBy: userId,
+        processedAt: new Date(),
+      };
+
+      const request = await storage.updateGuestSmartRequest(organizationId, parseInt(requestId), updateData);
+      res.json(request);
+    } catch (error) {
+      console.error("Error updating guest smart request:", error);
+      res.status(500).json({ message: "Failed to update request" });
+    }
+  });
+
+  // Communication Configuration Routes
+
+  // Get smart request configuration
+  app.get("/api/communication/config", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId } = req.user;
+      const config = await storage.getSmartRequestConfig(organizationId);
+      res.json(config);
+    } catch (error) {
+      console.error("Error fetching smart request config:", error);
+      res.status(500).json({ message: "Failed to fetch configuration" });
+    }
+  });
+
+  // Update smart request configuration (Admin/PM)
+  app.put("/api/communication/config", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role } = req.user;
+      
+      if (!['admin', 'portfolio-manager'].includes(role)) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const { autoResponseEnabled, responseTimeHours, escalationRules, requestCategories } = req.body;
+      
+      const configData = {
+        organizationId,
+        autoResponseEnabled,
+        responseTimeHours,
+        escalationRules,
+        requestCategories,
+      };
+
+      const config = await storage.updateSmartRequestConfig(configData);
+      res.json(config);
+    } catch (error) {
+      console.error("Error updating smart request config:", error);
+      res.status(500).json({ message: "Failed to update configuration" });
+    }
+  });
+
+  // Communication Analytics Routes
+
+  // Get communication analytics
+  app.get("/api/communication/analytics", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role } = req.user;
+      
+      if (!['admin', 'portfolio-manager'].includes(role)) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const { period = '30d' } = req.query;
+      const analytics = await storage.getCommunicationAnalytics(organizationId, period);
+      res.json(analytics);
+    } catch (error) {
+      console.error("Error fetching communication analytics:", error);
+      res.status(500).json({ message: "Failed to fetch analytics" });
     }
   });
 

@@ -1,0 +1,63 @@
+📦 MODULE: Owner Invoicing, Payout Requests & Financial Integration Prep
+
+✅ PART 1: Owner Payout Dashboard
+- In the owner dashboard, show:
+  - Current balance (live)
+  - Monthly revenue, expenses, management fees
+  - Last payout amount + date
+- Button: “Request Payout”
+  - Triggers:
+    - Notification to Admin and PM
+    - Option to upload transfer proof or reject with comment
+  - Owner clicks “Confirm Received” after payment
+
+✅ PART 2: Owner Invoice Generator
+- Admin or PM can generate invoice:
+  - To Owner (e.g., Management Fee, Expenses, Add-ons)
+  - From Owner (e.g., revenue shared back to company)
+- Auto-prefill logic:
+  - Rental income (from booking API)
+  - Management fee split
+  - Services (cleaning, pool, garden)
+  - Utilities (electric, water, internet)
+- Manual overrides available for custom lines
+- Exports as PDF + logs into owner finance history
+
+✅ PART 3: Portfolio Manager Commission Overview
+- PM Dashboard includes:
+  - Property-wise commission reports
+  - Option to “Request Monthly Payout”
+    - Auto-invoice generator to admin with earnings summary
+    - Admin receives breakdown and approves payment
+
+✅ PART 4: Guest vs Owner Charges
+- Each service item can be tagged:
+  - Charged to Guest
+  - Charged to Owner
+  - Company Paid / Complimentary
+- Invoices and balance reflect correctly
+- Complimentary tag shows reason (gift, apology, upgrade, etc.)
+
+✅ PART 5: QuickBooks Integration (Phase 2 – Future)
+- System prepared for syncing:
+  - Invoices
+  - Payments
+  - Categorized expenses
+- Export options:
+  - .CSV
+  - QuickBooks API-ready JSON
+- Each owner/property can be mapped to QuickBooks Client ID
+
+✅ PART 6: Admin-Level Accounting Summary
+- Monthly finance page for admin:
+  - Total income per category:
+    - Rental
+    - Services (Cleaning, Garden, Pool, Maintenance)
+    - Add-ons (Chef, Taxi, Tours, etc.)
+  - Total commissions earned
+  - Owner payout totals
+  - Balance summary
+- Export full monthly .PDF reports or Excel files
+
+📎 All data stored securely and tied to property timelines.
+

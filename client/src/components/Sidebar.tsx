@@ -196,6 +196,13 @@ const navigationModules = [
         description: "Guest communication center with AI-powered replies and smart routing"
       },
       { 
+        path: "/guest-communication-center", 
+        icon: MessageSquare, 
+        label: "Communication Center", 
+        roles: ["admin", "portfolio-manager", "staff", "owner"],
+        description: "Internal chat, owner notes, and guest smart requests system"
+      },
+      { 
         path: "/guest-addon-services", 
         icon: Package, 
         label: "Guest Add-On Services", 

@@ -1441,6 +1441,154 @@ export const insertFinancialTransactionSchema = createInsertSchema(financialTran
   updatedAt: true,
 });
 
+// ===== COMMUNICATION SYSTEM TABLES =====
+
+// Internal Staff & PM Communication Channels
+export const communicationChannels = pgTable("communication_channels", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").notNull(),
+  name: varchar("name").notNull(),
+  description: text("description"),
+  channelType: varchar("channel_type").notNull(), // 'department', 'property', 'general', 'admin'
+  department: varchar("department"), // 'cleaning', 'maintenance', 'pool', 'garden', 'general'
+  propertyId: integer("property_id").references(() => properties.id),
+  isActive: boolean("is_active").default(true),
+  createdBy: varchar("created_by").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Channel Members
+export const channelMembers = pgTable("channel_members", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").notNull(),
+  channelId: integer("channel_id").references(() => communicationChannels.id, { onDelete: 'cascade' }),
+  userId: varchar("user_id").notNull(),
+  role: varchar("role").default("member"), // 'admin', 'moderator', 'member'
+  joinedAt: timestamp("joined_at").defaultNow(),
+  lastReadAt: timestamp("last_read_at"),
+  notificationsEnabled: boolean("notifications_enabled").default(true),
+});
+
+// Internal Messages
+export const internalMessages = pgTable("internal_messages", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").notNull(),
+  channelId: integer("channel_id").references(() => communicationChannels.id, { onDelete: 'cascade' }),
+  senderId: varchar("sender_id").notNull(),
+  message: text("message").notNull(),
+  messageType: varchar("message_type").default("text"), // 'text', 'image', 'file', 'task_link', 'property_update'
+  attachmentUrl: varchar("attachment_url"),
+  attachmentType: varchar("attachment_type"), // 'image', 'pdf', 'document'
+  replyToMessageId: integer("reply_to_message_id").references(() => internalMessages.id),
+  isImportant: boolean("is_important").default(false),
+  logToPropertyTimeline: boolean("log_to_property_timeline").default(false),
+  relatedTaskId: integer("related_task_id"),
+  relatedPropertyId: integer("related_property_id"),
+  sentAt: timestamp("sent_at").defaultNow(),
+  editedAt: timestamp("edited_at"),
+  deletedAt: timestamp("deleted_at"),
+});
+
+// Owner ↔ PM Communication (Property Notes & Updates)
+export const ownerPmCommunication = pgTable("owner_pm_communication", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").notNull(),
+  propertyId: integer("property_id").references(() => properties.id).notNull(),
+  senderId: varchar("sender_id").notNull(), // User ID
+  senderType: varchar("sender_type").notNull(), // 'owner', 'pm', 'admin'
+  recipientId: varchar("recipient_id").notNull(),
+  recipientType: varchar("recipient_type").notNull(),
+  subject: varchar("subject"),
+  message: text("message").notNull(),
+  messageType: varchar("message_type").default("update"), // 'update', 'approval_request', 'maintenance_suggestion', 'task_summary'
+  priority: varchar("priority").default("normal"), // 'low', 'normal', 'high', 'urgent'
+  status: varchar("status").default("sent"), // 'sent', 'read', 'replied', 'approved', 'rejected'
+  attachmentUrl: varchar("attachment_url"),
+  attachmentType: varchar("attachment_type"),
+  requiresApproval: boolean("requires_approval").default(false),
+  approvalStatus: varchar("approval_status"), // 'pending', 'approved', 'rejected'
+  approvedBy: varchar("approved_by"),
+  approvedAt: timestamp("approved_at"),
+  relatedTaskId: integer("related_task_id"),
+  relatedInvoiceId: integer("related_invoice_id"),
+  sentAt: timestamp("sent_at").defaultNow(),
+  readAt: timestamp("read_at"),
+  repliedAt: timestamp("replied_at"),
+});
+
+// Guest Smart Requests (No chat - just smart form submissions)
+export const guestSmartRequests = pgTable("guest_smart_requests", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").notNull(),
+  propertyId: integer("property_id").references(() => properties.id).notNull(),
+  bookingId: integer("booking_id").references(() => bookings.id),
+  guestName: varchar("guest_name").notNull(),
+  guestEmail: varchar("guest_email"),
+  guestPhone: varchar("guest_phone"),
+  requestCategory: varchar("request_category").notNull(), // 'ac_water_electricity', 'extra_cleaning', 'order_services', 'other'
+  requestSubcategory: varchar("request_subcategory"), // 'ac_issue', 'water_issue', 'electricity_issue', 'massage', 'chef', 'taxi'
+  urgencyLevel: varchar("urgency_level").default("medium"), // 'low', 'medium', 'high', 'emergency'
+  description: text("description").notNull(),
+  aiAnalysis: text("ai_analysis"), // AI-generated analysis/routing suggestion
+  aiConfidence: decimal("ai_confidence", { precision: 3, scale: 2 }), // 0.00-1.00
+  routedToDepartment: varchar("routed_to_department"), // 'maintenance', 'cleaning', 'concierge'
+  assignedToUserId: varchar("assigned_to_user_id"),
+  status: varchar("status").default("submitted"), // 'submitted', 'acknowledged', 'in_progress', 'resolved', 'escalated'
+  autoReplyMessage: text("auto_reply_message"), // Generated smart reply
+  estimatedResolutionTime: varchar("estimated_resolution_time"), // "2 hours", "24 hours", etc.
+  actualResolutionTime: timestamp("actual_resolution_time"),
+  guestSatisfactionRating: integer("guest_satisfaction_rating"), // 1-5 stars
+  guestFeedback: text("guest_feedback"),
+  internalNotes: text("internal_notes"),
+  relatedTaskId: integer("related_task_id"),
+  whatsappMessageSent: boolean("whatsapp_message_sent").default(false),
+  emailAlertSent: boolean("email_alert_sent").default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+  acknowledgedAt: timestamp("acknowledged_at"),
+  resolvedAt: timestamp("resolved_at"),
+});
+
+// Communication Logs (Timeline Integration)
+export const communicationLogs = pgTable("communication_logs", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").notNull(),
+  logType: varchar("log_type").notNull(), // 'property_activity', 'guest_stay', 'task_log', 'internal_chat'
+  sourceType: varchar("source_type").notNull(), // 'internal_message', 'owner_pm_communication', 'guest_request'
+  sourceId: integer("source_id").notNull(),
+  propertyId: integer("property_id").references(() => properties.id),
+  bookingId: integer("booking_id").references(() => bookings.id),
+  taskId: integer("task_id"),
+  userId: varchar("user_id").notNull(),
+  summary: text("summary").notNull(),
+  details: text("details"),
+  attachmentUrl: varchar("attachment_url"),
+  isArchived: boolean("is_archived").default(false),
+  archivedAt: timestamp("archived_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Smart Request Templates & AI Configuration
+export const smartRequestConfig = pgTable("smart_request_config", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").notNull(),
+  category: varchar("category").notNull(),
+  subcategory: varchar("subcategory"),
+  routingDepartment: varchar("routing_department").notNull(),
+  autoReplyTemplate: text("auto_reply_template").notNull(),
+  estimatedResponseTime: varchar("estimated_response_time").notNull(),
+  priorityLevel: varchar("priority_level").default("medium"),
+  requiresImmediateAlert: boolean("requires_immediate_alert").default(false),
+  whatsappTemplate: text("whatsapp_template"),
+  emailTemplate: text("email_template"),
+  aiKeywords: text("ai_keywords").array(), // Keywords for AI routing
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+
+
 // Organization schemas
 export const insertOrganizationSchema = createInsertSchema(organizations).omit({
   createdAt: true,
@@ -7035,5 +7183,61 @@ export const insertOccupancyRateSchema = createInsertSchema(occupancyRates).omit
   id: true,
   createdAt: true,
 });
+
+// ===== COMMUNICATION SYSTEM TYPES =====
+
+// Communication channel schemas
+export const insertCommunicationChannelSchema = createInsertSchema(communicationChannels).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertChannelMemberSchema = createInsertSchema(channelMembers).omit({
+  id: true,
+  joinedAt: true,
+});
+
+export const insertInternalMessageSchema = createInsertSchema(internalMessages).omit({
+  id: true,
+  sentAt: true,
+});
+
+export const insertOwnerPmCommunicationSchema = createInsertSchema(ownerPmCommunication).omit({
+  id: true,
+  sentAt: true,
+});
+
+export const insertGuestSmartRequestSchema = createInsertSchema(guestSmartRequests).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertCommunicationLogSchema = createInsertSchema(communicationLogs).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertSmartRequestConfigSchema = createInsertSchema(smartRequestConfig).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+// Communication system types
+export type CommunicationChannel = typeof communicationChannels.$inferSelect;
+export type InsertCommunicationChannel = z.infer<typeof insertCommunicationChannelSchema>;
+export type ChannelMember = typeof channelMembers.$inferSelect;
+export type InsertChannelMember = z.infer<typeof insertChannelMemberSchema>;
+export type InternalMessage = typeof internalMessages.$inferSelect;
+export type InsertInternalMessage = z.infer<typeof insertInternalMessageSchema>;
+export type OwnerPmCommunication = typeof ownerPmCommunication.$inferSelect;
+export type InsertOwnerPmCommunication = z.infer<typeof insertOwnerPmCommunicationSchema>;
+export type GuestSmartRequest = typeof guestSmartRequests.$inferSelect;
+export type InsertGuestSmartRequest = z.infer<typeof insertGuestSmartRequestSchema>;
+export type CommunicationLog = typeof communicationLogs.$inferSelect;
+export type InsertCommunicationLog = z.infer<typeof insertCommunicationLogSchema>;
+export type SmartRequestConfig = typeof smartRequestConfig.$inferSelect;
+export type InsertSmartRequestConfig = z.infer<typeof insertSmartRequestConfigSchema>;
 
 

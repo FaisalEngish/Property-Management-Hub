@@ -1,0 +1,55 @@
+📦 MODULE: Communication System – Internal Chat, Owner Notes, Guest Smart Requests
+
+✅ PART 1: Internal Staff & PM Communication (Slack-integrated or in-app)
+- Staff and Portfolio Managers have internal chat threads, grouped by department and/or property
+- Admin can:
+  - Create/rename/close chats
+  - Invite/remove users from chats
+  - Mark important chats to log in the property timeline
+- Suggested Slack or Discord integration with webhook to log relevant events into property history
+- Optional in-app fallback chat (if we don't use Slack), but only visible to logged-in team members
+- Logged messages can be attached to specific tasks, guest stays, or property logs
+
+✅ PART 2: Owner ↔ PM Communication
+- Each property has a chat-like “Notes & Updates” feed visible to the owner and portfolio manager
+- Includes:
+  - Maintenance suggestions
+  - Task summaries
+  - Requests requiring owner approval
+- Admin or PM can post updates and tag owners
+- Owner can reply, approve, or comment
+- Supports attachments (e.g., invoice PDF, image of broken item)
+
+✅ PART 3: Guest Communication (Smart Form System)
+- Guests DO NOT get chat inbox — instead:
+  - A “Need Help?” button opens smart request form (looks like chat)
+- Categories:
+  - AC/Water/Electricity problem
+  - Request extra cleaning
+  - Order services (massage, chef, taxi, etc.)
+  - Other
+- AI scans request (basic NLP) → Routes to correct team:
+  - AC issue → Technician + Supervisor
+  - Extra cleaning → Housekeeping + PM
+- Smart reply generated instantly (e.g., “Tech on the way within 2 hours”)
+- All requests logged into the stay timeline and linked to the correct task
+
+✅ PART 4: WhatsApp or Email Bridge
+- Guest requests can trigger WhatsApp Business message or email alert to the assigned PM/staff
+- For future guests or concierge:
+  - Guest portal can show “Click to Chat via WhatsApp” for real-time human help
+  - Auto-fill villa + guest name into chat URL for staff reference
+
+✅ PART 5: Logging & Timeline Integration
+- All chat-based messages (internal, owner, guest) can be logged:
+  - As property activity log (for ongoing issues)
+  - As guest stay log (for complaints or requests)
+  - As task log (e.g., AC fix from guest report)
+- Logs auto-archived every 30 days (or admin trigger “Create PDF & Upload to Drive”)
+
+✅ Future Optional:
+- Voice note support (internal use only)
+- Slack → MagicTools bridge bot (use tags like #log-this to sync important messages)
+
+🧠 All smart routing rules and default responses editable by Admin in the back office settings.
+

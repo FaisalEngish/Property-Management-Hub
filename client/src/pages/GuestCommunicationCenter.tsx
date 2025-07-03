@@ -71,6 +71,9 @@ export default function GuestCommunicationCenter() {
     staleTime: 30000,
   });
 
+  // Type the attractions as an array to fix type errors
+  const attractionsArray = Array.isArray(attractions) ? attractions as any[] : [];
+
   const { data: notifications = [], isLoading: notificationsLoading } = useQuery({
     queryKey: ["/api/guest/notifications"],
     staleTime: 30000,
@@ -344,7 +347,7 @@ export default function GuestCommunicationCenter() {
         {/* Explore Tab */}
         <TabsContent value="explore" className="space-y-6">
           <ExploreSection 
-            attractions={attractions}
+            attractions={attractionsArray}
             isLoading={attractionsLoading}
           />
         </TabsContent>
