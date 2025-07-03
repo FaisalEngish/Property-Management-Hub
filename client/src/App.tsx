@@ -74,6 +74,11 @@ import DailyOperationsDashboard from "@/pages/DailyOperationsDashboard";
 import VillaSamuiDemo from "@/pages/VillaSamuiDemo";
 import CheckInCheckOutWorkflow from "@/pages/CheckInCheckOutWorkflow";
 import PropertyDetailView from "@/pages/PropertyDetailView";
+import OwnerOnboardingWizard from "@/pages/OwnerOnboardingWizard";
+import PropertyDocumentUpload from "@/pages/PropertyDocumentUpload";
+import OwnerPropertySettings from "@/pages/OwnerPropertySettings";
+import OwnerMaintenanceModule from "@/pages/OwnerMaintenanceModule";
+import OwnerTaskHistory from "@/pages/OwnerTaskHistory";
 
 function Router() {
   const { isAuthenticated, isLoading, user } = useAuth();
@@ -184,6 +189,11 @@ function Router() {
         <Route path="/owner/dashboard" component={OwnerDashboard} />
         <Route path="/owner/balance-management" component={OwnerBalanceManagement} />
         <Route path="/owner-invoicing-payouts" component={OwnerInvoicingPayouts} />
+        <Route path="/owner/onboarding" component={OwnerOnboardingWizard} />
+        <Route path="/owner/documents" component={PropertyDocumentUpload} />
+        <Route path="/owner/property-settings" component={OwnerPropertySettings} />
+        <Route path="/owner/maintenance" component={OwnerMaintenanceModule} />
+        <Route path="/owner/task-history" component={OwnerTaskHistory} />
         <Route path="/pm/dashboard" component={PortfolioManagerDashboard} />
         <Route path="/admin/finance-reset" component={FinanceResetControl} />
         <Route path="/admin/utility-customization" component={UtilityCustomization} />
