@@ -14380,6 +14380,1482 @@ Plant Care:
       }
     ];
   }
+
+  // ===== ADD-ON SERVICES ENGINE STORAGE METHODS =====
+
+  // Service catalog management
+  async getAddonServiceCatalog(organizationId: string, filters?: { category?: string; isActive?: boolean }): Promise<AddonServiceCatalog[]> {
+    // Mock implementation - return seeded data
+    const mockCatalog = [
+      {
+        id: 1,
+        organizationId,
+        serviceName: "Phi Phi Island Day Trip",
+        category: "tours",
+        description: "Full day tour to Phi Phi Islands including Maya Bay, snorkeling, and lunch",
+        basePrice: "1800.00",
+        currency: "THB",
+        duration: 480,
+        imageUrl: "/images/phi-phi-tour.jpg",
+        maxGuests: 8,
+        advanceBookingHours: 24,
+        providerName: "Phuket Island Tours",
+        providerContact: "+66 76 123 456",
+        commissionRate: "15.00",
+        isActive: true,
+        createdBy: "demo-admin",
+        displayOrder: 1,
+        createdAt: new Date("2024-12-01"),
+        updatedAt: new Date("2024-12-01"),
+      },
+      {
+        id: 2,
+        organizationId,
+        serviceName: "James Bond Island Tour",
+        category: "tours",
+        description: "Visit famous James Bond Island and Phang Nga Bay by longtail boat",
+        basePrice: "1500.00",
+        currency: "THB",
+        duration: 360,
+        imageUrl: "/images/james-bond-tour.jpg",
+        maxGuests: 6,
+        advanceBookingHours: 24,
+        providerName: "Phang Nga Adventures",
+        providerContact: "+66 76 234 567",
+        commissionRate: "15.00",
+        isActive: true,
+        createdBy: "demo-admin",
+        displayOrder: 2,
+        createdAt: new Date("2024-12-01"),
+        updatedAt: new Date("2024-12-01"),
+      },
+      {
+        id: 3,
+        organizationId,
+        serviceName: "Private Thai Cooking Class",
+        category: "chef",
+        description: "Learn to cook authentic Thai dishes with a professional chef at your villa",
+        basePrice: "3500.00",
+        currency: "THB",
+        duration: 180,
+        imageUrl: "/images/cooking-class.jpg",
+        maxGuests: 6,
+        advanceBookingHours: 48,
+        providerName: "Chef Somchai",
+        providerContact: "+66 81 345 678",
+        commissionRate: "20.00",
+        isActive: true,
+        createdBy: "demo-admin",
+        displayOrder: 3,
+        createdAt: new Date("2024-12-01"),
+        updatedAt: new Date("2024-12-01"),
+      },
+      {
+        id: 4,
+        organizationId,
+        serviceName: "BBQ Dinner Service",
+        category: "chef",
+        description: "Private BBQ dinner preparation and service for up to 8 guests",
+        basePrice: "2800.00",
+        currency: "THB",
+        duration: 240,
+        imageUrl: "/images/bbq-service.jpg",
+        maxGuests: 8,
+        advanceBookingHours: 24,
+        providerName: "Grill Masters Phuket",
+        providerContact: "+66 81 456 789",
+        commissionRate: "20.00",
+        isActive: true,
+        createdBy: "demo-admin",
+        displayOrder: 4,
+        createdAt: new Date("2024-12-01"),
+        updatedAt: new Date("2024-12-01"),
+      },
+      {
+        id: 5,
+        organizationId,
+        serviceName: "Airport Transfer (Van)",
+        category: "transport",
+        description: "Private van transfer between Phuket Airport and villa (up to 8 passengers)",
+        basePrice: "800.00",
+        currency: "THB",
+        duration: 60,
+        imageUrl: "/images/airport-transfer.jpg",
+        maxGuests: 8,
+        advanceBookingHours: 12,
+        providerName: "Phuket Airport Transfers",
+        providerContact: "+66 76 567 890",
+        commissionRate: "12.00",
+        isActive: true,
+        createdBy: "demo-admin",
+        displayOrder: 5,
+        createdAt: new Date("2024-12-01"),
+        updatedAt: new Date("2024-12-01"),
+      },
+      {
+        id: 6,
+        organizationId,
+        serviceName: "Motorbike Rental (Daily)",
+        category: "transport",
+        description: "Honda PCX 150cc motorbike rental for one day including helmet",
+        basePrice: "300.00",
+        currency: "THB",
+        duration: 1440,
+        imageUrl: "/images/motorbike-rental.jpg",
+        maxGuests: 2,
+        advanceBookingHours: 4,
+        providerName: "Phuket Bike Rental",
+        providerContact: "+66 81 678 901",
+        commissionRate: "12.00",
+        isActive: true,
+        createdBy: "demo-admin",
+        displayOrder: 6,
+        createdAt: new Date("2024-12-01"),
+        updatedAt: new Date("2024-12-01"),
+      },
+      {
+        id: 7,
+        organizationId,
+        serviceName: "Traditional Thai Massage (60 min)",
+        category: "massage",
+        description: "Authentic Thai massage performed by certified therapist at your villa",
+        basePrice: "800.00",
+        currency: "THB",
+        duration: 60,
+        imageUrl: "/images/thai-massage.jpg",
+        maxGuests: 2,
+        advanceBookingHours: 6,
+        providerName: "Villa Spa Services",
+        providerContact: "+66 81 789 012",
+        commissionRate: "25.00",
+        isActive: true,
+        createdBy: "demo-admin",
+        displayOrder: 7,
+        createdAt: new Date("2024-12-01"),
+        updatedAt: new Date("2024-12-01"),
+      },
+      {
+        id: 8,
+        organizationId,
+        serviceName: "Couple's Oil Massage (90 min)",
+        category: "massage",
+        description: "Relaxing oil massage for couples in the comfort of your villa",
+        basePrice: "1800.00",
+        currency: "THB",
+        duration: 90,
+        imageUrl: "/images/couples-massage.jpg",
+        maxGuests: 2,
+        advanceBookingHours: 12,
+        providerName: "Luxury Spa Phuket",
+        providerContact: "+66 81 890 123",
+        commissionRate: "25.00",
+        isActive: true,
+        createdBy: "demo-admin",
+        displayOrder: 8,
+        createdAt: new Date("2024-12-01"),
+        updatedAt: new Date("2024-12-01"),
+      },
+      {
+        id: 9,
+        organizationId,
+        serviceName: "Snorkeling Gear Set",
+        category: "rental",
+        description: "Complete snorkeling equipment set for one day (mask, fins, snorkel)",
+        basePrice: "200.00",
+        currency: "THB",
+        duration: 1440,
+        imageUrl: "/images/snorkel-gear.jpg",
+        maxGuests: 4,
+        advanceBookingHours: 2,
+        providerName: "Phuket Water Sports",
+        providerContact: "+66 76 901 234",
+        commissionRate: "10.00",
+        isActive: true,
+        createdBy: "demo-admin",
+        displayOrder: 9,
+        createdAt: new Date("2024-12-01"),
+        updatedAt: new Date("2024-12-01"),
+      },
+      {
+        id: 10,
+        organizationId,
+        serviceName: "Welcome Grocery Package",
+        category: "grocery",
+        description: "Essential groceries delivered before arrival (milk, bread, fruits, water)",
+        basePrice: "1200.00",
+        currency: "THB",
+        duration: 30,
+        imageUrl: "/images/grocery-package.jpg",
+        maxGuests: 8,
+        advanceBookingHours: 24,
+        providerName: "Villa Provisions",
+        providerContact: "+66 81 012 345",
+        commissionRate: "8.00",
+        isActive: true,
+        createdBy: "demo-admin",
+        displayOrder: 10,
+        createdAt: new Date("2024-12-01"),
+        updatedAt: new Date("2024-12-01"),
+      }
+    ];
+
+    let filtered = mockCatalog;
+    if (filters?.category) {
+      filtered = filtered.filter(service => service.category === filters.category);
+    }
+    if (filters?.isActive !== undefined) {
+      filtered = filtered.filter(service => service.isActive === filters.isActive);
+    }
+
+    return filtered;
+  }
+
+  async getAddonServiceCatalogItem(id: number): Promise<AddonServiceCatalog | undefined> {
+    const catalog = await this.getAddonServiceCatalog("default");
+    return catalog.find(service => service.id === id);
+  }
+
+  async createAddonServiceCatalogItem(service: InsertAddonServiceCatalog): Promise<AddonServiceCatalog> {
+    const catalog = await this.getAddonServiceCatalog("default");
+    const newId = Math.max(...catalog.map(s => s.id)) + 1;
+    
+    const newService = {
+      id: newId,
+      ...service,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    return newService as AddonServiceCatalog;
+  }
+
+  async updateAddonServiceCatalogItem(id: number, updates: Partial<InsertAddonServiceCatalog>): Promise<AddonServiceCatalog | undefined> {
+    const service = await this.getAddonServiceCatalogItem(id);
+    if (!service) return undefined;
+
+    return {
+      ...service,
+      ...updates,
+      updatedAt: new Date(),
+    } as AddonServiceCatalog;
+  }
+
+  async deleteAddonServiceCatalogItem(id: number): Promise<boolean> {
+    return true; // Mock implementation
+  }
+
+  // Service categories
+  async getAddonServiceCategories(organizationId: string): Promise<AddonServiceCategory[]> {
+    return [
+      {
+        id: 1,
+        organizationId,
+        categoryName: "tours",
+        categoryIcon: "🏝️",
+        categoryColor: "#3B82F6",
+        defaultBillingRule: "guest_charged",
+        defaultCommissionRate: "15.00",
+        description: "Island tours, cultural experiences, and sightseeing",
+        displayOrder: 1,
+        isActive: true,
+        createdAt: new Date("2024-12-01"),
+        updatedAt: new Date("2024-12-01"),
+      },
+      {
+        id: 2,
+        organizationId,
+        categoryName: "chef",
+        categoryIcon: "👨‍🍳",
+        categoryColor: "#F59E0B",
+        defaultBillingRule: "guest_charged",
+        defaultCommissionRate: "20.00",
+        description: "Private chef services and catering",
+        displayOrder: 2,
+        isActive: true,
+        createdAt: new Date("2024-12-01"),
+        updatedAt: new Date("2024-12-01"),
+      },
+      {
+        id: 3,
+        organizationId,
+        categoryName: "transport",
+        categoryIcon: "🚗",
+        categoryColor: "#10B981",
+        defaultBillingRule: "guest_charged",
+        defaultCommissionRate: "12.00",
+        description: "Airport transfers, car rentals, and transportation",
+        displayOrder: 3,
+        isActive: true,
+        createdAt: new Date("2024-12-01"),
+        updatedAt: new Date("2024-12-01"),
+      },
+      {
+        id: 4,
+        organizationId,
+        categoryName: "massage",
+        categoryIcon: "💆‍♀️",
+        categoryColor: "#8B5CF6",
+        defaultBillingRule: "guest_charged",
+        defaultCommissionRate: "25.00",
+        description: "Spa services and therapeutic massage",
+        displayOrder: 4,
+        isActive: true,
+        createdAt: new Date("2024-12-01"),
+        updatedAt: new Date("2024-12-01"),
+      },
+      {
+        id: 5,
+        organizationId,
+        categoryName: "rental",
+        categoryIcon: "🏊‍♂️",
+        categoryColor: "#06B6D4",
+        defaultBillingRule: "guest_charged",
+        defaultCommissionRate: "10.00",
+        description: "Equipment rentals and recreational gear",
+        displayOrder: 5,
+        isActive: true,
+        createdAt: new Date("2024-12-01"),
+        updatedAt: new Date("2024-12-01"),
+      },
+      {
+        id: 6,
+        organizationId,
+        categoryName: "grocery",
+        categoryIcon: "🛒",
+        categoryColor: "#EF4444",
+        defaultBillingRule: "guest_charged",
+        defaultCommissionRate: "8.00",
+        description: "Grocery delivery and provisioning services",
+        displayOrder: 6,
+        isActive: true,
+        createdAt: new Date("2024-12-01"),
+        updatedAt: new Date("2024-12-01"),
+      },
+      {
+        id: 7,
+        organizationId,
+        categoryName: "baby",
+        categoryIcon: "👶",
+        categoryColor: "#F97316",
+        defaultBillingRule: "owner_charged",
+        defaultCommissionRate: "5.00",
+        description: "Baby equipment rental and childcare services",
+        displayOrder: 7,
+        isActive: true,
+        createdAt: new Date("2024-12-01"),
+        updatedAt: new Date("2024-12-01"),
+      },
+      {
+        id: 8,
+        organizationId,
+        categoryName: "photography",
+        categoryIcon: "📸",
+        categoryColor: "#EC4899",
+        defaultBillingRule: "guest_charged",
+        defaultCommissionRate: "18.00",
+        description: "Professional photography and videography",
+        displayOrder: 8,
+        isActive: true,
+        createdAt: new Date("2024-12-01"),
+        updatedAt: new Date("2024-12-01"),
+      },
+      {
+        id: 9,
+        organizationId,
+        categoryName: "airport",
+        categoryIcon: "✈️",
+        categoryColor: "#6366F1",
+        defaultBillingRule: "guest_charged",
+        defaultCommissionRate: "10.00",
+        description: "Airport transfer and travel assistance",
+        displayOrder: 9,
+        isActive: true,
+        createdAt: new Date("2024-12-01"),
+        updatedAt: new Date("2024-12-01"),
+      },
+      {
+        id: 10,
+        organizationId,
+        categoryName: "events",
+        categoryIcon: "🎉",
+        categoryColor: "#84CC16",
+        defaultBillingRule: "guest_charged",
+        defaultCommissionRate: "22.00",
+        description: "Event planning and special occasion services",
+        displayOrder: 10,
+        isActive: true,
+        createdAt: new Date("2024-12-01"),
+        updatedAt: new Date("2024-12-01"),
+      }
+    ];
+  }
+
+  async getAddonServiceCategory(id: number): Promise<AddonServiceCategory | undefined> {
+    const categories = await this.getAddonServiceCategories("default");
+    return categories.find(cat => cat.id === id);
+  }
+
+  async createAddonServiceCategory(category: InsertAddonServiceCategory): Promise<AddonServiceCategory> {
+    const categories = await this.getAddonServiceCategories("default");
+    const newId = Math.max(...categories.map(c => c.id)) + 1;
+    
+    return {
+      id: newId,
+      ...category,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    } as AddonServiceCategory;
+  }
+
+  async updateAddonServiceCategory(id: number, updates: Partial<InsertAddonServiceCategory>): Promise<AddonServiceCategory | undefined> {
+    const category = await this.getAddonServiceCategory(id);
+    if (!category) return undefined;
+
+    return {
+      ...category,
+      ...updates,
+      updatedAt: new Date(),
+    } as AddonServiceCategory;
+  }
+
+  async deleteAddonServiceCategory(id: number): Promise<boolean> {
+    return true; // Mock implementation
+  }
+
+  // Service bookings
+  async getAddonServiceBookings(organizationId: string, filters?: { 
+    propertyId?: number; 
+    status?: string; 
+    billingRule?: string; 
+    dateFrom?: string; 
+    dateTo?: string;
+    category?: string;
+  }): Promise<AddonServiceBooking[]> {
+    const mockBookings = [
+      {
+        id: 1,
+        organizationId,
+        serviceId: 1,
+        propertyId: 1,
+        guestName: "John Smith",
+        guestEmail: "john.smith@email.com",
+        guestPhone: "+1 555 123 4567",
+        guestCount: 4,
+        serviceDate: "2025-01-15",
+        serviceTime: "08:00",
+        totalAmount: "7200.00",
+        billingRule: "guest_charged",
+        billingType: "charged",
+        paymentStatus: "paid",
+        paymentMethod: "card",
+        status: "confirmed",
+        commissionAmount: "1080.00",
+        bookedBy: "demo-staff",
+        confirmedBy: "demo-admin",
+        confirmedAt: new Date("2025-01-10T10:00:00Z"),
+        currency: "THB",
+        specialRequests: null,
+        internalNotes: null,
+        completedAt: null,
+        completionNotes: null,
+        cancellationReason: null,
+        createdAt: new Date("2025-01-08"),
+        updatedAt: new Date("2025-01-10"),
+      },
+      {
+        id: 2,
+        organizationId,
+        serviceId: 3,
+        propertyId: 2,
+        guestName: "Sarah Johnson",
+        guestEmail: "sarah.j@email.com",
+        guestPhone: "+44 20 1234 5678",
+        guestCount: 2,
+        serviceDate: "2025-01-18",
+        serviceTime: "15:00",
+        totalAmount: "3500.00",
+        billingRule: "guest_charged",
+        billingType: "charged",
+        paymentStatus: "pending",
+        status: "pending",
+        commissionAmount: "700.00",
+        bookedBy: "demo-staff",
+        confirmedBy: null,
+        confirmedAt: null,
+        currency: "THB",
+        specialRequests: "Vegetarian cooking class preferred",
+        internalNotes: null,
+        completedAt: null,
+        completionNotes: null,
+        cancellationReason: null,
+        paymentMethod: null,
+        createdAt: new Date("2025-01-15"),
+        updatedAt: new Date("2025-01-15"),
+      },
+      {
+        id: 3,
+        organizationId,
+        serviceId: 7,
+        propertyId: 1,
+        guestName: "Mike Wilson",
+        guestEmail: "mike.w@email.com",
+        guestPhone: "+1 555 987 6543",
+        guestCount: 2,
+        serviceDate: "2025-01-20",
+        serviceTime: "19:00",
+        totalAmount: "1600.00",
+        billingRule: "complimentary",
+        billingType: "owner_gift",
+        paymentStatus: "paid",
+        status: "confirmed",
+        commissionAmount: "400.00",
+        bookedBy: "demo-staff",
+        confirmedBy: "demo-admin",
+        confirmedAt: new Date("2025-01-15T14:30:00Z"),
+        currency: "THB",
+        specialRequests: null,
+        internalNotes: "VIP guest - owner covering as welcome gift",
+        completedAt: null,
+        completionNotes: null,
+        cancellationReason: null,
+        paymentMethod: "complimentary",
+        createdAt: new Date("2025-01-12"),
+        updatedAt: new Date("2025-01-15"),
+      }
+    ];
+
+    let filtered = mockBookings;
+    
+    if (filters?.propertyId) {
+      filtered = filtered.filter(booking => booking.propertyId === filters.propertyId);
+    }
+    if (filters?.status) {
+      filtered = filtered.filter(booking => booking.status === filters.status);
+    }
+    if (filters?.billingRule) {
+      filtered = filtered.filter(booking => booking.billingRule === filters.billingRule);
+    }
+    // Add date and category filtering as needed
+
+    return filtered;
+  }
+
+  async getAddonServiceBooking(id: number): Promise<AddonServiceBooking | undefined> {
+    const bookings = await this.getAddonServiceBookings("default");
+    return bookings.find(booking => booking.id === id);
+  }
+
+  async createAddonServiceBooking(booking: InsertAddonServiceBooking): Promise<AddonServiceBooking> {
+    const bookings = await this.getAddonServiceBookings("default");
+    const newId = Math.max(...bookings.map(b => b.id)) + 1;
+    
+    return {
+      id: newId,
+      ...booking,
+      status: "pending",
+      paymentStatus: "pending",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    } as AddonServiceBooking;
+  }
+
+  async updateAddonServiceBooking(id: number, updates: Partial<InsertAddonServiceBooking>): Promise<AddonServiceBooking | undefined> {
+    const booking = await this.getAddonServiceBooking(id);
+    if (!booking) return undefined;
+
+    return {
+      ...booking,
+      ...updates,
+      updatedAt: new Date(),
+    } as AddonServiceBooking;
+  }
+
+  async deleteAddonServiceBooking(id: number): Promise<boolean> {
+    return true; // Mock implementation
+  }
+
+  async confirmAddonServiceBooking(id: number, confirmedBy: string): Promise<AddonServiceBooking | undefined> {
+    const booking = await this.getAddonServiceBooking(id);
+    if (!booking) return undefined;
+
+    return {
+      ...booking,
+      status: "confirmed",
+      confirmedBy,
+      confirmedAt: new Date(),
+      updatedAt: new Date(),
+    } as AddonServiceBooking;
+  }
+
+  async completeAddonServiceBooking(id: number, completedAt: Date, notes?: string): Promise<AddonServiceBooking | undefined> {
+    const booking = await this.getAddonServiceBooking(id);
+    if (!booking) return undefined;
+
+    return {
+      ...booking,
+      status: "completed",
+      completedAt,
+      completionNotes: notes || null,
+      updatedAt: new Date(),
+    } as AddonServiceBooking;
+  }
+
+  // Service commissions
+  async getAddonServiceCommissions(organizationId: string, filters?: { 
+    staffId?: string; 
+    category?: string; 
+    paymentStatus?: string;
+    dateFrom?: string;
+    dateTo?: string;
+  }): Promise<AddonServiceCommission[]> {
+    return [
+      {
+        id: 1,
+        organizationId,
+        bookingId: 1,
+        serviceId: 1,
+        category: "tours",
+        staffId: "demo-staff",
+        commissionAmount: "1080.00",
+        commissionRate: "15.00",
+        paymentStatus: "paid",
+        paymentDate: new Date("2025-01-16T10:00:00Z"),
+        paymentMethod: "bank_transfer",
+        notes: "Commission for Phi Phi Island tour booking",
+        createdAt: new Date("2025-01-08"),
+        updatedAt: new Date("2025-01-16"),
+      },
+      {
+        id: 2,
+        organizationId,
+        bookingId: 2,
+        serviceId: 3,
+        category: "chef",
+        staffId: "demo-staff",
+        commissionAmount: "700.00",
+        commissionRate: "20.00",
+        paymentStatus: "pending",
+        paymentDate: null,
+        paymentMethod: null,
+        notes: "Commission for Thai cooking class booking",
+        createdAt: new Date("2025-01-15"),
+        updatedAt: new Date("2025-01-15"),
+      }
+    ];
+  }
+
+  async getAddonServiceCommission(id: number): Promise<AddonServiceCommission | undefined> {
+    const commissions = await this.getAddonServiceCommissions("default");
+    return commissions.find(commission => commission.id === id);
+  }
+
+  async createAddonServiceCommission(commission: InsertAddonServiceCommission): Promise<AddonServiceCommission> {
+    const commissions = await this.getAddonServiceCommissions("default");
+    const newId = Math.max(...commissions.map(c => c.id)) + 1;
+    
+    return {
+      id: newId,
+      ...commission,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    } as AddonServiceCommission;
+  }
+
+  async updateAddonServiceCommission(id: number, updates: Partial<InsertAddonServiceCommission>): Promise<AddonServiceCommission | undefined> {
+    const commission = await this.getAddonServiceCommission(id);
+    if (!commission) return undefined;
+
+    return {
+      ...commission,
+      ...updates,
+      updatedAt: new Date(),
+    } as AddonServiceCommission;
+  }
+
+  async processCommissionPayment(id: number, paymentDate: Date, paymentMethod: string): Promise<AddonServiceCommission | undefined> {
+    const commission = await this.getAddonServiceCommission(id);
+    if (!commission) return undefined;
+
+    return {
+      ...commission,
+      paymentStatus: "paid",
+      paymentDate,
+      paymentMethod,
+      updatedAt: new Date(),
+    } as AddonServiceCommission;
+  }
+
+  // Service reports
+  async getAddonServiceReports(organizationId: string, filters?: { 
+    reportMonth?: string; 
+    category?: string;
+  }): Promise<AddonServiceReport[]> {
+    return [
+      {
+        id: 1,
+        organizationId,
+        reportMonth: "2024-12",
+        category: "tours",
+        totalBookings: 8,
+        totalRevenue: "14400.00",
+        totalCommissions: "2160.00",
+        guestChargedRevenue: "14400.00",
+        ownerChargedRevenue: "0.00",
+        companyExpenseAmount: "0.00",
+        complimentaryAmount: "0.00",
+        averageBookingValue: "1800.00",
+        topService: "Phi Phi Island Day Trip",
+        createdAt: new Date("2024-12-31"),
+        updatedAt: new Date("2024-12-31"),
+      },
+      {
+        id: 2,
+        organizationId,
+        reportMonth: "2024-12",
+        category: "chef",
+        totalBookings: 5,
+        totalRevenue: "17500.00",
+        totalCommissions: "3500.00",
+        guestChargedRevenue: "17500.00",
+        ownerChargedRevenue: "0.00",
+        companyExpenseAmount: "0.00",
+        complimentaryAmount: "0.00",
+        averageBookingValue: "3500.00",
+        topService: "Private Thai Cooking Class",
+        createdAt: new Date("2024-12-31"),
+        updatedAt: new Date("2024-12-31"),
+      },
+      {
+        id: 3,
+        organizationId,
+        reportMonth: "2024-12",
+        category: "massage",
+        totalBookings: 12,
+        totalRevenue: "9600.00",
+        totalCommissions: "2400.00",
+        guestChargedRevenue: "6400.00",
+        ownerChargedRevenue: "0.00",
+        companyExpenseAmount: "0.00",
+        complimentaryAmount: "3200.00",
+        averageBookingValue: "800.00",
+        topService: "Traditional Thai Massage",
+        createdAt: new Date("2024-12-31"),
+        updatedAt: new Date("2024-12-31"),
+      }
+    ];
+  }
+
+  async getAddonServiceReport(id: number): Promise<AddonServiceReport | undefined> {
+    const reports = await this.getAddonServiceReports("default");
+    return reports.find(report => report.id === id);
+  }
+
+  async generateMonthlyServiceReport(organizationId: string, reportMonth: string): Promise<AddonServiceReport[]> {
+    // Mock implementation - in real implementation, this would aggregate booking data
+    return await this.getAddonServiceReports(organizationId, { reportMonth });
+  }
+
+  async getServiceCategorySummary(organizationId: string, startDate: string, endDate: string): Promise<{
+    totalBookings: number;
+    totalRevenue: number;
+    totalCommissions: number;
+    categoryBreakdown: any[];
+    billingRuleBreakdown: any[];
+  }> {
+    const bookings = await this.getAddonServiceBookings(organizationId);
+    
+    return {
+      totalBookings: bookings.length,
+      totalRevenue: bookings.reduce((sum, booking) => sum + parseFloat(booking.totalAmount), 0),
+      totalCommissions: bookings.reduce((sum, booking) => sum + parseFloat(booking.commissionAmount || "0"), 0),
+      categoryBreakdown: [
+        { category: "tours", bookings: 8, revenue: 14400 },
+        { category: "chef", bookings: 5, revenue: 17500 },
+        { category: "massage", bookings: 12, revenue: 9600 },
+      ],
+      billingRuleBreakdown: [
+        { rule: "guest_charged", bookings: 20, revenue: 35000 },
+        { rule: "owner_charged", bookings: 3, revenue: 2400 },
+        { rule: "complimentary", bookings: 2, revenue: 3200 },
+      ],
+    };
+  }
+
+  // Billing rules
+  async getAddonBillingRules(organizationId: string, filters?: { 
+    category?: string; 
+    isActive?: boolean;
+  }): Promise<AddonBillingRule[]> {
+    return [
+      {
+        id: 1,
+        organizationId,
+        ruleName: "Guest Pays Standard Services",
+        category: "tours",
+        billingRule: "guest_charged",
+        billingType: "charged",
+        autoApply: true,
+        isActive: true,
+        priority: 1,
+        conditions: null,
+        createdBy: "demo-admin",
+        createdAt: new Date("2024-12-01"),
+        updatedAt: new Date("2024-12-01"),
+      },
+      {
+        id: 2,
+        organizationId,
+        ruleName: "Owner Covers Baby Equipment",
+        category: "baby",
+        billingRule: "owner_charged",
+        billingType: "charged",
+        autoApply: true,
+        isActive: true,
+        priority: 1,
+        conditions: null,
+        createdBy: "demo-admin",
+        createdAt: new Date("2024-12-01"),
+        updatedAt: new Date("2024-12-01"),
+      },
+      {
+        id: 3,
+        organizationId,
+        ruleName: "Complimentary Welcome Groceries",
+        category: "grocery",
+        billingRule: "complimentary",
+        billingType: "company_gift",
+        autoApply: false,
+        isActive: true,
+        priority: 2,
+        conditions: null,
+        createdBy: "demo-admin",
+        createdAt: new Date("2024-12-01"),
+        updatedAt: new Date("2024-12-01"),
+      },
+      {
+        id: 4,
+        organizationId,
+        ruleName: "VIP Guest Massage Gift",
+        category: "massage",
+        billingRule: "complimentary",
+        billingType: "owner_gift",
+        autoApply: false,
+        isActive: true,
+        priority: 3,
+        conditions: { vipGuest: true, stayLength: { min: 7 } },
+        createdBy: "demo-admin",
+        createdAt: new Date("2024-12-01"),
+        updatedAt: new Date("2024-12-01"),
+      }
+    ];
+  }
+
+  async getAddonBillingRule(id: number): Promise<AddonBillingRule | undefined> {
+    const rules = await this.getAddonBillingRules("default");
+    return rules.find(rule => rule.id === id);
+  }
+
+  async createAddonBillingRule(rule: InsertAddonBillingRule): Promise<AddonBillingRule> {
+    const rules = await this.getAddonBillingRules("default");
+    const newId = Math.max(...rules.map(r => r.id)) + 1;
+    
+    return {
+      id: newId,
+      ...rule,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    } as AddonBillingRule;
+  }
+
+  async updateAddonBillingRule(id: number, updates: Partial<InsertAddonBillingRule>): Promise<AddonBillingRule | undefined> {
+    const rule = await this.getAddonBillingRule(id);
+    if (!rule) return undefined;
+
+    return {
+      ...rule,
+      ...updates,
+      updatedAt: new Date(),
+    } as AddonBillingRule;
+  }
+
+  async deleteAddonBillingRule(id: number): Promise<boolean> {
+    return true; // Mock implementation
+  }
+
+  async applyBillingRule(serviceId: number, bookingData: any): Promise<{ billingRule: string; billingType: string }> {
+    // Mock implementation - would apply appropriate billing rule based on service and booking data
+    return {
+      billingRule: "guest_charged",
+      billingType: "charged"
+    };
+  }
+
+  // Finance integration stubs
+  async createFinanceRecordFromBooking(bookingId: number): Promise<Finance> {
+    // Mock implementation - would create finance record from booking
+    return {} as Finance;
+  }
+
+  async updateOwnerBalanceFromService(bookingId: number): Promise<void> {
+    // Mock implementation - would update owner balance based on service booking
+  }
+
+  async processServiceRefund(bookingId: number, refundAmount: number, reason: string): Promise<AddonServiceBooking | undefined> {
+    const booking = await this.getAddonServiceBooking(bookingId);
+    if (!booking) return undefined;
+
+    return {
+      ...booking,
+      status: "refunded",
+      cancellationReason: reason,
+      updatedAt: new Date(),
+    } as AddonServiceBooking;
+  }
+
+  // Service availability stubs
+  async getAddonServiceAvailability(serviceId: number, filters?: { 
+    dateFrom?: string; 
+    dateTo?: string;
+  }): Promise<AddonServiceAvailability[]> {
+    return []; // Mock implementation
+  }
+
+  async createAddonServiceAvailability(availability: InsertAddonServiceAvailability): Promise<AddonServiceAvailability> {
+    return {} as AddonServiceAvailability; // Mock implementation
+  }
+
+  async updateAddonServiceAvailability(id: number, updates: Partial<InsertAddonServiceAvailability>): Promise<AddonServiceAvailability | undefined> {
+    return {} as AddonServiceAvailability; // Mock implementation
+  }
+
+  async blockServiceAvailability(serviceId: number, dateRange: { start: string; end: string }, reason: string): Promise<AddonServiceAvailability> {
+    return {} as AddonServiceAvailability; // Mock implementation
+  }
+
+  // ===== STAFF ADVANCE SALARY & OVERTIME TRACKER OPERATIONS =====
+
+  // Staff overtime sessions
+  async getStaffOvertimeSessions(organizationId: string, filters?: {
+    staffId?: string;
+    status?: string;
+    dateFrom?: string;
+    dateTo?: string;
+    isEmergency?: boolean;
+    isAfterHours?: boolean;
+  }): Promise<StaffOvertimeSession[]> {
+    // Mock data for demonstration
+    const mockSessions: StaffOvertimeSession[] = [
+      {
+        id: 1,
+        organizationId,
+        staffId: "demo-staff",
+        sessionDate: "2024-01-15",
+        clockInTime: new Date("2024-01-15T20:30:00Z"),
+        clockOutTime: new Date("2024-01-15T23:30:00Z"),
+        totalHours: "3.00",
+        taskId: 1,
+        taskDescription: "Emergency pump repair at Villa Sunset",
+        workLocation: "Villa Sunset - Pool Area",
+        workType: "emergency",
+        isEmergency: true,
+        isAfterHours: true,
+        emergencyReason: "Pool pump malfunction causing water overflow",
+        status: "approved",
+        approvedBy: "demo-admin",
+        approvedAt: new Date("2024-01-16T08:00:00Z"),
+        compensationType: "paid",
+        compensationAmount: "450.00",
+        compensationRate: "150.00",
+        staffNotes: "Required emergency tools from hardware store",
+        adminNotes: "Excellent response time, approved full overtime rate",
+        proofImages: ["emergency_repair_before.jpg", "emergency_repair_after.jpg"],
+        createdAt: new Date("2024-01-15T20:30:00Z"),
+        updatedAt: new Date("2024-01-16T08:00:00Z"),
+      },
+      {
+        id: 2,
+        organizationId,
+        staffId: "demo-staff",
+        sessionDate: "2024-01-20",
+        clockInTime: new Date("2024-01-20T19:00:00Z"),
+        clockOutTime: new Date("2024-01-20T21:30:00Z"),
+        totalHours: "2.50",
+        taskDescription: "Deep cleaning Villa Ocean before VIP guest arrival",
+        workLocation: "Villa Ocean",
+        workType: "overtime",
+        isEmergency: false,
+        isAfterHours: false,
+        status: "pending",
+        compensationType: undefined,
+        staffNotes: "Extra attention to master bedroom and kitchen",
+        createdAt: new Date("2024-01-20T19:00:00Z"),
+        updatedAt: new Date("2024-01-20T21:30:00Z"),
+      },
+      {
+        id: 3,
+        organizationId,
+        staffId: "demo-staff",
+        sessionDate: "2024-01-25",
+        clockInTime: new Date("2024-01-25T21:15:00Z"),
+        clockOutTime: new Date("2024-01-26T02:00:00Z"),
+        totalHours: "4.75",
+        taskDescription: "Garden lighting repair for evening event",
+        workLocation: "Villa Paradise - Garden",
+        workType: "special_project",
+        isEmergency: false,
+        isAfterHours: true,
+        status: "approved",
+        approvedBy: "demo-admin",
+        approvedAt: new Date("2024-01-26T09:00:00Z"),
+        compensationType: "time_off",
+        staffNotes: "Completed before guest event started at 7 PM",
+        adminNotes: "Great job completing before guest arrival",
+        createdAt: new Date("2024-01-25T21:15:00Z"),
+        updatedAt: new Date("2024-01-26T09:00:00Z"),
+      },
+    ];
+
+    return mockSessions.filter(session => {
+      if (filters?.staffId && session.staffId !== filters.staffId) return false;
+      if (filters?.status && session.status !== filters.status) return false;
+      if (filters?.isEmergency !== undefined && session.isEmergency !== filters.isEmergency) return false;
+      if (filters?.isAfterHours !== undefined && session.isAfterHours !== filters.isAfterHours) return false;
+      if (filters?.dateFrom && session.sessionDate < filters.dateFrom) return false;
+      if (filters?.dateTo && session.sessionDate > filters.dateTo) return false;
+      return true;
+    });
+  }
+
+  async createStaffOvertimeSession(session: InsertStaffOvertimeSession): Promise<StaffOvertimeSession> {
+    const newSession: StaffOvertimeSession = {
+      id: Math.floor(Math.random() * 10000),
+      ...session,
+      totalHours: undefined,
+      status: "pending",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    return newSession;
+  }
+
+  async updateStaffOvertimeSession(id: number, updates: Partial<StaffOvertimeSession>): Promise<StaffOvertimeSession | undefined> {
+    // Calculate total hours if clocking out
+    if (updates.clockOutTime && !updates.totalHours) {
+      const sessions = await this.getStaffOvertimeSessions("default");
+      const session = sessions.find(s => s.id === id);
+      if (session && session.clockInTime) {
+        const clockIn = new Date(session.clockInTime);
+        const clockOut = new Date(updates.clockOutTime);
+        const diffMs = clockOut.getTime() - clockIn.getTime();
+        const hours = diffMs / (1000 * 60 * 60);
+        updates.totalHours = hours.toFixed(2);
+      }
+    }
+
+    return {
+      id,
+      organizationId: "default",
+      staffId: "demo-staff",
+      sessionDate: "2024-01-01",
+      clockInTime: new Date(),
+      status: "pending",
+      workType: "overtime",
+      isEmergency: false,
+      isAfterHours: false,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      ...updates,
+    };
+  }
+
+  async approveOvertimeSession(id: number, approvedBy: string, compensationType: string, compensationAmount?: number, adminNotes?: string): Promise<StaffOvertimeSession | undefined> {
+    return this.updateStaffOvertimeSession(id, {
+      status: "approved",
+      approvedBy,
+      approvedAt: new Date(),
+      compensationType,
+      compensationAmount: compensationAmount?.toString(),
+      adminNotes,
+    });
+  }
+
+  // Staff advance requests
+  async getStaffAdvanceRequests(organizationId: string, filters?: {
+    staffId?: string;
+    status?: string;
+    dateFrom?: string;
+    dateTo?: string;
+    urgencyLevel?: string;
+  }): Promise<StaffAdvanceRequest[]> {
+    // Mock data for demonstration
+    const mockRequests: StaffAdvanceRequest[] = [
+      {
+        id: 1,
+        organizationId,
+        staffId: "demo-staff",
+        requestDate: "2024-01-10",
+        requestedAmount: "5000.00",
+        currency: "THB",
+        reason: "Medical emergency for family member - need to pay hospital bills urgently",
+        urgencyLevel: "urgent",
+        status: "approved",
+        requestedBy: "demo-staff",
+        reviewedBy: "demo-admin",
+        approvedBy: "demo-admin",
+        reviewedAt: new Date("2024-01-11T10:00:00Z"),
+        approvedAt: new Date("2024-01-11T10:30:00Z"),
+        paymentMethod: "bank_transfer",
+        paymentDate: new Date("2024-01-11T14:00:00Z"),
+        paymentReference: "ADV-2024-001",
+        deductionStartMonth: "2024-02",
+        deductionMonths: 2,
+        monthlyDeductionAmount: "2500.00",
+        remainingBalance: "2500.00",
+        staffNotes: "Will provide medical bills as proof if needed",
+        adminNotes: "Approved due to medical emergency, split repayment over 2 months",
+        financeRecordId: 1001,
+        createdAt: new Date("2024-01-10T16:30:00Z"),
+        updatedAt: new Date("2024-01-11T14:00:00Z"),
+      },
+      {
+        id: 2,
+        organizationId,
+        staffId: "demo-staff",
+        requestDate: "2024-01-20",
+        requestedAmount: "3000.00",
+        currency: "THB",
+        reason: "Motorcycle repair needed for commuting to work",
+        urgencyLevel: "high",
+        status: "pending",
+        requestedBy: "demo-staff",
+        deductionMonths: 1,
+        staffNotes: "Motorcycle is essential for reaching remote villa locations",
+        createdAt: new Date("2024-01-20T09:15:00Z"),
+        updatedAt: new Date("2024-01-20T09:15:00Z"),
+      },
+      {
+        id: 3,
+        organizationId,
+        staffId: "demo-staff",
+        requestDate: "2024-01-05",
+        requestedAmount: "2000.00",
+        currency: "THB",
+        reason: "Child school fees payment due",
+        urgencyLevel: "normal",
+        status: "rejected",
+        requestedBy: "demo-staff",
+        reviewedBy: "demo-admin",
+        reviewedAt: new Date("2024-01-06T11:00:00Z"),
+        deductionMonths: 1,
+        rejectionReason: "Request made too soon after previous advance. Please wait at least 3 months between requests.",
+        staffNotes: "School fees deadline approaching",
+        adminNotes: "Policy requires 3-month gap between advances",
+        createdAt: new Date("2024-01-05T14:20:00Z"),
+        updatedAt: new Date("2024-01-06T11:00:00Z"),
+      },
+    ];
+
+    return mockRequests.filter(request => {
+      if (filters?.staffId && request.staffId !== filters.staffId) return false;
+      if (filters?.status && request.status !== filters.status) return false;
+      if (filters?.urgencyLevel && request.urgencyLevel !== filters.urgencyLevel) return false;
+      if (filters?.dateFrom && request.requestDate < filters.dateFrom) return false;
+      if (filters?.dateTo && request.requestDate > filters.dateTo) return false;
+      return true;
+    });
+  }
+
+  async createStaffAdvanceRequest(request: InsertStaffAdvanceRequest): Promise<StaffAdvanceRequest> {
+    const newRequest: StaffAdvanceRequest = {
+      id: Math.floor(Math.random() * 10000),
+      ...request,
+      status: "pending",
+      deductionMonths: request.deductionMonths || 1,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    return newRequest;
+  }
+
+  async updateStaffAdvanceRequest(id: number, updates: Partial<StaffAdvanceRequest>): Promise<StaffAdvanceRequest | undefined> {
+    return {
+      id,
+      organizationId: "default",
+      staffId: "demo-staff",
+      requestDate: "2024-01-01",
+      requestedAmount: "1000.00",
+      currency: "THB",
+      reason: "Test request",
+      urgencyLevel: "normal",
+      status: "pending",
+      requestedBy: "demo-staff",
+      deductionMonths: 1,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      ...updates,
+    };
+  }
+
+  async approveAdvanceRequest(id: number, approvedBy: string, paymentMethod: string, deductionStartMonth: string, adminNotes?: string): Promise<StaffAdvanceRequest | undefined> {
+    const requests = await this.getStaffAdvanceRequests("default");
+    const request = requests.find(r => r.id === id);
+    if (!request) return undefined;
+
+    const monthlyDeductionAmount = (parseFloat(request.requestedAmount) / request.deductionMonths).toFixed(2);
+
+    return this.updateStaffAdvanceRequest(id, {
+      status: "approved",
+      approvedBy,
+      approvedAt: new Date(),
+      paymentMethod,
+      deductionStartMonth,
+      monthlyDeductionAmount,
+      remainingBalance: request.requestedAmount,
+      adminNotes,
+    });
+  }
+
+  async rejectAdvanceRequest(id: number, reviewedBy: string, rejectionReason: string): Promise<StaffAdvanceRequest | undefined> {
+    return this.updateStaffAdvanceRequest(id, {
+      status: "rejected",
+      reviewedBy,
+      reviewedAt: new Date(),
+      rejectionReason,
+    });
+  }
+
+  // Staff salary deductions
+  async getStaffSalaryDeductions(organizationId: string, filters?: {
+    staffId?: string;
+    deductionMonth?: string;
+    deductionType?: string;
+  }): Promise<StaffSalaryDeduction[]> {
+    // Mock data
+    const mockDeductions: StaffSalaryDeduction[] = [
+      {
+        id: 1,
+        organizationId,
+        staffId: "demo-staff",
+        advanceRequestId: 1,
+        deductionMonth: "2024-02",
+        deductionAmount: "2500.00",
+        deductionType: "advance_repayment",
+        description: "Advance repayment (1/2) - Medical emergency",
+        processedBy: "demo-admin",
+        processedAt: new Date("2024-02-01T10:00:00Z"),
+        payrollCycle: "monthly",
+        createdAt: new Date("2024-02-01T10:00:00Z"),
+      },
+      {
+        id: 2,
+        organizationId,
+        staffId: "demo-staff",
+        advanceRequestId: 1,
+        deductionMonth: "2024-03",
+        deductionAmount: "2500.00",
+        deductionType: "advance_repayment",
+        description: "Advance repayment (2/2) - Medical emergency",
+        payrollCycle: "monthly",
+        createdAt: new Date("2024-03-01T00:00:00Z"),
+      },
+    ];
+
+    return mockDeductions.filter(deduction => {
+      if (filters?.staffId && deduction.staffId !== filters.staffId) return false;
+      if (filters?.deductionMonth && deduction.deductionMonth !== filters.deductionMonth) return false;
+      if (filters?.deductionType && deduction.deductionType !== filters.deductionType) return false;
+      return true;
+    });
+  }
+
+  async createStaffSalaryDeduction(deduction: InsertStaffSalaryDeduction): Promise<StaffSalaryDeduction> {
+    const newDeduction: StaffSalaryDeduction = {
+      id: Math.floor(Math.random() * 10000),
+      ...deduction,
+      createdAt: new Date(),
+    };
+    return newDeduction;
+  }
+
+  // Staff compensation time
+  async getStaffCompensationTime(organizationId: string, filters?: {
+    staffId?: string;
+    isExpired?: boolean;
+  }): Promise<StaffCompensationTime[]> {
+    // Mock data
+    const mockCompTime: StaffCompensationTime[] = [
+      {
+        id: 1,
+        organizationId,
+        staffId: "demo-staff",
+        overtimeSessionId: 3,
+        compensationDate: "2024-01-26",
+        hoursEarned: "4.75",
+        hoursUsed: "0.00",
+        hoursRemaining: "4.75",
+        expiresAt: "2024-04-26",
+        isExpired: false,
+        createdAt: new Date("2024-01-26T09:00:00Z"),
+        updatedAt: new Date("2024-01-26T09:00:00Z"),
+      },
+    ];
+
+    return mockCompTime.filter(compTime => {
+      if (filters?.staffId && compTime.staffId !== filters.staffId) return false;
+      if (filters?.isExpired !== undefined && compTime.isExpired !== filters.isExpired) return false;
+      return true;
+    });
+  }
+
+  async createStaffCompensationTime(compensationTime: InsertStaffCompensationTime): Promise<StaffCompensationTime> {
+    const newCompTime: StaffCompensationTime = {
+      id: Math.floor(Math.random() * 10000),
+      ...compensationTime,
+      hoursUsed: "0.00",
+      hoursRemaining: compensationTime.hoursEarned,
+      isExpired: false,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    return newCompTime;
+  }
+
+  // Staff monthly summary
+  async getStaffMonthlySummary(organizationId: string, staffId: string, month: string): Promise<StaffMonthlySummary | undefined> {
+    // Mock data based on the month
+    const [year, monthNum] = month.split('-').map(Number);
+    
+    const mockSummary: StaffMonthlySummary = {
+      id: 1,
+      organizationId,
+      staffId,
+      summaryMonth: month,
+      summaryYear: year,
+      regularHours: "160.00", // Standard 40h/week * 4 weeks
+      overtimeHours: "12.25", // Sum of overtime sessions
+      emergencyHours: "3.00", // Emergency session hours
+      afterHoursCount: 2, // Tasks after 8 PM
+      totalOvertimePay: "450.00", // Paid overtime compensation
+      totalCompensationTime: "4.75", // Time off compensation hours
+      compensationTimeUsed: "0.00",
+      advanceRequestsCount: 2, // Number of requests this month
+      totalAdvanceAmount: "8000.00", // Total amount requested
+      advanceRepaymentAmount: "2500.00", // Amount deducted for repayment
+      tasksCompleted: 28, // Monthly task completion
+      emergencyResponseTime: "15.50", // Average response time in minutes
+      reliabilityScore: "94.50", // Performance score out of 100
+      reportGenerated: false,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    return mockSummary;
+  }
+
+  async createStaffMonthlySummary(summary: InsertStaffMonthlySummary): Promise<StaffMonthlySummary> {
+    const newSummary: StaffMonthlySummary = {
+      id: Math.floor(Math.random() * 10000),
+      ...summary,
+      regularHours: summary.regularHours || "0.00",
+      overtimeHours: summary.overtimeHours || "0.00",
+      emergencyHours: summary.emergencyHours || "0.00",
+      afterHoursCount: summary.afterHoursCount || 0,
+      totalOvertimePay: summary.totalOvertimePay || "0.00",
+      totalCompensationTime: summary.totalCompensationTime || "0.00",
+      compensationTimeUsed: summary.compensationTimeUsed || "0.00",
+      advanceRequestsCount: summary.advanceRequestsCount || 0,
+      totalAdvanceAmount: summary.totalAdvanceAmount || "0.00",
+      advanceRepaymentAmount: summary.advanceRepaymentAmount || "0.00",
+      tasksCompleted: summary.tasksCompleted || 0,
+      reportGenerated: false,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    return newSummary;
+  }
+
+  // Staff notification settings
+  async getStaffNotificationSettings(organizationId: string, staffId: string): Promise<StaffNotificationSettings | undefined> {
+    // Mock default settings
+    const mockSettings: StaffNotificationSettings = {
+      id: 1,
+      organizationId,
+      staffId,
+      overtimeReminders: true,
+      advanceStatusUpdates: true,
+      payrollNotifications: true,
+      emergencyTaskAlerts: true,
+      emailNotifications: true,
+      smsNotifications: false,
+      appPushNotifications: true,
+      reminderFrequency: "daily",
+      quietHoursStart: "22:00",
+      quietHoursEnd: "08:00",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    return mockSettings;
+  }
+
+  async updateStaffNotificationSettings(organizationId: string, staffId: string, updates: Partial<StaffNotificationSettings>): Promise<StaffNotificationSettings> {
+    const existing = await this.getStaffNotificationSettings(organizationId, staffId);
+    return {
+      ...existing!,
+      ...updates,
+      updatedAt: new Date(),
+    };
+  }
+
+  // Generate monthly report
+  async generateStaffMonthlyReport(organizationId: string, staffId: string, month: string): Promise<{ reportUrl: string; summary: StaffMonthlySummary }> {
+    const summary = await this.getStaffMonthlySummary(organizationId, staffId, month);
+    if (!summary) {
+      throw new Error("No summary data available for the specified month");
+    }
+
+    // Mock report generation
+    const reportUrl = `/reports/staff-monthly-${staffId}-${month}.pdf`;
+    
+    // Update summary to mark report as generated
+    const updatedSummary = await this.updateStaffMonthlySummary(summary.id, {
+      reportGenerated: true,
+      reportUrl,
+    });
+
+    return {
+      reportUrl,
+      summary: updatedSummary || summary,
+    };
+  }
+
+  async updateStaffMonthlySummary(id: number, updates: Partial<StaffMonthlySummary>): Promise<StaffMonthlySummary | undefined> {
+    // Mock implementation
+    return {
+      id,
+      organizationId: "default",
+      staffId: "demo-staff",
+      summaryMonth: "2024-01",
+      summaryYear: 2024,
+      regularHours: "160.00",
+      overtimeHours: "12.25",
+      emergencyHours: "3.00",
+      afterHoursCount: 2,
+      totalOvertimePay: "450.00",
+      totalCompensationTime: "4.75",
+      compensationTimeUsed: "0.00",
+      advanceRequestsCount: 2,
+      totalAdvanceAmount: "8000.00",
+      advanceRepaymentAmount: "2500.00",
+      tasksCompleted: 28,
+      emergencyResponseTime: "15.50",
+      reliabilityScore: "94.50",
+      reportGenerated: false,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      ...updates,
+    };
+  }
 }
 
 export const storage = new DatabaseStorage();

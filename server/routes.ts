@@ -12495,6 +12495,546 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ===== ADD-ON SERVICES ENGINE API ENDPOINTS =====
+
+  // Service categories
+  app.get("/api/addon-service-categories", isDemoAuthenticated, async (req, res) => {
+    try {
+      const categories = await storage.getAddonServiceCategories("default");
+      res.json(categories);
+    } catch (error: any) {
+      console.error("Error fetching service categories:", error);
+      res.status(500).json({ message: "Failed to fetch service categories" });
+    }
+  });
+
+  app.post("/api/addon-service-categories", isDemoAuthenticated, async (req, res) => {
+    try {
+      const category = await storage.createAddonServiceCategory({
+        ...req.body,
+        organizationId: "default",
+      });
+      res.json(category);
+    } catch (error: any) {
+      console.error("Error creating service category:", error);
+      res.status(500).json({ message: "Failed to create service category" });
+    }
+  });
+
+  // Service catalog
+  app.get("/api/addon-service-catalog", isDemoAuthenticated, async (req, res) => {
+    try {
+      const { category } = req.query;
+      const filters: any = {};
+      if (category && category !== "all") {
+        filters.category = category as string;
+      }
+      
+      const services = await storage.getAddonServiceCatalog("default", filters);
+      res.json(services);
+    } catch (error: any) {
+      console.error("Error fetching service catalog:", error);
+      res.status(500).json({ message: "Failed to fetch service catalog" });
+    }
+  });
+
+  app.post("/api/addon-service-catalog", isDemoAuthenticated, async (req, res) => {
+    try {
+      const service = await storage.createAddonServiceCatalogItem({
+        ...req.body,
+        organizationId: "default",
+      });
+      res.json(service);
+    } catch (error: any) {
+      console.error("Error creating service:", error);
+      res.status(500).json({ message: "Failed to create service" });
+    }
+  });
+
+  app.put("/api/addon-service-catalog/:id", isDemoAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const service = await storage.updateAddonServiceCatalogItem(id, req.body);
+      if (!service) {
+        return res.status(404).json({ message: "Service not found" });
+      }
+      res.json(service);
+    } catch (error: any) {
+      console.error("Error updating service:", error);
+      res.status(500).json({ message: "Failed to update service" });
+    }
+  });
+
+  // Service bookings
+  app.get("/api/addon-service-bookings", isDemoAuthenticated, async (req, res) => {
+    try {
+      const { status, billingRule, category, dateFrom, dateTo, propertyId } = req.query;
+      const filters: any = {};
+      
+      if (status && status !== "all") filters.status = status as string;
+      if (billingRule && billingRule !== "all") filters.billingRule = billingRule as string;
+      if (category && category !== "all") filters.category = category as string;
+      if (dateFrom) filters.dateFrom = dateFrom as string;
+      if (dateTo) filters.dateTo = dateTo as string;
+      if (propertyId) filters.propertyId = parseInt(propertyId as string);
+      
+      const bookings = await storage.getAddonServiceBookings("default", filters);
+      res.json(bookings);
+    } catch (error: any) {
+      console.error("Error fetching service bookings:", error);
+      res.status(500).json({ message: "Failed to fetch service bookings" });
+    }
+  });
+
+  app.post("/api/addon-service-bookings", isDemoAuthenticated, async (req, res) => {
+    try {
+      const booking = await storage.createAddonServiceBooking({
+        ...req.body,
+        organizationId: "default",
+      });
+      
+      // Create commission record if there's a commission amount
+      if (booking.commissionAmount && parseFloat(booking.commissionAmount) > 0) {
+        await storage.createAddonServiceCommission({
+          organizationId: "default",
+          bookingId: booking.id,
+          serviceId: booking.serviceId,
+          category: req.body.category || "general",
+          staffId: booking.bookedBy,
+          commissionAmount: booking.commissionAmount,
+          commissionRate: req.body.commissionRate || "15.00",
+          paymentStatus: "pending",
+          notes: `Commission for booking #${booking.id}`,
+        });
+      }
+      
+      res.json(booking);
+    } catch (error: any) {
+      console.error("Error creating service booking:", error);
+      res.status(500).json({ message: "Failed to create service booking" });
+    }
+  });
+
+  app.put("/api/addon-service-bookings/:id/confirm", isDemoAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const booking = await storage.confirmAddonServiceBooking(id, req.body.confirmedBy);
+      if (!booking) {
+        return res.status(404).json({ message: "Booking not found" });
+      }
+      res.json(booking);
+    } catch (error: any) {
+      console.error("Error confirming booking:", error);
+      res.status(500).json({ message: "Failed to confirm booking" });
+    }
+  });
+
+  app.put("/api/addon-service-bookings/:id/complete", isDemoAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const booking = await storage.completeAddonServiceBooking(id, new Date(req.body.completedAt), req.body.notes);
+      if (!booking) {
+        return res.status(404).json({ message: "Booking not found" });
+      }
+      res.json(booking);
+    } catch (error: any) {
+      console.error("Error completing booking:", error);
+      res.status(500).json({ message: "Failed to complete booking" });
+    }
+  });
+
+  // Service commissions
+  app.get("/api/addon-service-commissions", isDemoAuthenticated, async (req, res) => {
+    try {
+      const { staffId, category, paymentStatus, dateFrom, dateTo } = req.query;
+      const filters: any = {};
+      
+      if (staffId) filters.staffId = staffId as string;
+      if (category) filters.category = category as string;
+      if (paymentStatus) filters.paymentStatus = paymentStatus as string;
+      if (dateFrom) filters.dateFrom = dateFrom as string;
+      if (dateTo) filters.dateTo = dateTo as string;
+      
+      const commissions = await storage.getAddonServiceCommissions("default", filters);
+      res.json(commissions);
+    } catch (error: any) {
+      console.error("Error fetching service commissions:", error);
+      res.status(500).json({ message: "Failed to fetch service commissions" });
+    }
+  });
+
+  app.put("/api/addon-service-commissions/:id/pay", isDemoAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const commission = await storage.processCommissionPayment(id, new Date(), req.body.paymentMethod || "bank_transfer");
+      if (!commission) {
+        return res.status(404).json({ message: "Commission not found" });
+      }
+      res.json(commission);
+    } catch (error: any) {
+      console.error("Error processing commission payment:", error);
+      res.status(500).json({ message: "Failed to process commission payment" });
+    }
+  });
+
+  // Service reports
+  app.get("/api/addon-service-reports", isDemoAuthenticated, async (req, res) => {
+    try {
+      const { reportMonth, category } = req.query;
+      const filters: any = {};
+      
+      if (reportMonth) filters.reportMonth = reportMonth as string;
+      if (category) filters.category = category as string;
+      
+      const reports = await storage.getAddonServiceReports("default", filters);
+      res.json(reports);
+    } catch (error: any) {
+      console.error("Error fetching service reports:", error);
+      res.status(500).json({ message: "Failed to fetch service reports" });
+    }
+  });
+
+  app.post("/api/addon-service-reports/generate", isDemoAuthenticated, async (req, res) => {
+    try {
+      const { reportMonth } = req.body;
+      const reports = await storage.generateMonthlyServiceReport("default", reportMonth);
+      res.json(reports);
+    } catch (error: any) {
+      console.error("Error generating service report:", error);
+      res.status(500).json({ message: "Failed to generate service report" });
+    }
+  });
+
+  // Service summary analytics
+  app.get("/api/addon-service-summary", isDemoAuthenticated, async (req, res) => {
+    try {
+      const { startDate, endDate } = req.query;
+      const summary = await storage.getServiceCategorySummary(
+        "default", 
+        startDate as string || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], 
+        endDate as string || new Date().toISOString().split('T')[0]
+      );
+      res.json(summary);
+    } catch (error: any) {
+      console.error("Error fetching service summary:", error);
+      res.status(500).json({ message: "Failed to fetch service summary" });
+    }
+  });
+
+  // Billing rules
+  app.get("/api/addon-billing-rules", isDemoAuthenticated, async (req, res) => {
+    try {
+      const { category, isActive } = req.query;
+      const filters: any = {};
+      
+      if (category) filters.category = category as string;
+      if (isActive !== undefined) filters.isActive = isActive === "true";
+      
+      const rules = await storage.getAddonBillingRules("default", filters);
+      res.json(rules);
+    } catch (error: any) {
+      console.error("Error fetching billing rules:", error);
+      res.status(500).json({ message: "Failed to fetch billing rules" });
+    }
+  });
+
+  app.post("/api/addon-billing-rules", isDemoAuthenticated, async (req, res) => {
+    try {
+      const rule = await storage.createAddonBillingRule({
+        ...req.body,
+        organizationId: "default",
+      });
+      res.json(rule);
+    } catch (error: any) {
+      console.error("Error creating billing rule:", error);
+      res.status(500).json({ message: "Failed to create billing rule" });
+    }
+  });
+
+  app.put("/api/addon-billing-rules/:id", isDemoAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const rule = await storage.updateAddonBillingRule(id, req.body);
+      if (!rule) {
+        return res.status(404).json({ message: "Billing rule not found" });
+      }
+      res.json(rule);
+    } catch (error: any) {
+      console.error("Error updating billing rule:", error);
+      res.status(500).json({ message: "Failed to update billing rule" });
+    }
+  });
+
+  // ===== STAFF ADVANCE SALARY & OVERTIME TRACKER API ENDPOINTS =====
+
+  // Staff overtime sessions
+  app.get("/api/staff-overtime-sessions", isDemoAuthenticated, async (req, res) => {
+    try {
+      const { staffId, status, dateFrom, dateTo, isEmergency, isAfterHours } = req.query;
+      const filters: any = {};
+      
+      if (staffId) filters.staffId = staffId as string;
+      if (status) filters.status = status as string;
+      if (dateFrom) filters.dateFrom = dateFrom as string;
+      if (dateTo) filters.dateTo = dateTo as string;
+      if (isEmergency !== undefined) filters.isEmergency = isEmergency === "true";
+      if (isAfterHours !== undefined) filters.isAfterHours = isAfterHours === "true";
+      
+      const sessions = await storage.getStaffOvertimeSessions("default", filters);
+      res.json(sessions);
+    } catch (error: any) {
+      console.error("Error fetching overtime sessions:", error);
+      res.status(500).json({ message: "Failed to fetch overtime sessions" });
+    }
+  });
+
+  app.post("/api/staff-overtime-sessions", isDemoAuthenticated, async (req, res) => {
+    try {
+      const session = await storage.createStaffOvertimeSession(req.body);
+      res.json(session);
+    } catch (error: any) {
+      console.error("Error creating overtime session:", error);
+      res.status(500).json({ message: "Failed to create overtime session" });
+    }
+  });
+
+  app.put("/api/staff-overtime-sessions/:id/clock-out", isDemoAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const session = await storage.updateStaffOvertimeSession(id, {
+        clockOutTime: new Date(req.body.clockOutTime),
+      });
+      if (!session) {
+        return res.status(404).json({ message: "Overtime session not found" });
+      }
+      res.json(session);
+    } catch (error: any) {
+      console.error("Error clocking out:", error);
+      res.status(500).json({ message: "Failed to clock out" });
+    }
+  });
+
+  app.put("/api/staff-overtime-sessions/:id/approve", isDemoAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { approvedBy, compensationType, compensationAmount, adminNotes } = req.body;
+      const session = await storage.approveOvertimeSession(
+        id, 
+        approvedBy, 
+        compensationType, 
+        compensationAmount, 
+        adminNotes
+      );
+      if (!session) {
+        return res.status(404).json({ message: "Overtime session not found" });
+      }
+      res.json(session);
+    } catch (error: any) {
+      console.error("Error approving overtime session:", error);
+      res.status(500).json({ message: "Failed to approve overtime session" });
+    }
+  });
+
+  // Staff advance requests
+  app.get("/api/staff-advance-requests", isDemoAuthenticated, async (req, res) => {
+    try {
+      const { staffId, status, dateFrom, dateTo, urgencyLevel } = req.query;
+      const filters: any = {};
+      
+      if (staffId) filters.staffId = staffId as string;
+      if (status) filters.status = status as string;
+      if (dateFrom) filters.dateFrom = dateFrom as string;
+      if (dateTo) filters.dateTo = dateTo as string;
+      if (urgencyLevel) filters.urgencyLevel = urgencyLevel as string;
+      
+      const requests = await storage.getStaffAdvanceRequests("default", filters);
+      res.json(requests);
+    } catch (error: any) {
+      console.error("Error fetching advance requests:", error);
+      res.status(500).json({ message: "Failed to fetch advance requests" });
+    }
+  });
+
+  app.post("/api/staff-advance-requests", isDemoAuthenticated, async (req, res) => {
+    try {
+      const request = await storage.createStaffAdvanceRequest(req.body);
+      res.json(request);
+    } catch (error: any) {
+      console.error("Error creating advance request:", error);
+      res.status(500).json({ message: "Failed to create advance request" });
+    }
+  });
+
+  app.put("/api/staff-advance-requests/:id/approve", isDemoAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { approvedBy, paymentMethod, deductionStartMonth, adminNotes } = req.body;
+      const request = await storage.approveAdvanceRequest(
+        id, 
+        approvedBy, 
+        paymentMethod, 
+        deductionStartMonth, 
+        adminNotes
+      );
+      if (!request) {
+        return res.status(404).json({ message: "Advance request not found" });
+      }
+      res.json(request);
+    } catch (error: any) {
+      console.error("Error approving advance request:", error);
+      res.status(500).json({ message: "Failed to approve advance request" });
+    }
+  });
+
+  app.put("/api/staff-advance-requests/:id/reject", isDemoAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { reviewedBy, rejectionReason } = req.body;
+      const request = await storage.rejectAdvanceRequest(id, reviewedBy, rejectionReason);
+      if (!request) {
+        return res.status(404).json({ message: "Advance request not found" });
+      }
+      res.json(request);
+    } catch (error: any) {
+      console.error("Error rejecting advance request:", error);
+      res.status(500).json({ message: "Failed to reject advance request" });
+    }
+  });
+
+  // Staff salary deductions
+  app.get("/api/staff-salary-deductions", isDemoAuthenticated, async (req, res) => {
+    try {
+      const { staffId, deductionMonth, deductionType } = req.query;
+      const filters: any = {};
+      
+      if (staffId) filters.staffId = staffId as string;
+      if (deductionMonth) filters.deductionMonth = deductionMonth as string;
+      if (deductionType) filters.deductionType = deductionType as string;
+      
+      const deductions = await storage.getStaffSalaryDeductions("default", filters);
+      res.json(deductions);
+    } catch (error: any) {
+      console.error("Error fetching salary deductions:", error);
+      res.status(500).json({ message: "Failed to fetch salary deductions" });
+    }
+  });
+
+  app.post("/api/staff-salary-deductions", isDemoAuthenticated, async (req, res) => {
+    try {
+      const deduction = await storage.createStaffSalaryDeduction(req.body);
+      res.json(deduction);
+    } catch (error: any) {
+      console.error("Error creating salary deduction:", error);
+      res.status(500).json({ message: "Failed to create salary deduction" });
+    }
+  });
+
+  // Staff compensation time
+  app.get("/api/staff-compensation-time", isDemoAuthenticated, async (req, res) => {
+    try {
+      const { staffId, isExpired } = req.query;
+      const filters: any = {};
+      
+      if (staffId) filters.staffId = staffId as string;
+      if (isExpired !== undefined) filters.isExpired = isExpired === "true";
+      
+      const compensationTime = await storage.getStaffCompensationTime("default", filters);
+      res.json(compensationTime);
+    } catch (error: any) {
+      console.error("Error fetching compensation time:", error);
+      res.status(500).json({ message: "Failed to fetch compensation time" });
+    }
+  });
+
+  app.post("/api/staff-compensation-time", isDemoAuthenticated, async (req, res) => {
+    try {
+      const compensationTime = await storage.createStaffCompensationTime(req.body);
+      res.json(compensationTime);
+    } catch (error: any) {
+      console.error("Error creating compensation time:", error);
+      res.status(500).json({ message: "Failed to create compensation time" });
+    }
+  });
+
+  // Staff monthly summary
+  app.get("/api/staff-monthly-summary", isDemoAuthenticated, async (req, res) => {
+    try {
+      const { staffId, month } = req.query;
+      if (!staffId || !month) {
+        return res.status(400).json({ message: "staffId and month are required" });
+      }
+      
+      const summary = await storage.getStaffMonthlySummary("default", staffId as string, month as string);
+      if (!summary) {
+        return res.status(404).json({ message: "Monthly summary not found" });
+      }
+      res.json(summary);
+    } catch (error: any) {
+      console.error("Error fetching monthly summary:", error);
+      res.status(500).json({ message: "Failed to fetch monthly summary" });
+    }
+  });
+
+  app.post("/api/staff-monthly-summary", isDemoAuthenticated, async (req, res) => {
+    try {
+      const summary = await storage.createStaffMonthlySummary(req.body);
+      res.json(summary);
+    } catch (error: any) {
+      console.error("Error creating monthly summary:", error);
+      res.status(500).json({ message: "Failed to create monthly summary" });
+    }
+  });
+
+  // Staff notification settings
+  app.get("/api/staff-notification-settings", isDemoAuthenticated, async (req, res) => {
+    try {
+      const { staffId } = req.query;
+      if (!staffId) {
+        return res.status(400).json({ message: "staffId is required" });
+      }
+      
+      const settings = await storage.getStaffNotificationSettings("default", staffId as string);
+      if (!settings) {
+        return res.status(404).json({ message: "Notification settings not found" });
+      }
+      res.json(settings);
+    } catch (error: any) {
+      console.error("Error fetching notification settings:", error);
+      res.status(500).json({ message: "Failed to fetch notification settings" });
+    }
+  });
+
+  app.put("/api/staff-notification-settings", isDemoAuthenticated, async (req, res) => {
+    try {
+      const { staffId } = req.body;
+      if (!staffId) {
+        return res.status(400).json({ message: "staffId is required" });
+      }
+      
+      const settings = await storage.updateStaffNotificationSettings("default", staffId, req.body);
+      res.json(settings);
+    } catch (error: any) {
+      console.error("Error updating notification settings:", error);
+      res.status(500).json({ message: "Failed to update notification settings" });
+    }
+  });
+
+  // Generate monthly report
+  app.post("/api/staff-monthly-report", isDemoAuthenticated, async (req, res) => {
+    try {
+      const { staffId, month } = req.body;
+      if (!staffId || !month) {
+        return res.status(400).json({ message: "staffId and month are required" });
+      }
+      
+      const result = await storage.generateStaffMonthlyReport("default", staffId, month);
+      res.json(result);
+    } catch (error: any) {
+      console.error("Error generating monthly report:", error);
+      res.status(500).json({ message: "Failed to generate monthly report" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

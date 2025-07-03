@@ -5844,3 +5844,275 @@ export const insertPlatformAnalyticsSchema = createInsertSchema(platformAnalytic
   createdAt: true,
 });
 
+// ===== STAFF ADVANCE SALARY & OVERTIME TRACKER =====
+
+// Staff overtime sessions tracking
+export const staffOvertimeSessions = pgTable("staff_overtime_sessions", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  staffId: varchar("staff_id").references(() => users.id).notNull(),
+  
+  // Session Details
+  sessionDate: date("session_date").notNull(),
+  clockInTime: timestamp("clock_in_time").notNull(),
+  clockOutTime: timestamp("clock_out_time"),
+  totalHours: decimal("total_hours", { precision: 5, scale: 2 }),
+  
+  // Task Information
+  taskId: integer("task_id").references(() => tasks.id),
+  taskDescription: text("task_description"), // Manual description if no task linked
+  workLocation: varchar("work_location"), // Villa X, Property Y, etc.
+  workType: varchar("work_type").default("overtime"), // overtime, emergency, special_project
+  
+  // Emergency/After Hours
+  isEmergency: boolean("is_emergency").default(false),
+  isAfterHours: boolean("is_after_hours").default(false), // Auto-set for work after 8 PM
+  emergencyReason: text("emergency_reason"),
+  
+  // Approval and Compensation
+  status: varchar("status").default("pending"), // pending, approved, rejected
+  approvedBy: varchar("approved_by").references(() => users.id),
+  approvedAt: timestamp("approved_at"),
+  compensationType: varchar("compensation_type"), // paid, time_off, pending
+  compensationAmount: decimal("compensation_amount", { precision: 10, scale: 2 }),
+  compensationRate: decimal("compensation_rate", { precision: 5, scale: 2 }), // Hourly rate for overtime
+  
+  // Notes and Proof
+  staffNotes: text("staff_notes"),
+  adminNotes: text("admin_notes"),
+  proofImages: jsonb("proof_images"), // Array of image URLs for verification
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_overtime_staff").on(table.staffId),
+  index("IDX_overtime_date").on(table.sessionDate),
+  index("IDX_overtime_status").on(table.status),
+]);
+
+// Staff advance salary requests
+export const staffAdvanceRequests = pgTable("staff_advance_requests", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  staffId: varchar("staff_id").references(() => users.id).notNull(),
+  
+  // Request Details
+  requestDate: date("request_date").notNull(),
+  requestedAmount: decimal("requested_amount", { precision: 10, scale: 2 }).notNull(),
+  currency: varchar("currency", { length: 3 }).default("THB"),
+  reason: text("reason").notNull(),
+  urgencyLevel: varchar("urgency_level").default("normal"), // low, normal, high, urgent
+  
+  // Approval Workflow
+  status: varchar("status").default("pending"), // pending, approved, rejected, paid
+  requestedBy: varchar("requested_by").references(() => users.id).notNull(),
+  reviewedBy: varchar("reviewed_by").references(() => users.id),
+  approvedBy: varchar("approved_by").references(() => users.id),
+  reviewedAt: timestamp("reviewed_at"),
+  approvedAt: timestamp("approved_at"),
+  
+  // Payment Details
+  paymentMethod: varchar("payment_method"), // bank_transfer, cash, salary_deduction
+  paymentDate: timestamp("payment_date"),
+  paymentReference: varchar("payment_reference"),
+  
+  // Deduction Schedule
+  deductionStartMonth: varchar("deduction_start_month"), // 2025-01
+  deductionMonths: integer("deduction_months").default(1), // How many months to spread deduction
+  monthlyDeductionAmount: decimal("monthly_deduction_amount", { precision: 10, scale: 2 }),
+  remainingBalance: decimal("remaining_balance", { precision: 10, scale: 2 }),
+  
+  // Notes and Communication
+  staffNotes: text("staff_notes"),
+  adminNotes: text("admin_notes"),
+  rejectionReason: text("rejection_reason"),
+  
+  // Related Finance Record
+  financeRecordId: integer("finance_record_id").references(() => finances.id),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_advance_staff").on(table.staffId),
+  index("IDX_advance_status").on(table.status),
+  index("IDX_advance_date").on(table.requestDate),
+]);
+
+// Staff salary deductions tracking
+export const staffSalaryDeductions = pgTable("staff_salary_deductions", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  staffId: varchar("staff_id").references(() => users.id).notNull(),
+  advanceRequestId: integer("advance_request_id").references(() => staffAdvanceRequests.id),
+  
+  // Deduction Details
+  deductionMonth: varchar("deduction_month").notNull(), // 2025-01
+  deductionAmount: decimal("deduction_amount", { precision: 10, scale: 2 }).notNull(),
+  deductionType: varchar("deduction_type").default("advance_repayment"), // advance_repayment, loan, fine, other
+  description: text("description"),
+  
+  // Processing
+  processedBy: varchar("processed_by").references(() => users.id),
+  processedAt: timestamp("processed_at"),
+  payrollCycle: varchar("payroll_cycle"), // monthly, bi-weekly, weekly
+  
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("IDX_deduction_staff").on(table.staffId),
+  index("IDX_deduction_month").on(table.deductionMonth),
+]);
+
+// Staff compensation time tracking (for time-off compensation)
+export const staffCompensationTime = pgTable("staff_compensation_time", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  staffId: varchar("staff_id").references(() => users.id).notNull(),
+  overtimeSessionId: integer("overtime_session_id").references(() => staffOvertimeSessions.id),
+  
+  // Compensation Details
+  compensationDate: date("compensation_date").notNull(),
+  hoursEarned: decimal("hours_earned", { precision: 5, scale: 2 }).notNull(),
+  hoursUsed: decimal("hours_used", { precision: 5, scale: 2 }).default("0.00"),
+  hoursRemaining: decimal("hours_remaining", { precision: 5, scale: 2 }).notNull(),
+  
+  // Time Off Usage
+  timeOffDate: date("time_off_date"),
+  timeOffReason: text("time_off_reason"),
+  approvedBy: varchar("approved_by").references(() => users.id),
+  
+  // Expiration
+  expiresAt: date("expires_at"), // Compensation time may have expiration
+  isExpired: boolean("is_expired").default(false),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_comp_time_staff").on(table.staffId),
+  index("IDX_comp_time_date").on(table.compensationDate),
+]);
+
+// Monthly staff performance summary
+export const staffMonthlySummary = pgTable("staff_monthly_summary", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  staffId: varchar("staff_id").references(() => users.id).notNull(),
+  
+  // Summary Period
+  summaryMonth: varchar("summary_month").notNull(), // 2025-01
+  summaryYear: integer("summary_year").notNull(),
+  
+  // Work Hours Summary
+  regularHours: decimal("regular_hours", { precision: 6, scale: 2 }).default("0.00"),
+  overtimeHours: decimal("overtime_hours", { precision: 6, scale: 2 }).default("0.00"),
+  emergencyHours: decimal("emergency_hours", { precision: 6, scale: 2 }).default("0.00"),
+  afterHoursCount: integer("after_hours_count").default(0),
+  
+  // Compensation Summary
+  totalOvertimePay: decimal("total_overtime_pay", { precision: 10, scale: 2 }).default("0.00"),
+  totalCompensationTime: decimal("total_compensation_time", { precision: 5, scale: 2 }).default("0.00"),
+  compensationTimeUsed: decimal("compensation_time_used", { precision: 5, scale: 2 }).default("0.00"),
+  
+  // Advance Salary Summary
+  advanceRequestsCount: integer("advance_requests_count").default(0),
+  totalAdvanceAmount: decimal("total_advance_amount", { precision: 10, scale: 2 }).default("0.00"),
+  advanceRepaymentAmount: decimal("advance_repayment_amount", { precision: 10, scale: 2 }).default("0.00"),
+  
+  // Performance Metrics
+  tasksCompleted: integer("tasks_completed").default(0),
+  emergencyResponseTime: decimal("emergency_response_time", { precision: 5, scale: 2 }), // Average minutes
+  reliabilityScore: decimal("reliability_score", { precision: 3, scale: 2 }), // 0-100
+  
+  // Generated Report
+  reportGenerated: boolean("report_generated").default(false),
+  reportUrl: varchar("report_url"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_summary_staff").on(table.staffId),
+  index("IDX_summary_month").on(table.summaryMonth),
+]);
+
+// Staff notification preferences for overtime/advance systems
+export const staffNotificationSettings = pgTable("staff_notification_settings", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  staffId: varchar("staff_id").references(() => users.id).notNull(),
+  
+  // Notification Preferences
+  overtimeReminders: boolean("overtime_reminders").default(true),
+  advanceStatusUpdates: boolean("advance_status_updates").default(true),
+  payrollNotifications: boolean("payroll_notifications").default(true),
+  emergencyTaskAlerts: boolean("emergency_task_alerts").default(true),
+  
+  // Notification Channels
+  emailNotifications: boolean("email_notifications").default(true),
+  smsNotifications: boolean("sms_notifications").default(false),
+  appPushNotifications: boolean("app_push_notifications").default(true),
+  
+  // Timing Preferences
+  reminderFrequency: varchar("reminder_frequency").default("daily"), // daily, weekly, never
+  quietHoursStart: varchar("quiet_hours_start").default("22:00"),
+  quietHoursEnd: varchar("quiet_hours_end").default("08:00"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_notification_staff").on(table.staffId),
+]);
+
+// ===== INSERT SCHEMAS FOR STAFF ADVANCE SALARY & OVERTIME TRACKER =====
+
+export type StaffOvertimeSession = typeof staffOvertimeSessions.$inferSelect;
+export type InsertStaffOvertimeSession = typeof staffOvertimeSessions.$inferInsert;
+
+export type StaffAdvanceRequest = typeof staffAdvanceRequests.$inferSelect;
+export type InsertStaffAdvanceRequest = typeof staffAdvanceRequests.$inferInsert;
+
+export type StaffSalaryDeduction = typeof staffSalaryDeductions.$inferSelect;
+export type InsertStaffSalaryDeduction = typeof staffSalaryDeductions.$inferInsert;
+
+export type StaffCompensationTime = typeof staffCompensationTime.$inferSelect;
+export type InsertStaffCompensationTime = typeof staffCompensationTime.$inferInsert;
+
+export type StaffMonthlySummary = typeof staffMonthlySummary.$inferSelect;
+export type InsertStaffMonthlySummary = typeof staffMonthlySummary.$inferInsert;
+
+export type StaffNotificationSettings = typeof staffNotificationSettings.$inferSelect;
+export type InsertStaffNotificationSettings = typeof staffNotificationSettings.$inferInsert;
+
+export const insertStaffOvertimeSessionSchema = createInsertSchema(staffOvertimeSessions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertStaffAdvanceRequestSchema = createInsertSchema(staffAdvanceRequests).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertStaffSalaryDeductionSchema = createInsertSchema(staffSalaryDeductions).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertStaffCompensationTimeSchema = createInsertSchema(staffCompensationTime).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertStaffMonthlySummarySchema = createInsertSchema(staffMonthlySummary).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertStaffNotificationSettingsSchema = createInsertSchema(staffNotificationSettings).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+

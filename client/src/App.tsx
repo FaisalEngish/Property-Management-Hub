@@ -62,6 +62,7 @@ import StaffOverhoursTracker from "@/pages/StaffOverhoursTracker";
 import StaffClockinOvertime from "@/pages/StaffClockinOvertime";
 import MaintenanceSuggestionsApproval from "@/pages/MaintenanceSuggestionsApproval";
 import StaffSalaryOvertimeTracker from "@/pages/StaffSalaryOvertimeTracker";
+import StaffAdvanceSalaryOvertimeTracker from "@/pages/StaffAdvanceSalaryOvertimeTracker";
 import GuestCommunicationCenter from "@/pages/GuestCommunicationCenter";
 
 function Router() {
@@ -174,6 +175,7 @@ function Router() {
           <Route path="/finance-engine" component={FinanceEngine} />
           <Route path="/booking-income-rules" component={BookingIncomeRules} />
           <Route path="/maintenance-suggestions" component={MaintenanceSuggestionsApproval} />
+          <Route path="/staff-advance-salary-overtime-tracker" component={StaffAdvanceSalaryOvertimeTracker} />
           <Route path="/settings" component={Settings} />
         </>
       )}

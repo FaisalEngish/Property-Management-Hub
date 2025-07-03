@@ -301,11 +301,11 @@ const navigationModules = [
         description: "Staff salaries, commissions, and invoicing"
       },
       { 
-        path: "/staff-salary-overtime-tracker", 
+        path: "/staff-advance-salary-overtime-tracker", 
         icon: Clock, 
-        label: "Staff Salary & Overtime", 
+        label: "Staff Advance Salary & Overtime", 
         roles: ["admin", "portfolio-manager", "staff"],
-        description: "Comprehensive staff salary management, overtime tracking, and emergency task bonuses"
+        description: "Track overtime hours, emergency tasks, and manage advance salary requests with admin approval"
       },
       { 
         path: "/invoice-generator", 
