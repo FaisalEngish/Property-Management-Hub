@@ -60,6 +60,12 @@ import {
   inventoryUsageItems,
   inventoryStockLevels,
   welcomePackBillingSummaries,
+  taskCompletionPhotos,
+  taskCompletionNotes,
+  taskCompletionExpenses,
+  taskApprovals,
+  taskPdfArchives,
+  taskArchiveStatus,
   type User,
   type UpsertUser,
   type Property,
@@ -10658,6 +10664,327 @@ Plant Care:
 
     return query.orderBy(desc(inventoryUsageLogs.checkoutDate), inventoryCategories.sortOrder);
   }
+  // ===== TASK COMPLETION PHOTO PROOF & PDF ARCHIVE SYSTEM =====
+
+  // Task Completion Photos
+  async createTaskCompletionPhoto(photo: any): Promise<any> {
+    const [newPhoto] = await db.insert(taskCompletionPhotos).values(photo).returning();
+    return newPhoto;
+  }
+
+  async getTaskCompletionPhotos(organizationId: string, taskId: number): Promise<any[]> {
+    return await db
+      .select()
+      .from(taskCompletionPhotos)
+      .where(and(
+        eq(taskCompletionPhotos.organizationId, organizationId),
+        eq(taskCompletionPhotos.taskId, taskId)
+      ))
+      .orderBy(taskCompletionPhotos.uploadedAt);
+  }
+
+  async deleteTaskCompletionPhoto(organizationId: string, photoId: number): Promise<boolean> {
+    const result = await db
+      .delete(taskCompletionPhotos)
+      .where(and(
+        eq(taskCompletionPhotos.organizationId, organizationId),
+        eq(taskCompletionPhotos.id, photoId)
+      ));
+    return (result.rowCount || 0) > 0;
+  }
+
+  // Task Completion Notes
+  async createTaskCompletionNote(note: any): Promise<any> {
+    const [newNote] = await db.insert(taskCompletionNotes).values(note).returning();
+    return newNote;
+  }
+
+  async getTaskCompletionNotes(organizationId: string, taskId: number): Promise<any[]> {
+    return await db
+      .select()
+      .from(taskCompletionNotes)
+      .where(and(
+        eq(taskCompletionNotes.organizationId, organizationId),
+        eq(taskCompletionNotes.taskId, taskId)
+      ))
+      .orderBy(taskCompletionNotes.addedAt);
+  }
+
+  // Task Completion Expenses
+  async createTaskCompletionExpense(expense: any): Promise<any> {
+    const [newExpense] = await db.insert(taskCompletionExpenses).values(expense).returning();
+    return newExpense;
+  }
+
+  async getTaskCompletionExpenses(organizationId: string, taskId: number): Promise<any[]> {
+    return await db
+      .select()
+      .from(taskCompletionExpenses)
+      .where(and(
+        eq(taskCompletionExpenses.organizationId, organizationId),
+        eq(taskCompletionExpenses.taskId, taskId)
+      ))
+      .orderBy(taskCompletionExpenses.addedAt);
+  }
+
+  async deleteTaskCompletionExpense(organizationId: string, expenseId: number): Promise<boolean> {
+    const result = await db
+      .delete(taskCompletionExpenses)
+      .where(and(
+        eq(taskCompletionExpenses.organizationId, organizationId),
+        eq(taskCompletionExpenses.id, expenseId)
+      ));
+    return (result.rowCount || 0) > 0;
+  }
+
+  // Task Approval Workflow
+  async submitTaskForApproval(taskId: number, submittedBy: string, organizationId: string): Promise<any> {
+    // Update task status to 'pending_approval'
+    await db
+      .update(tasks)
+      .set({ 
+        status: 'pending_approval',
+        updatedAt: new Date() 
+      })
+      .where(eq(tasks.id, taskId));
+
+    // Create approval record
+    const [approval] = await db
+      .insert(taskApprovals)
+      .values({
+        organizationId,
+        taskId,
+        submittedBy,
+        status: 'pending',
+      })
+      .returning();
+
+    return approval;
+  }
+
+  async getTaskApproval(organizationId: string, taskId: number): Promise<any | undefined> {
+    const [approval] = await db
+      .select()
+      .from(taskApprovals)
+      .where(and(
+        eq(taskApprovals.organizationId, organizationId),
+        eq(taskApprovals.taskId, taskId)
+      ));
+    return approval;
+  }
+
+  async getPendingTaskApprovals(organizationId: string): Promise<any[]> {
+    return await db
+      .select({
+        ...taskApprovals,
+        taskTitle: tasks.title,
+        taskDescription: tasks.description,
+        taskType: tasks.type,
+        propertyName: properties.name,
+        submitterName: users.firstName,
+      })
+      .from(taskApprovals)
+      .leftJoin(tasks, eq(taskApprovals.taskId, tasks.id))
+      .leftJoin(properties, eq(tasks.propertyId, properties.id))
+      .leftJoin(users, eq(taskApprovals.submittedBy, users.id))
+      .where(and(
+        eq(taskApprovals.organizationId, organizationId),
+        eq(taskApprovals.status, 'pending')
+      ))
+      .orderBy(taskApprovals.submittedAt);
+  }
+
+  async approveTask(organizationId: string, taskId: number, reviewedBy: string, reviewNotes?: string): Promise<any> {
+    // Update approval status
+    const [approval] = await db
+      .update(taskApprovals)
+      .set({
+        status: 'approved',
+        reviewedBy,
+        reviewedAt: new Date(),
+        reviewNotes,
+      })
+      .where(and(
+        eq(taskApprovals.organizationId, organizationId),
+        eq(taskApprovals.taskId, taskId)
+      ))
+      .returning();
+
+    // Update task status to completed
+    await db
+      .update(tasks)
+      .set({ 
+        status: 'completed',
+        updatedAt: new Date() 
+      })
+      .where(eq(tasks.id, taskId));
+
+    return approval;
+  }
+
+  async requestTaskRedo(organizationId: string, taskId: number, reviewedBy: string, reviewNotes: string): Promise<any> {
+    // Update approval status
+    const [approval] = await db
+      .update(taskApprovals)
+      .set({
+        status: 'redo_requested',
+        reviewedBy,
+        reviewedAt: new Date(),
+        reviewNotes,
+      })
+      .where(and(
+        eq(taskApprovals.organizationId, organizationId),
+        eq(taskApprovals.taskId, taskId)
+      ))
+      .returning();
+
+    // Update task status back to in_progress
+    await db
+      .update(tasks)
+      .set({ 
+        status: 'in_progress',
+        updatedAt: new Date() 
+      })
+      .where(eq(tasks.id, taskId));
+
+    return approval;
+  }
+
+  // Task Archive Management
+  async getTasksReadyForArchive(organizationId: string): Promise<any[]> {
+    // Get tasks completed more than 30 days ago that aren't archived yet
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+    return await db
+      .select({
+        ...tasks,
+        propertyName: properties.name,
+        approvalStatus: taskApprovals.status,
+        photosCount: count(taskCompletionPhotos.id),
+        notesCount: count(taskCompletionNotes.id),
+        expensesCount: count(taskCompletionExpenses.id),
+      })
+      .from(tasks)
+      .leftJoin(properties, eq(tasks.propertyId, properties.id))
+      .leftJoin(taskApprovals, eq(tasks.id, taskApprovals.taskId))
+      .leftJoin(taskCompletionPhotos, eq(tasks.id, taskCompletionPhotos.taskId))
+      .leftJoin(taskCompletionNotes, eq(tasks.id, taskCompletionNotes.taskId))
+      .leftJoin(taskCompletionExpenses, eq(tasks.id, taskCompletionExpenses.taskId))
+      .leftJoin(taskArchiveStatus, eq(tasks.id, taskArchiveStatus.taskId))
+      .where(and(
+        eq(tasks.organizationId, organizationId),
+        eq(tasks.status, 'completed'),
+        lt(tasks.updatedAt, thirtyDaysAgo),
+        isNull(taskArchiveStatus.id) // Not already archived
+      ))
+      .groupBy(tasks.id, properties.name, taskApprovals.status);
+  }
+
+  async generateTaskPdfArchive(archiveData: any): Promise<any> {
+    const [archive] = await db
+      .insert(taskPdfArchives)
+      .values(archiveData)
+      .returning();
+    return archive;
+  }
+
+  async markTasksAsArchived(taskIds: number[], pdfArchiveId: number, organizationId: string): Promise<void> {
+    const archiveStatuses = taskIds.map(taskId => ({
+      organizationId,
+      taskId,
+      isArchived: true,
+      archiveDate: new Date(),
+      pdfArchiveId,
+    }));
+
+    await db.insert(taskArchiveStatus).values(archiveStatuses);
+  }
+
+  async deleteArchivedTaskPhotos(taskIds: number[], organizationId: string): Promise<void> {
+    // Mark photos as deleted
+    await db
+      .update(taskArchiveStatus)
+      .set({
+        photosDeleted: true,
+        photosDeletedAt: new Date(),
+      })
+      .where(and(
+        eq(taskArchiveStatus.organizationId, organizationId),
+        inArray(taskArchiveStatus.taskId, taskIds)
+      ));
+
+    // Actually delete the photos
+    await db
+      .delete(taskCompletionPhotos)
+      .where(and(
+        eq(taskCompletionPhotos.organizationId, organizationId),
+        inArray(taskCompletionPhotos.taskId, taskIds)
+      ));
+  }
+
+  async getTaskPdfArchives(organizationId: string, propertyId?: number): Promise<any[]> {
+    let query = db
+      .select({
+        ...taskPdfArchives,
+        propertyName: properties.name,
+      })
+      .from(taskPdfArchives)
+      .leftJoin(properties, eq(taskPdfArchives.propertyId, properties.id))
+      .where(eq(taskPdfArchives.organizationId, organizationId));
+
+    if (propertyId) {
+      query = query.where(eq(taskPdfArchives.propertyId, propertyId));
+    }
+
+    return await query.orderBy(desc(taskPdfArchives.generatedAt));
+  }
+
+  async updateTaskPdfArchive(id: number, updates: any): Promise<any> {
+    const [updated] = await db
+      .update(taskPdfArchives)
+      .set(updates)
+      .where(eq(taskPdfArchives.id, id))
+      .returning();
+    return updated;
+  }
+
+  // Get comprehensive task details with all photos, notes, and expenses
+  async getTaskWithCompletionDetails(organizationId: string, taskId: number): Promise<any> {
+    // Get main task details
+    const [task] = await db
+      .select({
+        ...tasks,
+        propertyName: properties.name,
+        assignedUserName: users.firstName,
+      })
+      .from(tasks)
+      .leftJoin(properties, eq(tasks.propertyId, properties.id))
+      .leftJoin(users, eq(tasks.assignedTo, users.id))
+      .where(and(
+        eq(tasks.organizationId, organizationId),
+        eq(tasks.id, taskId)
+      ));
+
+    if (!task) return null;
+
+    // Get all related completion data
+    const [photos, notes, expenses, approval] = await Promise.all([
+      this.getTaskCompletionPhotos(organizationId, taskId),
+      this.getTaskCompletionNotes(organizationId, taskId),
+      this.getTaskCompletionExpenses(organizationId, taskId),
+      this.getTaskApproval(organizationId, taskId),
+    ]);
+
+    return {
+      ...task,
+      photos,
+      notes,
+      expenses,
+      approval,
+    };
+  }
+
 }
 
 export const storage = new DatabaseStorage();

@@ -4929,6 +4929,94 @@ export type InsertMediaUsageAnalytic = z.infer<typeof insertMediaUsageAnalyticSc
 export type AiMediaSuggestion = typeof aiMediaSuggestions.$inferSelect;
 export type InsertAiMediaSuggestion = z.infer<typeof insertAiMediaSuggestionSchema>;
 
+// ===== TASK COMPLETION PHOTO PROOF & PDF ARCHIVE SYSTEM =====
+
+// Task Completion Photos - stores proof photos uploaded by staff
+export const taskCompletionPhotos = pgTable("task_completion_photos", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").notNull(),
+  taskId: integer("task_id").references(() => tasks.id).notNull(),
+  photoUrl: varchar("photo_url").notNull(),
+  photoFileName: varchar("photo_file_name").notNull(),
+  photoDescription: varchar("photo_description"),
+  uploadedBy: varchar("uploaded_by").notNull(), // Staff member who uploaded
+  uploadedAt: timestamp("uploaded_at").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Task Completion Notes - internal comments and notes
+export const taskCompletionNotes = pgTable("task_completion_notes", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").notNull(),
+  taskId: integer("task_id").references(() => tasks.id).notNull(),
+  noteText: text("note_text").notNull(),
+  noteType: varchar("note_type").default("general"), // general, issue, expense, completion
+  addedBy: varchar("added_by").notNull(), // Staff member or admin
+  addedAt: timestamp("added_at").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Task Completion Expenses - minor expenses attached to tasks
+export const taskCompletionExpenses = pgTable("task_completion_expenses", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").notNull(),
+  taskId: integer("task_id").references(() => tasks.id).notNull(),
+  expenseDescription: varchar("expense_description").notNull(),
+  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+  currency: varchar("currency").default("THB"),
+  receiptPhoto: varchar("receipt_photo"), // Optional receipt image
+  addedBy: varchar("added_by").notNull(),
+  addedAt: timestamp("added_at").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Task Approval Workflow - Portfolio Manager approvals
+export const taskApprovals = pgTable("task_approvals", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").notNull(),
+  taskId: integer("task_id").references(() => tasks.id).notNull(),
+  submittedBy: varchar("submitted_by").notNull(), // Staff who completed task
+  submittedAt: timestamp("submitted_at").defaultNow(),
+  reviewedBy: varchar("reviewed_by"), // PM/Admin who reviewed
+  reviewedAt: timestamp("reviewed_at"),
+  status: varchar("status").default("pending"), // pending, approved, rejected, redo_requested
+  reviewNotes: text("review_notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// PDF Archives - exported task documentation
+export const taskPdfArchives = pgTable("task_pdf_archives", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").notNull(),
+  propertyId: integer("property_id").references(() => properties.id).notNull(),
+  archiveMonth: varchar("archive_month").notNull(), // YYYY-MM format
+  pdfFileName: varchar("pdf_file_name").notNull(),
+  pdfUrl: varchar("pdf_url"), // Google Drive URL after export
+  totalTasks: integer("total_tasks").default(0),
+  totalPhotos: integer("total_photos").default(0),
+  totalExpenses: decimal("total_expenses", { precision: 10, scale: 2 }).default("0"),
+  generatedBy: varchar("generated_by").notNull(),
+  generatedAt: timestamp("generated_at").defaultNow(),
+  exportedToGDrive: boolean("exported_to_gdrive").default(false),
+  exportedAt: timestamp("exported_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Task Archive Status - tracks which tasks are archived
+export const taskArchiveStatus = pgTable("task_archive_status", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").notNull(),
+  taskId: integer("task_id").references(() => tasks.id).notNull(),
+  isArchived: boolean("is_archived").default(false),
+  archiveDate: timestamp("archive_date"),
+  pdfArchiveId: integer("pdf_archive_id").references(() => taskPdfArchives.id),
+  photosDeleted: boolean("photos_deleted").default(false),
+  photosDeletedAt: timestamp("photos_deleted_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // ===== INVENTORY & WELCOME PACK TRACKER =====
 
 // Master inventory categories and items
@@ -5164,6 +5252,55 @@ export type InventoryStockLevel = typeof inventoryStockLevels.$inferSelect;
 export type InsertInventoryStockLevel = z.infer<typeof insertInventoryStockLevelSchema>;
 export type WelcomePackBillingSummary = typeof welcomePackBillingSummaries.$inferSelect;
 export type InsertWelcomePackBillingSummary = z.infer<typeof insertWelcomePackBillingSummarySchema>;
+
+// ===== TASK COMPLETION PHOTO PROOF SCHEMAS =====
+
+export const insertTaskCompletionPhotoSchema = createInsertSchema(taskCompletionPhotos).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertTaskCompletionNoteSchema = createInsertSchema(taskCompletionNotes).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertTaskCompletionExpenseSchema = createInsertSchema(taskCompletionExpenses).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertTaskApprovalSchema = createInsertSchema(taskApprovals).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertTaskPdfArchiveSchema = createInsertSchema(taskPdfArchives).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertTaskArchiveStatusSchema = createInsertSchema(taskArchiveStatus).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+// ===== TASK COMPLETION PHOTO PROOF TYPES =====
+
+export type TaskCompletionPhoto = typeof taskCompletionPhotos.$inferSelect;
+export type InsertTaskCompletionPhoto = z.infer<typeof insertTaskCompletionPhotoSchema>;
+export type TaskCompletionNote = typeof taskCompletionNotes.$inferSelect;
+export type InsertTaskCompletionNote = z.infer<typeof insertTaskCompletionNoteSchema>;
+export type TaskCompletionExpense = typeof taskCompletionExpenses.$inferSelect;
+export type InsertTaskCompletionExpense = z.infer<typeof insertTaskCompletionExpenseSchema>;
+export type TaskApproval = typeof taskApprovals.$inferSelect;
+export type InsertTaskApproval = z.infer<typeof insertTaskApprovalSchema>;
+export type TaskPdfArchive = typeof taskPdfArchives.$inferSelect;
+export type InsertTaskPdfArchive = z.infer<typeof insertTaskPdfArchiveSchema>;
+export type TaskArchiveStatus = typeof taskArchiveStatus.$inferSelect;
+export type InsertTaskArchiveStatus = z.infer<typeof insertTaskArchiveStatusSchema>;
 
 // ===== STAFF DASHBOARD TYPES =====
 

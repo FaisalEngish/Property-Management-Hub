@@ -328,10 +328,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Inventory routes
+  // Inventory routes (legacy route - now handled by specific inventory endpoints below)
   app.get("/api/inventory/:propertyId", isDemoAuthenticated, async (req, res) => {
     try {
       const propertyId = parseInt(req.params.propertyId);
+      if (isNaN(propertyId)) {
+        return res.status(400).json({ message: "Invalid property ID" });
+      }
       const inventory = await storage.getInventoryByProperty(propertyId);
       res.json(inventory);
     } catch (error) {
@@ -8851,6 +8854,356 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching usage report:", error);
       res.status(500).json({ message: "Failed to fetch usage report" });
+    }
+  });
+
+  // ===== TASK COMPLETION PHOTO PROOF & PDF ARCHIVE SYSTEM API ENDPOINTS =====
+
+  // Upload task completion photo
+  app.post("/api/tasks/:taskId/photos", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: userId } = req.user;
+      const taskId = parseInt(req.params.taskId);
+      const { photoUrl, description, category } = req.body;
+
+      if (!photoUrl) {
+        return res.status(400).json({ message: "Photo URL is required" });
+      }
+
+      const photoData = {
+        organizationId,
+        taskId,
+        photoUrl,
+        description: description || '',
+        category: category || 'general',
+        uploadedBy: userId,
+        uploadedAt: new Date(),
+      };
+
+      const photo = await storage.createTaskCompletionPhoto(photoData);
+      res.status(201).json(photo);
+    } catch (error) {
+      console.error("Error uploading task photo:", error);
+      res.status(500).json({ message: "Failed to upload photo" });
+    }
+  });
+
+  // Get task completion photos
+  app.get("/api/tasks/:taskId/photos", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId } = req.user;
+      const taskId = parseInt(req.params.taskId);
+
+      const photos = await storage.getTaskCompletionPhotos(organizationId, taskId);
+      res.json(photos);
+    } catch (error) {
+      console.error("Error fetching task photos:", error);
+      res.status(500).json({ message: "Failed to fetch photos" });
+    }
+  });
+
+  // Delete task completion photo
+  app.delete("/api/tasks/:taskId/photos/:photoId", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId } = req.user;
+      const photoId = parseInt(req.params.photoId);
+
+      const deleted = await storage.deleteTaskCompletionPhoto(organizationId, photoId);
+      
+      if (!deleted) {
+        return res.status(404).json({ message: "Photo not found" });
+      }
+
+      res.json({ message: "Photo deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting task photo:", error);
+      res.status(500).json({ message: "Failed to delete photo" });
+    }
+  });
+
+  // Add task completion note
+  app.post("/api/tasks/:taskId/notes", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: userId } = req.user;
+      const taskId = parseInt(req.params.taskId);
+      const { noteText, noteType } = req.body;
+
+      if (!noteText) {
+        return res.status(400).json({ message: "Note text is required" });
+      }
+
+      const noteData = {
+        organizationId,
+        taskId,
+        noteText,
+        noteType: noteType || 'general',
+        addedBy: userId,
+        addedAt: new Date(),
+      };
+
+      const note = await storage.createTaskCompletionNote(noteData);
+      res.status(201).json(note);
+    } catch (error) {
+      console.error("Error adding task note:", error);
+      res.status(500).json({ message: "Failed to add note" });
+    }
+  });
+
+  // Get task completion notes
+  app.get("/api/tasks/:taskId/notes", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId } = req.user;
+      const taskId = parseInt(req.params.taskId);
+
+      const notes = await storage.getTaskCompletionNotes(organizationId, taskId);
+      res.json(notes);
+    } catch (error) {
+      console.error("Error fetching task notes:", error);
+      res.status(500).json({ message: "Failed to fetch notes" });
+    }
+  });
+
+  // Add task completion expense
+  app.post("/api/tasks/:taskId/expenses", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: userId } = req.user;
+      const taskId = parseInt(req.params.taskId);
+      const { description, amount, category, receiptUrl, vendor } = req.body;
+
+      if (!description || !amount) {
+        return res.status(400).json({ message: "Description and amount are required" });
+      }
+
+      const expenseData = {
+        organizationId,
+        taskId,
+        description,
+        amount: parseFloat(amount),
+        category: category || 'general',
+        receiptUrl,
+        vendor,
+        addedBy: userId,
+        addedAt: new Date(),
+      };
+
+      const expense = await storage.createTaskCompletionExpense(expenseData);
+      res.status(201).json(expense);
+    } catch (error) {
+      console.error("Error adding task expense:", error);
+      res.status(500).json({ message: "Failed to add expense" });
+    }
+  });
+
+  // Get task completion expenses
+  app.get("/api/tasks/:taskId/expenses", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId } = req.user;
+      const taskId = parseInt(req.params.taskId);
+
+      const expenses = await storage.getTaskCompletionExpenses(organizationId, taskId);
+      res.json(expenses);
+    } catch (error) {
+      console.error("Error fetching task expenses:", error);
+      res.status(500).json({ message: "Failed to fetch expenses" });
+    }
+  });
+
+  // Delete task completion expense
+  app.delete("/api/tasks/:taskId/expenses/:expenseId", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId } = req.user;
+      const expenseId = parseInt(req.params.expenseId);
+
+      const deleted = await storage.deleteTaskCompletionExpense(organizationId, expenseId);
+      
+      if (!deleted) {
+        return res.status(404).json({ message: "Expense not found" });
+      }
+
+      res.json({ message: "Expense deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting task expense:", error);
+      res.status(500).json({ message: "Failed to delete expense" });
+    }
+  });
+
+  // Submit task for approval (Staff only)
+  app.post("/api/tasks/:taskId/submit-for-approval", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: userId, role } = req.user;
+      const taskId = parseInt(req.params.taskId);
+
+      // Only staff can submit tasks for approval
+      if (role !== 'staff') {
+        return res.status(403).json({ message: "Only staff members can submit tasks for approval" });
+      }
+
+      const approval = await storage.submitTaskForApproval(taskId, userId, organizationId);
+      res.json(approval);
+    } catch (error) {
+      console.error("Error submitting task for approval:", error);
+      res.status(500).json({ message: "Failed to submit task for approval" });
+    }
+  });
+
+  // Get pending task approvals (PM/Admin only)
+  app.get("/api/task-approvals/pending", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role } = req.user;
+
+      // Only PM and admin can view pending approvals
+      if (role !== 'portfolio-manager' && role !== 'admin') {
+        return res.status(403).json({ message: "Only portfolio managers and admins can view task approvals" });
+      }
+
+      const pendingApprovals = await storage.getPendingTaskApprovals(organizationId);
+      res.json(pendingApprovals);
+    } catch (error) {
+      console.error("Error fetching pending approvals:", error);
+      res.status(500).json({ message: "Failed to fetch pending approvals" });
+    }
+  });
+
+  // Approve task (PM/Admin only)
+  app.post("/api/tasks/:taskId/approve", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: userId, role } = req.user;
+      const taskId = parseInt(req.params.taskId);
+      const { reviewNotes } = req.body;
+
+      // Only PM and admin can approve tasks
+      if (role !== 'portfolio-manager' && role !== 'admin') {
+        return res.status(403).json({ message: "Only portfolio managers and admins can approve tasks" });
+      }
+
+      const approval = await storage.approveTask(organizationId, taskId, userId, reviewNotes);
+      res.json(approval);
+    } catch (error) {
+      console.error("Error approving task:", error);
+      res.status(500).json({ message: "Failed to approve task" });
+    }
+  });
+
+  // Request task redo (PM/Admin only)
+  app.post("/api/tasks/:taskId/request-redo", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: userId, role } = req.user;
+      const taskId = parseInt(req.params.taskId);
+      const { reviewNotes } = req.body;
+
+      // Only PM and admin can request redo
+      if (role !== 'portfolio-manager' && role !== 'admin') {
+        return res.status(403).json({ message: "Only portfolio managers and admins can request task redo" });
+      }
+
+      if (!reviewNotes) {
+        return res.status(400).json({ message: "Review notes are required for redo requests" });
+      }
+
+      const approval = await storage.requestTaskRedo(organizationId, taskId, userId, reviewNotes);
+      res.json(approval);
+    } catch (error) {
+      console.error("Error requesting task redo:", error);
+      res.status(500).json({ message: "Failed to request task redo" });
+    }
+  });
+
+  // Get task with completion details
+  app.get("/api/tasks/:taskId/completion-details", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId } = req.user;
+      const taskId = parseInt(req.params.taskId);
+
+      const taskDetails = await storage.getTaskWithCompletionDetails(organizationId, taskId);
+      
+      if (!taskDetails) {
+        return res.status(404).json({ message: "Task not found" });
+      }
+
+      res.json(taskDetails);
+    } catch (error) {
+      console.error("Error fetching task completion details:", error);
+      res.status(500).json({ message: "Failed to fetch task details" });
+    }
+  });
+
+  // Get tasks ready for archive (Admin only)
+  app.get("/api/tasks/ready-for-archive", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role } = req.user;
+
+      // Only admin can view tasks ready for archive
+      if (role !== 'admin') {
+        return res.status(403).json({ message: "Only admins can view tasks ready for archive" });
+      }
+
+      const tasks = await storage.getTasksReadyForArchive(organizationId);
+      res.json(tasks);
+    } catch (error) {
+      console.error("Error fetching tasks ready for archive:", error);
+      res.status(500).json({ message: "Failed to fetch tasks ready for archive" });
+    }
+  });
+
+  // Generate PDF archive (Admin only)
+  app.post("/api/tasks/generate-pdf-archive", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: userId, role } = req.user;
+      const { taskIds, archiveTitle, archiveDescription } = req.body;
+
+      // Only admin can generate PDF archives
+      if (role !== 'admin') {
+        return res.status(403).json({ message: "Only admins can generate PDF archives" });
+      }
+
+      if (!taskIds || !Array.isArray(taskIds) || taskIds.length === 0) {
+        return res.status(400).json({ message: "Task IDs array is required" });
+      }
+
+      // For demo purposes, we'll simulate PDF generation
+      const archiveData = {
+        organizationId,
+        title: archiveTitle || `Task Archive ${new Date().toISOString().split('T')[0]}`,
+        description: archiveDescription || 'Automated 30-day task archive',
+        taskCount: taskIds.length,
+        generatedBy: userId,
+        generatedAt: new Date(),
+        archiveStatus: 'completed',
+        pdfUrl: `https://demo-storage.com/archives/${Date.now()}.pdf`, // Demo URL
+        taskIds: taskIds,
+      };
+
+      const archive = await storage.generateTaskPdfArchive(archiveData);
+
+      // Mark tasks as archived
+      await storage.markTasksAsArchived(taskIds, archive.id, organizationId);
+
+      // Simulate deleting photos after PDF generation (in production, this would happen after successful upload to Google Drive)
+      setTimeout(async () => {
+        await storage.deleteArchivedTaskPhotos(taskIds, organizationId);
+      }, 5000); // 5-second delay for demo
+
+      res.json(archive);
+    } catch (error) {
+      console.error("Error generating PDF archive:", error);
+      res.status(500).json({ message: "Failed to generate PDF archive" });
+    }
+  });
+
+  // Get PDF archives
+  app.get("/api/task-pdf-archives", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId } = req.user;
+      const { propertyId } = req.query;
+
+      const archives = await storage.getTaskPdfArchives(
+        organizationId, 
+        propertyId ? parseInt(propertyId) : undefined
+      );
+      res.json(archives);
+    } catch (error) {
+      console.error("Error fetching PDF archives:", error);
+      res.status(500).json({ message: "Failed to fetch PDF archives" });
     }
   });
 

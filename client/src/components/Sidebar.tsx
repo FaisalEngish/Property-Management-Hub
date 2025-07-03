@@ -101,6 +101,13 @@ const navigationModules = [
         description: "Complete assigned tasks with photo evidence"
       },
       { 
+        path: "/task-completion-photo-proof", 
+        icon: Camera, 
+        label: "Task Photo Documentation", 
+        roles: ["admin", "portfolio-manager", "staff"],
+        description: "Photo proof system with approval workflow and PDF archiving"
+      },
+      { 
         path: "/welcome-packs", 
         icon: Gift, 
         label: "Welcome Packs", 

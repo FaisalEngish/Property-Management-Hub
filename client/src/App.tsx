@@ -50,6 +50,7 @@ import GuestPortal from "@/pages/GuestPortal";
 import FinanceEngine from "@/pages/FinanceEngine";
 import MaintenanceTaskSystem from "@/pages/MaintenanceTaskSystem";
 import TaskChecklistProofSystem from "@/pages/TaskChecklistProofSystem";
+import TaskCompletionPhotoProof from "@/pages/TaskCompletionPhotoProof";
 import AiTaskManager from "@/pages/AiTaskManager";
 import OwnerBalanceManagement from "@/pages/OwnerBalanceManagement";
 
@@ -119,6 +120,7 @@ function Router() {
           <Route path="/maintenance-task-system" component={MaintenanceTaskSystem} />
           <Route path="/ai-task-manager" component={AiTaskManager} />
           <Route path="/task-checklist-proof" component={TaskChecklistProofSystem} />
+          <Route path="/task-completion-photo-proof" component={TaskCompletionPhotoProof} />
           <Route path="/bookings" component={Bookings} />
           <Route path="/services" component={Services} />
           <Route path="/welcome-packs" component={WelcomePacks} />
