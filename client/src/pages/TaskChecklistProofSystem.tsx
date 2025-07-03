@@ -193,6 +193,8 @@ interface MonthlyExport {
   exportedAt: string;
 }
 
+// [MERGED] This module has been consolidated into MaintenanceTaskSystem.tsx
+// Task checklists and proof system functionality is now available in the Checklists tab  
 export default function TaskChecklistProofSystem() {
   const { toast } = useToast();
   const { user } = useAuth();

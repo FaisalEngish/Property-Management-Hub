@@ -95,6 +95,8 @@ interface PdfArchive {
   propertyName: string;
 }
 
+// [MERGED] This module has been consolidated into MaintenanceTaskSystem.tsx
+// Photo proof and task completion functionality is now integrated into the task workflow
 export default function TaskCompletionPhotoProof() {
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [activeTab, setActiveTab] = useState("active-tasks");

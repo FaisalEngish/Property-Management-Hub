@@ -69,6 +69,8 @@ const categoryIcons = {
   'Landscaping': TreePine,
 };
 
+// [MERGED] This module has been consolidated into EnhancedUtilityTracker.tsx
+// Utility customization features are now available in the Settings tab of comprehensive utility management
 export default function UtilityCustomization() {
   const { toast } = useToast();
   const queryClient = useQueryClient();

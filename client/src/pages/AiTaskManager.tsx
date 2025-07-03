@@ -68,6 +68,8 @@ interface FastActionSuggestion {
   createdAt: string;
 }
 
+// [MERGED] This module has been consolidated into MaintenanceTaskSystem.tsx  
+// AI task suggestions functionality is now available in the AI Suggestions tab of comprehensive task management
 export default function AiTaskManager() {
   const [selectedProperty, setSelectedProperty] = useState<number>(1);
   const [reviewText, setReviewText] = useState("");

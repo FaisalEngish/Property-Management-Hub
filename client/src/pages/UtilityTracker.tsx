@@ -747,4 +747,6 @@ function UtilityTracker() {
   );
 }
 
+// [MERGED] This module has been consolidated into EnhancedUtilityTracker.tsx
+// Basic utility tracking functionality is now available in the comprehensive utility management system
 export default UtilityTracker;

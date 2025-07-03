@@ -57,6 +57,8 @@ const statusConfig = {
   scheduled: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300",
 };
 
+// [MERGED] This module has been consolidated into FinanceEngine.tsx and FinancialToolkit.tsx
+// Basic financial functionality is now available in the comprehensive financial management system
 export default function Finances() {
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);

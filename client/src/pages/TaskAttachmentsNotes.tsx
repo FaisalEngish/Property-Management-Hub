@@ -102,6 +102,8 @@ const ATTACHMENT_CATEGORIES = [
   { value: 'procedure', label: 'Standard Procedure' }
 ];
 
+// [MERGED] This module has been consolidated into MaintenanceTaskSystem.tsx
+// Task attachments and property notes functionality is now available in the Attachments & Notes tab
 export default function TaskAttachmentsNotes() {
   const [selectedProperty, setSelectedProperty] = useState<string>("");
   const [selectedTask, setSelectedTask] = useState<string>("");

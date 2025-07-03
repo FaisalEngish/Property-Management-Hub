@@ -82,6 +82,8 @@ const getStatusColor = (status: string) => {
   }
 };
 
+// [MERGED] This module has been consolidated into EnhancedUtilityTracker.tsx  
+// Advanced utility tracking functionality is now integrated into the comprehensive utility management system
 export default function UtilityTracking() {
   const [activeTab, setActiveTab] = useState("accounts");
   const { toast } = useToast();

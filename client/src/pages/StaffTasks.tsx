@@ -52,6 +52,8 @@ const rescheduleTaskSchema = z.object({
   reason: z.string().min(1, "Reason is required"),
 });
 
+// [MERGED] This module has been consolidated into MaintenanceTaskSystem.tsx
+// Staff task execution functionality is now available in the Staff tab of comprehensive task management
 export default function StaffTasks() {
   const [selectedTask, setSelectedTask] = useState<any>(null);
   const [isCompletionDialogOpen, setIsCompletionDialogOpen] = useState(false);

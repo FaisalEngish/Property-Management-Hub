@@ -73,6 +73,8 @@ const folderSchema = z.object({
 type MediaFileFormData = z.infer<typeof mediaFileSchema>;
 type FolderFormData = z.infer<typeof folderSchema>;
 
+// [MERGED] This module has been consolidated into PropertyMediaLibrary.tsx
+// Basic media library functionality is now available in the comprehensive property media management system
 export default function MediaLibrary() {
   const { user } = useAuth();
   const { toast } = useToast();

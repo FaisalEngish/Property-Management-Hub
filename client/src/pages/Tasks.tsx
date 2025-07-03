@@ -10,6 +10,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label";
 import { Plus } from "lucide-react";
 
+// [MERGED] This module has been consolidated into MaintenanceTaskSystem.tsx
+// Basic task functionality is now available in the comprehensive task management system
 export default function Tasks() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState("all");
