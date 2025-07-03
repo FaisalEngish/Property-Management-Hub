@@ -7,14 +7,12 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
-import { format, parseISO, startOfMonth, endOfMonth, startOfYear, endOfYear } from "date-fns";
+import { Separator } from "@/components/ui/separator";
+import { Progress } from "@/components/ui/progress";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { format, parseISO, startOfMonth, endOfMonth, startOfYear, endOfYear, startOfWeek, endOfWeek } from "date-fns";
 import { 
   Calendar, 
   DollarSign, 
@@ -22,14 +20,13 @@ import {
   CheckCircle, 
   AlertCircle, 
   TrendingUp, 
+  TrendingDown,
   Settings, 
   FileText, 
   Bell, 
   Download, 
   Upload, 
-  X,
   Eye,
-  EyeOff,
   Camera,
   MessageSquare,
   Star,
@@ -43,10 +40,7 @@ import {
   ChevronUp,
   PlusCircle,
   Edit,
-  Trash,
   Search,
-  MoreHorizontal,
-  ExternalLink,
   Lightbulb,
   Wrench,
   BarChart3,
@@ -56,1405 +50,1168 @@ import {
   Receipt,
   CalendarDays,
   Activity,
-  WifiOff,
   ChevronRight,
   ArrowUpRight,
   ArrowDownRight,
-  Target
+  Target,
+  Home,
+  Sparkles,
+  Droplets,
+  TreePine,
+  Heart,
+  ExternalLink,
+  CircleDollarSign,
+  Banknote,
+  Percent,
+  PieChart,
+  LineChart,
+  BarChart,
+  Timer,
+  UserCheck,
+  UserX,
+  Bed,
+  Bath,
+  Car,
+  Shield,
+  Zap,
+  Smartphone,
+  Coffee,
+  Utensils
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
-import AdminBalanceResetCard from "@/components/ui/AdminBalanceResetCard";
 
 // Enhanced types for comprehensive owner dashboard
-interface DashboardStats {
-  currentBalance: number;
+interface EarningsOverview {
   averageNightlyRate: number;
   totalEarnings: {
+    thisWeek: number;
     thisMonth: number;
     thisYear: number;
+    lastMonth: number;
     customPeriod: number;
   };
-  upcomingBookings: number;
-  bookingSources: {
-    airbnb: number;
-    vrbo: number;
-    bookingCom: number;
-    direct: number;
-    marriott: number;
+  occupancyRate: {
+    thisMonth: number;
+    thisYear: number;
+    trend: 'up' | 'down' | 'stable';
   };
-  properties: any[];
-}
-
-interface FinancialSummary {
-  rentalIncome: number;
-  managementFees: number;
-  addonRevenue: number;
-  utilityDeductions: number;
-  serviceDeductions: number;
-  welcomePackCosts: number;
-  netBalance: number;
-  breakdown: any[];
-}
-
-interface ActivityItem {
-  id: number;
-  activityType: 'check_in' | 'check_out' | 'task_completed' | 'maintenance_suggestion' | 'ai_suggestion' | 'guest_feedback';
-  title: string;
-  description?: string;
-  propertyName?: string;
-  createdAt: string;
-  metadata?: {
-    photos?: string[];
-    guestName?: string;
-    taskId?: number;
-    cost?: number;
-    aiConfidence?: number;
-    reviewSource?: string;
+  platformSplit: {
+    airbnb: { bookings: number; revenue: number; percentage: number; };
+    vrbo: { bookings: number; revenue: number; percentage: number; };
+    bookingCom: { bookings: number; revenue: number; percentage: number; };
+    direct: { bookings: number; revenue: number; percentage: number; };
+    marriott: { bookings: number; revenue: number; percentage: number; };
   };
+  monthlyTrend: Array<{
+    month: string;
+    revenue: number;
+    bookings: number;
+    occupancy: number;
+  }>;
 }
 
-interface Booking {
+interface BalanceSummary {
+  propertyBalances: Array<{
+    propertyId: number;
+    propertyName: string;
+    currentBalance: number;
+    pendingPayouts: number;
+    lastPayoutDate: string;
+    totalRevenue: number;
+    expenses: {
+      management: number;
+      utilities: number;
+      maintenance: number;
+      addons: number;
+      welcomePacks: number;
+    };
+    breakdown: Array<{
+      date: string;
+      type: string;
+      description: string;
+      amount: number;
+      category: string;
+    }>;
+  }>;
+  totalBalance: number;
+  pendingPayoutRequests: Array<{
+    id: number;
+    propertyId: number;
+    amount: number;
+    requestDate: string;
+    status: 'pending' | 'approved' | 'processing' | 'completed';
+    notes?: string;
+  }>;
+}
+
+interface AiSuggestion {
   id: number;
-  guestName: string;
+  propertyId: number;
   propertyName: string;
-  startDate: string;
-  endDate: string;
-  totalAmount: string;
-  status: string;
-  source: string;
-  revenue: number;
-}
-
-interface PayoutRequest {
-  id: number;
-  amount: number;
-  currency: string;
-  periodStart: string;
-  periodEnd: string;
-  status: string;
-  requestNotes?: string;
-  adminNotes?: string;
-  requestedAt: string;
-  approvedAt?: string;
-  completedAt?: string;
-  paymentMethod?: string;
-  paymentReference?: string;
-}
-
-interface Invoice {
-  id: number;
-  invoiceNumber: string;
-  invoiceType: string;
-  title: string;
-  amount: number;
-  currency: string;
-  status: string;
-  dueDate?: string;
+  category: 'maintenance' | 'amenity' | 'experience' | 'safety' | 'communication';
+  priority: 'low' | 'medium' | 'high' | 'urgent';
+  suggestion: string;
+  reason: string;
+  sourceReview: {
+    guestName: string;
+    rating: number;
+    excerpt: string;
+    date: string;
+    platform: string;
+  };
+  estimatedCost: number;
+  estimatedImpact: 'low' | 'medium' | 'high';
+  status: 'new' | 'acknowledged' | 'implemented' | 'dismissed';
+  implementationDate?: string;
   createdAt: string;
-  propertyName?: string;
-  pdfUrl?: string;
 }
 
-interface OwnerPreferences {
-  taskApprovalRequired: boolean;
-  maintenanceAlerts: boolean;
-  guestAddonNotifications: boolean;
-  financialNotifications: boolean;
-  weeklyReports: boolean;
-  preferredCurrency: string;
-  notificationEmail?: string;
+interface TimelineActivity {
+  id: number;
+  propertyId: number;
+  type: 'guest' | 'staff' | 'maintenance' | 'note' | 'expense' | 'booking';
+  category: 'checkin' | 'checkout' | 'cleaning' | 'pool' | 'garden' | 'maintenance' | 'note' | 'expense' | 'booking' | 'repair';
+  title: string;
+  description: string;
+  timestamp: string;
+  user: {
+    name: string;
+    role: string;
+    avatar?: string;
+  };
+  status?: string;
+  priority?: string;
+  attachments?: Array<{
+    type: 'image' | 'document';
+    url: string;
+    name: string;
+  }>;
+  metadata?: {
+    taskId?: number;
+    amount?: number;
+    guestName?: string;
+    rating?: number;
+    platform?: string;
+  };
 }
 
-// Schema for payout request form
-const payoutRequestSchema = z.object({
-  amount: z.string().min(1, "Amount is required"),
-  periodStart: z.string().min(1, "Start date is required"),
-  periodEnd: z.string().min(1, "End date is required"),
-  requestNotes: z.string().optional(),
-});
+const PERIOD_OPTIONS = [
+  { value: 'week', label: 'This Week' },
+  { value: 'month', label: 'This Month' },
+  { value: 'year', label: 'This Year' },
+  { value: 'last-month', label: 'Last Month' },
+  { value: 'custom', label: 'Custom Period' }
+];
 
-// Schema for preferences form
-const preferencesSchema = z.object({
-  taskApprovalRequired: z.boolean(),
-  maintenanceAlerts: z.boolean(),
-  guestAddonNotifications: z.boolean(),
-  financialNotifications: z.boolean(),
-  weeklyReports: z.boolean(),
-  preferredCurrency: z.string(),
-  notificationEmail: z.string().email().optional(),
-});
+const PLATFORM_COLORS = {
+  airbnb: 'bg-red-100 text-red-800 border-red-200',
+  vrbo: 'bg-blue-100 text-blue-800 border-blue-200',
+  bookingCom: 'bg-purple-100 text-purple-800 border-purple-200',
+  direct: 'bg-green-100 text-green-800 border-green-200',
+  marriott: 'bg-yellow-100 text-yellow-800 border-yellow-200'
+};
 
-// Enhanced schemas
-const aiSuggestionSchema = z.object({
-  suggestion: z.string().min(1, "Suggestion is required"),
-  estimatedCost: z.number().min(0, "Cost must be positive"),
-  priority: z.enum(["low", "medium", "high"]),
-  reason: z.string().min(1, "Reason is required"),
-});
+const CATEGORY_ICONS = {
+  maintenance: Wrench,
+  amenity: Star,
+  experience: Heart,
+  safety: Shield,
+  communication: MessageCircle
+};
 
-const invoiceSchema = z.object({
-  title: z.string().min(1, "Title is required"),
-  amount: z.number().min(0, "Amount must be positive"),
-  description: z.string().optional(),
-  dueDate: z.string().optional(),
-  recipientType: z.enum(["from_owner", "to_owner", "to_manager", "to_vendor"]),
-});
+const ACTIVITY_ICONS = {
+  checkin: UserCheck,
+  checkout: UserX,
+  cleaning: Sparkles,
+  pool: Droplets,
+  garden: TreePine,
+  maintenance: Wrench,
+  note: MessageSquare,
+  expense: DollarSign,
+  booking: Calendar,
+  repair: Settings
+};
 
 export default function OwnerDashboard() {
+  const [activeTab, setActiveTab] = useState("earnings");
+  const [selectedPeriod, setSelectedPeriod] = useState("month");
+  const [selectedProperty, setSelectedProperty] = useState("all");
+  const [timelineFilter, setTimelineFilter] = useState("all");
+  const [showPayoutDialog, setShowPayoutDialog] = useState(false);
+  const [showFinanceDialog, setShowFinanceDialog] = useState(false);
+  const [selectedPropertyBalance, setSelectedPropertyBalance] = useState<any>(null);
+  
+  // Form states
+  const [payoutRequest, setPayoutRequest] = useState({
+    propertyId: "",
+    amount: "",
+    notes: ""
+  });
+
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const { user } = useAuth();
-  
-  // Enhanced state management
-  const [dateRange, setDateRange] = useState({
-    startDate: startOfMonth(new Date()).toISOString().split('T')[0],
-    endDate: new Date().toISOString().split('T')[0],
-  });
-  const [earningsPeriod, setEarningsPeriod] = useState<'month' | 'year' | 'custom'>('month');
-  const [selectedProperty, setSelectedProperty] = useState<string>("all");
-  const [showPayoutDialog, setShowPayoutDialog] = useState(false);
-  const [showInvoiceDialog, setShowInvoiceDialog] = useState(false);
-  const [showAiSuggestionDialog, setShowAiSuggestionDialog] = useState(false);
-  const [selectedAiSuggestion, setSelectedAiSuggestion] = useState<any>(null);
-  const [expandedActivity, setExpandedActivity] = useState<number | null>(null);
+  const { user, isLoading: authLoading } = useAuth();
 
-  // Enhanced queries for comprehensive dashboard data
-  const { data: stats, isLoading: statsLoading } = useQuery<DashboardStats>({
-    queryKey: ["/api/owner/dashboard/stats", dateRange.startDate, dateRange.endDate, selectedProperty],
-    queryFn: async () => {
-      const params = new URLSearchParams({
-        startDate: dateRange.startDate,
-        endDate: dateRange.endDate,
-        ...(selectedProperty !== "all" && { propertyId: selectedProperty }),
-      });
-      return apiRequest("GET", `/api/owner/dashboard/stats?${params}`);
-    },
+  // Data queries
+  const { data: earningsData, isLoading: earningsLoading } = useQuery({
+    queryKey: ["/api/owner/earnings", selectedPeriod, selectedProperty],
+    enabled: !!user && user.role === 'owner',
   });
 
-  // Financial summary with enhanced breakdown
-  const { data: financialSummary, isLoading: financialLoading } = useQuery<FinancialSummary>({
-    queryKey: ["/api/owner/dashboard/financial-summary", dateRange.startDate, dateRange.endDate, selectedProperty],
-    queryFn: async () => {
-      const params = new URLSearchParams({
-        startDate: dateRange.startDate,
-        endDate: dateRange.endDate,
-        ...(selectedProperty !== "all" && { propertyId: selectedProperty }),
-      });
-      return apiRequest("GET", `/api/owner/dashboard/financial-summary?${params}`);
-    },
+  const { data: balanceData, isLoading: balanceLoading } = useQuery({
+    queryKey: ["/api/owner/balance"],
+    enabled: !!user && user.role === 'owner',
   });
 
-  // AI suggestions for property improvements
-  const { data: aiSuggestions, isLoading: aiLoading } = useQuery({
-    queryKey: ["/api/owner/dashboard/ai-suggestions", selectedProperty],
-    queryFn: async () => {
-      const params = new URLSearchParams({
-        ...(selectedProperty !== "all" && { propertyId: selectedProperty }),
-      });
-      return apiRequest("GET", `/api/owner/dashboard/ai-suggestions?${params}`);
-    },
+  const { data: aiSuggestions, isLoading: suggestionsLoading } = useQuery({
+    queryKey: ["/api/owner/ai-suggestions"],
+    enabled: !!user && user.role === 'owner',
   });
 
-  // Enhanced activity timeline with photos and AI insights
-  const { data: activityTimeline, isLoading: activityLoading } = useQuery<ActivityItem[]>({
-    queryKey: ["/api/owner/dashboard/activity-timeline", selectedProperty],
-    queryFn: async () => {
-      const params = new URLSearchParams({
-        ...(selectedProperty !== "all" && { propertyId: selectedProperty }),
-        days: "7", // Last 7 days
-      });
-      return apiRequest("GET", `/api/owner/dashboard/activity-timeline?${params}`);
-    },
+  const { data: timelineData, isLoading: timelineLoading } = useQuery({
+    queryKey: ["/api/owner/timeline", selectedProperty, timelineFilter],
+    enabled: !!user && user.role === 'owner',
   });
 
-  // Recent bookings with enhanced details
-  const { data: recentBookings, isLoading: bookingsLoading } = useQuery<Booking[]>({
-    queryKey: ["/api/owner/dashboard/recent-bookings", selectedProperty],
-    queryFn: async () => {
-      const params = new URLSearchParams({
-        ...(selectedProperty !== "all" && { propertyId: selectedProperty }),
-        limit: "10",
-      });
-      return apiRequest("GET", `/api/owner/dashboard/recent-bookings?${params}`);
-    },
-  });
-
-  // Booking insights with OTA sync status
-  const { data: bookingInsights, isLoading: insightsLoading } = useQuery({
-    queryKey: ["/api/owner/dashboard/booking-insights", selectedProperty],
-    queryFn: async () => {
-      const params = new URLSearchParams({
-        ...(selectedProperty !== "all" && { propertyId: selectedProperty }),
-      });
-      return apiRequest("GET", `/api/owner/dashboard/booking-insights?${params}`);
-    },
-  });
-
-  // Payout requests and financial history
-  const { data: payoutRequests, isLoading: payoutsLoading } = useQuery<PayoutRequest[]>({
-    queryKey: ["/api/owner/dashboard/payout-requests"],
-    queryFn: () => apiRequest("GET", "/api/owner/dashboard/payout-requests"),
-  });
-
-  // Invoice history with enhanced filtering
-  const { data: invoices, isLoading: invoicesLoading } = useQuery<Invoice[]>({
-    queryKey: ["/api/owner/dashboard/invoices", selectedProperty],
-    queryFn: async () => {
-      const params = new URLSearchParams({
-        ...(selectedProperty !== "all" && { propertyId: selectedProperty }),
-      });
-      return apiRequest("GET", `/api/owner/dashboard/invoices?${params}`);
-    },
-  });
-
-  // Owner preferences
-  const { data: preferences, isLoading: preferencesLoading } = useQuery<OwnerPreferences>({
-    queryKey: ["/api/owner/dashboard/preferences"],
-    queryFn: () => apiRequest("GET", "/api/owner/dashboard/preferences"),
-  });
-
-  // Properties for filtering
   const { data: properties } = useQuery({
     queryKey: ["/api/properties"],
-    queryFn: () => apiRequest("GET", "/api/properties"),
+    enabled: !!user,
   });
 
-
-
-  // Activity timeline query
-  const { data: activities, isLoading: activitiesLoading } = useQuery<ActivityItem[]>({
-    queryKey: ["/api/owner/dashboard/activity", selectedProperty],
-    queryFn: async () => {
-      const params = new URLSearchParams({
-        limit: "20",
-        ...(selectedProperty !== "all" && { propertyId: selectedProperty }),
-      });
-      return apiRequest("GET", `/api/owner/dashboard/activity?${params}`);
-    },
-  });
-
-
-
-
-
-
-
-
-
-  // Payout request mutation
-  const payoutMutation = useMutation({
-    mutationFn: (data: any) => apiRequest("POST", "/api/owner/dashboard/payouts", data),
+  // Mutations
+  const requestPayout = useMutation({
+    mutationFn: async (data: any) => apiRequest("POST", "/api/owner/payout-request", data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/owner/dashboard/payouts"] });
-      toast({ title: "Payout Request Submitted", description: "Your payout request has been submitted for approval." });
+      toast({ title: "Payout request submitted successfully" });
       setShowPayoutDialog(false);
+      queryClient.invalidateQueries({ queryKey: ["/api/owner/balance"] });
+      setPayoutRequest({ propertyId: "", amount: "", notes: "" });
     },
-    onError: (error: any) => {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
+    onError: (error) => {
+      toast({ title: "Error submitting payout request", description: error.message, variant: "destructive" });
     },
   });
 
-  // Preferences mutation
-  const preferencesMutation = useMutation({
-    mutationFn: (data: any) => apiRequest("POST", "/api/owner/dashboard/preferences", data),
+  const acknowledgeSuggestion = useMutation({
+    mutationFn: async (suggestionId: number) => apiRequest("POST", `/api/owner/ai-suggestions/${suggestionId}/acknowledge`),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/owner/dashboard/preferences"] });
-      toast({ title: "Preferences Updated", description: "Your notification preferences have been saved." });
-    },
-    onError: (error: any) => {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
+      toast({ title: "Suggestion acknowledged" });
+      queryClient.invalidateQueries({ queryKey: ["/api/owner/ai-suggestions"] });
     },
   });
 
-  // Payout request form
-  const payoutForm = useForm({
-    resolver: zodResolver(payoutRequestSchema),
-    defaultValues: {
-      amount: "",
-      periodStart: dateRange.startDate,
-      periodEnd: dateRange.endDate,
-      requestNotes: "",
+  const dismissSuggestion = useMutation({
+    mutationFn: async (suggestionId: number) => apiRequest("POST", `/api/owner/ai-suggestions/${suggestionId}/dismiss`),
+    onSuccess: () => {
+      toast({ title: "Suggestion dismissed" });
+      queryClient.invalidateQueries({ queryKey: ["/api/owner/ai-suggestions"] });
     },
   });
 
-  // Preferences form
-  const preferencesForm = useForm({
-    resolver: zodResolver(preferencesSchema),
-    defaultValues: preferences || {
-      taskApprovalRequired: false,
-      maintenanceAlerts: true,
-      guestAddonNotifications: true,
-      financialNotifications: true,
-      weeklyReports: true,
-      preferredCurrency: "AUD",
-      notificationEmail: "",
-    },
-  });
-
-  // Update preferences form when data loads
-  useEffect(() => {
-    if (preferences) {
-      preferencesForm.reset(preferences);
-    }
-  }, [preferences, preferencesForm]);
-
-  const onPayoutSubmit = (data: any) => {
-    payoutMutation.mutate(data);
+  // Helper functions
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD'
+    }).format(amount);
   };
 
-  const onPreferencesSubmit = (data: any) => {
-    preferencesMutation.mutate(data);
+  const formatPercentage = (value: number) => {
+    return `${Math.round(value)}%`;
   };
 
-  // Status badge component
-  const StatusBadge = ({ status }: { status: string }) => {
-    const variants: Record<string, string> = {
-      confirmed: "bg-green-100 text-green-800",
-      "checked-in": "bg-blue-100 text-blue-800",
-      "checked-out": "bg-gray-100 text-gray-800",
-      cancelled: "bg-red-100 text-red-800",
-      pending: "bg-yellow-100 text-yellow-800",
-      approved: "bg-blue-100 text-blue-800",
-      completed: "bg-green-100 text-green-800",
-      paid: "bg-green-100 text-green-800",
-      overdue: "bg-red-100 text-red-800",
-    };
-
-    return (
-      <Badge className={variants[status] || "bg-gray-100 text-gray-800"}>
-        {status}
-      </Badge>
-    );
+  const getTimeAgo = (date: string) => {
+    const now = new Date();
+    const activityDate = new Date(date);
+    const diffInMinutes = Math.floor((now.getTime() - activityDate.getTime()) / (1000 * 60));
+    
+    if (diffInMinutes < 60) return `${diffInMinutes}m ago`;
+    if (diffInMinutes < 1440) return `${Math.floor(diffInMinutes / 60)}h ago`;
+    return `${Math.floor(diffInMinutes / 1440)}d ago`;
   };
 
-  // Activity type icons
-  const getActivityIcon = (type: string) => {
-    switch (type) {
-      case 'check_in':
-      case 'check_out':
-        return <Calendar className="h-4 w-4" />;
-      case 'task_completed':
-        return <CheckCircle className="h-4 w-4" />;
-      case 'guest_feedback':
-        return <Bell className="h-4 w-4" />;
-      case 'addon_booking':
-        return <TrendingUp className="h-4 w-4" />;
-      case 'bill_uploaded':
-        return <FileText className="h-4 w-4" />;
-      default:
-        return <AlertCircle className="h-4 w-4" />;
+  const getPriorityColor = (priority: string) => {
+    switch (priority) {
+      case 'urgent': return 'bg-red-100 text-red-800 border-red-200';
+      case 'high': return 'bg-orange-100 text-orange-800 border-orange-200';
+      case 'medium': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+      default: return 'bg-gray-100 text-gray-800 border-gray-200';
     }
   };
 
-  if (statsLoading || financialLoading) {
+  if (authLoading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full"></div>
+      <div className="h-screen flex items-center justify-center">
+        <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
       </div>
     );
   }
 
-  return (
-    <div className="container mx-auto px-4 py-8 space-y-8">
-      {/* Header with controls */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Villa Logbook</h1>
-          <p className="text-gray-500 mt-1">Comprehensive property management dashboard</p>
-        </div>
-        
-        {/* Date Range and Property Filter */}
-        <div className="flex flex-col sm:flex-row gap-4">
-          <Select value={selectedProperty} onValueChange={setSelectedProperty}>
-            <SelectTrigger className="w-[200px]">
-              <SelectValue placeholder="All Properties" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Properties</SelectItem>
-              {properties?.map((property: any) => (
-                <SelectItem key={property.id} value={property.id.toString()}>
-                  {property.name}
-                </SelectItem>
+  if (!user || user.role !== 'owner') {
+    return (
+      <div className="container mx-auto p-6">
+        <Card>
+          <CardContent className="pt-6">
+            <div className="text-center">
+              <AlertCircle className="mx-auto h-12 w-12 text-yellow-500 mb-4" />
+              <h3 className="text-lg font-semibold">Owner Access Required</h3>
+              <p className="text-gray-600">This dashboard is only available for property owners.</p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Earnings Overview Component
+  const EarningsOverview = () => (
+    <div className="space-y-6">
+      {/* Period Selector */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2">
+              <BarChart3 className="h-5 w-5 text-blue-500" />
+              Earnings Overview
+            </CardTitle>
+            <div className="flex items-center gap-4">
+              <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
+                <SelectTrigger className="w-48">
+                  <SelectValue placeholder="Select period" />
+                </SelectTrigger>
+                <SelectContent>
+                  {PERIOD_OPTIONS.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={selectedProperty} onValueChange={setSelectedProperty}>
+                <SelectTrigger className="w-48">
+                  <SelectValue placeholder="All Properties" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Properties</SelectItem>
+                  {properties?.map((property: any) => (
+                    <SelectItem key={property.id} value={property.id.toString()}>
+                      {property.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {earningsLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <div className="animate-spin w-6 h-6 border-4 border-primary border-t-transparent rounded-full" />
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+              {/* Average Nightly Rate */}
+              <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-blue-600 text-sm font-medium">Avg Nightly Rate</p>
+                    <p className="text-2xl font-bold text-blue-800">
+                      {formatCurrency(earningsData?.averageNightlyRate || 0)}
+                    </p>
+                  </div>
+                  <Bed className="h-8 w-8 text-blue-500" />
+                </div>
+              </div>
+
+              {/* Total Earnings */}
+              <div className="p-4 bg-green-50 rounded-lg border border-green-200">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-green-600 text-sm font-medium">Total Earnings</p>
+                    <p className="text-2xl font-bold text-green-800">
+                      {formatCurrency(earningsData?.totalEarnings?.[selectedPeriod] || 0)}
+                    </p>
+                  </div>
+                  <CircleDollarSign className="h-8 w-8 text-green-500" />
+                </div>
+              </div>
+
+              {/* Occupancy Rate */}
+              <div className="p-4 bg-purple-50 rounded-lg border border-purple-200">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-purple-600 text-sm font-medium">Occupancy Rate</p>
+                    <div className="flex items-center gap-2">
+                      <p className="text-2xl font-bold text-purple-800">
+                        {formatPercentage(earningsData?.occupancyRate?.thisMonth || 0)}
+                      </p>
+                      {earningsData?.occupancyRate?.trend === 'up' ? (
+                        <TrendingUp className="h-4 w-4 text-green-500" />
+                      ) : earningsData?.occupancyRate?.trend === 'down' ? (
+                        <TrendingDown className="h-4 w-4 text-red-500" />
+                      ) : (
+                        <div className="h-4 w-4" />
+                      )}
+                    </div>
+                  </div>
+                  <Users className="h-8 w-8 text-purple-500" />
+                </div>
+              </div>
+
+              {/* Total Properties */}
+              <div className="p-4 bg-yellow-50 rounded-lg border border-yellow-200">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-yellow-600 text-sm font-medium">Total Properties</p>
+                    <p className="text-2xl font-bold text-yellow-800">
+                      {properties?.length || 0}
+                    </p>
+                  </div>
+                  <Building className="h-8 w-8 text-yellow-500" />
+                </div>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Platform Split */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <PieChart className="h-5 w-5 text-orange-500" />
+            Platform Revenue Split
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+            {earningsData?.platformSplit && Object.entries(earningsData.platformSplit).map(([platform, data]: [string, any]) => (
+              <div key={platform} className={`p-4 rounded-lg border ${PLATFORM_COLORS[platform as keyof typeof PLATFORM_COLORS]}`}>
+                <div className="text-center">
+                  <h4 className="font-semibold capitalize">
+                    {platform === 'bookingCom' ? 'Booking.com' : platform}
+                  </h4>
+                  <p className="text-2xl font-bold">{formatPercentage(data.percentage)}</p>
+                  <p className="text-sm">{formatCurrency(data.revenue)}</p>
+                  <p className="text-xs">{data.bookings} bookings</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Monthly Trend Chart */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <LineChart className="h-5 w-5 text-indigo-500" />
+            Revenue Trend
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {earningsData?.monthlyTrend?.map((month: any, index: number) => (
+              <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                <div className="flex items-center gap-4">
+                  <div className="font-medium">{month.month}</div>
+                  <Badge variant="outline">{month.bookings} bookings</Badge>
+                </div>
+                <div className="flex items-center gap-4">
+                  <div className="text-right">
+                    <div className="font-semibold">{formatCurrency(month.revenue)}</div>
+                    <div className="text-sm text-gray-600">{formatPercentage(month.occupancy)} occupancy</div>
+                  </div>
+                  <Progress value={month.occupancy} className="w-24" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+
+  // Balance Summary Component
+  const BalanceSummaryTab = () => (
+    <div className="space-y-6">
+      {/* Total Balance Overview */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Banknote className="h-5 w-5 text-green-500" />
+            Balance Summary
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="p-6 bg-green-50 rounded-lg border border-green-200 text-center">
+              <h3 className="text-green-600 font-medium mb-2">Total Available Balance</h3>
+              <p className="text-3xl font-bold text-green-800">
+                {formatCurrency(balanceData?.totalBalance || 0)}
+              </p>
+            </div>
+            <div className="p-6 bg-blue-50 rounded-lg border border-blue-200 text-center">
+              <h3 className="text-blue-600 font-medium mb-2">Pending Payouts</h3>
+              <p className="text-3xl font-bold text-blue-800">
+                {balanceData?.pendingPayoutRequests?.length || 0}
+              </p>
+            </div>
+            <div className="p-6 bg-purple-50 rounded-lg border border-purple-200 text-center">
+              <h3 className="text-purple-600 font-medium mb-2">Properties</h3>
+              <p className="text-3xl font-bold text-purple-800">
+                {balanceData?.propertyBalances?.length || 0}
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Property Balances */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2">
+              <Building className="h-5 w-5 text-blue-500" />
+              Property Balances
+            </CardTitle>
+            <Button onClick={() => setShowPayoutDialog(true)}>
+              <Download className="h-4 w-4 mr-2" />
+              Request Payout
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {balanceData?.propertyBalances?.map((property: any) => (
+              <Card key={property.propertyId} className="border border-gray-200">
+                <CardHeader className="pb-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="font-semibold text-lg">{property.propertyName}</h3>
+                      <p className="text-sm text-gray-600">Property ID: {property.propertyId}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-2xl font-bold text-green-600">
+                        {formatCurrency(property.currentBalance)}
+                      </p>
+                      <p className="text-sm text-gray-600">Available Balance</p>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-4">
+                    <div className="text-center p-3 bg-blue-50 rounded">
+                      <p className="text-blue-600 text-sm">Total Revenue</p>
+                      <p className="font-semibold">{formatCurrency(property.totalRevenue)}</p>
+                    </div>
+                    <div className="text-center p-3 bg-red-50 rounded">
+                      <p className="text-red-600 text-sm">Management</p>
+                      <p className="font-semibold">{formatCurrency(property.expenses.management)}</p>
+                    </div>
+                    <div className="text-center p-3 bg-yellow-50 rounded">
+                      <p className="text-yellow-600 text-sm">Utilities</p>
+                      <p className="font-semibold">{formatCurrency(property.expenses.utilities)}</p>
+                    </div>
+                    <div className="text-center p-3 bg-purple-50 rounded">
+                      <p className="text-purple-600 text-sm">Maintenance</p>
+                      <p className="font-semibold">{formatCurrency(property.expenses.maintenance)}</p>
+                    </div>
+                    <div className="text-center p-3 bg-green-50 rounded">
+                      <p className="text-green-600 text-sm">Add-ons</p>
+                      <p className="font-semibold">{formatCurrency(property.expenses.addons)}</p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex gap-2">
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => {
+                        setSelectedPropertyBalance(property);
+                        setShowFinanceDialog(true);
+                      }}
+                    >
+                      <Eye className="h-4 w-4 mr-1" />
+                      See Finances
+                    </Button>
+                    <Button 
+                      size="sm"
+                      onClick={() => {
+                        setPayoutRequest({
+                          ...payoutRequest,
+                          propertyId: property.propertyId.toString(),
+                          amount: property.currentBalance.toString()
+                        });
+                        setShowPayoutDialog(true);
+                      }}
+                    >
+                      <Download className="h-4 w-4 mr-1" />
+                      Request Payout
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Pending Payout Requests */}
+      {balanceData?.pendingPayoutRequests?.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Clock className="h-5 w-5 text-orange-500" />
+              Pending Payout Requests
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {balanceData.pendingPayoutRequests.map((request: any) => (
+                <div key={request.id} className="flex items-center justify-between p-4 bg-orange-50 border border-orange-200 rounded-lg">
+                  <div>
+                    <h4 className="font-medium">Property ID: {request.propertyId}</h4>
+                    <p className="text-sm text-gray-600">
+                      Requested: {format(parseISO(request.requestDate), 'MMM d, yyyy')}
+                    </p>
+                    {request.notes && (
+                      <p className="text-sm text-gray-700 mt-1">{request.notes}</p>
+                    )}
+                  </div>
+                  <div className="text-right">
+                    <p className="font-semibold text-lg">{formatCurrency(request.amount)}</p>
+                    <Badge className={
+                      request.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                      request.status === 'approved' ? 'bg-blue-100 text-blue-800' :
+                      request.status === 'processing' ? 'bg-purple-100 text-purple-800' :
+                      'bg-green-100 text-green-800'
+                    }>
+                      {request.status}
+                    </Badge>
+                  </div>
+                </div>
               ))}
-            </SelectContent>
-          </Select>
-          
-          <div className="flex gap-2">
-            <Button
-              variant={earningsPeriod === 'month' ? 'default' : 'outline'}
-              onClick={() => setEarningsPeriod('month')}
-              size="sm"
-            >
-              This Month
-            </Button>
-            <Button
-              variant={earningsPeriod === 'year' ? 'default' : 'outline'}
-              onClick={() => setEarningsPeriod('year')}
-              size="sm"
-            >
-              This Year
-            </Button>
-          </div>
-        </div>
-      </div>
-
-      {/* Key Performance Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-500">Current Balance</p>
-                <p className="text-2xl font-bold text-green-600">
-                  ${stats?.currentBalance?.toLocaleString() || '0'}
-                </p>
-              </div>
-              <DollarSign className="h-8 w-8 text-green-600" />
             </div>
           </CardContent>
         </Card>
+      )}
+    </div>
+  );
 
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-500">Avg Nightly Rate</p>
-                <p className="text-2xl font-bold">
-                  ${stats?.averageNightlyRate?.toFixed(0) || '0'}
-                </p>
-              </div>
-              <TrendingUp className="h-8 w-8 text-blue-600" />
+  // AI Suggestions Component
+  const AiSuggestionsTab = () => (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Lightbulb className="h-5 w-5 text-yellow-500" />
+            AI-Powered Review Suggestions
+          </CardTitle>
+          <CardDescription>
+            Automatic analysis of guest reviews to extract improvement suggestions and maintenance needs.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {suggestionsLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <div className="animate-spin w-6 h-6 border-4 border-primary border-t-transparent rounded-full" />
             </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-500">Upcoming Bookings</p>
-                <p className="text-2xl font-bold">
-                  {stats?.upcomingBookings || 0}
-                </p>
-              </div>
-              <Calendar className="h-8 w-8 text-purple-600" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-500">Properties</p>
-                <p className="text-2xl font-bold">
-                  {stats?.properties?.length || 0}
-                </p>
-              </div>
-              <Building className="h-8 w-8 text-orange-600" />
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Main Dashboard Tabs */}
-      <Tabs defaultValue="overview" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-5">
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="villa-logbook">Villa Logbook</TabsTrigger>
-          <TabsTrigger value="ai-companion">AI Companion</TabsTrigger>
-          <TabsTrigger value="finances">Finances</TabsTrigger>
-          <TabsTrigger value="settings">Settings</TabsTrigger>
-        </TabsList>
-
-        {/* Overview Tab */}
-        <TabsContent value="overview" className="space-y-6">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Financial Summary */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <DollarSign className="h-5 w-5" />
-                  Financial Summary
-                </CardTitle>
-                <CardDescription>
-                  Revenue breakdown for {earningsPeriod === 'month' ? 'this month' : 'this year'}
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-3">
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-gray-500">Rental Income</span>
-                    <span className="font-medium text-green-600">
-                      +${financialSummary?.rentalIncome?.toLocaleString() || '0'}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-gray-500">Add-on Revenue</span>
-                    <span className="font-medium text-green-600">
-                      +${financialSummary?.addonRevenue?.toLocaleString() || '0'}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-gray-500">Management Fees</span>
-                    <span className="font-medium text-red-600">
-                      -${financialSummary?.managementFees?.toLocaleString() || '0'}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-gray-500">Service Deductions</span>
-                    <span className="font-medium text-red-600">
-                      -${financialSummary?.serviceDeductions?.toLocaleString() || '0'}
-                    </span>
-                  </div>
-                  <div className="border-t pt-3">
-                    <div className="flex justify-between items-center">
-                      <span className="font-medium">Net Balance</span>
-                      <span className="font-bold text-lg">
-                        ${financialSummary?.netBalance?.toLocaleString() || '0'}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="pt-4">
-                  {/* Admin Balance Reset Card - Only visible to admin users */}
-                  {user && (
-                    <div className="mb-4">
-                      <AdminBalanceResetCard
-                        userId={user.id}
-                        userRole="owner"
-                        userEmail={user.email || ""}
-                        userName={`${user.firstName || ""} ${user.lastName || ""}`.trim() || user.email || ""}
-                        currentBalance={financialSummary?.netBalance}
-                        onBalanceReset={() => {
-                          queryClient.invalidateQueries({ queryKey: ["/api/owner/dashboard"] });
-                        }}
-                      />
-                    </div>
-                  )}
-                  
-                  <Dialog open={showPayoutDialog} onOpenChange={setShowPayoutDialog}>
-                    <DialogTrigger asChild>
-                      <Button className="w-full">
-                        <Download className="mr-2 h-4 w-4" />
-                        Request Payout
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent>
-                      <DialogHeader>
-                        <DialogTitle>Request Payout</DialogTitle>
-                        <DialogDescription>
-                          Submit a payout request for your available balance
-                        </DialogDescription>
-                      </DialogHeader>
-                      <Form {...payoutForm}>
-                        <form onSubmit={payoutForm.handleSubmit(onPayoutSubmit)} className="space-y-4">
-                          <FormField
-                            control={payoutForm.control}
-                            name="amount"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Amount</FormLabel>
-                                <FormControl>
-                                  <Input placeholder="Enter amount" {...field} />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                          <FormField
-                            control={payoutForm.control}
-                            name="periodStart"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Period Start</FormLabel>
-                                <FormControl>
-                                  <Input type="date" {...field} />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                          <FormField
-                            control={payoutForm.control}
-                            name="periodEnd"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Period End</FormLabel>
-                                <FormControl>
-                                  <Input type="date" {...field} />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                          <FormField
-                            control={payoutForm.control}
-                            name="requestNotes"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Notes (Optional)</FormLabel>
-                                <FormControl>
-                                  <Textarea placeholder="Additional notes..." {...field} />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                          <DialogFooter>
-                            <Button 
-                              type="submit" 
-                              disabled={payoutMutation.isPending}
-                            >
-                              {payoutMutation.isPending ? "Submitting..." : "Submit Request"}
-                            </Button>
-                          </DialogFooter>
-                        </form>
-                      </Form>
-                    </DialogContent>
-                  </Dialog>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Booking Sources Breakdown */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Users className="h-5 w-5" />
-                  Booking Sources
-                </CardTitle>
-                <CardDescription>
-                  Revenue distribution by platform
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-3">
-                  {stats?.bookingSources && Object.entries(stats.bookingSources).map(([source, count]: [string, any]) => (
-                    <div key={source} className="flex justify-between items-center">
-                      <span className="text-sm capitalize">{source.replace('_', ' ')}</span>
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm text-gray-500">{count} bookings</span>
-                        <Badge variant="outline">{((count / Object.values(stats.bookingSources).reduce((a: any, b: any) => a + b, 0)) * 100).toFixed(0)}%</Badge>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Recent Activity Timeline */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Clock className="h-5 w-5" />
-                Recent Activity
-              </CardTitle>
-              <CardDescription>
-                Latest updates from your properties
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {activityTimeline?.slice(0, 5).map((activity, index) => (
-                  <div key={activity.id} className="flex items-start gap-4 p-4 border rounded-lg">
-                    <div className="flex-shrink-0 mt-1">
-                      {getActivityIcon(activity.activityType)}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between">
-                        <p className="font-medium">{activity.title}</p>
-                        <time className="text-sm text-gray-500">
-                          {format(new Date(activity.createdAt), 'MMM d, h:mm a')}
-                        </time>
-                      </div>
-                      <p className="text-sm text-gray-600 mt-1">{activity.description}</p>
-                      {activity.propertyName && (
-                        <Badge variant="secondary" className="mt-2 text-xs">
-                          {activity.propertyName}
-                        </Badge>
-                      )}
-                    </div>
-                  </div>
-                ))}
-                {activityTimeline?.length === 0 && (
-                  <div className="text-center py-8 text-gray-500">
-                    No recent activity
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Villa Logbook Tab */}
-        <TabsContent value="villa-logbook" className="space-y-6">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Enhanced Activity Timeline with Photos */}
-            <div className="lg:col-span-2 space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <MessageSquare className="h-5 w-5" />
-                    Guest Activity Timeline
-                  </CardTitle>
-                  <CardDescription>
-                    Real-time updates with photos and guest interactions
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {activityTimeline?.map((activity) => (
-                      <div key={activity.id} className="border rounded-lg p-4">
-                        <div className="flex items-start gap-4">
-                          <div className="flex-shrink-0 mt-1">
-                            {getActivityIcon(activity.activityType)}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center justify-between">
-                              <h4 className="font-medium">{activity.title}</h4>
-                              <time className="text-sm text-gray-500">
-                                {format(new Date(activity.createdAt), 'MMM d, h:mm a')}
-                              </time>
-                            </div>
-                            <p className="text-sm text-gray-600 mt-1">{activity.description}</p>
-                            
-                            {activity.propertyName && (
-                              <Badge variant="secondary" className="mt-2">
-                                {activity.propertyName}
-                              </Badge>
-                            )}
-
-                            {/* Enhanced metadata display */}
-                            {activity.metadata && (
-                              <div className="mt-3 space-y-2">
-                                {activity.metadata.photos && (
-                                  <div className="grid grid-cols-3 gap-2">
-                                    {activity.metadata.photos.map((photo, index) => (
-                                      <div key={index} className="relative group cursor-pointer">
-                                        <img 
-                                          src={photo}
-                                          alt={`Activity photo ${index + 1}`}
-                                          className="w-full h-20 object-cover rounded border"
-                                        />
-                                        <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-opacity rounded flex items-center justify-center">
-                                          <Eye className="h-4 w-4 text-white opacity-0 group-hover:opacity-100" />
-                                        </div>
-                                      </div>
-                                    ))}
-                                  </div>
-                                )}
-
-                                {activity.metadata.guestName && (
-                                  <div className="flex items-center gap-2 text-sm">
-                                    <Users className="h-4 w-4" />
-                                    <span>{activity.metadata.guestName}</span>
-                                  </div>
-                                )}
-
-                                {activity.metadata.cost && (
-                                  <div className="flex items-center gap-2 text-sm">
-                                    <DollarSign className="h-4 w-4" />
-                                    <span>${activity.metadata.cost}</span>
-                                  </div>
-                                )}
-
-                                {activity.metadata.aiConfidence && (
-                                  <div className="flex items-center gap-2 text-sm">
-                                    <Bot className="h-4 w-4" />
-                                    <span>AI Confidence: {(activity.metadata.aiConfidence * 100).toFixed(0)}%</span>
-                                  </div>
-                                )}
-
-                                {activity.metadata.reviewSource && (
-                                  <div className="flex items-center gap-2 text-sm">
-                                    <Star className="h-4 w-4" />
-                                    <span>Review from {activity.metadata.reviewSource}</span>
-                                  </div>
-                                )}
-                              </div>
-                            )}
-
-                            {/* Expandable details */}
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="mt-2 h-8"
-                              onClick={() => setExpandedActivity(expandedActivity === activity.id ? null : activity.id)}
-                            >
-                              {expandedActivity === activity.id ? (
-                                <>
-                                  <ChevronUp className="h-4 w-4 mr-1" />
-                                  Show Less
-                                </>
-                              ) : (
-                                <>
-                                  <ChevronDown className="h-4 w-4 mr-1" />
-                                  Show More
-                                </>
-                              )}
-                            </Button>
-
-                            {expandedActivity === activity.id && (
-                              <div className="mt-3 p-3 bg-gray-50 rounded border">
-                                <p className="text-sm text-gray-700">
-                                  Extended details about this activity would be shown here, including 
-                                  full guest communications, task progress, or maintenance reports.
-                                </p>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Property Quick Stats & Insights */}
-            <div className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <BarChart3 className="h-5 w-5" />
-                    Property Insights
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="space-y-3">
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-gray-500">Occupancy Rate</span>
-                      <span className="font-medium">{bookingInsights?.occupancyRate || 0}%</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-gray-500">Average Rating</span>
-                      <div className="flex items-center gap-1">
-                        <Star className="h-4 w-4 text-yellow-500" />
-                        <span className="font-medium">{bookingInsights?.averageRating || 0}</span>
-                      </div>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-gray-500">Response Rate</span>
-                      <span className="font-medium">{bookingInsights?.responseRate || 0}%</span>
-                    </div>
-                  </div>
-
-                  <div className="border-t pt-4">
-                    <h4 className="font-medium mb-3">OTA Sync Status</h4>
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm">Hostaway</span>
-                        <Badge variant={bookingInsights?.otaConnectionStatus?.hostaway === 'connected' ? 'default' : 'destructive'}>
-                          {bookingInsights?.otaConnectionStatus?.hostaway || 'Disconnected'}
-                        </Badge>
-                      </div>
-                      {bookingInsights?.otaConnectionStatus?.lastSync && (
-                        <p className="text-xs text-gray-500">
-                          Last sync: {format(new Date(bookingInsights.otaConnectionStatus.lastSync), 'MMM d, h:mm a')}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Wifi className="h-5 w-5" />
-                    Revenue Sources
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    {bookingInsights?.sources && Object.entries(bookingInsights.sources).map(([source, data]: [string, any]) => (
-                      <div key={source} className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm capitalize">{source}</span>
-                          <Badge variant="outline" className="text-xs">
-                            {data.syncStatus}
-                          </Badge>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-sm font-medium">${data.revenue?.toLocaleString()}</p>
-                          <p className="text-xs text-gray-500">{data.bookings} bookings</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          </div>
-        </TabsContent>
-
-        {/* AI Companion Tab */}
-        <TabsContent value="ai-companion" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Bot className="h-5 w-5" />
-                AI Property Companion
-              </CardTitle>
-              <CardDescription>
-                Intelligent insights and suggestions based on guest feedback and property data
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* AI Suggestions */}
-                <div className="space-y-4">
-                  <h3 className="font-medium flex items-center gap-2">
-                    <Lightbulb className="h-4 w-4" />
-                    Smart Suggestions
-                  </h3>
-                  
-                  {aiSuggestions?.map((suggestion: any) => (
-                    <div key={suggestion.id} className="border rounded-lg p-4 space-y-3">
+          ) : (
+            <div className="space-y-4">
+              {aiSuggestions?.map((suggestion: AiSuggestion) => {
+                const CategoryIcon = CATEGORY_ICONS[suggestion.category];
+                return (
+                  <Card key={suggestion.id} className="border-l-4 border-l-yellow-500">
+                    <CardHeader className="pb-3">
                       <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-2">
-                            <Badge variant={suggestion.priority === 'high' ? 'destructive' : suggestion.priority === 'medium' ? 'default' : 'secondary'}>
-                              {suggestion.priority} priority
-                            </Badge>
-                            <Badge variant="outline">
-                              {(suggestion.confidence * 100).toFixed(0)}% confidence
-                            </Badge>
+                        <div className="flex items-start gap-3">
+                          <div className="p-2 bg-yellow-100 rounded-lg">
+                            <CategoryIcon className="h-4 w-4 text-yellow-600" />
                           </div>
-                          <h4 className="font-medium">{suggestion.title}</h4>
-                          <p className="text-sm text-gray-600 mt-1">{suggestion.description}</p>
-                          
-                          <div className="flex items-center gap-4 mt-3 text-sm text-gray-500">
-                            <span>Est. Cost: ${suggestion.estimatedCost}</span>
-                            <span>Source: {suggestion.sourceCount} guest reviews</span>
+                          <div>
+                            <h3 className="font-semibold">{suggestion.suggestion}</h3>
+                            <p className="text-sm text-gray-600">{suggestion.propertyName}</p>
                           </div>
-                          
-                          {suggestion.aiAnalysis && (
-                            <div className="mt-3 p-2 bg-blue-50 rounded text-sm">
-                              <strong>AI Analysis:</strong> {suggestion.aiAnalysis}
-                            </div>
-                          )}
                         </div>
-                      </div>
-                      
-                      <div className="flex gap-2">
-                        <Button size="sm" variant="default">
-                          <CheckCircle className="h-4 w-4 mr-1" />
-                          Approve
-                        </Button>
-                        <Button size="sm" variant="outline">
-                          <FileText className="h-4 w-4 mr-1" />
-                          Get Quote
-                        </Button>
-                        <Button size="sm" variant="ghost">
-                          <X className="h-4 w-4 mr-1" />
-                          Dismiss
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-
-                  {(!aiSuggestions || aiSuggestions.length === 0) && (
-                    <div className="text-center py-8 text-gray-500">
-                      <Bot className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                      <p>No AI suggestions at the moment</p>
-                      <p className="text-sm">I'm analyzing guest feedback to provide insights</p>
-                    </div>
-                  )}
-                </div>
-
-                {/* Guest Review Analysis */}
-                <div className="space-y-4">
-                  <h3 className="font-medium flex items-center gap-2">
-                    <MessageCircle className="h-4 w-4" />
-                    Guest Sentiment Analysis
-                  </h3>
-                  
-                  <div className="space-y-3">
-                    <div className="border rounded-lg p-4">
-                      <h4 className="font-medium mb-2">Recent Review Sentiment</h4>
-                      <div className="space-y-2">
-                        <div className="flex justify-between items-center">
-                          <span className="text-sm">Positive Mentions</span>
-                          <span className="font-medium text-green-600">87%</span>
-                        </div>
-                        <div className="flex justify-between items-center">
-                          <span className="text-sm">Neutral Feedback</span>
-                          <span className="font-medium text-gray-600">10%</span>
-                        </div>
-                        <div className="flex justify-between items-center">
-                          <span className="text-sm">Issues Identified</span>
-                          <span className="font-medium text-red-600">3%</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="border rounded-lg p-4">
-                      <h4 className="font-medium mb-2">Trending Keywords</h4>
-                      <div className="flex flex-wrap gap-2">
-                        {['Clean', 'Beautiful View', 'Great Location', 'Pool', 'WiFi Slow', 'Comfortable'].map((keyword) => (
-                          <Badge key={keyword} variant="outline" className="text-xs">
-                            {keyword}
+                        <div className="flex items-center gap-2">
+                          <Badge className={getPriorityColor(suggestion.priority)}>
+                            {suggestion.priority}
                           </Badge>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div className="border rounded-lg p-4">
-                      <h4 className="font-medium mb-2">Improvement Areas</h4>
-                      <div className="space-y-2 text-sm">
-                        <div className="flex items-center gap-2">
-                          <Wifi className="h-4 w-4 text-red-500" />
-                          <span>Internet speed mentioned in 3 reviews</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Wrench className="h-4 w-4 text-yellow-500" />
-                          <span>Pool maintenance noted by 2 guests</span>
+                          <Badge variant="outline">
+                            {suggestion.category}
+                          </Badge>
                         </div>
                       </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div>
+                        <h4 className="font-medium mb-2">AI Analysis</h4>
+                        <p className="text-sm text-gray-700">{suggestion.reason}</p>
+                      </div>
 
-        {/* Finances Tab */}
-        <TabsContent value="finances" className="space-y-6">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Financial Overview */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Financial Overview</CardTitle>
-                <CardDescription>Detailed breakdown of your property income and expenses</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="space-y-4">
-                  <div className="flex justify-between items-center p-3 bg-green-50 rounded">
-                    <span className="font-medium">Total Revenue</span>
-                    <span className="font-bold text-green-600 text-lg">
-                      ${(financialSummary?.rentalIncome || 0) + (financialSummary?.addonRevenue || 0)}
-                    </span>
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Rental Income</span>
-                      <span className="font-medium">${financialSummary?.rentalIncome || 0}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Add-on Services</span>
-                      <span className="font-medium">${financialSummary?.addonRevenue || 0}</span>
-                    </div>
-                  </div>
+                      <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                        <h4 className="font-medium text-blue-800 mb-2">Source Review</h4>
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="font-medium text-sm">{suggestion.sourceReview.guestName}</span>
+                          <div className="flex items-center">
+                            {[...Array(5)].map((_, i) => (
+                              <Star 
+                                key={i} 
+                                className={`h-3 w-3 ${i < suggestion.sourceReview.rating ? 'text-yellow-400 fill-current' : 'text-gray-300'}`} 
+                              />
+                            ))}
+                          </div>
+                          <span className="text-xs text-gray-600">
+                            {suggestion.sourceReview.platform} • {format(parseISO(suggestion.sourceReview.date), 'MMM d')}
+                          </span>
+                        </div>
+                        <p className="text-sm text-blue-700 italic">"{suggestion.sourceReview.excerpt}"</p>
+                      </div>
 
-                  <div className="border-t pt-4 space-y-2">
-                    <h4 className="font-medium text-red-600">Deductions</h4>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Management Fees</span>
-                      <span className="text-red-600">-${financialSummary?.managementFees || 0}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Service Charges</span>
-                      <span className="text-red-600">-${financialSummary?.serviceDeductions || 0}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Utility Costs</span>
-                      <span className="text-red-600">-${financialSummary?.utilityDeductions || 0}</span>
-                    </div>
-                  </div>
-
-                  <div className="border-t pt-4">
-                    <div className="flex justify-between items-center p-3 bg-gray-50 rounded">
-                      <span className="font-bold">Net Balance</span>
-                      <span className="font-bold text-lg">
-                        ${financialSummary?.netBalance || 0}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Payout History */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Payout Requests</CardTitle>
-                <CardDescription>Track your payout requests and payment history</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {payoutRequests?.slice(0, 5).map((payout) => (
-                    <div key={payout.id} className="border rounded-lg p-4">
-                      <div className="flex justify-between items-start">
+                      <div className="grid grid-cols-2 gap-4 text-sm">
                         <div>
-                          <p className="font-medium">${payout.amount} {payout.currency}</p>
-                          <p className="text-sm text-gray-500">
-                            {format(new Date(payout.periodStart), 'MMM d')} - {format(new Date(payout.periodEnd), 'MMM d, yyyy')}
-                          </p>
-                          <p className="text-xs text-gray-400 mt-1">
-                            Requested {format(new Date(payout.requestedAt), 'MMM d, yyyy')}
-                          </p>
+                          <span className="text-gray-600">Estimated Cost:</span>
+                          <br />
+                          <span className="font-medium">{formatCurrency(suggestion.estimatedCost)}</span>
                         </div>
-                        <StatusBadge status={payout.status} />
+                        <div>
+                          <span className="text-gray-600">Expected Impact:</span>
+                          <br />
+                          <Badge variant="outline" className={
+                            suggestion.estimatedImpact === 'high' ? 'bg-green-100 text-green-800' :
+                            suggestion.estimatedImpact === 'medium' ? 'bg-yellow-100 text-yellow-800' :
+                            'bg-gray-100 text-gray-800'
+                          }>
+                            {suggestion.estimatedImpact} impact
+                          </Badge>
+                        </div>
                       </div>
-                      
-                      {payout.requestNotes && (
-                        <p className="text-sm text-gray-600 mt-2 italic">
-                          "{payout.requestNotes}"
-                        </p>
-                      )}
-                      
-                      {payout.adminNotes && (
-                        <div className="mt-2 p-2 bg-blue-50 rounded text-sm">
-                          <strong>Admin Note:</strong> {payout.adminNotes}
-                        </div>
-                      )}
-                    </div>
+
+                      <div className="flex gap-2 pt-2">
+                        {suggestion.status === 'new' && (
+                          <>
+                            <Button 
+                              size="sm"
+                              onClick={() => acknowledgeSuggestion.mutate(suggestion.id)}
+                              disabled={acknowledgeSuggestion.isPending}
+                            >
+                              <CheckCircle className="h-3 w-3 mr-1" />
+                              Acknowledge
+                            </Button>
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={() => dismissSuggestion.mutate(suggestion.id)}
+                              disabled={dismissSuggestion.isPending}
+                            >
+                              Dismiss
+                            </Button>
+                          </>
+                        )}
+                        {suggestion.status === 'acknowledged' && (
+                          <Badge className="bg-blue-100 text-blue-800">
+                            <Eye className="h-3 w-3 mr-1" />
+                            Acknowledged
+                          </Badge>
+                        )}
+                        {suggestion.status === 'implemented' && (
+                          <Badge className="bg-green-100 text-green-800">
+                            <CheckCircle className="h-3 w-3 mr-1" />
+                            Implemented on {format(parseISO(suggestion.implementationDate!), 'MMM d')}
+                          </Badge>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+
+              {aiSuggestions?.length === 0 && (
+                <div className="text-center py-8">
+                  <Bot className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+                  <h3 className="text-lg font-semibold">No AI Suggestions Yet</h3>
+                  <p className="text-gray-600">
+                    AI will analyze guest reviews and suggest improvements automatically.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+
+  // Timeline Activity Component
+  const TimelineTab = () => (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2">
+              <Activity className="h-5 w-5 text-indigo-500" />
+              Property Timeline Activity
+            </CardTitle>
+            <div className="flex items-center gap-4">
+              <Select value={selectedProperty} onValueChange={setSelectedProperty}>
+                <SelectTrigger className="w-48">
+                  <SelectValue placeholder="All Properties" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Properties</SelectItem>
+                  {properties?.map((property: any) => (
+                    <SelectItem key={property.id} value={property.id.toString()}>
+                      {property.name}
+                    </SelectItem>
                   ))}
-                  
-                  {(!payoutRequests || payoutRequests.length === 0) && (
-                    <div className="text-center py-8 text-gray-500">
-                      <CreditCard className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                      <p>No payout requests yet</p>
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
+                </SelectContent>
+              </Select>
+              <Select value={timelineFilter} onValueChange={setTimelineFilter}>
+                <SelectTrigger className="w-48">
+                  <SelectValue placeholder="All Activities" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Activities</SelectItem>
+                  <SelectItem value="guest">Guest Activities</SelectItem>
+                  <SelectItem value="staff">Staff Activities</SelectItem>
+                  <SelectItem value="maintenance">Maintenance</SelectItem>
+                  <SelectItem value="expenses">Expenses</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
-
-          {/* Invoice History */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Invoice History</CardTitle>
-              <CardDescription>View and download your property-related invoices</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {invoices?.map((invoice) => (
-                  <div key={invoice.id} className="flex items-center justify-between p-4 border rounded-lg">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3">
-                        <Receipt className="h-5 w-5 text-gray-400" />
-                        <div>
-                          <h4 className="font-medium">{invoice.title}</h4>
-                          <p className="text-sm text-gray-500">
-                            {invoice.invoiceNumber} • {format(new Date(invoice.createdAt), 'MMM d, yyyy')}
-                          </p>
-                          {invoice.propertyName && (
-                            <Badge variant="outline" className="mt-1 text-xs">
-                              {invoice.propertyName}
-                            </Badge>
-                          )}
-                        </div>
+        </CardHeader>
+        <CardContent>
+          {timelineLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <div className="animate-spin w-6 h-6 border-4 border-primary border-t-transparent rounded-full" />
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {timelineData?.map((activity: TimelineActivity, index: number) => {
+                const ActivityIcon = ACTIVITY_ICONS[activity.category];
+                return (
+                  <div key={activity.id} className="flex gap-4 p-4 border border-gray-200 rounded-lg hover:bg-gray-50">
+                    <div className="flex-shrink-0">
+                      <div className={`p-2 rounded-full ${
+                        activity.type === 'guest' ? 'bg-blue-100' :
+                        activity.type === 'staff' ? 'bg-green-100' :
+                        activity.type === 'maintenance' ? 'bg-orange-100' :
+                        'bg-purple-100'
+                      }`}>
+                        <ActivityIcon className={`h-4 w-4 ${
+                          activity.type === 'guest' ? 'text-blue-600' :
+                          activity.type === 'staff' ? 'text-green-600' :
+                          activity.type === 'maintenance' ? 'text-orange-600' :
+                          'text-purple-600'
+                        }`} />
                       </div>
                     </div>
                     
-                    <div className="flex items-center gap-4">
-                      <div className="text-right">
-                        <p className="font-medium">${invoice.amount} {invoice.currency}</p>
-                        <StatusBadge status={invoice.status} />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <h4 className="font-medium">{activity.title}</h4>
+                          <p className="text-sm text-gray-600 mt-1">{activity.description}</p>
+                          
+                          {activity.metadata?.guestName && (
+                            <div className="flex items-center gap-2 mt-2">
+                              <User className="h-3 w-3 text-gray-400" />
+                              <span className="text-sm text-gray-600">Guest: {activity.metadata.guestName}</span>
+                              {activity.metadata.rating && (
+                                <div className="flex items-center">
+                                  {[...Array(5)].map((_, i) => (
+                                    <Star 
+                                      key={i} 
+                                      className={`h-3 w-3 ${i < activity.metadata!.rating! ? 'text-yellow-400 fill-current' : 'text-gray-300'}`} 
+                                    />
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          {activity.metadata?.amount && (
+                            <div className="flex items-center gap-1 mt-2">
+                              <DollarSign className="h-3 w-3 text-green-500" />
+                              <span className="text-sm font-medium text-green-600">
+                                {formatCurrency(activity.metadata.amount)}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                        
+                        <div className="flex flex-col items-end gap-2">
+                          <span className="text-xs text-gray-500">{getTimeAgo(activity.timestamp)}</span>
+                          <div className="flex items-center gap-1">
+                            <Avatar className="h-6 w-6">
+                              <AvatarImage src={activity.user.avatar} />
+                              <AvatarFallback className="text-xs">
+                                {activity.user.name.split(' ').map(n => n[0]).join('')}
+                              </AvatarFallback>
+                            </Avatar>
+                            <span className="text-xs text-gray-600">{activity.user.name}</span>
+                          </div>
+                        </div>
                       </div>
-                      
-                      {invoice.pdfUrl && (
-                        <Button size="sm" variant="outline">
-                          <Download className="h-4 w-4 mr-1" />
-                          Download
+
+                      {activity.status && (
+                        <Badge 
+                          className={`mt-2 ${
+                            activity.status === 'completed' ? 'bg-green-100 text-green-800' :
+                            activity.status === 'in-progress' ? 'bg-blue-100 text-blue-800' :
+                            activity.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                            'bg-gray-100 text-gray-800'
+                          }`}
+                        >
+                          {activity.status}
+                        </Badge>
+                      )}
+
+                      {activity.attachments && activity.attachments.length > 0 && (
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {activity.attachments.map((attachment, idx) => (
+                            <Button key={idx} variant="outline" size="sm">
+                              {attachment.type === 'image' ? (
+                                <Camera className="h-3 w-3 mr-1" />
+                              ) : (
+                                <FileText className="h-3 w-3 mr-1" />
+                              )}
+                              {attachment.name}
+                            </Button>
+                          ))}
+                        </div>
+                      )}
+
+                      {activity.metadata?.taskId && (
+                        <Button variant="link" size="sm" className="mt-2 p-0 h-auto">
+                          <ExternalLink className="h-3 w-3 mr-1" />
+                          View Task Details
                         </Button>
                       )}
                     </div>
                   </div>
-                ))}
-                
-                {(!invoices || invoices.length === 0) && (
-                  <div className="text-center py-8 text-gray-500">
-                    <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                    <p>No invoices available</p>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+                );
+              })}
+
+              {timelineData?.length === 0 && (
+                <div className="text-center py-8">
+                  <Activity className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+                  <h3 className="text-lg font-semibold">No Activity Yet</h3>
+                  <p className="text-gray-600">
+                    Property activity will appear here as staff complete tasks and guests interact with your properties.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+
+  return (
+    <div className="container mx-auto p-6 space-y-6">
+      {/* Header */}
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-3xl font-bold flex items-center gap-2">
+            <Home className="h-8 w-8 text-blue-500" />
+            Owner Dashboard
+          </h1>
+          <p className="text-muted-foreground">
+            Complete property performance overview with earnings, balance management, AI suggestions, and activity timeline
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => queryClient.invalidateQueries()}>
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Refresh Data
+          </Button>
+        </div>
+      </div>
+
+      {/* Main Tabs */}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="grid w-full grid-cols-4">
+          <TabsTrigger value="earnings" className="flex items-center gap-2">
+            <BarChart3 className="h-4 w-4" />
+            📊 Earnings Overview
+          </TabsTrigger>
+          <TabsTrigger value="balance" className="flex items-center gap-2">
+            <CreditCard className="h-4 w-4" />
+            🧾 Balance & Withdrawals
+          </TabsTrigger>
+          <TabsTrigger value="suggestions" className="flex items-center gap-2">
+            <Lightbulb className="h-4 w-4" />
+            💡 AI Suggestions
+          </TabsTrigger>
+          <TabsTrigger value="timeline" className="flex items-center gap-2">
+            <Activity className="h-4 w-4" />
+            📋 Timeline Feed
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="earnings">
+          <EarningsOverview />
         </TabsContent>
 
-        {/* Settings Tab */}
-        <TabsContent value="settings" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Notification Preferences</CardTitle>
-              <CardDescription>
-                Customize how you receive updates about your properties
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Form {...preferencesForm}>
-                <form onSubmit={preferencesForm.handleSubmit(onPreferencesSubmit)} className="space-y-6">
-                  <div className="space-y-4">
-                    <FormField
-                      control={preferencesForm.control}
-                      name="taskApprovalRequired"
-                      render={({ field }) => (
-                        <FormItem className="flex items-center justify-between">
-                          <div className="space-y-0.5">
-                            <FormLabel>Task Approval Required</FormLabel>
-                            <FormDescription>
-                              Require your approval before staff can complete high-cost maintenance tasks
-                            </FormDescription>
-                          </div>
-                          <FormControl>
-                            <Switch
-                              checked={field.value}
-                              onCheckedChange={field.onChange}
-                            />
-                          </FormControl>
-                        </FormItem>
-                      )}
-                    />
+        <TabsContent value="balance">
+          <BalanceSummaryTab />
+        </TabsContent>
 
-                    <FormField
-                      control={preferencesForm.control}
-                      name="maintenanceAlerts"
-                      render={({ field }) => (
-                        <FormItem className="flex items-center justify-between">
-                          <div className="space-y-0.5">
-                            <FormLabel>Maintenance Alerts</FormLabel>
-                            <FormDescription>
-                              Get notified when maintenance issues are reported or completed
-                            </FormDescription>
-                          </div>
-                          <FormControl>
-                            <Switch
-                              checked={field.value}
-                              onCheckedChange={field.onChange}
-                            />
-                          </FormControl>
-                        </FormItem>
-                      )}
-                    />
+        <TabsContent value="suggestions">
+          <AiSuggestionsTab />
+        </TabsContent>
 
-                    <FormField
-                      control={preferencesForm.control}
-                      name="guestAddonNotifications"
-                      render={({ field }) => (
-                        <FormItem className="flex items-center justify-between">
-                          <div className="space-y-0.5">
-                            <FormLabel>Guest Add-on Notifications</FormLabel>
-                            <FormDescription>
-                              Receive updates when guests book additional services
-                            </FormDescription>
-                          </div>
-                          <FormControl>
-                            <Switch
-                              checked={field.value}
-                              onCheckedChange={field.onChange}
-                            />
-                          </FormControl>
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={preferencesForm.control}
-                      name="financialNotifications"
-                      render={({ field }) => (
-                        <FormItem className="flex items-center justify-between">
-                          <div className="space-y-0.5">
-                            <FormLabel>Financial Notifications</FormLabel>
-                            <FormDescription>
-                              Get notified about payments, payouts, and financial summaries
-                            </FormDescription>
-                          </div>
-                          <FormControl>
-                            <Switch
-                              checked={field.value}
-                              onCheckedChange={field.onChange}
-                            />
-                          </FormControl>
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={preferencesForm.control}
-                      name="weeklyReports"
-                      render={({ field }) => (
-                        <FormItem className="flex items-center justify-between">
-                          <div className="space-y-0.5">
-                            <FormLabel>Weekly Reports</FormLabel>
-                            <FormDescription>
-                              Receive weekly property performance and financial summaries
-                            </FormDescription>
-                          </div>
-                          <FormControl>
-                            <Switch
-                              checked={field.value}
-                              onCheckedChange={field.onChange}
-                            />
-                          </FormControl>
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-
-                  <div className="space-y-4">
-                    <FormField
-                      control={preferencesForm.control}
-                      name="preferredCurrency"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Preferred Currency</FormLabel>
-                          <Select onValueChange={field.onChange} defaultValue={field.value}>
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select currency" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              <SelectItem value="USD">USD - US Dollar</SelectItem>
-                              <SelectItem value="EUR">EUR - Euro</SelectItem>
-                              <SelectItem value="GBP">GBP - British Pound</SelectItem>
-                              <SelectItem value="CAD">CAD - Canadian Dollar</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={preferencesForm.control}
-                      name="notificationEmail"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Notification Email</FormLabel>
-                          <FormControl>
-                            <Input placeholder="your@email.com" {...field} />
-                          </FormControl>
-                          <FormDescription>
-                            Alternative email for important notifications (optional)
-                          </FormDescription>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-
-                  <Button type="submit" disabled={preferencesMutation.isPending}>
-                    {preferencesMutation.isPending ? "Saving..." : "Save Preferences"}
-                  </Button>
-                </form>
-              </Form>
-            </CardContent>
-          </Card>
+        <TabsContent value="timeline">
+          <TimelineTab />
         </TabsContent>
       </Tabs>
+
+      {/* Payout Request Dialog */}
+      <Dialog open={showPayoutDialog} onOpenChange={setShowPayoutDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Request Balance Payout</DialogTitle>
+            <DialogDescription>
+              Submit a payout request for your property balance. Your assigned PM will be notified.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="property">Property</Label>
+              <Select value={payoutRequest.propertyId} onValueChange={(value) => setPayoutRequest({...payoutRequest, propertyId: value})}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select property" />
+                </SelectTrigger>
+                <SelectContent>
+                  {balanceData?.propertyBalances?.map((property: any) => (
+                    <SelectItem key={property.propertyId} value={property.propertyId.toString()}>
+                      {property.propertyName} - {formatCurrency(property.currentBalance)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="amount">Amount</Label>
+              <Input
+                id="amount"
+                type="number"
+                step="0.01"
+                value={payoutRequest.amount}
+                onChange={(e) => setPayoutRequest({...payoutRequest, amount: e.target.value})}
+                placeholder="Enter amount"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="notes">Notes (optional)</Label>
+              <Textarea
+                id="notes"
+                value={payoutRequest.notes}
+                onChange={(e) => setPayoutRequest({...payoutRequest, notes: e.target.value})}
+                placeholder="Add any notes for the payout request..."
+                rows={3}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowPayoutDialog(false)}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={() => requestPayout.mutate(payoutRequest)}
+              disabled={requestPayout.isPending || !payoutRequest.propertyId || !payoutRequest.amount}
+            >
+              {requestPayout.isPending ? "Submitting..." : "Submit Request"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Finance Details Dialog */}
+      <Dialog open={showFinanceDialog} onOpenChange={setShowFinanceDialog}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Financial Details - {selectedPropertyBalance?.propertyName}</DialogTitle>
+            <DialogDescription>
+              Detailed breakdown of income, expenses, and transactions for this property.
+            </DialogDescription>
+          </DialogHeader>
+          
+          {selectedPropertyBalance && (
+            <div className="space-y-6">
+              {/* Summary Cards */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="p-4 bg-green-50 rounded-lg border">
+                  <h4 className="text-green-600 font-medium">Total Revenue</h4>
+                  <p className="text-2xl font-bold text-green-800">
+                    {formatCurrency(selectedPropertyBalance.totalRevenue)}
+                  </p>
+                </div>
+                <div className="p-4 bg-red-50 rounded-lg border">
+                  <h4 className="text-red-600 font-medium">Total Expenses</h4>
+                  <p className="text-2xl font-bold text-red-800">
+                    {formatCurrency(
+                      Object.values(selectedPropertyBalance.expenses).reduce((sum: number, val: any) => sum + val, 0)
+                    )}
+                  </p>
+                </div>
+                <div className="p-4 bg-blue-50 rounded-lg border">
+                  <h4 className="text-blue-600 font-medium">Current Balance</h4>
+                  <p className="text-2xl font-bold text-blue-800">
+                    {formatCurrency(selectedPropertyBalance.currentBalance)}
+                  </p>
+                </div>
+                <div className="p-4 bg-purple-50 rounded-lg border">
+                  <h4 className="text-purple-600 font-medium">Pending</h4>
+                  <p className="text-2xl font-bold text-purple-800">
+                    {formatCurrency(selectedPropertyBalance.pendingPayouts)}
+                  </p>
+                </div>
+              </div>
+
+              {/* Transaction Breakdown */}
+              <div>
+                <h4 className="font-semibold mb-4">Recent Transactions</h4>
+                <div className="space-y-2 max-h-64 overflow-y-auto">
+                  {selectedPropertyBalance.breakdown?.map((transaction: any, index: number) => (
+                    <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded">
+                      <div>
+                        <p className="font-medium">{transaction.description}</p>
+                        <p className="text-sm text-gray-600">
+                          {format(parseISO(transaction.date), 'MMM d, yyyy')} • {transaction.category}
+                        </p>
+                      </div>
+                      <div className={`font-semibold ${
+                        transaction.amount > 0 ? 'text-green-600' : 'text-red-600'
+                      }`}>
+                        {transaction.amount > 0 ? '+' : ''}{formatCurrency(transaction.amount)}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowFinanceDialog(false)}>
+              Close
+            </Button>
+            <Button>
+              <Download className="h-4 w-4 mr-2" />
+              Export Report
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
