@@ -5148,6 +5148,375 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ===== GUEST COMMUNICATION CENTER ROUTES =====
+  
+  // Get guest session information (public access for guests)
+  app.get("/api/guest-portal/session", async (req, res) => {
+    try {
+      // Mock guest session for demo
+      const guestSession = {
+        id: 1,
+        guestName: "John Smith",
+        guestEmail: "john.smith@email.com",
+        accessToken: "demo-guest-token",
+        isActive: true,
+        propertyId: 1,
+        currentBookingId: 1,
+        createdAt: new Date().toISOString(),
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() // 7 days
+      };
+      
+      res.json(guestSession);
+    } catch (error) {
+      console.error("Error fetching guest session:", error);
+      res.status(500).json({ message: "Failed to fetch guest session" });
+    }
+  });
+
+  // Get guest bookings (public access for guests)
+  app.get("/api/guest-portal/bookings", async (req, res) => {
+    try {
+      // Mock booking data
+      const bookings = [
+        {
+          id: 1,
+          propertyName: "Villa Paradise",
+          propertyId: 1,
+          checkIn: new Date().toISOString(),
+          checkOut: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+          guestCount: 4,
+          status: "confirmed",
+          totalAmount: 2100.00,
+          bookingReference: "VP2024001"
+        },
+        {
+          id: 2,
+          propertyName: "Beach House Retreat",
+          propertyId: 2,
+          checkIn: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+          checkOut: new Date(Date.now() + 37 * 24 * 60 * 60 * 1000).toISOString(),
+          guestCount: 6,
+          status: "upcoming",
+          totalAmount: 3200.00,
+          bookingReference: "BH2024002"
+        }
+      ];
+      
+      res.json(bookings);
+    } catch (error) {
+      console.error("Error fetching guest bookings:", error);
+      res.status(500).json({ message: "Failed to fetch bookings" });
+    }
+  });
+
+  // Get property information (public access for guests)
+  app.get("/api/guest-portal/property-info/:propertyId", async (req, res) => {
+    try {
+      const propertyId = parseInt(req.params.propertyId);
+      
+      // Mock property info
+      const propertyInfo = {
+        id: propertyId,
+        name: "Villa Paradise",
+        address: "123 Paradise Drive, Tropical Island",
+        amenities: [
+          "Private Pool",
+          "WiFi",
+          "Air Conditioning",
+          "Full Kitchen",
+          "Washer/Dryer",
+          "Parking",
+          "Beach Access",
+          "Garden"
+        ],
+        emergencyContacts: [
+          {
+            name: "Property Manager",
+            phone: "+1-555-123-4567",
+            type: "primary"
+          },
+          {
+            name: "Maintenance",
+            phone: "+1-555-987-6543",
+            type: "maintenance"
+          }
+        ],
+        houseRules: [
+          "Check-in: 3:00 PM",
+          "Check-out: 11:00 AM",
+          "No smoking inside",
+          "No pets allowed",
+          "Maximum 4 guests",
+          "Quiet hours: 10 PM - 8 AM"
+        ],
+        wifiPassword: "VillaParadise2024"
+      };
+      
+      res.json(propertyInfo);
+    } catch (error) {
+      console.error("Error fetching property info:", error);
+      res.status(500).json({ message: "Failed to fetch property information" });
+    }
+  });
+
+  // Get available addon services (public access for guests)
+  app.get("/api/guest-portal/addon-services", async (req, res) => {
+    try {
+      // Mock addon services
+      const services = [
+        {
+          id: 1,
+          name: "Private Chef Service",
+          description: "Professional chef will prepare a delicious meal for your group",
+          price: 150.00,
+          category: "dining",
+          duration: "3 hours",
+          isAvailable: true
+        },
+        {
+          id: 2,
+          name: "Massage Service",
+          description: "Relaxing massage service in the comfort of your villa",
+          price: 80.00,
+          category: "wellness",
+          duration: "1 hour",
+          isAvailable: true
+        },
+        {
+          id: 3,
+          name: "Extra Cleaning",
+          description: "Additional cleaning service during your stay",
+          price: 60.00,
+          category: "cleaning",
+          duration: "2 hours",
+          isAvailable: true
+        },
+        {
+          id: 4,
+          name: "Airport Transfer",
+          description: "Private transfer to/from the airport",
+          price: 45.00,
+          category: "transportation",
+          duration: "1 hour",
+          isAvailable: true
+        },
+        {
+          id: 5,
+          name: "Grocery Delivery",
+          description: "Pre-stock your villa with groceries before arrival",
+          price: 25.00,
+          category: "convenience",
+          duration: "30 minutes",
+          isAvailable: true
+        }
+      ];
+      
+      res.json(services);
+    } catch (error) {
+      console.error("Error fetching addon services:", error);
+      res.status(500).json({ message: "Failed to fetch addon services" });
+    }
+  });
+
+  // Get local attractions (public access for guests)
+  app.get("/api/guest-portal/local-attractions", async (req, res) => {
+    try {
+      // Mock local attractions
+      const attractions = [
+        {
+          id: 1,
+          name: "Paradise Beach",
+          description: "Beautiful white sand beach with crystal clear waters",
+          category: "beach",
+          distance: "0.2 miles",
+          rating: 4.8,
+          image: "/images/paradise-beach.jpg"
+        },
+        {
+          id: 2,
+          name: "Tropical Restaurant",
+          description: "Authentic local cuisine with ocean views",
+          category: "dining",
+          distance: "0.5 miles",
+          rating: 4.6,
+          image: "/images/tropical-restaurant.jpg"
+        },
+        {
+          id: 3,
+          name: "Island Tours",
+          description: "Guided tours around the island's highlights",
+          category: "tours",
+          distance: "1.0 mile",
+          rating: 4.9,
+          image: "/images/island-tours.jpg"
+        },
+        {
+          id: 4,
+          name: "Adventure Sports Center",
+          description: "Kayaking, snorkeling, and water sports rentals",
+          category: "activities",
+          distance: "1.2 miles",
+          rating: 4.7,
+          image: "/images/adventure-sports.jpg"
+        },
+        {
+          id: 5,
+          name: "Local Market",
+          description: "Fresh produce, local crafts, and souvenirs",
+          category: "shopping",
+          distance: "0.8 miles",
+          rating: 4.4,
+          image: "/images/local-market.jpg"
+        }
+      ];
+      
+      res.json(attractions);
+    } catch (error) {
+      console.error("Error fetching local attractions:", error);
+      res.status(500).json({ message: "Failed to fetch local attractions" });
+    }
+  });
+
+  // Report issue (public access for guests)
+  app.post("/api/guest-portal/report-issue", async (req, res) => {
+    try {
+      const { category, description, urgency, propertyId, location, images } = req.body;
+      
+      // Create issue report
+      const issueReport = {
+        id: Date.now(),
+        category,
+        description,
+        urgency,
+        propertyId,
+        location,
+        images: images || [],
+        status: "reported",
+        reportedBy: "John Smith",
+        reportedAt: new Date().toISOString()
+      };
+
+      // AI processing - automatically create task based on issue category
+      const autoTask = await processGuestIssueForAI(issueReport);
+      
+      // Send notification to property manager
+      await storage.createNotification({
+        organizationId: "demo-org",
+        userId: "demo-admin",
+        type: "issue_reported",
+        title: `Guest Issue Reported: ${category}`,
+        message: `${description} (Urgency: ${urgency})`,
+        priority: urgency === "urgent" ? "high" : "medium",
+        relatedEntityType: "property",
+        relatedEntityId: propertyId
+      });
+      
+      res.json({ 
+        issueReport, 
+        autoTask,
+        message: "Issue reported successfully. We'll address it promptly." 
+      });
+    } catch (error) {
+      console.error("Error reporting issue:", error);
+      res.status(500).json({ message: "Failed to report issue" });
+    }
+  });
+
+  // Service request (public access for guests)
+  app.post("/api/guest-portal/service-request", async (req, res) => {
+    try {
+      const { serviceType, description, preferredDate, preferredTime, specialRequests, propertyId } = req.body;
+      
+      // Create service request
+      const serviceRequest = {
+        id: Date.now(),
+        serviceType,
+        description,
+        preferredDate,
+        preferredTime,
+        specialRequests,
+        propertyId,
+        status: "requested",
+        requestedBy: "John Smith",
+        requestedAt: new Date().toISOString()
+      };
+
+      // Create notification for staff
+      await storage.createNotification({
+        organizationId: "demo-org",
+        userId: "demo-admin",
+        type: "service_requested",
+        title: `Service Request: ${serviceType}`,
+        message: `${description} - Preferred: ${preferredDate} at ${preferredTime}`,
+        priority: "medium",
+        relatedEntityType: "property",
+        relatedEntityId: propertyId
+      });
+      
+      res.json({ 
+        serviceRequest,
+        message: "Service request submitted successfully. We'll schedule it for you." 
+      });
+    } catch (error) {
+      console.error("Error submitting service request:", error);
+      res.status(500).json({ message: "Failed to submit service request" });
+    }
+  });
+
+  // Addon booking (public access for guests)
+  app.post("/api/guest-portal/addon-booking", async (req, res) => {
+    try {
+      const { serviceId, quantity, scheduledDate, scheduledTime, notes, propertyId } = req.body;
+      
+      // Get service details for price calculation
+      const services = [
+        { id: 1, price: 150.00 },
+        { id: 2, price: 80.00 },
+        { id: 3, price: 60.00 },
+        { id: 4, price: 45.00 },
+        { id: 5, price: 25.00 }
+      ];
+      
+      const service = services.find(s => s.id === serviceId);
+      const totalAmount = service ? service.price * quantity : 0;
+      
+      // Create addon booking
+      const addonBooking = {
+        id: Date.now(),
+        serviceId,
+        quantity,
+        scheduledDate,
+        scheduledTime,
+        notes,
+        propertyId,
+        status: "booked",
+        bookedBy: "John Smith",
+        bookedAt: new Date().toISOString(),
+        totalAmount
+      };
+
+      // Create notification for staff
+      await storage.createNotification({
+        organizationId: "demo-org",
+        userId: "demo-admin",
+        type: "addon_booked",
+        title: `Addon Service Booked`,
+        message: `Service ID ${serviceId} booked for ${scheduledDate} at ${scheduledTime}`,
+        priority: "medium",
+        relatedEntityType: "property",
+        relatedEntityId: propertyId
+      });
+      
+      res.json({ 
+        addonBooking,
+        message: "Service booked successfully!" 
+      });
+    } catch (error) {
+      console.error("Error booking addon service:", error);
+      res.status(500).json({ message: "Failed to book service" });
+    }
+  });
+
   app.get("/api/guest-portal/notifications/unread-count", isDemoAuthenticated, async (req: any, res) => {
     try {
       const { id: userId } = req.user;
@@ -12128,4 +12497,91 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   const httpServer = createServer(app);
   return httpServer;
+}
+
+// ===== AI PROCESSING HELPER FUNCTIONS =====
+
+// AI processing function for guest issue reports
+async function processGuestIssueForAI(issueReport: any) {
+  try {
+    const { category, description, urgency } = issueReport;
+    
+    // Keyword-based AI simulation for auto-task creation
+    const keywords = {
+      maintenance: ['broken', 'not working', 'repair', 'fix', 'damaged'],
+      cleaning: ['dirty', 'stain', 'clean', 'messy', 'smell'],
+      pool: ['pool', 'chlorine', 'water', 'filter', 'pump'],
+      ac: ['ac', 'air conditioning', 'hot', 'cold', 'temperature'],
+      wifi: ['wifi', 'internet', 'connection', 'network']
+    };
+    
+    const lowerDescription = description.toLowerCase();
+    let matchedCategory = category;
+    let confidence = 0.7;
+    
+    // Check for keyword matches to improve category assignment
+    for (const [cat, catKeywords] of Object.entries(keywords)) {
+      const matches = catKeywords.filter(keyword => lowerDescription.includes(keyword));
+      if (matches.length > 0) {
+        matchedCategory = cat;
+        confidence = Math.min(0.95, 0.7 + (matches.length * 0.1));
+        break;
+      }
+    }
+    
+    // Determine department assignment
+    const departmentMap = {
+      maintenance: 'maintenance',
+      cleaning: 'cleaning',
+      pool: 'pool',
+      ac: 'maintenance',
+      wifi: 'maintenance',
+      amenities: 'maintenance'
+    };
+    
+    const department = departmentMap[matchedCategory] || 'general';
+    
+    // Create auto-task if confidence is high enough
+    if (confidence >= 0.75) {
+      const autoTask = {
+        id: Date.now(),
+        title: `Guest Issue: ${category}`,
+        description: `Auto-generated from guest report: ${description}`,
+        category: matchedCategory,
+        department,
+        priority: urgency === 'urgent' ? 'high' : urgency === 'high' ? 'medium' : 'low',
+        status: 'pending',
+        assignedTo: 'auto-assignment',
+        source: 'guest_ai_processing',
+        confidence,
+        createdAt: new Date().toISOString()
+      };
+      
+      return {
+        taskCreated: true,
+        task: autoTask,
+        confidence,
+        matchedCategory,
+        department,
+        aiProcessingTime: 150 // milliseconds
+      };
+    }
+    
+    return {
+      taskCreated: false,
+      confidence,
+      matchedCategory,
+      department,
+      reason: 'Confidence too low for auto-task creation',
+      aiProcessingTime: 100
+    };
+    
+  } catch (error) {
+    console.error('AI processing error:', error);
+    return {
+      taskCreated: false,
+      error: 'AI processing failed',
+      aiProcessingTime: 50
+    };
+  }
 }

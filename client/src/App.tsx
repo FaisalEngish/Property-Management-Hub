@@ -62,6 +62,7 @@ import StaffOverhoursTracker from "@/pages/StaffOverhoursTracker";
 import StaffClockinOvertime from "@/pages/StaffClockinOvertime";
 import MaintenanceSuggestionsApproval from "@/pages/MaintenanceSuggestionsApproval";
 import StaffSalaryOvertimeTracker from "@/pages/StaffSalaryOvertimeTracker";
+import GuestCommunicationCenter from "@/pages/GuestCommunicationCenter";
 
 function Router() {
   const { isAuthenticated, isLoading, user } = useAuth();
@@ -104,6 +105,7 @@ function Router() {
     <Switch>
       {/* Guest Portal - Public Route */}
       <Route path="/guest-portal" component={GuestPortal} />
+      <Route path="/guest-communication-center" component={GuestCommunicationCenter} />
       
       {isLoading || !isAuthenticated ? (
         <Route path="/" component={Landing} />
