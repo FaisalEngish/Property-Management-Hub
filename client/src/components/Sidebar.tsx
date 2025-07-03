@@ -35,7 +35,8 @@ import {
   Brain,
   RefreshCw,
   ClipboardList,
-  Plus
+  Plus,
+  MessageSquare
 } from "lucide-react";
 
 // Define navigation modules with hierarchical structure
@@ -169,6 +170,13 @@ const navigationModules = [
         label: "Services", 
         roles: ["admin", "portfolio-manager", "owner", "staff"],
         description: "Add-on services and utilities"
+      },
+      { 
+        path: "/guest-portal", 
+        icon: MessageSquare, 
+        label: "AI Guest Portal", 
+        roles: ["admin", "portfolio-manager", "staff"],
+        description: "Smart communication center with AI-powered task automation"
       },
       { 
         path: "/guest-addon-services", 

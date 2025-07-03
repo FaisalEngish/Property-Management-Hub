@@ -1,0 +1,63 @@
+### MODULE: AI Guest Portal + Smart Communication Center
+
+🛎️ Guest Dashboard Features:
+- Booking overview (past, current, upcoming)
+- Live calendar with:
+  • Scheduled cleanings
+  • Maintenance visits
+  • Check-in/out time
+- Service request buttons:
+  • Book massage, taxi, chef, cleaning
+  • Request extra amenities
+  • Report an issue (AC, pool, etc.)
+- Map with:
+  • Recommended beaches
+  • Top restaurants
+  • Tour offers (via connected Siam Discoveries or similar)
+- AI-generated tips based on weather, group type (family/couple), and duration of stay
+
+💬 Communication System:
+- Guests can send:
+  • Chat-style messages
+  • Requests (automated into tasks)
+  • Feedback/comments
+- AI Assistant:
+  • Reads messages for keywords (e.g. “pool dirty”, “AC broken”)
+  • Auto-creates tasks and assigns to proper department
+  • Tags messages for priority if guest expresses urgency
+- Manager + relevant staff receive:
+  • Instant task notification
+  • Priority highlight in dashboard
+
+🔔 Notifications:
+- Manager/supervisor/staff receive automated alerts:
+  • For AI-triggered issues
+  • For bookings with >3-night stays → suggest mid-stay clean
+  • When guest selects a service
+- Tasks are created and tagged as "guest-request" or "AI-priority"
+
+🔗 Service Tracking & Expense Routing:
+- When guest books an add-on (e.g. chef, extra clean):
+  • Price is known by system
+  • Manager can label it:
+    ◦ Charged to guest
+    ◦ Owner-sponsored
+    ◦ Company-sponsored
+  • Payment goes to guest balance (or owner, depending on config)
+
+🤖 Smart Suggestions:
+- AI reads reviews to suggest:
+  • Extra services to offer for future guests
+  • Maintenance improvements
+- Suggestions sent to Portfolio Manager + Admin
+
+📲 Optional:
+- In-app chat also forwards to WhatsApp or Email for better reach
+- Guest “Assistant Chatbot” helps answer common questions and recommends services
+
+Benefits:
+✔️ No more lost requests in WhatsApp threads  
+✔️ Instant AI task creation = faster resolution  
+✔️ Upsell add-ons while keeping guest experience premium  
+✔️ Staff always alerted on real problems, automatically  
+✔️ Clear logs for all communications

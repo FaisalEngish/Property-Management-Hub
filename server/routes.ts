@@ -4384,6 +4384,796 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ===== AI GUEST PORTAL & SMART COMMUNICATION CENTER API ENDPOINTS =====
+
+  // Guest Message Management
+  app.get("/api/guest-portal/messages", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId } = req.user;
+      const { propertyId, guestId, messageType, priority, status } = req.query;
+
+      const filters = {
+        propertyId,
+        guestId,
+        messageType,
+        priority,
+        status,
+      };
+
+      const messages = await storage.getGuestMessages(organizationId, filters);
+      res.json(messages);
+    } catch (error) {
+      console.error("Error fetching guest messages:", error);
+      res.status(500).json({ message: "Failed to fetch guest messages" });
+    }
+  });
+
+  app.post("/api/guest-portal/messages", async (req: any, res) => {
+    try {
+      const messageData = {
+        ...req.body,
+        organizationId: req.body.organizationId || "default-org",
+        guestId: req.body.guestId || `guest-${Date.now()}`,
+      };
+
+      const message = await storage.createGuestMessage(messageData);
+      
+      // Simulate AI processing and possibly create task
+      if (message.aiKeywords && message.aiKeywords.length > 0) {
+        await storage.generateTaskFromMessage(message.id, message, {
+          keywords: message.aiKeywords,
+          confidence: parseFloat(message.aiConfidence),
+          priority: message.priority,
+        });
+      }
+
+      res.status(201).json(message);
+    } catch (error) {
+      console.error("Error creating guest message:", error);
+      res.status(500).json({ message: "Failed to create guest message" });
+    }
+  });
+
+  app.patch("/api/guest-portal/messages/:id/respond", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const { response } = req.body;
+      const { id: userId } = req.user;
+
+      const message = await storage.respondToGuestMessage(parseInt(id), response, userId);
+      res.json(message);
+    } catch (error) {
+      console.error("Error responding to guest message:", error);
+      res.status(500).json({ message: "Failed to respond to guest message" });
+    }
+  });
+
+  // AI-Generated Task Management
+  app.get("/api/guest-portal/ai-tasks", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId } = req.user;
+      const { department, status, urgency, assignedTo } = req.query;
+
+      const filters = {
+        department,
+        status,
+        urgency,
+        assignedTo,
+      };
+
+      const tasks = await storage.getAiGeneratedTasks(organizationId, filters);
+      res.json(tasks);
+    } catch (error) {
+      console.error("Error fetching AI-generated tasks:", error);
+      res.status(500).json({ message: "Failed to fetch AI-generated tasks" });
+    }
+  });
+
+  app.patch("/api/guest-portal/ai-tasks/:id/approve", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const { id: userId } = req.user;
+
+      const task = await storage.approveAiTask(parseInt(id), userId);
+      res.json(task);
+    } catch (error) {
+      console.error("Error approving AI task:", error);
+      res.status(500).json({ message: "Failed to approve AI task" });
+    }
+  });
+
+  app.patch("/api/guest-portal/ai-tasks/:id/reject", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const { id: userId } = req.user;
+
+      const task = await storage.rejectAiTask(parseInt(id), userId);
+      res.json(task);
+    } catch (error) {
+      console.error("Error rejecting AI task:", error);
+      res.status(500).json({ message: "Failed to reject AI task" });
+    }
+  });
+
+  // Guest Service Request Management
+  app.get("/api/guest-portal/service-requests", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId } = req.user;
+      const { propertyId, guestId, serviceType, status } = req.query;
+
+      const filters = {
+        propertyId,
+        guestId,
+        serviceType,
+        status,
+      };
+
+      const serviceRequests = await storage.getGuestServiceRequests(organizationId, filters);
+      res.json(serviceRequests);
+    } catch (error) {
+      console.error("Error fetching guest service requests:", error);
+      res.status(500).json({ message: "Failed to fetch guest service requests" });
+    }
+  });
+
+  app.post("/api/guest-portal/service-requests", async (req: any, res) => {
+    try {
+      const requestData = {
+        ...req.body,
+        organizationId: req.body.organizationId || "default-org",
+        guestId: req.body.guestId || `guest-${Date.now()}`,
+      };
+
+      const serviceRequest = await storage.createGuestServiceRequest(requestData);
+      res.status(201).json(serviceRequest);
+    } catch (error) {
+      console.error("Error creating guest service request:", error);
+      res.status(500).json({ message: "Failed to create guest service request" });
+    }
+  });
+
+  app.patch("/api/guest-portal/service-requests/:id/confirm", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const { id: userId } = req.user;
+
+      const serviceRequest = await storage.confirmServiceRequest(parseInt(id), userId);
+      res.json(serviceRequest);
+    } catch (error) {
+      console.error("Error confirming service request:", error);
+      res.status(500).json({ message: "Failed to confirm service request" });
+    }
+  });
+
+  app.patch("/api/guest-portal/service-requests/:id/complete", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const { guestRating, guestFeedback } = req.body;
+
+      const serviceRequest = await storage.completeServiceRequest(parseInt(id), guestRating, guestFeedback);
+      res.json(serviceRequest);
+    } catch (error) {
+      console.error("Error completing service request:", error);
+      res.status(500).json({ message: "Failed to complete service request" });
+    }
+  });
+
+  // AI Smart Suggestions Management
+  app.get("/api/guest-portal/ai-suggestions", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId } = req.user;
+      const { suggestionType, targetAudience, status, priority } = req.query;
+
+      const filters = {
+        suggestionType,
+        targetAudience,
+        status,
+        priority,
+      };
+
+      const suggestions = await storage.getAiSmartSuggestions(organizationId, filters);
+      res.json(suggestions);
+    } catch (error) {
+      console.error("Error fetching AI smart suggestions:", error);
+      res.status(500).json({ message: "Failed to fetch AI smart suggestions" });
+    }
+  });
+
+  app.post("/api/guest-portal/ai-suggestions", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: userId } = req.user;
+
+      const suggestionData = {
+        ...req.body,
+        organizationId,
+      };
+
+      const suggestion = await storage.createAiSmartSuggestion(suggestionData);
+      res.status(201).json(suggestion);
+    } catch (error) {
+      console.error("Error creating AI smart suggestion:", error);
+      res.status(500).json({ message: "Failed to create AI smart suggestion" });
+    }
+  });
+
+  app.patch("/api/guest-portal/ai-suggestions/:id/review", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const { status, notes } = req.body;
+      const { id: userId } = req.user;
+
+      const suggestion = await storage.reviewAiSuggestion(parseInt(id), userId, status, notes);
+      res.json(suggestion);
+    } catch (error) {
+      console.error("Error reviewing AI suggestion:", error);
+      res.status(500).json({ message: "Failed to review AI suggestion" });
+    }
+  });
+
+  app.patch("/api/guest-portal/ai-suggestions/:id/implement", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+
+      const suggestion = await storage.implementAiSuggestion(parseInt(id));
+      res.json(suggestion);
+    } catch (error) {
+      console.error("Error implementing AI suggestion:", error);
+      res.status(500).json({ message: "Failed to implement AI suggestion" });
+    }
+  });
+
+  // Guest Portal Settings Management
+  app.get("/api/guest-portal/settings", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId } = req.user;
+      const { propertyId } = req.query;
+
+      const settings = await storage.getGuestPortalSettings(organizationId, propertyId ? parseInt(propertyId) : undefined);
+      res.json(settings);
+    } catch (error) {
+      console.error("Error fetching guest portal settings:", error);
+      res.status(500).json({ message: "Failed to fetch guest portal settings" });
+    }
+  });
+
+  app.put("/api/guest-portal/settings", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role } = req.user;
+      
+      if (!['admin', 'portfolio-manager'].includes(role)) {
+        return res.status(403).json({ message: "Admin or PM access required" });
+      }
+
+      const settings = await storage.updateGuestPortalSettings(organizationId, req.body);
+      res.json(settings);
+    } catch (error) {
+      console.error("Error updating guest portal settings:", error);
+      res.status(500).json({ message: "Failed to update guest portal settings" });
+    }
+  });
+
+  // Guest Dashboard Analytics
+  app.get("/api/guest-portal/analytics", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId } = req.user;
+      const { month, propertyId } = req.query;
+
+      const analytics = await storage.getGuestDashboardAnalytics(
+        organizationId,
+        month as string,
+        propertyId ? parseInt(propertyId) : undefined
+      );
+      res.json(analytics);
+    } catch (error) {
+      console.error("Error fetching guest dashboard analytics:", error);
+      res.status(500).json({ message: "Failed to fetch guest dashboard analytics" });
+    }
+  });
+
+  app.post("/api/guest-portal/analytics/update", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role } = req.user;
+      const { month, propertyId } = req.body;
+      
+      if (!['admin', 'portfolio-manager'].includes(role)) {
+        return res.status(403).json({ message: "Admin or PM access required" });
+      }
+
+      const analytics = await storage.updateGuestDashboardAnalytics(organizationId, month, propertyId);
+      res.json(analytics);
+    } catch (error) {
+      console.error("Error updating guest dashboard analytics:", error);
+      res.status(500).json({ message: "Failed to update guest dashboard analytics" });
+    }
+  });
+
+  // Guest Communication Notifications
+  app.get("/api/guest-portal/notifications", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { id: userId } = req.user;
+      const { notificationType, isRead } = req.query;
+
+      const filters = {
+        notificationType,
+        isRead: isRead !== undefined ? isRead === 'true' : undefined,
+      };
+
+      const notifications = await storage.getGuestCommunicationNotifications(userId, filters);
+      res.json(notifications);
+    } catch (error) {
+      console.error("Error fetching guest communication notifications:", error);
+      res.status(500).json({ message: "Failed to fetch guest communication notifications" });
+    }
+  });
+
+  app.patch("/api/guest-portal/notifications/:id/read", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+
+      const notification = await storage.markNotificationAsRead(parseInt(id));
+      res.json(notification);
+    } catch (error) {
+      console.error("Error marking notification as read:", error);
+      res.status(500).json({ message: "Failed to mark notification as read" });
+    }
+  });
+
+  app.get("/api/guest-portal/notifications/unread-count", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { id: userId } = req.user;
+
+      const count = await storage.getUnreadNotificationCount(userId);
+      res.json({ count });
+    } catch (error) {
+      console.error("Error fetching unread notification count:", error);
+      res.status(500).json({ message: "Failed to fetch unread notification count" });
+    }
+  });
+
+  // ===== STAFF SALARY, OVERTIME & INVOICE GENERATOR API ENDPOINTS =====
+
+  // Staff Salary Profile Management
+  app.get("/api/staff-salary/profiles", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId } = req.user;
+      const profiles = await storage.getStaffSalaryProfiles(organizationId);
+      res.json(profiles);
+    } catch (error) {
+      console.error("Error fetching staff salary profiles:", error);
+      res.status(500).json({ message: "Failed to fetch staff salary profiles" });
+    }
+  });
+
+  app.get("/api/staff-salary/profiles/:userId", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { userId } = req.params;
+      const profile = await storage.getStaffSalaryProfile(userId);
+      if (!profile) {
+        return res.status(404).json({ message: "Staff salary profile not found" });
+      }
+      res.json(profile);
+    } catch (error) {
+      console.error("Error fetching staff salary profile:", error);
+      res.status(500).json({ message: "Failed to fetch staff salary profile" });
+    }
+  });
+
+  app.post("/api/staff-salary/profiles", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role } = req.user;
+      
+      if (role !== 'admin') {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const profileData = {
+        ...req.body,
+        organizationId,
+      };
+
+      const profile = await storage.createStaffSalaryProfile(profileData);
+      res.status(201).json(profile);
+    } catch (error) {
+      console.error("Error creating staff salary profile:", error);
+      res.status(500).json({ message: "Failed to create staff salary profile" });
+    }
+  });
+
+  app.put("/api/staff-salary/profiles/:userId", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { role } = req.user;
+      const { userId } = req.params;
+      
+      if (role !== 'admin') {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const profile = await storage.updateStaffSalaryProfile(userId, req.body);
+      if (!profile) {
+        return res.status(404).json({ message: "Staff salary profile not found" });
+      }
+      res.json(profile);
+    } catch (error) {
+      console.error("Error updating staff salary profile:", error);
+      res.status(500).json({ message: "Failed to update staff salary profile" });
+    }
+  });
+
+  // Staff Commission & Bonus Log
+  app.get("/api/staff-salary/commissions", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role, id: userId } = req.user;
+      const { targetUserId, month, status } = req.query;
+
+      const filters = {
+        userId: role === 'admin' ? targetUserId : userId,
+        month: month as string,
+        status: status as string,
+      };
+
+      const commissions = await storage.getStaffCommissionLog(organizationId, filters);
+      res.json(commissions);
+    } catch (error) {
+      console.error("Error fetching staff commission log:", error);
+      res.status(500).json({ message: "Failed to fetch staff commission log" });
+    }
+  });
+
+  app.post("/api/staff-salary/commissions", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role } = req.user;
+      
+      if (!['admin', 'portfolio-manager'].includes(role)) {
+        return res.status(403).json({ message: "Admin or PM access required" });
+      }
+
+      const commissionData = {
+        ...req.body,
+        organizationId,
+      };
+
+      const commission = await storage.createStaffCommissionLog(commissionData);
+      res.status(201).json(commission);
+    } catch (error) {
+      console.error("Error creating staff commission log:", error);
+      res.status(500).json({ message: "Failed to create staff commission log" });
+    }
+  });
+
+  app.patch("/api/staff-salary/commissions/:id/status", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { role, id: userId } = req.user;
+      const { id } = req.params;
+      const { status } = req.body;
+      
+      if (role !== 'admin') {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const commission = await storage.updateStaffCommissionStatus(parseInt(id), status, userId);
+      if (!commission) {
+        return res.status(404).json({ message: "Commission log not found" });
+      }
+      res.json(commission);
+    } catch (error) {
+      console.error("Error updating commission status:", error);
+      res.status(500).json({ message: "Failed to update commission status" });
+    }
+  });
+
+  // Emergency Clock-In System
+  app.get("/api/staff-salary/time-clocks", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role, id: userId } = req.user;
+      const { targetUserId, clockType, month } = req.query;
+
+      const filters = {
+        userId: role === 'admin' ? targetUserId : userId,
+        clockType: clockType as string,
+        month: month as string,
+      };
+
+      const timeClocks = await storage.getStaffTimeClocks(organizationId, filters);
+      res.json(timeClocks);
+    } catch (error) {
+      console.error("Error fetching staff time clocks:", error);
+      res.status(500).json({ message: "Failed to fetch staff time clocks" });
+    }
+  });
+
+  app.post("/api/staff-salary/time-clocks", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: userId } = req.user;
+
+      const timeClockData = {
+        ...req.body,
+        organizationId,
+        userId,
+        clockTime: new Date(),
+      };
+
+      const timeClock = await storage.createStaffTimeClock(timeClockData);
+      res.status(201).json(timeClock);
+    } catch (error) {
+      console.error("Error creating staff time clock:", error);
+      res.status(500).json({ message: "Failed to create staff time clock" });
+    }
+  });
+
+  app.patch("/api/staff-salary/time-clocks/:id", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const timeClock = await storage.updateStaffTimeClock(parseInt(id), req.body);
+      if (!timeClock) {
+        return res.status(404).json({ message: "Time clock not found" });
+      }
+      res.json(timeClock);
+    } catch (error) {
+      console.error("Error updating staff time clock:", error);
+      res.status(500).json({ message: "Failed to update staff time clock" });
+    }
+  });
+
+  app.patch("/api/staff-salary/time-clocks/:id/approve", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { role, id: userId } = req.user;
+      const { id } = req.params;
+      const { hoursPaid, notes } = req.body;
+      
+      if (!['admin', 'portfolio-manager'].includes(role)) {
+        return res.status(403).json({ message: "Admin or PM access required" });
+      }
+
+      const timeClock = await storage.approveTimeClock(parseInt(id), userId, parseFloat(hoursPaid), notes);
+      if (!timeClock) {
+        return res.status(404).json({ message: "Time clock not found" });
+      }
+      res.json(timeClock);
+    } catch (error) {
+      console.error("Error approving time clock:", error);
+      res.status(500).json({ message: "Failed to approve time clock" });
+    }
+  });
+
+  // Emergency Callout Summary
+  app.get("/api/staff-salary/emergency-summary", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId } = req.user;
+      const { month } = req.query;
+      const summary = await storage.getEmergencyCalloutSummary(organizationId, month as string);
+      res.json(summary);
+    } catch (error) {
+      console.error("Error fetching emergency callout summary:", error);
+      res.status(500).json({ message: "Failed to fetch emergency callout summary" });
+    }
+  });
+
+  app.post("/api/staff-salary/emergency-summary/:userId", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { role } = req.user;
+      const { userId } = req.params;
+      const { month } = req.body;
+      
+      if (role !== 'admin') {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const summary = await storage.updateEmergencyCalloutSummary(userId, month);
+      res.json(summary);
+    } catch (error) {
+      console.error("Error updating emergency callout summary:", error);
+      res.status(500).json({ message: "Failed to update emergency callout summary" });
+    }
+  });
+
+  // ===== INVOICE GENERATOR API ENDPOINTS =====
+
+  // Invoice Operations
+  app.get("/api/invoices", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role, id: userId } = req.user;
+      const { fromPartyId, toPartyId, status } = req.query;
+
+      const filters = {
+        fromPartyId: role === 'admin' ? fromPartyId : userId,
+        toPartyId: toPartyId as string,
+        status: status as string,
+      };
+
+      const invoices = await storage.getInvoices(organizationId, filters);
+      res.json(invoices);
+    } catch (error) {
+      console.error("Error fetching invoices:", error);
+      res.status(500).json({ message: "Failed to fetch invoices" });
+    }
+  });
+
+  app.get("/api/invoices/:id", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const invoice = await storage.getInvoice(parseInt(id));
+      if (!invoice) {
+        return res.status(404).json({ message: "Invoice not found" });
+      }
+      res.json(invoice);
+    } catch (error) {
+      console.error("Error fetching invoice:", error);
+      res.status(500).json({ message: "Failed to fetch invoice" });
+    }
+  });
+
+  app.post("/api/invoices", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: userId } = req.user;
+
+      const invoiceData = {
+        ...req.body,
+        organizationId,
+        createdBy: userId,
+      };
+
+      const invoice = await storage.createInvoice(invoiceData);
+      res.status(201).json(invoice);
+    } catch (error) {
+      console.error("Error creating invoice:", error);
+      res.status(500).json({ message: "Failed to create invoice" });
+    }
+  });
+
+  app.put("/api/invoices/:id", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const invoice = await storage.updateInvoice(parseInt(id), req.body);
+      if (!invoice) {
+        return res.status(404).json({ message: "Invoice not found" });
+      }
+      res.json(invoice);
+    } catch (error) {
+      console.error("Error updating invoice:", error);
+      res.status(500).json({ message: "Failed to update invoice" });
+    }
+  });
+
+  app.delete("/api/invoices/:id", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const success = await storage.deleteInvoice(parseInt(id));
+      if (!success) {
+        return res.status(404).json({ message: "Invoice not found" });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting invoice:", error);
+      res.status(500).json({ message: "Failed to delete invoice" });
+    }
+  });
+
+  // Invoice Line Items
+  app.get("/api/invoices/:invoiceId/line-items", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { invoiceId } = req.params;
+      const lineItems = await storage.getInvoiceLineItems(parseInt(invoiceId));
+      res.json(lineItems);
+    } catch (error) {
+      console.error("Error fetching invoice line items:", error);
+      res.status(500).json({ message: "Failed to fetch invoice line items" });
+    }
+  });
+
+  app.post("/api/invoices/:invoiceId/line-items", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId } = req.user;
+      const { invoiceId } = req.params;
+
+      const lineItemData = {
+        ...req.body,
+        organizationId,
+        invoiceId: parseInt(invoiceId),
+      };
+
+      const lineItem = await storage.createInvoiceLineItem(lineItemData);
+      res.status(201).json(lineItem);
+    } catch (error) {
+      console.error("Error creating invoice line item:", error);
+      res.status(500).json({ message: "Failed to create invoice line item" });
+    }
+  });
+
+  app.put("/api/invoices/line-items/:id", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const lineItem = await storage.updateInvoiceLineItem(parseInt(id), req.body);
+      if (!lineItem) {
+        return res.status(404).json({ message: "Invoice line item not found" });
+      }
+      res.json(lineItem);
+    } catch (error) {
+      console.error("Error updating invoice line item:", error);
+      res.status(500).json({ message: "Failed to update invoice line item" });
+    }
+  });
+
+  app.delete("/api/invoices/line-items/:id", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const success = await storage.deleteInvoiceLineItem(parseInt(id));
+      if (!success) {
+        return res.status(404).json({ message: "Invoice line item not found" });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting invoice line item:", error);
+      res.status(500).json({ message: "Failed to delete invoice line item" });
+    }
+  });
+
+  // Invoice Payments
+  app.get("/api/invoices/:invoiceId/payments", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { invoiceId } = req.params;
+      const payments = await storage.getInvoicePayments(parseInt(invoiceId));
+      res.json(payments);
+    } catch (error) {
+      console.error("Error fetching invoice payments:", error);
+      res.status(500).json({ message: "Failed to fetch invoice payments" });
+    }
+  });
+
+  app.post("/api/invoices/:invoiceId/payments", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: userId } = req.user;
+      const { invoiceId } = req.params;
+
+      const paymentData = {
+        ...req.body,
+        organizationId,
+        invoiceId: parseInt(invoiceId),
+        recordedBy: userId,
+      };
+
+      const payment = await storage.createInvoicePayment(paymentData);
+      res.status(201).json(payment);
+    } catch (error) {
+      console.error("Error creating invoice payment:", error);
+      res.status(500).json({ message: "Failed to create invoice payment" });
+    }
+  });
+
+  // Salary Analytics
+  app.get("/api/staff-salary/analytics", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role } = req.user;
+      const { month } = req.query;
+      
+      if (role !== 'admin') {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const analytics = await storage.getSalaryAnalytics(organizationId, month as string);
+      res.json(analytics);
+    } catch (error) {
+      console.error("Error fetching salary analytics:", error);
+      res.status(500).json({ message: "Failed to fetch salary analytics" });
+    }
+  });
+
+  app.post("/api/staff-salary/analytics/:month", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role } = req.user;
+      const { month } = req.params;
+      
+      if (role !== 'admin') {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const analytics = await storage.updateSalaryAnalytics(organizationId, month);
+      res.json(analytics);
+    } catch (error) {
+      console.error("Error updating salary analytics:", error);
+      res.status(500).json({ message: "Failed to update salary analytics" });
+    }
+  });
+
   // ===== PORTFOLIO MANAGER COMMISSION ACCESS =====
 
   // PM Commission Overview (PM Access)

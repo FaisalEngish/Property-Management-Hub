@@ -47,30 +47,30 @@ import {
   propertyPlatformRules,
   bookingPlatformRouting,
   routingAuditLog,
-  propertyMediaFiles,
-  mediaFolders,
-  agentMediaAccess,
-  propertyMediaSettings,
-  mediaUsageAnalytics,
-  aiMediaSuggestions,
-  inventoryCategories,
-  inventoryItems,
-  propertyWelcomePackConfigs,
-  inventoryUsageLogs,
-  inventoryUsageItems,
-  inventoryStockLevels,
-  welcomePackBillingSummaries,
-  taskCompletionPhotos,
-  taskCompletionNotes,
-  taskCompletionExpenses,
-  taskApprovals,
-  taskPdfArchives,
-  taskArchiveStatus,
-  taskAttachments,
-  propertyNotes,
-  propertyAttachments,
-  taskGuideTemplates,
-  attachmentAccessLogs,
+  // propertyMediaFiles,
+  // mediaFolders,
+  // agentMediaAccess,
+  // propertyMediaSettings,
+  // mediaUsageAnalytics,
+  // aiMediaSuggestions,
+  // inventoryCategories,
+  // inventoryItems,
+  // propertyWelcomePackConfigs,
+  // inventoryUsageLogs,
+  // inventoryUsageItems,
+  // inventoryStockLevels,
+  // welcomePackBillingSummaries,
+  // taskCompletionPhotos,
+  // taskCompletionNotes,
+  // taskCompletionExpenses,
+  // taskApprovals,
+  // taskPdfArchives,
+  // taskArchiveStatus,
+  // taskAttachments,
+  // propertyNotes,
+  // propertyAttachments,
+  // taskGuideTemplates,
+  // attachmentAccessLogs,
   type User,
   type UpsertUser,
   type Property,
@@ -112,7 +112,7 @@ import {
   staffSalaries,
   commissionEarnings,
   invoices,
-  invoiceLineItems,
+  // invoiceLineItems,
   portfolioAssignments,
   type StaffSalary,
   type InsertStaffSalary,
@@ -167,14 +167,14 @@ import {
   type InsertGuestPortalAccess,
   propertyMedia,
   propertyInternalNotes,
-  agentMediaAccess,
+  // agentMediaAccess,
   type PropertyMedia,
   type InsertPropertyMedia,
   type PropertyInternalNotes,
   type InsertPropertyInternalNotes,
-  type AgentMediaAccess,
-  type InsertAgentMediaAccess,
-  agentPayouts,
+  // type AgentMediaAccess,
+  // type InsertAgentMediaAccess,
+  // agentPayouts,
   type AgentPayout,
   type InsertAgentPayout,
   staffPayrollRecords,
@@ -633,6 +633,49 @@ export interface IStorage {
   getServiceAvailability(serviceId: number): Promise<any[]>;
   createServiceAvailability(availability: any): Promise<any>;
   updateServiceAvailability(id: number, updates: any): Promise<any | undefined>;
+
+  // Staff Salary & Overtime Management
+  // Staff salary profiles
+  getStaffSalaryProfiles(organizationId: string): Promise<any[]>;
+  getStaffSalaryProfile(userId: string): Promise<any | undefined>;
+  createStaffSalaryProfile(profile: any): Promise<any>;
+  updateStaffSalaryProfile(userId: string, updates: any): Promise<any | undefined>;
+  
+  // Staff commission & bonus log
+  getStaffCommissionLog(organizationId: string, filters?: { userId?: string; month?: string; status?: string }): Promise<any[]>;
+  createStaffCommissionLog(commission: any): Promise<any>;
+  updateStaffCommissionStatus(id: number, status: string, approvedBy?: string): Promise<any | undefined>;
+  
+  // Emergency clock-in system
+  getStaffTimeClocks(organizationId: string, filters?: { userId?: string; clockType?: string; month?: string }): Promise<any[]>;
+  createStaffTimeClock(timeClock: any): Promise<any>;
+  updateStaffTimeClock(id: number, updates: any): Promise<any | undefined>;
+  approveTimeClock(id: number, approvedBy: string, hoursPaid: number, notes?: string): Promise<any | undefined>;
+  
+  // Emergency callout summary
+  getEmergencyCalloutSummary(organizationId: string, month?: string): Promise<any[]>;
+  updateEmergencyCalloutSummary(userId: string, month: string): Promise<any>;
+  
+  // Invoice Generator
+  getInvoices(organizationId: string, filters?: { fromPartyId?: string; toPartyId?: string; status?: string }): Promise<any[]>;
+  getInvoice(id: number): Promise<any | undefined>;
+  createInvoice(invoice: any): Promise<any>;
+  updateInvoice(id: number, updates: any): Promise<any | undefined>;
+  deleteInvoice(id: number): Promise<boolean>;
+  
+  // Invoice line items
+  getInvoiceLineItems(invoiceId: number): Promise<any[]>;
+  createInvoiceLineItem(lineItem: any): Promise<any>;
+  updateInvoiceLineItem(id: number, updates: any): Promise<any | undefined>;
+  deleteInvoiceLineItem(id: number): Promise<boolean>;
+  
+  // Invoice payments
+  getInvoicePayments(invoiceId: number): Promise<any[]>;
+  createInvoicePayment(payment: any): Promise<any>;
+  
+  // Salary analytics
+  getSalaryAnalytics(organizationId: string, month?: string): Promise<any[]>;
+  updateSalaryAnalytics(organizationId: string, month: string): Promise<any>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -11903,6 +11946,1279 @@ Plant Care:
   async updateServiceAvailability(id: number, updates: any): Promise<any | undefined> {
     // Mock implementation - would update in serviceAvailability table
     return { id, ...updates, updatedAt: new Date() };
+  }
+
+  // ===== STAFF SALARY & OVERTIME MANAGEMENT =====
+
+  // Staff Salary Profiles
+  async getStaffSalaryProfiles(organizationId: string): Promise<any[]> {
+    // Mock implementation with realistic data
+    return [
+      {
+        id: 1,
+        organizationId,
+        userId: "demo-staff",
+        userName: "John Staff",
+        role: "staff",
+        monthlySalary: "4500.00",
+        currency: "AUD",
+        bonusEligible: true,
+        overtimeRate: "1.5",
+        emergencyCalloutRate: "75.00",
+        isActive: true,
+        hireDate: new Date("2024-01-15"),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+      {
+        id: 2,
+        organizationId,
+        userId: "demo-manager",
+        userName: "Sarah Manager",
+        role: "portfolio-manager",
+        monthlySalary: "7500.00",
+        currency: "AUD",
+        bonusEligible: true,
+        overtimeRate: "1.5",
+        emergencyCalloutRate: "100.00",
+        isActive: true,
+        hireDate: new Date("2023-06-01"),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+    ];
+  }
+
+  async getStaffSalaryProfile(userId: string): Promise<any | undefined> {
+    const profiles = await this.getStaffSalaryProfiles("default-org");
+    return profiles.find(p => p.userId === userId);
+  }
+
+  async createStaffSalaryProfile(profile: any): Promise<any> {
+    // Mock implementation - would create in staffSalaryProfiles table
+    return {
+      id: Math.floor(Math.random() * 1000),
+      ...profile,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+  }
+
+  async updateStaffSalaryProfile(userId: string, updates: any): Promise<any | undefined> {
+    // Mock implementation - would update in staffSalaryProfiles table
+    const profile = await this.getStaffSalaryProfile(userId);
+    if (profile) {
+      return { ...profile, ...updates, updatedAt: new Date() };
+    }
+    return undefined;
+  }
+
+  // Staff Commission & Bonus Log
+  async getStaffCommissionLog(organizationId: string, filters?: { userId?: string; month?: string; status?: string }): Promise<any[]> {
+    // Mock implementation with realistic commission data
+    const commissions = [
+      {
+        id: 1,
+        organizationId,
+        userId: "demo-staff",
+        userName: "John Staff",
+        commissionType: "emergency_bonus",
+        sourceType: "task",
+        sourceId: 101,
+        amount: "150.00",
+        currency: "AUD",
+        description: "Emergency callout bonus for urgent pool repair",
+        status: "approved",
+        approvedBy: "demo-admin",
+        approvedAt: new Date("2025-01-15"),
+        paymentDate: new Date("2025-01-31"),
+        month: "2025-01",
+        createdAt: new Date("2025-01-15"),
+      },
+      {
+        id: 2,
+        organizationId,
+        userId: "demo-manager",
+        userName: "Sarah Manager",
+        commissionType: "booking_bonus",
+        sourceType: "booking",
+        sourceId: 201,
+        amount: "300.00",
+        currency: "AUD",
+        description: "Commission for high-value booking (Villa Sunset)",
+        status: "pending",
+        month: "2025-01",
+        createdAt: new Date("2025-01-20"),
+      },
+      {
+        id: 3,
+        organizationId,
+        userId: "demo-staff",
+        userName: "John Staff",
+        commissionType: "task_completion",
+        sourceType: "task",
+        sourceId: 102,
+        amount: "75.00",
+        currency: "AUD",
+        description: "Bonus for completing 10 tasks this month",
+        status: "approved",
+        approvedBy: "demo-admin",
+        approvedAt: new Date("2025-01-25"),
+        month: "2025-01",
+        createdAt: new Date("2025-01-25"),
+      },
+    ];
+
+    let filtered = commissions;
+    if (filters?.userId) {
+      filtered = filtered.filter(c => c.userId === filters.userId);
+    }
+    if (filters?.month) {
+      filtered = filtered.filter(c => c.month === filters.month);
+    }
+    if (filters?.status) {
+      filtered = filtered.filter(c => c.status === filters.status);
+    }
+
+    return filtered;
+  }
+
+  async createStaffCommissionLog(commission: any): Promise<any> {
+    // Mock implementation - would create in staffCommissionLog table
+    return {
+      id: Math.floor(Math.random() * 1000),
+      ...commission,
+      createdAt: new Date(),
+    };
+  }
+
+  async updateStaffCommissionStatus(id: number, status: string, approvedBy?: string): Promise<any | undefined> {
+    // Mock implementation - would update commission status
+    return {
+      id,
+      status,
+      approvedBy,
+      approvedAt: new Date(),
+      updatedAt: new Date(),
+    };
+  }
+
+  // Emergency Clock-In System
+  async getStaffTimeClocks(organizationId: string, filters?: { userId?: string; clockType?: string; month?: string }): Promise<any[]> {
+    // Mock implementation with realistic time clock data
+    const timeClocks = [
+      {
+        id: 1,
+        organizationId,
+        userId: "demo-staff",
+        userName: "John Staff",
+        clockType: "emergency",
+        shiftType: "clock_in",
+        clockTime: new Date("2025-01-15T14:30:00"),
+        location: "Villa Sunset - Pool Area",
+        propertyId: 1,
+        propertyName: "Villa Sunset",
+        reason: "Pool pump failure - guests unable to use pool",
+        workDescription: "Diagnosed and replaced faulty pool pump motor",
+        supervisorApproval: "approved",
+        approvedBy: "demo-admin",
+        approvedAt: new Date("2025-01-16"),
+        hoursPaid: "2.5",
+        hourlyRate: "35.00",
+        totalPay: "131.25", // 2.5 hours * $35 * 1.5 (emergency rate)
+        notes: "Quick response, excellent work quality",
+        createdAt: new Date("2025-01-15"),
+        updatedAt: new Date("2025-01-16"),
+      },
+      {
+        id: 2,
+        organizationId,
+        userId: "demo-staff",
+        userName: "John Staff",
+        clockType: "emergency",
+        shiftType: "clock_out",
+        clockTime: new Date("2025-01-15T17:00:00"),
+        location: "Villa Sunset - Pool Area",
+        propertyId: 1,
+        propertyName: "Villa Sunset",
+        reason: "Pool pump failure completion",
+        workDescription: "Completed pool pump replacement and tested system",
+        supervisorApproval: "approved",
+        approvedBy: "demo-admin",
+        approvedAt: new Date("2025-01-16"),
+        hoursPaid: "2.5",
+        hourlyRate: "35.00",
+        totalPay: "131.25",
+        notes: "Job completed successfully",
+        createdAt: new Date("2025-01-15"),
+        updatedAt: new Date("2025-01-16"),
+      },
+      {
+        id: 3,
+        organizationId,
+        userId: "demo-manager",
+        userName: "Sarah Manager",
+        clockType: "overtime",
+        shiftType: "clock_in",
+        clockTime: new Date("2025-01-20T18:00:00"),
+        location: "Office - Property Management",
+        reason: "Guest complaint resolution - urgent booking issue",
+        workDescription: "Resolved booking conflict and guest compensation",
+        supervisorApproval: "pending",
+        hoursPaid: "3.0",
+        hourlyRate: "45.00",
+        totalPay: "202.50", // 3 hours * $45 * 1.5 (overtime rate)
+        notes: null,
+        createdAt: new Date("2025-01-20"),
+        updatedAt: new Date("2025-01-20"),
+      },
+    ];
+
+    let filtered = timeClocks;
+    if (filters?.userId) {
+      filtered = filtered.filter(t => t.userId === filters.userId);
+    }
+    if (filters?.clockType) {
+      filtered = filtered.filter(t => t.clockType === filters.clockType);
+    }
+    if (filters?.month) {
+      const month = filters.month;
+      filtered = filtered.filter(t => t.clockTime.toISOString().startsWith(month));
+    }
+
+    return filtered;
+  }
+
+  async createStaffTimeClock(timeClock: any): Promise<any> {
+    // Mock implementation - would create in staffTimeClocks table
+    return {
+      id: Math.floor(Math.random() * 1000),
+      ...timeClock,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+  }
+
+  async updateStaffTimeClock(id: number, updates: any): Promise<any | undefined> {
+    // Mock implementation - would update time clock record
+    return {
+      id,
+      ...updates,
+      updatedAt: new Date(),
+    };
+  }
+
+  async approveTimeClock(id: number, approvedBy: string, hoursPaid: number, notes?: string): Promise<any | undefined> {
+    // Mock implementation - would update time clock approval
+    return {
+      id,
+      supervisorApproval: "approved",
+      approvedBy,
+      approvedAt: new Date(),
+      hoursPaid: hoursPaid.toString(),
+      notes,
+      updatedAt: new Date(),
+    };
+  }
+
+  // Emergency Callout Summary
+  async getEmergencyCalloutSummary(organizationId: string, month?: string): Promise<any[]> {
+    // Mock implementation with callout analytics
+    return [
+      {
+        id: 1,
+        organizationId,
+        userId: "demo-staff",
+        userName: "John Staff",
+        month: "2025-01",
+        totalCallouts: 12,
+        totalHours: "28.5",
+        totalPay: "1425.00",
+        averageResponseTime: 25, // minutes
+        bonusEligible: true,
+        bonusAmount: "200.00",
+        bonusApproved: true,
+        lastUpdated: new Date(),
+      },
+      {
+        id: 2,
+        organizationId,
+        userId: "demo-manager",
+        userName: "Sarah Manager",
+        month: "2025-01",
+        totalCallouts: 8,
+        totalHours: "18.0",
+        totalPay: "1215.00",
+        averageResponseTime: 15,
+        bonusEligible: false,
+        bonusAmount: "0.00",
+        bonusApproved: false,
+        lastUpdated: new Date(),
+      },
+    ];
+  }
+
+  async updateEmergencyCalloutSummary(userId: string, month: string): Promise<any> {
+    // Mock implementation - would recalculate summary for user/month
+    return {
+      userId,
+      month,
+      totalCallouts: 12,
+      totalHours: "28.5",
+      updated: true,
+      lastUpdated: new Date(),
+    };
+  }
+
+  // ===== INVOICE GENERATOR =====
+
+  // Invoice Operations
+  async getInvoices(organizationId: string, filters?: { fromPartyId?: string; toPartyId?: string; status?: string }): Promise<any[]> {
+    // Mock implementation with realistic invoice data
+    const invoices = [
+      {
+        id: 1,
+        organizationId,
+        invoiceNumber: "INV-2025-001",
+        invoiceType: "owner_to_company",
+        fromPartyType: "owner",
+        fromPartyId: "demo-owner",
+        fromPartyName: "Villa Owner LLC",
+        toPartyType: "company",
+        toPartyId: "default-org",
+        toPartyName: "HostPilotPro Management",
+        propertyId: 1,
+        propertyName: "Villa Sunset",
+        description: "Monthly management fee for January 2025",
+        subtotal: "2500.00",
+        vatEnabled: true,
+        vatRate: "10.00",
+        vatAmount: "250.00",
+        totalAmount: "2750.00",
+        currency: "AUD",
+        dueDate: new Date("2025-02-15"),
+        status: "sent",
+        receiptUrl: null,
+        notes: "Standard monthly management fee",
+        createdBy: "demo-admin",
+        createdAt: new Date("2025-01-31"),
+        updatedAt: new Date("2025-01-31"),
+      },
+      {
+        id: 2,
+        organizationId,
+        invoiceNumber: "INV-2025-002",
+        invoiceType: "company_to_owner",
+        fromPartyType: "company",
+        fromPartyId: "default-org",
+        fromPartyName: "HostPilotPro Management",
+        toPartyType: "owner",
+        toPartyId: "demo-owner",
+        toPartyName: "Villa Owner LLC",
+        propertyId: 1,
+        propertyName: "Villa Sunset",
+        description: "Emergency pool pump repair costs",
+        subtotal: "850.00",
+        vatEnabled: true,
+        vatRate: "10.00",
+        vatAmount: "85.00",
+        totalAmount: "935.00",
+        currency: "AUD",
+        dueDate: new Date("2025-02-20"),
+        status: "draft",
+        receiptUrl: "/uploads/pool-pump-receipt.pdf",
+        notes: "Emergency repair completed by John Staff",
+        createdBy: "demo-admin",
+        createdAt: new Date("2025-01-25"),
+        updatedAt: new Date("2025-01-25"),
+      },
+      {
+        id: 3,
+        organizationId,
+        invoiceNumber: "INV-2025-003",
+        invoiceType: "pm_to_company",
+        fromPartyType: "pm",
+        fromPartyId: "demo-manager",
+        fromPartyName: "Sarah Manager",
+        toPartyType: "company",
+        toPartyId: "default-org",
+        toPartyName: "HostPilotPro Management",
+        propertyId: 2,
+        propertyName: "Ocean View Apartment",
+        description: "Portfolio Manager payout request for January",
+        subtotal: "3200.00",
+        vatEnabled: false,
+        vatRate: "0.00",
+        vatAmount: "0.00",
+        totalAmount: "3200.00",
+        currency: "AUD",
+        dueDate: new Date("2025-02-10"),
+        status: "pending",
+        receiptUrl: null,
+        notes: "Monthly PM commission and bonus",
+        createdBy: "demo-manager",
+        createdAt: new Date("2025-02-01"),
+        updatedAt: new Date("2025-02-01"),
+      },
+    ];
+
+    let filtered = invoices;
+    if (filters?.fromPartyId) {
+      filtered = filtered.filter(i => i.fromPartyId === filters.fromPartyId);
+    }
+    if (filters?.toPartyId) {
+      filtered = filtered.filter(i => i.toPartyId === filters.toPartyId);
+    }
+    if (filters?.status) {
+      filtered = filtered.filter(i => i.status === filters.status);
+    }
+
+    return filtered;
+  }
+
+  async getInvoice(id: number): Promise<any | undefined> {
+    const invoices = await this.getInvoices("default-org");
+    return invoices.find(i => i.id === id);
+  }
+
+  async createInvoice(invoice: any): Promise<any> {
+    // Mock implementation - would create in invoiceGenerator table
+    const invoiceNumber = `INV-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 999) + 1).padStart(3, '0')}`;
+    return {
+      id: Math.floor(Math.random() * 1000),
+      invoiceNumber,
+      ...invoice,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+  }
+
+  async updateInvoice(id: number, updates: any): Promise<any | undefined> {
+    // Mock implementation - would update invoice
+    const invoice = await this.getInvoice(id);
+    if (invoice) {
+      return { ...invoice, ...updates, updatedAt: new Date() };
+    }
+    return undefined;
+  }
+
+  async deleteInvoice(id: number): Promise<boolean> {
+    // Mock implementation - would delete invoice and related items
+    return true;
+  }
+
+  // Invoice Line Items
+  async getInvoiceLineItems(invoiceId: number): Promise<any[]> {
+    // Mock implementation with line items for invoices
+    const lineItems = [
+      // Line items for Invoice 1 (Management Fee)
+      {
+        id: 1,
+        organizationId: "default-org",
+        invoiceId: 1,
+        description: "Property management fee",
+        quantity: "1.00",
+        unitPrice: "2000.00",
+        lineTotal: "2000.00",
+        category: "management_fee",
+        orderIndex: 0,
+        createdAt: new Date(),
+      },
+      {
+        id: 2,
+        organizationId: "default-org",
+        invoiceId: 1,
+        description: "Guest communication services",
+        quantity: "1.00",
+        unitPrice: "300.00",
+        lineTotal: "300.00",
+        category: "management_fee",
+        orderIndex: 1,
+        createdAt: new Date(),
+      },
+      {
+        id: 3,
+        organizationId: "default-org",
+        invoiceId: 1,
+        description: "Cleaning coordination",
+        quantity: "1.00",
+        unitPrice: "200.00",
+        lineTotal: "200.00",
+        category: "management_fee",
+        orderIndex: 2,
+        createdAt: new Date(),
+      },
+      // Line items for Invoice 2 (Emergency Repair)
+      {
+        id: 4,
+        organizationId: "default-org",
+        invoiceId: 2,
+        description: "Pool pump replacement unit",
+        quantity: "1.00",
+        unitPrice: "650.00",
+        lineTotal: "650.00",
+        category: "maintenance",
+        orderIndex: 0,
+        createdAt: new Date(),
+      },
+      {
+        id: 5,
+        organizationId: "default-org",
+        invoiceId: 2,
+        description: "Emergency labor (2.5 hours)",
+        quantity: "2.50",
+        unitPrice: "80.00",
+        lineTotal: "200.00",
+        category: "maintenance",
+        orderIndex: 1,
+        createdAt: new Date(),
+      },
+      // Line items for Invoice 3 (PM Payout)
+      {
+        id: 6,
+        organizationId: "default-org",
+        invoiceId: 3,
+        description: "Portfolio management commission (January)",
+        quantity: "1.00",
+        unitPrice: "2800.00",
+        lineTotal: "2800.00",
+        category: "commission",
+        orderIndex: 0,
+        createdAt: new Date(),
+      },
+      {
+        id: 7,
+        organizationId: "default-org",
+        invoiceId: 3,
+        description: "Performance bonus",
+        quantity: "1.00",
+        unitPrice: "400.00",
+        lineTotal: "400.00",
+        category: "commission",
+        orderIndex: 1,
+        createdAt: new Date(),
+      },
+    ];
+
+    return lineItems.filter(item => item.invoiceId === invoiceId);
+  }
+
+  async createInvoiceLineItem(lineItem: any): Promise<any> {
+    // Mock implementation - would create in invoiceLineItems table
+    return {
+      id: Math.floor(Math.random() * 1000),
+      ...lineItem,
+      createdAt: new Date(),
+    };
+  }
+
+  async updateInvoiceLineItem(id: number, updates: any): Promise<any | undefined> {
+    // Mock implementation - would update line item
+    return {
+      id,
+      ...updates,
+      updatedAt: new Date(),
+    };
+  }
+
+  async deleteInvoiceLineItem(id: number): Promise<boolean> {
+    // Mock implementation - would delete line item
+    return true;
+  }
+
+  // Invoice Payments
+  async getInvoicePayments(invoiceId: number): Promise<any[]> {
+    // Mock implementation with payment history
+    return [
+      {
+        id: 1,
+        organizationId: "default-org",
+        invoiceId: 1,
+        paymentAmount: "2750.00",
+        paymentMethod: "bank_transfer",
+        paymentReference: "BT-2025-001",
+        paymentDate: new Date("2025-02-15"),
+        receiptUrl: "/uploads/payment-receipt-001.pdf",
+        notes: "Payment received on time",
+        recordedBy: "demo-admin",
+        createdAt: new Date("2025-02-15"),
+      },
+    ];
+  }
+
+  async createInvoicePayment(payment: any): Promise<any> {
+    // Mock implementation - would create in invoicePayments table
+    return {
+      id: Math.floor(Math.random() * 1000),
+      ...payment,
+      createdAt: new Date(),
+    };
+  }
+
+  // Salary Analytics
+  async getSalaryAnalytics(organizationId: string, month?: string): Promise<any[]> {
+    // Mock implementation with salary analytics
+    return [
+      {
+        id: 1,
+        organizationId,
+        month: "2025-01",
+        totalStaffCost: "12000.00",
+        totalOvertimeCost: "2500.00",
+        totalBonusCost: "800.00",
+        totalEmergencyCost: "1800.00",
+        activeStaffCount: 4,
+        averageSalary: "5500.00",
+        highestOvertimeUser: "John Staff",
+        highestOvertimeHours: "28.50",
+        lastUpdated: new Date(),
+      },
+    ];
+  }
+
+  async updateSalaryAnalytics(organizationId: string, month: string): Promise<any> {
+    // Mock implementation - would recalculate analytics for month
+    return {
+      organizationId,
+      month,
+      updated: true,
+      lastUpdated: new Date(),
+    };
+  }
+
+  // ===== AI GUEST PORTAL & SMART COMMUNICATION CENTER METHODS =====
+
+  // Guest Message Management
+  async getGuestMessages(organizationId: string, filters: any = {}) {
+    // Mock implementation with comprehensive demo data
+    return [
+      {
+        id: 1,
+        organizationId,
+        guestId: "guest-001",
+        guestName: "Sarah Johnson",
+        guestEmail: "sarah.johnson@example.com",
+        bookingId: 101,
+        propertyId: 1,
+        messageContent: "The pool seems dirty and there's no hot water in the bathroom. Could someone please look into this?",
+        messageType: "complaint",
+        priority: "high",
+        status: "new",
+        aiProcessed: true,
+        aiKeywords: ["pool", "maintenance", "water"],
+        aiSentiment: "negative",
+        aiConfidence: "0.92",
+        aiSuggestions: ["Create pool maintenance task", "Create plumbing task"],
+        staffResponse: null,
+        respondedBy: null,
+        respondedAt: null,
+        createdAt: new Date("2025-01-03T10:30:00Z"),
+        updatedAt: new Date("2025-01-03T10:30:00Z"),
+      },
+      {
+        id: 2,
+        organizationId,
+        guestId: "guest-002",
+        guestName: "Mike Chen",
+        guestEmail: "mike.chen@example.com",
+        bookingId: 102,
+        propertyId: 1,
+        messageContent: "We would love to book a massage for tomorrow evening. Can you arrange that for us?",
+        messageType: "request",
+        priority: "normal",
+        status: "acknowledged",
+        aiProcessed: true,
+        aiKeywords: ["massage", "booking"],
+        aiSentiment: "positive",
+        aiConfidence: "0.95",
+        aiSuggestions: ["Create service booking", "Contact massage therapist"],
+        staffResponse: "We'll arrange a massage for you tomorrow evening. I'll contact our therapist and get back to you with available times.",
+        respondedBy: "demo-staff",
+        respondedAt: new Date("2025-01-03T11:15:00Z"),
+        createdAt: new Date("2025-01-03T09:45:00Z"),
+        updatedAt: new Date("2025-01-03T11:15:00Z"),
+      },
+      {
+        id: 3,
+        organizationId,
+        guestId: "guest-003",
+        guestName: "Emma Williams",
+        guestEmail: "emma.williams@example.com",
+        bookingId: 103,
+        propertyId: 2,
+        messageContent: "The wifi password isn't working. Could you please help?",
+        messageType: "chat",
+        priority: "normal",
+        status: "resolved",
+        aiProcessed: true,
+        aiKeywords: ["wifi", "password"],
+        aiSentiment: "neutral",
+        aiConfidence: "0.88",
+        aiSuggestions: ["Provide wifi credentials", "Check router status"],
+        staffResponse: "The wifi password is 'VillaSunset2025'. Let me know if you still have issues!",
+        respondedBy: "demo-staff",
+        respondedAt: new Date("2025-01-03T08:20:00Z"),
+        createdAt: new Date("2025-01-03T08:10:00Z"),
+        updatedAt: new Date("2025-01-03T08:20:00Z"),
+      },
+    ].filter(message => {
+      if (filters.guestId && message.guestId !== filters.guestId) return false;
+      if (filters.propertyId && message.propertyId !== parseInt(filters.propertyId)) return false;
+      if (filters.messageType && message.messageType !== filters.messageType) return false;
+      if (filters.priority && message.priority !== filters.priority) return false;
+      if (filters.status && message.status !== filters.status) return false;
+      return true;
+    });
+  }
+
+  async createGuestMessage(messageData: any) {
+    const newMessage = {
+      id: Date.now(),
+      ...messageData,
+      aiProcessed: false,
+      status: "new",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    
+    // Simulate AI processing
+    const aiAnalysis = await this.processMessageForKeywords(messageData.messageContent);
+    newMessage.aiProcessed = true;
+    newMessage.aiKeywords = aiAnalysis.keywords;
+    newMessage.aiSentiment = aiAnalysis.sentiment;
+    newMessage.aiConfidence = aiAnalysis.confidence.toString();
+    newMessage.priority = aiAnalysis.priority;
+    newMessage.aiSuggestions = aiAnalysis.suggestions;
+    
+    return newMessage;
+  }
+
+  async updateGuestMessage(id: number, updateData: any) {
+    return { id, ...updateData, updatedAt: new Date() };
+  }
+
+  async processMessageWithAI(messageId: number, aiData: any) {
+    return { id: messageId, aiProcessed: true, ...aiData, updatedAt: new Date() };
+  }
+
+  async respondToGuestMessage(messageId: number, response: string, respondedBy: string) {
+    return {
+      id: messageId,
+      staffResponse: response,
+      respondedBy,
+      respondedAt: new Date(),
+      status: "resolved",
+      updatedAt: new Date(),
+    };
+  }
+
+  // AI-Generated Task Management
+  async getAiGeneratedTasks(organizationId: string, filters: any = {}) {
+    return [
+      {
+        id: 1,
+        organizationId,
+        messageId: 1,
+        taskId: null,
+        guestId: "guest-001",
+        propertyId: 1,
+        department: "pool",
+        taskType: "issue_report",
+        urgency: "high",
+        aiDescription: "Guest reported: The pool seems dirty and there's no hot water in the bathroom.",
+        aiKeywords: ["pool", "maintenance", "water"],
+        confidence: "0.92",
+        status: "pending",
+        assignedTo: null,
+        approvedBy: null,
+        approvedAt: null,
+        completedAt: null,
+        createdAt: new Date("2025-01-03T10:31:00Z"),
+        updatedAt: new Date("2025-01-03T10:31:00Z"),
+      },
+      {
+        id: 2,
+        organizationId,
+        messageId: 2,
+        taskId: null,
+        guestId: "guest-002",
+        propertyId: 1,
+        department: "general",
+        taskType: "service_request",
+        urgency: "medium",
+        aiDescription: "Guest reported: We would love to book a massage for tomorrow evening.",
+        aiKeywords: ["massage", "booking"],
+        confidence: "0.95",
+        status: "approved",
+        assignedTo: "demo-staff",
+        approvedBy: "demo-admin",
+        approvedAt: new Date("2025-01-03T11:00:00Z"),
+        completedAt: null,
+        createdAt: new Date("2025-01-03T09:46:00Z"),
+        updatedAt: new Date("2025-01-03T11:00:00Z"),
+      },
+    ].filter(task => {
+      if (filters.department && task.department !== filters.department) return false;
+      if (filters.status && task.status !== filters.status) return false;
+      if (filters.urgency && task.urgency !== filters.urgency) return false;
+      if (filters.assignedTo && task.assignedTo !== filters.assignedTo) return false;
+      return true;
+    });
+  }
+
+  async createAiGeneratedTask(taskData: any) {
+    return {
+      id: Date.now(),
+      ...taskData,
+      status: "pending",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+  }
+
+  async approveAiTask(taskId: number, approvedBy: string) {
+    return {
+      id: taskId,
+      status: "approved",
+      approvedBy,
+      approvedAt: new Date(),
+      updatedAt: new Date(),
+    };
+  }
+
+  async rejectAiTask(taskId: number, approvedBy: string) {
+    return {
+      id: taskId,
+      status: "rejected",
+      approvedBy,
+      approvedAt: new Date(),
+      updatedAt: new Date(),
+    };
+  }
+
+  async completeAiTask(taskId: number) {
+    return {
+      id: taskId,
+      status: "completed",
+      completedAt: new Date(),
+      updatedAt: new Date(),
+    };
+  }
+
+  // Guest Service Request Management
+  async getGuestServiceRequests(organizationId: string, filters: any = {}) {
+    return [
+      {
+        id: 1,
+        organizationId,
+        guestId: "guest-002",
+        guestName: "Mike Chen",
+        bookingId: 102,
+        propertyId: 1,
+        serviceType: "massage",
+        serviceName: "Traditional Thai Massage",
+        requestedDate: new Date("2025-01-04T19:00:00Z"),
+        requestedTime: "19:00",
+        numberOfGuests: 2,
+        specialRequests: "Couples massage preferred",
+        estimatedCost: "180.00",
+        currency: "AUD",
+        paymentMethod: "guest_charge",
+        status: "confirmed",
+        confirmedBy: "demo-staff",
+        confirmedAt: new Date("2025-01-03T11:30:00Z"),
+        completedAt: null,
+        guestRating: null,
+        guestFeedback: null,
+        createdAt: new Date("2025-01-03T09:46:00Z"),
+        updatedAt: new Date("2025-01-03T11:30:00Z"),
+      },
+      {
+        id: 2,
+        organizationId,
+        guestId: "guest-004",
+        guestName: "David Thompson",
+        bookingId: 104,
+        propertyId: 2,
+        serviceType: "taxi",
+        serviceName: "Airport Transfer",
+        requestedDate: new Date("2025-01-05T09:00:00Z"),
+        requestedTime: "09:00",
+        numberOfGuests: 4,
+        specialRequests: "Large SUV needed for luggage",
+        estimatedCost: "85.00",
+        currency: "AUD",
+        paymentMethod: "guest_charge",
+        status: "pending",
+        confirmedBy: null,
+        confirmedAt: null,
+        completedAt: null,
+        guestRating: null,
+        guestFeedback: null,
+        createdAt: new Date("2025-01-03T14:20:00Z"),
+        updatedAt: new Date("2025-01-03T14:20:00Z"),
+      },
+      {
+        id: 3,
+        organizationId,
+        guestId: "guest-005",
+        guestName: "Lisa Martinez",
+        bookingId: 105,
+        propertyId: 1,
+        serviceType: "chef",
+        serviceName: "Private Chef Dinner",
+        requestedDate: new Date("2025-01-06T18:00:00Z"),
+        requestedTime: "18:00",
+        numberOfGuests: 6,
+        specialRequests: "Seafood-focused menu, one vegetarian option",
+        estimatedCost: "450.00",
+        currency: "AUD",
+        paymentMethod: "owner_sponsored",
+        status: "completed",
+        confirmedBy: "demo-manager",
+        confirmedAt: new Date("2025-01-02T16:45:00Z"),
+        completedAt: new Date("2025-01-02T22:30:00Z"),
+        guestRating: 5,
+        guestFeedback: "Absolutely amazing dinner! The chef was fantastic and the food was incredible.",
+        createdAt: new Date("2025-01-02T15:10:00Z"),
+        updatedAt: new Date("2025-01-02T22:30:00Z"),
+      },
+    ].filter(request => {
+      if (filters.guestId && request.guestId !== filters.guestId) return false;
+      if (filters.propertyId && request.propertyId !== parseInt(filters.propertyId)) return false;
+      if (filters.serviceType && request.serviceType !== filters.serviceType) return false;
+      if (filters.status && request.status !== filters.status) return false;
+      return true;
+    });
+  }
+
+  async createGuestServiceRequest(requestData: any) {
+    return {
+      id: Date.now(),
+      ...requestData,
+      status: "pending",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+  }
+
+  async updateServiceRequest(id: number, updateData: any) {
+    return { id, ...updateData, updatedAt: new Date() };
+  }
+
+  async confirmServiceRequest(id: number, confirmedBy: string) {
+    return {
+      id,
+      status: "confirmed",
+      confirmedBy,
+      confirmedAt: new Date(),
+      updatedAt: new Date(),
+    };
+  }
+
+  async completeServiceRequest(id: number, guestRating?: number, guestFeedback?: string) {
+    return {
+      id,
+      status: "completed",
+      completedAt: new Date(),
+      guestRating,
+      guestFeedback,
+      updatedAt: new Date(),
+    };
+  }
+
+  // AI Smart Suggestions Management
+  async getAiSmartSuggestions(organizationId: string, filters: any = {}) {
+    return [
+      {
+        id: 1,
+        organizationId,
+        propertyId: 1,
+        suggestionType: "service_upsell",
+        targetAudience: "guest",
+        suggestionTitle: "Offer Welcome Spa Package",
+        suggestionDescription: "Based on guest feedback analysis, 78% of guests mention wanting relaxation services. Offering a welcome spa package could increase revenue by 25%.",
+        basedOnData: "guest_reviews",
+        confidence: "0.92",
+        potentialRevenue: "2500.00",
+        implementationCost: "800.00",
+        priority: "high",
+        status: "pending",
+        reviewedBy: null,
+        reviewedAt: null,
+        implementedAt: null,
+        notes: null,
+        createdAt: new Date("2025-01-03T12:00:00Z"),
+        updatedAt: new Date("2025-01-03T12:00:00Z"),
+      },
+      {
+        id: 2,
+        organizationId,
+        propertyId: 2,
+        suggestionType: "maintenance_improvement",
+        targetAudience: "owner",
+        suggestionTitle: "Upgrade Pool Filtration System",
+        suggestionDescription: "Analysis of guest complaints shows 23% mention pool cleanliness. Upgrading the filtration system could reduce maintenance costs and improve satisfaction.",
+        basedOnData: "message_analysis",
+        confidence: "0.87",
+        potentialRevenue: "0.00",
+        implementationCost: "3200.00",
+        priority: "medium",
+        status: "reviewed",
+        reviewedBy: "demo-admin",
+        reviewedAt: new Date("2025-01-02T14:30:00Z"),
+        implementedAt: null,
+        notes: "Good suggestion - will discuss with property owner",
+        createdAt: new Date("2025-01-02T10:15:00Z"),
+        updatedAt: new Date("2025-01-02T14:30:00Z"),
+      },
+      {
+        id: 3,
+        organizationId,
+        propertyId: 1,
+        suggestionType: "guest_experience",
+        targetAudience: "staff",
+        suggestionTitle: "Proactive WiFi Support",
+        suggestionDescription: "15% of guest messages are about WiFi issues. Create a proactive check-in process to provide WiFi credentials and troubleshooting guide.",
+        basedOnData: "service_patterns",
+        confidence: "0.94",
+        potentialRevenue: "0.00",
+        implementationCost: "150.00",
+        priority: "medium",
+        status: "implemented",
+        reviewedBy: "demo-manager",
+        reviewedAt: new Date("2025-01-01T16:00:00Z"),
+        implementedAt: new Date("2025-01-02T09:00:00Z"),
+        notes: "Implemented as part of standard check-in procedure",
+        createdAt: new Date("2025-01-01T14:20:00Z"),
+        updatedAt: new Date("2025-01-02T09:00:00Z"),
+      },
+    ].filter(suggestion => {
+      if (filters.suggestionType && suggestion.suggestionType !== filters.suggestionType) return false;
+      if (filters.targetAudience && suggestion.targetAudience !== filters.targetAudience) return false;
+      if (filters.status && suggestion.status !== filters.status) return false;
+      if (filters.priority && suggestion.priority !== filters.priority) return false;
+      return true;
+    });
+  }
+
+  async createAiSmartSuggestion(suggestionData: any) {
+    return {
+      id: Date.now(),
+      ...suggestionData,
+      status: "pending",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+  }
+
+  async reviewAiSuggestion(id: number, reviewedBy: string, status: string, notes?: string) {
+    return {
+      id,
+      status,
+      reviewedBy,
+      reviewedAt: new Date(),
+      notes,
+      updatedAt: new Date(),
+    };
+  }
+
+  async implementAiSuggestion(id: number) {
+    return {
+      id,
+      status: "implemented",
+      implementedAt: new Date(),
+      updatedAt: new Date(),
+    };
+  }
+
+  // Guest Communication Notification Management
+  async getGuestCommunicationNotifications(recipientId: string, filters: any = {}) {
+    return [
+      {
+        id: 1,
+        organizationId: "default-org",
+        messageId: 1,
+        serviceRequestId: null,
+        taskId: 1,
+        recipientId,
+        recipientRole: "staff",
+        notificationType: "urgent_issue",
+        title: "Urgent Guest Issue - Pool Maintenance",
+        message: "Guest Sarah Johnson reported pool cleanliness issues. AI has created a high-priority task.",
+        isRead: false,
+        readAt: null,
+        createdAt: new Date("2025-01-03T10:31:00Z"),
+      },
+      {
+        id: 2,
+        organizationId: "default-org",
+        messageId: 2,
+        serviceRequestId: 1,
+        taskId: null,
+        recipientId,
+        recipientRole: "staff",
+        notificationType: "service_request",
+        title: "New Service Request - Massage Booking",
+        message: "Guest Mike Chen requested massage service for tomorrow evening.",
+        isRead: true,
+        readAt: new Date("2025-01-03T11:00:00Z"),
+        createdAt: new Date("2025-01-03T09:46:00Z"),
+      },
+    ].filter(notification => {
+      if (filters.notificationType && notification.notificationType !== filters.notificationType) return false;
+      if (filters.isRead !== undefined && notification.isRead !== filters.isRead) return false;
+      return true;
+    });
+  }
+
+  async createGuestCommunicationNotification(notificationData: any) {
+    return {
+      id: Date.now(),
+      ...notificationData,
+      isRead: false,
+      createdAt: new Date(),
+    };
+  }
+
+  async markNotificationAsRead(id: number) {
+    return {
+      id,
+      isRead: true,
+      readAt: new Date(),
+    };
+  }
+
+  async getUnreadNotificationCount(recipientId: string) {
+    const notifications = await this.getGuestCommunicationNotifications(recipientId);
+    return notifications.filter(n => !n.isRead).length;
+  }
+
+  // Guest Portal Settings Management
+  async getGuestPortalSettings(organizationId: string, propertyId?: number) {
+    return {
+      id: 1,
+      organizationId,
+      propertyId: propertyId || null,
+      enableGuestPortal: true,
+      enableAiAssistant: true,
+      enableServiceBooking: true,
+      enableChatSystem: true,
+      autoCreateTasks: true,
+      aiConfidenceThreshold: "0.75",
+      responseTimeTarget: 30,
+      welcomeMessage: "Welcome to your luxury villa! We're here to make your stay perfect. Feel free to reach out if you need anything.",
+      contactInfo: "For immediate assistance, contact us via the chat system or call +61 400 123 456",
+      emergencyContact: "+61 400 999 888",
+      checkInInstructions: "Your villa is ready for check-in at 3:00 PM. The door code is provided via SMS. WiFi password: VillaSunset2025",
+      checkOutInstructions: "Check-out is at 11:00 AM. Please leave keys on the kitchen counter and ensure all amenities are turned off.",
+      wifiPassword: "VillaSunset2025",
+      localRecommendations: [
+        "Patong Beach - 5 minutes walk",
+        "Kata Noi Beach - 10 minutes drive",
+        "Blue Elephant Restaurant - Authentic Thai cuisine",
+        "Siam Niramit Show - Cultural performance",
+        "Big Buddha - Must-visit attraction"
+      ],
+      createdAt: new Date("2025-01-01T00:00:00Z"),
+      updatedAt: new Date("2025-01-03T00:00:00Z"),
+    };
+  }
+
+  async updateGuestPortalSettings(organizationId: string, settingsData: any) {
+    return {
+      id: 1,
+      organizationId,
+      ...settingsData,
+      updatedAt: new Date(),
+    };
+  }
+
+  // Guest Dashboard Analytics
+  async getGuestDashboardAnalytics(organizationId: string, month?: string, propertyId?: number) {
+    return [
+      {
+        id: 1,
+        organizationId,
+        propertyId: propertyId || 1,
+        month: month || "2025-01",
+        totalMessages: 28,
+        totalServiceRequests: 12,
+        averageResponseTime: "18.5",
+        guestSatisfactionScore: "4.6",
+        topRequestedServices: ["massage", "taxi", "chef"],
+        commonIssues: ["wifi", "pool_maintenance", "air_conditioning"],
+        aiTaskCreationRate: "0.85",
+        resolutionRate: "0.94",
+        createdAt: new Date("2025-01-03T00:00:00Z"),
+        updatedAt: new Date("2025-01-03T12:00:00Z"),
+      },
+    ];
+  }
+
+  async updateGuestDashboardAnalytics(organizationId: string, month: string, propertyId: number) {
+    return {
+      organizationId,
+      propertyId,
+      month,
+      updated: true,
+      lastUpdated: new Date(),
+    };
+  }
+
+  // AI Processing Simulation Methods
+  async processMessageForKeywords(messageContent: string) {
+    const keywords = [];
+    const lowerContent = messageContent.toLowerCase();
+    
+    if (lowerContent.includes("pool") || lowerContent.includes("swimming")) keywords.push("pool");
+    if (lowerContent.includes("ac") || lowerContent.includes("air conditioning") || lowerContent.includes("cold") || lowerContent.includes("hot")) keywords.push("air_conditioning");
+    if (lowerContent.includes("wifi") || lowerContent.includes("internet")) keywords.push("wifi");
+    if (lowerContent.includes("clean") || lowerContent.includes("dirty")) keywords.push("cleaning");
+    if (lowerContent.includes("broken") || lowerContent.includes("not working")) keywords.push("maintenance");
+    if (lowerContent.includes("massage")) keywords.push("massage");
+    if (lowerContent.includes("taxi") || lowerContent.includes("transport")) keywords.push("transportation");
+    
+    return {
+      keywords,
+      sentiment: lowerContent.includes("great") || lowerContent.includes("amazing") ? "positive" : 
+                lowerContent.includes("terrible") || lowerContent.includes("awful") ? "negative" : "neutral",
+      confidence: Math.random() * 0.3 + 0.7, // 0.7-1.0
+      priority: keywords.includes("broken") || lowerContent.includes("urgent") ? "urgent" : "normal",
+      suggestions: keywords.length > 0 ? [`Create ${keywords[0]} task`, "Notify relevant staff"] : [],
+    };
+  }
+
+  async generateTaskFromMessage(messageId: number, messageData: any, aiAnalysis: any) {
+    const departmentMap: Record<string, string> = {
+      pool: "pool",
+      air_conditioning: "maintenance",
+      wifi: "general",
+      cleaning: "cleaning",
+      maintenance: "maintenance",
+      massage: "general",
+      transportation: "general",
+    };
+
+    const primaryKeyword = aiAnalysis.keywords[0];
+    const department = departmentMap[primaryKeyword] || "general";
+    const urgency = aiAnalysis.priority === "urgent" ? "critical" : "medium";
+
+    const taskData = {
+      organizationId: messageData.organizationId,
+      messageId,
+      guestId: messageData.guestId,
+      propertyId: messageData.propertyId,
+      department,
+      taskType: "issue_report",
+      urgency,
+      aiDescription: `Guest reported: ${messageData.messageContent}`,
+      aiKeywords: aiAnalysis.keywords,
+      confidence: aiAnalysis.confidence,
+      status: "pending",
+    };
+
+    return await this.createAiGeneratedTask(taskData);
   }
 }
 
