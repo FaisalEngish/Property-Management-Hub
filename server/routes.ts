@@ -15260,4 +15260,475 @@ async function processGuestIssueForAI(issueReport: any) {
       res.status(500).json({ message: "Failed to calculate occupancy rate" });
     }
   });
+
+  // ===== OWNER INVOICING & PAYOUT SYSTEM API ROUTES =====
+
+  // ===== OWNER BALANCE MANAGEMENT =====
+
+  // Get owner balance
+  app.get("/api/owner-balance", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: userId, role } = req.user;
+      const { propertyId, month, year } = req.query;
+
+      // Check role permissions
+      if (!['admin', 'portfolio-manager', 'owner'].includes(role)) {
+        return res.status(403).json({ message: "Insufficient permissions" });
+      }
+
+      // Owners can only see their own balance
+      const ownerId = role === 'owner' ? userId : req.query.ownerId;
+      if (!ownerId) {
+        return res.status(400).json({ message: "Owner ID is required" });
+      }
+
+      const balance = await storage.getOwnerBalance(
+        organizationId,
+        ownerId,
+        propertyId ? parseInt(propertyId) : undefined,
+        month ? parseInt(month) : undefined,
+        year ? parseInt(year) : undefined
+      );
+
+      res.json(balance);
+    } catch (error) {
+      console.error("Error fetching owner balance:", error);
+      res.status(500).json({ message: "Failed to fetch owner balance" });
+    }
+  });
+
+  // Calculate/update owner balance
+  app.post("/api/owner-balance/calculate", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: userId, role } = req.user;
+      const { ownerId, propertyId } = req.body;
+
+      // Check role permissions
+      if (!['admin', 'portfolio-manager'].includes(role)) {
+        return res.status(403).json({ message: "Only admin and portfolio managers can calculate balances" });
+      }
+
+      const balance = await storage.calculateOwnerBalance(
+        organizationId,
+        ownerId,
+        propertyId
+      );
+
+      res.json(balance);
+    } catch (error) {
+      console.error("Error calculating owner balance:", error);
+      res.status(500).json({ message: "Failed to calculate owner balance" });
+    }
+  });
+
+  // ===== OWNER PAYOUT REQUESTS =====
+
+  // Get owner payout requests
+  app.get("/api/owner-payout-requests", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: userId, role } = req.user;
+      const { status, propertyId } = req.query;
+
+      let filters: any = {};
+      if (status) filters.status = status;
+      if (propertyId) filters.propertyId = parseInt(propertyId);
+
+      // Owners can only see their own requests
+      if (role === 'owner') {
+        filters.ownerId = userId;
+      } else if (req.query.ownerId) {
+        filters.ownerId = req.query.ownerId;
+      }
+
+      const requests = await storage.getOwnerPayoutRequests(organizationId, filters);
+      res.json(requests);
+    } catch (error) {
+      console.error("Error fetching payout requests:", error);
+      res.status(500).json({ message: "Failed to fetch payout requests" });
+    }
+  });
+
+  // Create payout request
+  app.post("/api/owner-payout-requests", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: userId, role } = req.user;
+
+      // Check role permissions
+      if (!['owner'].includes(role)) {
+        return res.status(403).json({ message: "Only owners can create payout requests" });
+      }
+
+      const requestData = {
+        ...req.body,
+        organizationId,
+        ownerId: userId,
+      };
+
+      const request = await storage.createOwnerPayoutRequest(requestData);
+      res.json(request);
+    } catch (error) {
+      console.error("Error creating payout request:", error);
+      res.status(500).json({ message: "Failed to create payout request" });
+    }
+  });
+
+  // Update payout request status
+  app.put("/api/owner-payout-requests/:id", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: userId, role } = req.user;
+      const { id } = req.params;
+      const { status, ...updateData } = req.body;
+
+      // Check role permissions for status changes
+      if (status === 'approved' && !['admin', 'portfolio-manager'].includes(role)) {
+        return res.status(403).json({ message: "Only admin and portfolio managers can approve requests" });
+      }
+
+      const updatedRequest = await storage.updatePayoutRequestStatus(
+        parseInt(id),
+        status,
+        {
+          ...updateData,
+          reviewedBy: ['admin', 'portfolio-manager'].includes(role) ? userId : undefined,
+          reviewedAt: ['admin', 'portfolio-manager'].includes(role) ? new Date() : undefined,
+          approvedBy: status === 'approved' ? userId : undefined,
+          approvedAt: status === 'approved' ? new Date() : undefined,
+        }
+      );
+
+      res.json(updatedRequest);
+    } catch (error) {
+      console.error("Error updating payout request:", error);
+      res.status(500).json({ message: "Failed to update payout request" });
+    }
+  });
+
+  // ===== OWNER INVOICE MANAGEMENT =====
+
+  // Get owner invoices
+  app.get("/api/owner-invoices", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: userId, role } = req.user;
+      const { status, propertyId, invoiceType } = req.query;
+
+      let filters: any = {};
+      if (status) filters.status = status;
+      if (propertyId) filters.propertyId = parseInt(propertyId);
+      if (invoiceType) filters.invoiceType = invoiceType;
+
+      // Owners can only see invoices involving them
+      if (role === 'owner') {
+        filters.toPartyId = userId; // Only invoices sent to this owner
+      } else if (req.query.fromPartyId) {
+        filters.fromPartyId = req.query.fromPartyId;
+      } else if (req.query.toPartyId) {
+        filters.toPartyId = req.query.toPartyId;
+      }
+
+      const invoices = await storage.getOwnerInvoices(organizationId, filters);
+      res.json(invoices);
+    } catch (error) {
+      console.error("Error fetching owner invoices:", error);
+      res.status(500).json({ message: "Failed to fetch owner invoices" });
+    }
+  });
+
+  // Create owner invoice
+  app.post("/api/owner-invoices", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: userId, role } = req.user;
+
+      // Check role permissions
+      if (!['admin', 'portfolio-manager'].includes(role)) {
+        return res.status(403).json({ message: "Only admin and portfolio managers can create invoices" });
+      }
+
+      const invoiceData = {
+        ...req.body,
+        organizationId,
+        generatedBy: userId,
+      };
+
+      const invoice = await storage.createOwnerInvoice(invoiceData);
+      res.json(invoice);
+    } catch (error) {
+      console.error("Error creating owner invoice:", error);
+      res.status(500).json({ message: "Failed to create owner invoice" });
+    }
+  });
+
+  // Get invoice line items
+  app.get("/api/owner-invoices/:id/line-items", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      
+      const lineItems = await storage.getOwnerInvoiceLineItems(parseInt(id));
+      res.json(lineItems);
+    } catch (error) {
+      console.error("Error fetching invoice line items:", error);
+      res.status(500).json({ message: "Failed to fetch invoice line items" });
+    }
+  });
+
+  // Add line item to invoice
+  app.post("/api/owner-invoices/:id/line-items", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role } = req.user;
+      const { id } = req.params;
+
+      // Check role permissions
+      if (!['admin', 'portfolio-manager'].includes(role)) {
+        return res.status(403).json({ message: "Only admin and portfolio managers can add line items" });
+      }
+
+      const lineItemData = {
+        ...req.body,
+        organizationId,
+        invoiceId: parseInt(id),
+      };
+
+      const lineItem = await storage.addOwnerInvoiceLineItem(lineItemData);
+      res.json(lineItem);
+    } catch (error) {
+      console.error("Error adding invoice line item:", error);
+      res.status(500).json({ message: "Failed to add invoice line item" });
+    }
+  });
+
+  // ===== AUTO-INVOICE GENERATION =====
+
+  // Generate invoice from booking data
+  app.post("/api/owner-invoices/generate-from-bookings", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: userId, role } = req.user;
+      const { ownerId, propertyId, periodStart, periodEnd } = req.body;
+
+      // Check role permissions
+      if (!['admin', 'portfolio-manager'].includes(role)) {
+        return res.status(403).json({ message: "Only admin and portfolio managers can generate invoices" });
+      }
+
+      const invoice = await storage.generateInvoiceFromBookings(
+        organizationId,
+        ownerId,
+        propertyId,
+        periodStart,
+        periodEnd,
+        userId
+      );
+
+      res.json(invoice);
+    } catch (error) {
+      console.error("Error generating invoice from bookings:", error);
+      res.status(500).json({ message: "Failed to generate invoice from bookings" });
+    }
+  });
+
+  // ===== PORTFOLIO MANAGER COMMISSIONS =====
+
+  // Get PM commissions
+  app.get("/api/portfolio-manager-commissions", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: userId, role } = req.user;
+      const { propertyId, month, year, status } = req.query;
+
+      let filters: any = {};
+      if (propertyId) filters.propertyId = parseInt(propertyId);
+      if (month) filters.month = parseInt(month);
+      if (year) filters.year = parseInt(year);
+      if (status) filters.status = status;
+
+      // Portfolio managers can only see their own commissions
+      if (role === 'portfolio-manager') {
+        filters.portfolioManagerId = userId;
+      } else if (req.query.portfolioManagerId) {
+        filters.portfolioManagerId = req.query.portfolioManagerId;
+      }
+
+      const commissions = await storage.getPortfolioManagerCommissions(organizationId, filters);
+      res.json(commissions);
+    } catch (error) {
+      console.error("Error fetching PM commissions:", error);
+      res.status(500).json({ message: "Failed to fetch PM commissions" });
+    }
+  });
+
+  // Update PM commission
+  app.post("/api/portfolio-manager-commissions", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role } = req.user;
+
+      // Check role permissions
+      if (!['admin', 'portfolio-manager'].includes(role)) {
+        return res.status(403).json({ message: "Only admin and portfolio managers can update commissions" });
+      }
+
+      const commissionData = {
+        ...req.body,
+        organizationId,
+      };
+
+      const commission = await storage.updatePortfolioManagerCommission(commissionData);
+      res.json(commission);
+    } catch (error) {
+      console.error("Error updating PM commission:", error);
+      res.status(500).json({ message: "Failed to update PM commission" });
+    }
+  });
+
+  // ===== SERVICE CHARGE CONFIGURATIONS =====
+
+  // Get service charge configs
+  app.get("/api/service-charge-configs", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId } = req.user;
+      const { serviceName, serviceCategory, propertyId, isActive } = req.query;
+
+      let filters: any = {};
+      if (serviceName) filters.serviceName = serviceName;
+      if (serviceCategory) filters.serviceCategory = serviceCategory;
+      if (propertyId) filters.propertyId = parseInt(propertyId);
+      if (isActive !== undefined) filters.isActive = isActive === 'true';
+
+      const configs = await storage.getServiceChargeConfigs(organizationId, filters);
+      res.json(configs);
+    } catch (error) {
+      console.error("Error fetching service charge configs:", error);
+      res.status(500).json({ message: "Failed to fetch service charge configs" });
+    }
+  });
+
+  // Update service charge config
+  app.post("/api/service-charge-configs", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: userId, role } = req.user;
+
+      // Check role permissions
+      if (!['admin', 'portfolio-manager'].includes(role)) {
+        return res.status(403).json({ message: "Only admin and portfolio managers can update service charge configs" });
+      }
+
+      const configData = {
+        ...req.body,
+        organizationId,
+        createdBy: userId,
+      };
+
+      const config = await storage.updateServiceChargeConfig(configData);
+      res.json(config);
+    } catch (error) {
+      console.error("Error updating service charge config:", error);
+      res.status(500).json({ message: "Failed to update service charge config" });
+    }
+  });
+
+  // ===== FINANCIAL SUMMARY REPORTS =====
+
+  // Get financial summary reports
+  app.get("/api/financial-summary-reports", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role } = req.user;
+      const { reportType, month, year } = req.query;
+
+      // Check role permissions
+      if (!['admin', 'portfolio-manager'].includes(role)) {
+        return res.status(403).json({ message: "Only admin and portfolio managers can view financial reports" });
+      }
+
+      let filters: any = {};
+      if (reportType) filters.reportType = reportType;
+      if (month) filters.month = parseInt(month);
+      if (year) filters.year = parseInt(year);
+
+      const reports = await storage.getFinancialSummaryReports(organizationId, filters);
+      res.json(reports);
+    } catch (error) {
+      console.error("Error fetching financial summary reports:", error);
+      res.status(500).json({ message: "Failed to fetch financial summary reports" });
+    }
+  });
+
+  // Generate monthly financial summary
+  app.post("/api/financial-summary-reports/generate", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: userId, role } = req.user;
+      const { month, year } = req.body;
+
+      // Check role permissions
+      if (!['admin', 'portfolio-manager'].includes(role)) {
+        return res.status(403).json({ message: "Only admin and portfolio managers can generate financial reports" });
+      }
+
+      const report = await storage.generateMonthlyFinancialSummary(
+        organizationId,
+        month,
+        year,
+        userId
+      );
+
+      res.json(report);
+    } catch (error) {
+      console.error("Error generating financial summary:", error);
+      res.status(500).json({ message: "Failed to generate financial summary" });
+    }
+  });
+
+  // ===== OWNER INVOICING DASHBOARD ANALYTICS =====
+
+  // Get owner invoicing analytics
+  app.get("/api/owner-invoicing/analytics", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: userId, role } = req.user;
+      const { ownerId, propertyId, period } = req.query;
+
+      // Check role permissions and ownership
+      let targetOwnerId = ownerId;
+      if (role === 'owner') {
+        targetOwnerId = userId; // Owners can only see their own analytics
+      }
+
+      // Calculate analytics based on the period
+      const currentDate = new Date();
+      const currentMonth = currentDate.getMonth() + 1;
+      const currentYear = currentDate.getFullYear();
+
+      // Get current balance
+      const balance = await storage.getOwnerBalance(
+        organizationId,
+        targetOwnerId,
+        propertyId ? parseInt(propertyId) : undefined,
+        currentMonth,
+        currentYear
+      );
+
+      // Get recent payout requests
+      const payoutRequests = await storage.getOwnerPayoutRequests(organizationId, {
+        ownerId: targetOwnerId,
+        propertyId: propertyId ? parseInt(propertyId) : undefined,
+      });
+
+      // Get recent invoices
+      const invoices = await storage.getOwnerInvoices(organizationId, {
+        toPartyId: targetOwnerId,
+        propertyId: propertyId ? parseInt(propertyId) : undefined,
+      });
+
+      const analytics = {
+        currentBalance: balance,
+        totalPayoutRequests: payoutRequests.length,
+        pendingPayoutRequests: payoutRequests.filter(r => r.status === 'pending').length,
+        completedPayoutRequests: payoutRequests.filter(r => r.status === 'completed').length,
+        totalInvoices: invoices.length,
+        unpaidInvoices: invoices.filter(i => i.status === 'sent').length,
+        paidInvoices: invoices.filter(i => i.status === 'paid').length,
+        recentPayoutRequests: payoutRequests.slice(0, 5),
+        recentInvoices: invoices.slice(0, 5),
+      };
+
+      res.json(analytics);
+    } catch (error) {
+      console.error("Error fetching owner invoicing analytics:", error);
+      res.status(500).json({ message: "Failed to fetch owner invoicing analytics" });
+    }
+  });
 }

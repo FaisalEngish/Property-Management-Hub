@@ -7240,4 +7240,3 @@ export type InsertCommunicationLog = z.infer<typeof insertCommunicationLogSchema
 export type SmartRequestConfig = typeof smartRequestConfig.$inferSelect;
 export type InsertSmartRequestConfig = z.infer<typeof insertSmartRequestConfigSchema>;
 
-

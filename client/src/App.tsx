@@ -65,6 +65,7 @@ import StaffSalaryOvertimeTracker from "@/pages/StaffSalaryOvertimeTracker";
 import StaffAdvanceSalaryOvertimeTracker from "@/pages/StaffAdvanceSalaryOvertimeTracker";
 import GuestCommunicationCenter from "@/pages/GuestCommunicationCenter";
 import StaffProfilePayrollLogging from "@/pages/StaffProfilePayrollLogging";
+import OwnerInvoicingPayouts from "@/pages/OwnerInvoicingPayouts";
 
 function Router() {
   const { isAuthenticated, isLoading, user } = useAuth();
@@ -168,6 +169,7 @@ function Router() {
           <Route path="/addon-services-booking" component={AddonServicesBooking} />
           <Route path="/owner/dashboard" component={OwnerDashboard} />
           <Route path="/owner/balance-management" component={OwnerBalanceManagement} />
+          <Route path="/owner-invoicing-payouts" component={OwnerInvoicingPayouts} />
           <Route path="/pm/dashboard" component={PortfolioManagerDashboard} />
           <Route path="/admin/finance-reset" component={FinanceResetControl} />
           <Route path="/admin/utility-customization" component={UtilityCustomization} />

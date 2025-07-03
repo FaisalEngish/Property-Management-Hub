@@ -81,6 +81,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
+import { RoleBackButton } from "@/components/BackButton";
 
 // Enhanced types for comprehensive owner dashboard
 interface EarningsOverview {
@@ -1015,6 +1016,9 @@ export default function OwnerDashboard() {
 
   return (
     <div className="container mx-auto p-6 space-y-6">
+      {/* Back Button */}
+      <RoleBackButton role="owner" className="mb-4" />
+      
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>

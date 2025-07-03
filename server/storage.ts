@@ -18322,6 +18322,814 @@ Plant Care:
     
     return resolutionTimes[category]?.[urgencyLevel] || resolutionTimes['other'][urgencyLevel] || '4 hours';
   }
+
+  // ===== OWNER INVOICING & PAYOUT SYSTEM =====
+
+  // ===== OWNER BALANCE MANAGEMENT =====
+
+  // Get/create owner balance for a property
+  async getOwnerBalance(organizationId: string, ownerId: string, propertyId?: number, month?: number, year?: number): Promise<OwnerBalance | undefined> {
+    const currentMonth = month || new Date().getMonth() + 1;
+    const currentYear = year || new Date().getFullYear();
+
+    let query = db
+      .select()
+      .from(ownerBalances)
+      .where(
+        and(
+          eq(ownerBalances.organizationId, organizationId),
+          eq(ownerBalances.ownerId, ownerId),
+          eq(ownerBalances.balanceMonth, currentMonth),
+          eq(ownerBalances.balanceYear, currentYear)
+        )
+      );
+
+    if (propertyId) {
+      query = query.where(eq(ownerBalances.propertyId, propertyId));
+    }
+
+    const [balance] = await query;
+    return balance;
+  }
+
+  // Calculate and update owner balance
+  async calculateOwnerBalance(organizationId: string, ownerId: string, propertyId?: number): Promise<OwnerBalance> {
+    const currentMonth = new Date().getMonth() + 1;
+    const currentYear = new Date().getFullYear();
+
+    // Get rental income from bookings
+    const rentalIncome = await this.getOwnerRentalIncome(organizationId, ownerId, propertyId, currentMonth, currentYear);
+    
+    // Get expenses and fees
+    const expenses = await this.getOwnerExpenses(organizationId, ownerId, propertyId, currentMonth, currentYear);
+    
+    // Calculate current balance
+    const currentBalance = rentalIncome.total - expenses.totalExpenses - expenses.managementFees;
+
+    const balanceData: InsertOwnerBalance = {
+      organizationId,
+      ownerId,
+      propertyId,
+      currentBalance: currentBalance.toString(),
+      monthlyRentalIncome: rentalIncome.total.toString(),
+      monthlyServiceCharges: rentalIncome.serviceCharges.toString(),
+      totalExpenses: expenses.totalExpenses.toString(),
+      managementFees: expenses.managementFees.toString(),
+      monthlyUtilities: expenses.utilities.toString(),
+      monthlyMaintenance: expenses.maintenance.toString(),
+      balanceMonth: currentMonth,
+      balanceYear: currentYear,
+      status: 'current',
+      processedBy: 'system',
+    };
+
+    // Check if balance already exists
+    const existing = await this.getOwnerBalance(organizationId, ownerId, propertyId, currentMonth, currentYear);
+    
+    if (existing) {
+      const [updated] = await db
+        .update(ownerBalances)
+        .set({ ...balanceData, updatedAt: new Date() })
+        .where(eq(ownerBalances.id, existing.id))
+        .returning();
+      return updated;
+    } else {
+      const [created] = await db.insert(ownerBalances).values(balanceData).returning();
+      return created;
+    }
+  }
+
+  // Get owner rental income breakdown
+  private async getOwnerRentalIncome(organizationId: string, ownerId: string, propertyId?: number, month?: number, year?: number): Promise<{
+    total: number;
+    serviceCharges: number;
+    directBookings: number;
+    platformBookings: number;
+  }> {
+    // This would integrate with booking data
+    // For now, return calculated values based on finance records
+    const startDate = new Date(year || new Date().getFullYear(), (month || new Date().getMonth() + 1) - 1, 1);
+    const endDate = new Date(year || new Date().getFullYear(), month || new Date().getMonth() + 1, 0);
+
+    let query = db
+      .select()
+      .from(finances)
+      .where(
+        and(
+          eq(finances.organizationId, organizationId),
+          eq(finances.type, 'income'),
+          gte(finances.date, startDate.toISOString().split('T')[0]),
+          lte(finances.date, endDate.toISOString().split('T')[0])
+        )
+      );
+
+    if (propertyId) {
+      query = query.where(eq(finances.propertyId, propertyId));
+    }
+
+    const incomeRecords = await query;
+    
+    const total = incomeRecords.reduce((sum, record) => sum + parseFloat(record.amount), 0);
+    const serviceCharges = incomeRecords
+      .filter(record => record.category === 'service')
+      .reduce((sum, record) => sum + parseFloat(record.amount), 0);
+
+    return {
+      total,
+      serviceCharges,
+      directBookings: total * 0.3, // Simplified calculation
+      platformBookings: total * 0.7,
+    };
+  }
+
+  // Get owner expenses breakdown
+  private async getOwnerExpenses(organizationId: string, ownerId: string, propertyId?: number, month?: number, year?: number): Promise<{
+    totalExpenses: number;
+    managementFees: number;
+    utilities: number;
+    maintenance: number;
+    cleaning: number;
+  }> {
+    const startDate = new Date(year || new Date().getFullYear(), (month || new Date().getMonth() + 1) - 1, 1);
+    const endDate = new Date(year || new Date().getFullYear(), month || new Date().getMonth() + 1, 0);
+
+    let query = db
+      .select()
+      .from(finances)
+      .where(
+        and(
+          eq(finances.organizationId, organizationId),
+          eq(finances.type, 'expense'),
+          gte(finances.date, startDate.toISOString().split('T')[0]),
+          lte(finances.date, endDate.toISOString().split('T')[0])
+        )
+      );
+
+    if (propertyId) {
+      query = query.where(eq(finances.propertyId, propertyId));
+    }
+
+    const expenseRecords = await query;
+    
+    const utilities = expenseRecords
+      .filter(record => record.category === 'utilities')
+      .reduce((sum, record) => sum + parseFloat(record.amount), 0);
+    
+    const maintenance = expenseRecords
+      .filter(record => record.category === 'maintenance')
+      .reduce((sum, record) => sum + parseFloat(record.amount), 0);
+    
+    const cleaning = expenseRecords
+      .filter(record => record.category === 'cleaning')
+      .reduce((sum, record) => sum + parseFloat(record.amount), 0);
+    
+    const managementFees = expenseRecords
+      .filter(record => record.category === 'management_fee')
+      .reduce((sum, record) => sum + parseFloat(record.amount), 0);
+    
+    const totalExpenses = utilities + maintenance + cleaning;
+
+    return {
+      totalExpenses,
+      managementFees,
+      utilities,
+      maintenance,
+      cleaning,
+    };
+  }
+
+  // ===== OWNER PAYOUT REQUESTS =====
+
+  // Create payout request
+  async createOwnerPayoutRequest(request: InsertOwnerPayoutRequest): Promise<OwnerPayoutRequest> {
+    const [newRequest] = await db.insert(ownerPayoutRequests).values(request).returning();
+    return newRequest;
+  }
+
+  // Get owner payout requests
+  async getOwnerPayoutRequests(organizationId: string, filters?: {
+    ownerId?: string;
+    propertyId?: number;
+    status?: string;
+  }): Promise<OwnerPayoutRequest[]> {
+    let query = db
+      .select()
+      .from(ownerPayoutRequests)
+      .where(eq(ownerPayoutRequests.organizationId, organizationId));
+
+    if (filters?.ownerId) {
+      query = query.where(eq(ownerPayoutRequests.ownerId, filters.ownerId));
+    }
+    if (filters?.propertyId) {
+      query = query.where(eq(ownerPayoutRequests.propertyId, filters.propertyId));
+    }
+    if (filters?.status) {
+      query = query.where(eq(ownerPayoutRequests.status, filters.status));
+    }
+
+    return query.orderBy(desc(ownerPayoutRequests.createdAt));
+  }
+
+  // Update payout request status
+  async updatePayoutRequestStatus(requestId: number, status: string, updateData?: Partial<InsertOwnerPayoutRequest>): Promise<OwnerPayoutRequest | undefined> {
+    const [updated] = await db
+      .update(ownerPayoutRequests)
+      .set({
+        status,
+        ...updateData,
+        updatedAt: new Date(),
+      })
+      .where(eq(ownerPayoutRequests.id, requestId))
+      .returning();
+    return updated;
+  }
+
+  // ===== OWNER INVOICE MANAGEMENT =====
+
+  // Create owner invoice
+  async createOwnerInvoice(invoice: InsertOwnerInvoice): Promise<OwnerInvoice> {
+    // Generate invoice number
+    const invoiceNumber = await this.generateOwnerInvoiceNumber(invoice.organizationId!);
+    
+    const [newInvoice] = await db
+      .insert(ownerInvoices)
+      .values({
+        ...invoice,
+        invoiceNumber,
+      })
+      .returning();
+    return newInvoice;
+  }
+
+  // Generate unique invoice number
+  private async generateOwnerInvoiceNumber(organizationId: string): Promise<string> {
+    const year = new Date().getFullYear();
+    const month = (new Date().getMonth() + 1).toString().padStart(2, '0');
+    
+    // Count existing invoices for this month
+    const existingCount = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(ownerInvoices)
+      .where(
+        and(
+          eq(ownerInvoices.organizationId, organizationId),
+          sql`EXTRACT(YEAR FROM ${ownerInvoices.createdAt}) = ${year}`,
+          sql`EXTRACT(MONTH FROM ${ownerInvoices.createdAt}) = ${month}`
+        )
+      );
+    
+    const sequence = (existingCount[0]?.count || 0) + 1;
+    return `OWN-${year}${month}-${sequence.toString().padStart(4, '0')}`;
+  }
+
+  // Get owner invoices
+  async getOwnerInvoices(organizationId: string, filters?: {
+    fromPartyId?: string;
+    toPartyId?: string;
+    status?: string;
+    propertyId?: number;
+    invoiceType?: string;
+  }): Promise<OwnerInvoice[]> {
+    let query = db
+      .select()
+      .from(ownerInvoices)
+      .where(eq(ownerInvoices.organizationId, organizationId));
+
+    if (filters?.fromPartyId) {
+      query = query.where(eq(ownerInvoices.fromPartyId, filters.fromPartyId));
+    }
+    if (filters?.toPartyId) {
+      query = query.where(eq(ownerInvoices.toPartyId, filters.toPartyId));
+    }
+    if (filters?.status) {
+      query = query.where(eq(ownerInvoices.status, filters.status));
+    }
+    if (filters?.propertyId) {
+      query = query.where(eq(ownerInvoices.propertyId, filters.propertyId));
+    }
+    if (filters?.invoiceType) {
+      query = query.where(eq(ownerInvoices.invoiceType, filters.invoiceType));
+    }
+
+    return query.orderBy(desc(ownerInvoices.createdAt));
+  }
+
+  // Add line item to invoice
+  async addOwnerInvoiceLineItem(lineItem: InsertOwnerInvoiceLineItem): Promise<OwnerInvoiceLineItem> {
+    const [newLineItem] = await db.insert(ownerInvoiceLineItems).values(lineItem).returning();
+    
+    // Update invoice totals
+    await this.recalculateInvoiceTotals(lineItem.invoiceId);
+    
+    return newLineItem;
+  }
+
+  // Get invoice line items
+  async getOwnerInvoiceLineItems(invoiceId: number): Promise<OwnerInvoiceLineItem[]> {
+    return db
+      .select()
+      .from(ownerInvoiceLineItems)
+      .where(eq(ownerInvoiceLineItems.invoiceId, invoiceId))
+      .orderBy(asc(ownerInvoiceLineItems.createdAt));
+  }
+
+  // Recalculate invoice totals
+  private async recalculateInvoiceTotals(invoiceId: number): Promise<void> {
+    const lineItems = await this.getOwnerInvoiceLineItems(invoiceId);
+    
+    const subtotal = lineItems.reduce((sum, item) => sum + parseFloat(item.lineTotal), 0);
+    const taxAmount = lineItems.reduce((sum, item) => sum + parseFloat(item.taxAmount || '0'), 0);
+    const totalAmount = subtotal + taxAmount;
+
+    await db
+      .update(ownerInvoices)
+      .set({
+        subtotal: subtotal.toString(),
+        taxAmount: taxAmount.toString(),
+        totalAmount: totalAmount.toString(),
+        updatedAt: new Date(),
+      })
+      .where(eq(ownerInvoices.id, invoiceId));
+  }
+
+  // ===== AUTO-INVOICE GENERATION =====
+
+  // Generate invoice from booking data
+  async generateInvoiceFromBookings(organizationId: string, ownerId: string, propertyId: number, periodStart: string, periodEnd: string, generatedBy: string): Promise<OwnerInvoice> {
+    // Get rental income for period
+    const bookingIncome = await this.getBookingIncomeForPeriod(organizationId, propertyId, periodStart, periodEnd);
+    
+    // Get service charges
+    const serviceCharges = await this.getServiceChargesForPeriod(organizationId, propertyId, periodStart, periodEnd);
+    
+    // Create invoice
+    const invoice = await this.createOwnerInvoice({
+      organizationId,
+      fromParty: 'management',
+      fromPartyId: generatedBy,
+      toParty: 'owner',
+      toPartyId: ownerId,
+      propertyId,
+      invoiceDate: new Date().toISOString().split('T')[0],
+      dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 30 days
+      periodStart,
+      periodEnd,
+      subtotal: '0',
+      totalAmount: '0',
+      invoiceType: 'revenue_share',
+      category: 'rental_income',
+      description: `Revenue share for ${periodStart} to ${periodEnd}`,
+      isAutoGenerated: true,
+      sourceBookingIds: bookingIncome.bookingIds,
+      sourceServiceIds: serviceCharges.serviceIds,
+      generatedBy,
+    });
+
+    // Add rental income line items
+    for (const income of bookingIncome.items) {
+      await this.addOwnerInvoiceLineItem({
+        organizationId,
+        invoiceId: invoice.id,
+        description: income.description,
+        category: 'rental',
+        quantity: '1',
+        unitPrice: income.amount.toString(),
+        lineTotal: income.amount.toString(),
+        chargeType: 'owner_billable',
+        sourceType: 'booking',
+        sourceId: income.bookingId,
+        serviceDate: income.date,
+        taxable: true,
+      });
+    }
+
+    // Add service charge line items
+    for (const service of serviceCharges.items) {
+      await this.addOwnerInvoiceLineItem({
+        organizationId,
+        invoiceId: invoice.id,
+        description: service.description,
+        category: service.category,
+        quantity: '1',
+        unitPrice: service.amount.toString(),
+        lineTotal: service.amount.toString(),
+        chargeType: service.chargeType,
+        sourceType: 'service',
+        sourceId: service.serviceId,
+        serviceDate: service.date,
+        taxable: true,
+      });
+    }
+
+    return invoice;
+  }
+
+  // Get booking income for period
+  private async getBookingIncomeForPeriod(organizationId: string, propertyId: number, startDate: string, endDate: string): Promise<{
+    items: Array<{ bookingId: number; description: string; amount: number; date: string }>;
+    bookingIds: number[];
+  }> {
+    const bookings = await db
+      .select()
+      .from(bookings)
+      .where(
+        and(
+          eq(bookings.organizationId, organizationId),
+          eq(bookings.propertyId, propertyId),
+          gte(bookings.checkIn, startDate),
+          lte(bookings.checkOut, endDate),
+          eq(bookings.status, 'confirmed')
+        )
+      );
+
+    const items = bookings.map(booking => ({
+      bookingId: booking.id,
+      description: `Rental Income - ${booking.guestName} (${booking.checkIn} to ${booking.checkOut})`,
+      amount: parseFloat(booking.totalAmount || '0'),
+      date: booking.checkIn,
+    }));
+
+    return {
+      items,
+      bookingIds: bookings.map(b => b.id),
+    };
+  }
+
+  // Get service charges for period
+  private async getServiceChargesForPeriod(organizationId: string, propertyId: number, startDate: string, endDate: string): Promise<{
+    items: Array<{ serviceId: number; description: string; amount: number; date: string; category: string; chargeType: string }>;
+    serviceIds: number[];
+  }> {
+    const services = await db
+      .select()
+      .from(guestAddonBookings)
+      .where(
+        and(
+          eq(guestAddonBookings.organizationId, organizationId),
+          eq(guestAddonBookings.propertyId, propertyId),
+          gte(guestAddonBookings.serviceDate || guestAddonBookings.createdAt, startDate),
+          lte(guestAddonBookings.serviceDate || guestAddonBookings.createdAt, endDate),
+          eq(guestAddonBookings.status, 'completed')
+        )
+      );
+
+    const items = services.map(service => ({
+      serviceId: service.id,
+      description: `Service Charge - ${service.serviceId} (${service.serviceDate})`,
+      amount: parseFloat(service.totalAmount || '0'),
+      date: service.serviceDate || service.createdAt!.toISOString().split('T')[0],
+      category: 'addon',
+      chargeType: 'owner_billable',
+    }));
+
+    return {
+      items,
+      serviceIds: services.map(s => s.id),
+    };
+  }
+
+  // ===== PORTFOLIO MANAGER COMMISSIONS =====
+
+  // Create/update PM commission
+  async updatePortfolioManagerCommission(commission: InsertPortfolioManagerCommission): Promise<PortfolioManagerCommission> {
+    const existing = await db
+      .select()
+      .from(portfolioManagerCommissions)
+      .where(
+        and(
+          eq(portfolioManagerCommissions.organizationId, commission.organizationId!),
+          eq(portfolioManagerCommissions.portfolioManagerId, commission.portfolioManagerId!),
+          eq(portfolioManagerCommissions.commissionMonth, commission.commissionMonth!),
+          eq(portfolioManagerCommissions.commissionYear, commission.commissionYear!)
+        )
+      );
+
+    if (existing.length > 0) {
+      const [updated] = await db
+        .update(portfolioManagerCommissions)
+        .set({ ...commission, updatedAt: new Date() })
+        .where(eq(portfolioManagerCommissions.id, existing[0].id))
+        .returning();
+      return updated;
+    } else {
+      const [created] = await db.insert(portfolioManagerCommissions).values(commission).returning();
+      return created;
+    }
+  }
+
+  // Get PM commissions
+  async getPortfolioManagerCommissions(organizationId: string, filters?: {
+    portfolioManagerId?: string;
+    propertyId?: number;
+    month?: number;
+    year?: number;
+    status?: string;
+  }): Promise<PortfolioManagerCommission[]> {
+    let query = db
+      .select()
+      .from(portfolioManagerCommissions)
+      .where(eq(portfolioManagerCommissions.organizationId, organizationId));
+
+    if (filters?.portfolioManagerId) {
+      query = query.where(eq(portfolioManagerCommissions.portfolioManagerId, filters.portfolioManagerId));
+    }
+    if (filters?.propertyId) {
+      query = query.where(eq(portfolioManagerCommissions.propertyId, filters.propertyId));
+    }
+    if (filters?.month) {
+      query = query.where(eq(portfolioManagerCommissions.commissionMonth, filters.month));
+    }
+    if (filters?.year) {
+      query = query.where(eq(portfolioManagerCommissions.commissionYear, filters.year));
+    }
+    if (filters?.status) {
+      query = query.where(eq(portfolioManagerCommissions.status, filters.status));
+    }
+
+    return query.orderBy(desc(portfolioManagerCommissions.createdAt));
+  }
+
+  // ===== SERVICE CHARGE CONFIGURATIONS =====
+
+  // Create/update service charge config
+  async updateServiceChargeConfig(config: InsertServiceChargeConfig): Promise<ServiceChargeConfig> {
+    const existing = await db
+      .select()
+      .from(serviceChargeConfigs)
+      .where(
+        and(
+          eq(serviceChargeConfigs.organizationId, config.organizationId!),
+          eq(serviceChargeConfigs.serviceName, config.serviceName!),
+          config.propertyId ? eq(serviceChargeConfigs.propertyId, config.propertyId) : isNull(serviceChargeConfigs.propertyId)
+        )
+      );
+
+    if (existing.length > 0) {
+      const [updated] = await db
+        .update(serviceChargeConfigs)
+        .set({ ...config, updatedAt: new Date() })
+        .where(eq(serviceChargeConfigs.id, existing[0].id))
+        .returning();
+      return updated;
+    } else {
+      const [created] = await db.insert(serviceChargeConfigs).values(config).returning();
+      return created;
+    }
+  }
+
+  // Get service charge configs
+  async getServiceChargeConfigs(organizationId: string, filters?: {
+    serviceName?: string;
+    serviceCategory?: string;
+    propertyId?: number;
+    isActive?: boolean;
+  }): Promise<ServiceChargeConfig[]> {
+    let query = db
+      .select()
+      .from(serviceChargeConfigs)
+      .where(eq(serviceChargeConfigs.organizationId, organizationId));
+
+    if (filters?.serviceName) {
+      query = query.where(eq(serviceChargeConfigs.serviceName, filters.serviceName));
+    }
+    if (filters?.serviceCategory) {
+      query = query.where(eq(serviceChargeConfigs.serviceCategory, filters.serviceCategory));
+    }
+    if (filters?.propertyId) {
+      query = query.where(eq(serviceChargeConfigs.propertyId, filters.propertyId));
+    }
+    if (filters?.isActive !== undefined) {
+      query = query.where(eq(serviceChargeConfigs.isActive, filters.isActive));
+    }
+
+    return query.orderBy(asc(serviceChargeConfigs.serviceName));
+  }
+
+  // ===== FINANCIAL SUMMARY REPORTS =====
+
+  // Create financial summary report
+  async createFinancialSummaryReport(report: InsertFinancialSummaryReport): Promise<FinancialSummaryReport> {
+    const [newReport] = await db.insert(financialSummaryReports).values(report).returning();
+    return newReport;
+  }
+
+  // Generate monthly financial summary
+  async generateMonthlyFinancialSummary(organizationId: string, month: number, year: number, generatedBy: string): Promise<FinancialSummaryReport> {
+    // Calculate all financial metrics for the month
+    const rentalIncome = await this.calculateTotalRentalIncome(organizationId, month, year);
+    const serviceIncome = await this.calculateTotalServiceIncome(organizationId, month, year);
+    const addonIncome = await this.calculateTotalAddonIncome(organizationId, month, year);
+    const commissions = await this.calculateTotalCommissions(organizationId, month, year);
+    const payouts = await this.calculateTotalPayouts(organizationId, month, year);
+
+    const reportData: InsertFinancialSummaryReport = {
+      organizationId,
+      reportType: 'monthly',
+      reportMonth: month,
+      reportYear: year,
+      totalRentalIncome: rentalIncome.total.toString(),
+      totalServiceIncome: serviceIncome.total.toString(),
+      totalAddonIncome: addonIncome.total.toString(),
+      cleaningRevenue: serviceIncome.cleaning.toString(),
+      maintenanceRevenue: serviceIncome.maintenance.toString(),
+      gardenPoolRevenue: serviceIncome.garden.toString(),
+      chefServiceRevenue: addonIncome.chef.toString(),
+      taxiServiceRevenue: addonIncome.taxi.toString(),
+      tourServiceRevenue: addonIncome.tours.toString(),
+      massageServiceRevenue: addonIncome.massage.toString(),
+      totalCommissionsEarned: commissions.total.toString(),
+      portfolioManagerCommissions: commissions.pm.toString(),
+      retailAgentCommissions: commissions.retail.toString(),
+      referralAgentCommissions: commissions.referral.toString(),
+      totalOwnerPayouts: payouts.owners.toString(),
+      totalAgentPayouts: payouts.agents.toString(),
+      status: 'completed',
+      generatedBy,
+    };
+
+    const [report] = await db.insert(financialSummaryReports).values(reportData).returning();
+    return report;
+  }
+
+  // Calculate financial metrics for reports
+  private async calculateTotalRentalIncome(organizationId: string, month: number, year: number): Promise<{ total: number }> {
+    const startDate = new Date(year, month - 1, 1);
+    const endDate = new Date(year, month, 0);
+
+    const income = await db
+      .select({ total: sql<number>`sum(cast(amount as decimal))` })
+      .from(finances)
+      .where(
+        and(
+          eq(finances.organizationId, organizationId),
+          eq(finances.type, 'income'),
+          eq(finances.category, 'rental'),
+          gte(finances.date, startDate.toISOString().split('T')[0]),
+          lte(finances.date, endDate.toISOString().split('T')[0])
+        )
+      );
+
+    return { total: income[0]?.total || 0 };
+  }
+
+  private async calculateTotalServiceIncome(organizationId: string, month: number, year: number): Promise<{
+    total: number;
+    cleaning: number;
+    maintenance: number;
+    garden: number;
+  }> {
+    const startDate = new Date(year, month - 1, 1);
+    const endDate = new Date(year, month, 0);
+
+    const serviceIncome = await db
+      .select()
+      .from(finances)
+      .where(
+        and(
+          eq(finances.organizationId, organizationId),
+          eq(finances.type, 'income'),
+          eq(finances.category, 'service'),
+          gte(finances.date, startDate.toISOString().split('T')[0]),
+          lte(finances.date, endDate.toISOString().split('T')[0])
+        )
+      );
+
+    const cleaning = serviceIncome.filter(s => s.description?.includes('cleaning')).reduce((sum, s) => sum + parseFloat(s.amount), 0);
+    const maintenance = serviceIncome.filter(s => s.description?.includes('maintenance')).reduce((sum, s) => sum + parseFloat(s.amount), 0);
+    const garden = serviceIncome.filter(s => s.description?.includes('garden') || s.description?.includes('pool')).reduce((sum, s) => sum + parseFloat(s.amount), 0);
+    const total = serviceIncome.reduce((sum, s) => sum + parseFloat(s.amount), 0);
+
+    return { total, cleaning, maintenance, garden };
+  }
+
+  private async calculateTotalAddonIncome(organizationId: string, month: number, year: number): Promise<{
+    total: number;
+    chef: number;
+    taxi: number;
+    tours: number;
+    massage: number;
+  }> {
+    const startDate = new Date(year, month - 1, 1);
+    const endDate = new Date(year, month, 0);
+
+    const addonIncome = await db
+      .select()
+      .from(guestAddonBookings)
+      .where(
+        and(
+          eq(guestAddonBookings.organizationId, organizationId),
+          eq(guestAddonBookings.status, 'completed'),
+          gte(guestAddonBookings.serviceDate || guestAddonBookings.createdAt, startDate.toISOString().split('T')[0]),
+          lte(guestAddonBookings.serviceDate || guestAddonBookings.createdAt, endDate.toISOString().split('T')[0])
+        )
+      );
+
+    const chef = addonIncome.filter(a => a.serviceId === 1).reduce((sum, a) => sum + parseFloat(a.totalAmount || '0'), 0);
+    const taxi = addonIncome.filter(a => a.serviceId === 2).reduce((sum, a) => sum + parseFloat(a.totalAmount || '0'), 0);
+    const tours = addonIncome.filter(a => a.serviceId === 3).reduce((sum, a) => sum + parseFloat(a.totalAmount || '0'), 0);
+    const massage = addonIncome.filter(a => a.serviceId === 4).reduce((sum, a) => sum + parseFloat(a.totalAmount || '0'), 0);
+    const total = addonIncome.reduce((sum, a) => sum + parseFloat(a.totalAmount || '0'), 0);
+
+    return { total, chef, taxi, tours, massage };
+  }
+
+  private async calculateTotalCommissions(organizationId: string, month: number, year: number): Promise<{
+    total: number;
+    pm: number;
+    retail: number;
+    referral: number;
+  }> {
+    const pmCommissions = await db
+      .select({ total: sql<number>`sum(cast(commission_earned as decimal))` })
+      .from(portfolioManagerCommissions)
+      .where(
+        and(
+          eq(portfolioManagerCommissions.organizationId, organizationId),
+          eq(portfolioManagerCommissions.commissionMonth, month),
+          eq(portfolioManagerCommissions.commissionYear, year)
+        )
+      );
+
+    const agentCommissions = await db
+      .select()
+      .from(commissionLog)
+      .where(
+        and(
+          eq(commissionLog.organizationId, organizationId),
+          eq(commissionLog.commissionMonth, month),
+          eq(commissionLog.commissionYear, year),
+          eq(commissionLog.status, 'paid')
+        )
+      );
+
+    const retail = agentCommissions.filter(c => c.agentType === 'retail-agent').reduce((sum, c) => sum + parseFloat(c.commissionAmount), 0);
+    const referral = agentCommissions.filter(c => c.agentType === 'referral-agent').reduce((sum, c) => sum + parseFloat(c.commissionAmount), 0);
+    const pm = pmCommissions[0]?.total || 0;
+    const total = pm + retail + referral;
+
+    return { total, pm, retail, referral };
+  }
+
+  private async calculateTotalPayouts(organizationId: string, month: number, year: number): Promise<{
+    owners: number;
+    agents: number;
+  }> {
+    const startDate = new Date(year, month - 1, 1);
+    const endDate = new Date(year, month, 0);
+
+    const ownerPayouts = await db
+      .select({ total: sql<number>`sum(cast(requested_amount as decimal))` })
+      .from(ownerPayoutRequests)
+      .where(
+        and(
+          eq(ownerPayoutRequests.organizationId, organizationId),
+          eq(ownerPayoutRequests.status, 'completed'),
+          gte(ownerPayoutRequests.ownerConfirmedAt, startDate),
+          lte(ownerPayoutRequests.ownerConfirmedAt, endDate)
+        )
+      );
+
+    const agentPayouts = await db
+      .select({ total: sql<number>`sum(cast(payout_amount as decimal))` })
+      .from(agentPayouts)
+      .where(
+        and(
+          eq(agentPayouts.organizationId, organizationId),
+          eq(agentPayouts.payoutStatus, 'paid'),
+          gte(agentPayouts.paidAt, startDate),
+          lte(agentPayouts.paidAt, endDate)
+        )
+      );
+
+    return {
+      owners: ownerPayouts[0]?.total || 0,
+      agents: agentPayouts[0]?.total || 0,
+    };
+  }
+
+  // Get financial summary reports
+  async getFinancialSummaryReports(organizationId: string, filters?: {
+    reportType?: string;
+    month?: number;
+    year?: number;
+  }): Promise<FinancialSummaryReport[]> {
+    let query = db
+      .select()
+      .from(financialSummaryReports)
+      .where(eq(financialSummaryReports.organizationId, organizationId));
+
+    if (filters?.reportType) {
+      query = query.where(eq(financialSummaryReports.reportType, filters.reportType));
+    }
+    if (filters?.month) {
+      query = query.where(eq(financialSummaryReports.reportMonth, filters.month));
+    }
+    if (filters?.year) {
+      query = query.where(eq(financialSummaryReports.reportYear, filters.year));
+    }
+
+    return query.orderBy(desc(financialSummaryReports.createdAt));
+  }
 }
 
 export const storage = new DatabaseStorage();

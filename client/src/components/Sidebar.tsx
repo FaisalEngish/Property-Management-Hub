@@ -322,6 +322,13 @@ const navigationModules = [
         description: "Create and manage invoices for all business relationships"
       },
       { 
+        path: "/owner-invoicing-payouts", 
+        icon: CreditCard, 
+        label: "Owner Invoicing & Payouts", 
+        roles: ["admin", "portfolio-manager", "owner"],
+        description: "Comprehensive owner financial integration with automated invoicing and payout management"
+      },
+      { 
         path: "/utility-tracker", 
         icon: Zap, 
         label: "Utility Tracker", 
