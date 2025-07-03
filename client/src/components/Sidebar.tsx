@@ -255,6 +255,13 @@ const navigationModules = [
         description: "Create and manage invoices for all business relationships"
       },
       { 
+        path: "/utility-tracker", 
+        icon: Zap, 
+        label: "Utility Tracker", 
+        roles: ["admin", "portfolio-manager", "staff"],
+        description: "Track electricity, water, internet, and custom utility bills"
+      },
+      { 
         path: "/reports", 
         icon: BarChart3, 
         label: "Reports", 
