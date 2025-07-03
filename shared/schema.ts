@@ -7303,3 +7303,158 @@ export type InsertCommunicationLog = z.infer<typeof insertCommunicationLogSchema
 export type SmartRequestConfig = typeof smartRequestConfig.$inferSelect;
 export type InsertSmartRequestConfig = z.infer<typeof insertSmartRequestConfigSchema>;
 
+// ===== AUDIT TRAIL & ADMIN OVERRIDE CONTROLS =====
+
+// Audit Trail for all administrative actions
+export const auditTrail = pgTable("audit_trail", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  userId: varchar("user_id").notNull(), // ID of user performing action
+  userRole: varchar("user_role").notNull(), // admin, portfolio-manager, etc.
+  userName: varchar("user_name").notNull(), // Name of user performing action
+  actionType: varchar("action_type").notNull(), // create, update, delete, approve, override, impersonate
+  entityType: varchar("entity_type").notNull(), // task, booking, finance, user, property, etc.
+  entityId: varchar("entity_id").notNull(), // ID of affected entity
+  entityDescription: varchar("entity_description"), // Human readable description
+  oldValues: jsonb("old_values"), // Previous state before change
+  newValues: jsonb("new_values"), // New state after change
+  changeReason: text("change_reason"), // Reason for the change
+  impersonatedUserId: varchar("impersonated_user_id"), // If action was performed via impersonation
+  ipAddress: varchar("ip_address"), // IP address of user
+  userAgent: text("user_agent"), // Browser/client info
+  severity: varchar("severity").default("medium"), // low, medium, high, critical
+  isOverride: boolean("is_override").default(false), // Was this an admin override?
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("IDX_audit_org_user").on(table.organizationId, table.userId),
+  index("IDX_audit_entity").on(table.entityType, table.entityId),
+  index("IDX_audit_action").on(table.actionType),
+  index("IDX_audit_date").on(table.createdAt),
+]);
+
+// Admin Override Permissions
+export const adminOverridePermissions = pgTable("admin_override_permissions", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  userId: varchar("user_id").notNull(), // User with override permissions
+  userRole: varchar("user_role").notNull(), // admin, portfolio-manager
+  entityType: varchar("entity_type").notNull(), // task, finance, booking, property, user
+  canCreate: boolean("can_create").default(false),
+  canRead: boolean("can_read").default(true),
+  canUpdate: boolean("can_update").default(false),
+  canDelete: boolean("can_delete").default(false),
+  canApprove: boolean("can_approve").default(false),
+  canOverride: boolean("can_override").default(false), // Can override system restrictions
+  canImpersonate: boolean("can_impersonate").default(false), // Can act as other users
+  propertyRestrictions: jsonb("property_restrictions"), // Array of property IDs for PM restrictions
+  isActive: boolean("is_active").default(true),
+  grantedBy: varchar("granted_by").notNull(), // ID of admin who granted permission
+  grantedAt: timestamp("granted_at").defaultNow(),
+  expiresAt: timestamp("expires_at"), // Optional expiration
+  notes: text("notes"), // Administrative notes
+}, (table) => [
+  index("IDX_override_user").on(table.organizationId, table.userId),
+  index("IDX_override_entity").on(table.entityType),
+]);
+
+// User Impersonation Sessions
+export const impersonationSessions = pgTable("impersonation_sessions", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  adminUserId: varchar("admin_user_id").notNull(), // Admin performing impersonation
+  targetUserId: varchar("target_user_id").notNull(), // User being impersonated
+  targetUserRole: varchar("target_user_role").notNull(),
+  sessionToken: varchar("session_token").unique().notNull(), // Unique session identifier
+  reason: text("reason").notNull(), // Required reason for impersonation
+  startedAt: timestamp("started_at").defaultNow(),
+  endedAt: timestamp("ended_at"), // When session ended
+  isActive: boolean("is_active").default(true),
+  actionsPerformed: jsonb("actions_performed"), // Log of actions during impersonation
+  ipAddress: varchar("ip_address"),
+  userAgent: text("user_agent"),
+}, (table) => [
+  index("IDX_impersonate_admin").on(table.organizationId, table.adminUserId),
+  index("IDX_impersonate_target").on(table.targetUserId),
+  index("IDX_impersonate_session").on(table.sessionToken),
+]);
+
+// Balance Override History (for admin balance resets)
+export const balanceOverrideHistory = pgTable("balance_override_history", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  targetUserId: varchar("target_user_id").notNull(), // User whose balance was reset
+  targetUserRole: varchar("target_user_role").notNull(),
+  adminUserId: varchar("admin_user_id").notNull(), // Admin performing reset
+  adminUserName: varchar("admin_user_name").notNull(),
+  overrideType: varchar("override_type").notNull(), // balance_reset, balance_adjustment, payout_override
+  entityType: varchar("entity_type").notNull(), // owner_balance, agent_commission, pm_balance
+  entityId: varchar("entity_id"), // Reference to specific balance record
+  previousValue: decimal("previous_value", { precision: 12, scale: 2 }).notNull(),
+  newValue: decimal("new_value", { precision: 12, scale: 2 }).notNull(),
+  adjustmentAmount: decimal("adjustment_amount", { precision: 12, scale: 2 }).notNull(),
+  reason: text("reason").notNull(), // Required justification
+  approvalRequired: boolean("approval_required").default(false),
+  approvedBy: varchar("approved_by"), // For high-value adjustments
+  approvedAt: timestamp("approved_at"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("IDX_balance_override_user").on(table.organizationId, table.targetUserId),
+  index("IDX_balance_override_admin").on(table.adminUserId),
+  index("IDX_balance_override_type").on(table.overrideType),
+]);
+
+// Portfolio Manager Property Assignments (for PM restrictions)
+export const portfolioManagerAssignments = pgTable("portfolio_manager_assignments", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  managerId: varchar("manager_id").notNull(), // Portfolio Manager user ID
+  propertyId: integer("property_id").references(() => properties.id).notNull(),
+  assignedBy: varchar("assigned_by").notNull(), // Admin who made assignment
+  assignedAt: timestamp("assigned_at").defaultNow(),
+  isActive: boolean("is_active").default(true),
+  permissions: jsonb("permissions"), // Specific permissions for this property
+  notes: text("notes"),
+}, (table) => [
+  index("IDX_pm_assignment_manager").on(table.organizationId, table.managerId),
+  index("IDX_pm_assignment_property").on(table.propertyId),
+]);
+
+// Insert schemas for audit trail tables
+export const insertAuditTrailSchema = createInsertSchema(auditTrail).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertAdminOverridePermissionSchema = createInsertSchema(adminOverridePermissions).omit({
+  id: true,
+  grantedAt: true,
+});
+
+export const insertImpersonationSessionSchema = createInsertSchema(impersonationSessions).omit({
+  id: true,
+  startedAt: true,
+});
+
+export const insertBalanceOverrideHistorySchema = createInsertSchema(balanceOverrideHistory).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertPortfolioManagerAssignmentSchema = createInsertSchema(portfolioManagerAssignments).omit({
+  id: true,
+  assignedAt: true,
+});
+
+// Types for audit trail and admin controls
+export type AuditTrail = typeof auditTrail.$inferSelect;
+export type InsertAuditTrail = z.infer<typeof insertAuditTrailSchema>;
+export type AdminOverridePermission = typeof adminOverridePermissions.$inferSelect;
+export type InsertAdminOverridePermission = z.infer<typeof insertAdminOverridePermissionSchema>;
+export type ImpersonationSession = typeof impersonationSessions.$inferSelect;
+export type InsertImpersonationSession = z.infer<typeof insertImpersonationSessionSchema>;
+export type BalanceOverrideHistory = typeof balanceOverrideHistory.$inferSelect;
+export type InsertBalanceOverrideHistory = z.infer<typeof insertBalanceOverrideHistorySchema>;
+export type PortfolioManagerAssignment = typeof portfolioManagerAssignments.$inferSelect;
+export type InsertPortfolioManagerAssignment = z.infer<typeof insertPortfolioManagerAssignmentSchema>;
+

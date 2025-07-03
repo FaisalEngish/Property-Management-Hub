@@ -213,8 +213,24 @@ import {
   type BalanceResetAudit,
   type InsertBalanceResetAudit,
   ownerStatementExports,
+  // Audit Trail & Admin Override tables
+  auditTrail,
+  adminOverridePermissions,
+  impersonationSessions,
+  balanceOverrideHistory,
+  portfolioManagerAssignments,
   type OwnerStatementExport,
   type InsertOwnerStatementExport,
+  type AuditTrail,
+  type InsertAuditTrail,
+  type AdminOverridePermission,
+  type InsertAdminOverridePermission,
+  type ImpersonationSession,
+  type InsertImpersonationSession,
+  type BalanceOverrideHistory,
+  type InsertBalanceOverrideHistory,
+  type PortfolioManagerAssignment,
+  type InsertPortfolioManagerAssignment,
   // Communication System types
   type CommunicationChannel,
   type InsertCommunicationChannel,
@@ -19349,6 +19365,320 @@ Plant Care:
       managementCommission,
       netBalance,
     };
+  }
+
+  // ===== AUDIT TRAIL & ADMIN OVERRIDE METHODS =====
+
+  // Audit Trail Operations
+  async createAuditLog(auditData: InsertAuditTrail): Promise<AuditTrail> {
+    const [audit] = await db.insert(auditTrail).values(auditData).returning();
+    return audit;
+  }
+
+  async getAuditTrail(
+    organizationId: string,
+    filters?: {
+      userId?: string;
+      entityType?: string;
+      entityId?: string;
+      actionType?: string;
+      dateFrom?: string;
+      dateTo?: string;
+      severity?: string;
+    }
+  ): Promise<AuditTrail[]> {
+    let query = db.select().from(auditTrail).where(eq(auditTrail.organizationId, organizationId));
+
+    if (filters?.userId) {
+      query = query.where(eq(auditTrail.userId, filters.userId));
+    }
+    if (filters?.entityType) {
+      query = query.where(eq(auditTrail.entityType, filters.entityType));
+    }
+    if (filters?.entityId) {
+      query = query.where(eq(auditTrail.entityId, filters.entityId));
+    }
+    if (filters?.actionType) {
+      query = query.where(eq(auditTrail.actionType, filters.actionType));
+    }
+    if (filters?.dateFrom) {
+      query = query.where(gte(auditTrail.createdAt, new Date(filters.dateFrom)));
+    }
+    if (filters?.dateTo) {
+      query = query.where(lte(auditTrail.createdAt, new Date(filters.dateTo)));
+    }
+    if (filters?.severity) {
+      query = query.where(eq(auditTrail.severity, filters.severity));
+    }
+
+    return query.orderBy(desc(auditTrail.createdAt));
+  }
+
+  async getEntityChangeHistory(
+    organizationId: string,
+    entityType: string,
+    entityId: string
+  ): Promise<AuditTrail[]> {
+    return db
+      .select()
+      .from(auditTrail)
+      .where(
+        and(
+          eq(auditTrail.organizationId, organizationId),
+          eq(auditTrail.entityType, entityType),
+          eq(auditTrail.entityId, entityId)
+        )
+      )
+      .orderBy(desc(auditTrail.createdAt));
+  }
+
+  // Admin Override Permissions
+  async createAdminPermission(permission: InsertAdminOverridePermission): Promise<AdminOverridePermission> {
+    const [perm] = await db.insert(adminOverridePermissions).values(permission).returning();
+    return perm;
+  }
+
+  async getAdminPermissions(
+    organizationId: string,
+    userId?: string,
+    entityType?: string
+  ): Promise<AdminOverridePermission[]> {
+    let query = db
+      .select()
+      .from(adminOverridePermissions)
+      .where(
+        and(
+          eq(adminOverridePermissions.organizationId, organizationId),
+          eq(adminOverridePermissions.isActive, true)
+        )
+      );
+
+    if (userId) {
+      query = query.where(eq(adminOverridePermissions.userId, userId));
+    }
+    if (entityType) {
+      query = query.where(eq(adminOverridePermissions.entityType, entityType));
+    }
+
+    return query.orderBy(desc(adminOverridePermissions.grantedAt));
+  }
+
+  async checkUserPermission(
+    organizationId: string,
+    userId: string,
+    entityType: string,
+    permissionType: 'create' | 'read' | 'update' | 'delete' | 'approve' | 'override' | 'impersonate'
+  ): Promise<AdminOverridePermission | null> {
+    const columnMap = {
+      create: 'canCreate',
+      read: 'canRead',
+      update: 'canUpdate',
+      delete: 'canDelete',
+      approve: 'canApprove',
+      override: 'canOverride',
+      impersonate: 'canImpersonate'
+    };
+
+    const [permission] = await db
+      .select()
+      .from(adminOverridePermissions)
+      .where(
+        and(
+          eq(adminOverridePermissions.organizationId, organizationId),
+          eq(adminOverridePermissions.userId, userId),
+          eq(adminOverridePermissions.entityType, entityType),
+          eq(adminOverridePermissions.isActive, true),
+          sql`${adminOverridePermissions[columnMap[permissionType]]} = true`
+        )
+      );
+
+    return permission || null;
+  }
+
+  // User Impersonation
+  async createImpersonationSession(session: InsertImpersonationSession): Promise<ImpersonationSession> {
+    const [impSession] = await db.insert(impersonationSessions).values(session).returning();
+    return impSession;
+  }
+
+  async getActiveImpersonationSession(sessionToken: string): Promise<ImpersonationSession | null> {
+    const [session] = await db
+      .select()
+      .from(impersonationSessions)
+      .where(
+        and(
+          eq(impersonationSessions.sessionToken, sessionToken),
+          eq(impersonationSessions.isActive, true)
+        )
+      );
+
+    return session || null;
+  }
+
+  async endImpersonationSession(sessionToken: string): Promise<void> {
+    await db
+      .update(impersonationSessions)
+      .set({
+        endedAt: new Date(),
+        isActive: false
+      })
+      .where(eq(impersonationSessions.sessionToken, sessionToken));
+  }
+
+  async getImpersonationHistory(
+    organizationId: string,
+    adminUserId?: string,
+    targetUserId?: string
+  ): Promise<ImpersonationSession[]> {
+    let query = db
+      .select()
+      .from(impersonationSessions)
+      .where(eq(impersonationSessions.organizationId, organizationId));
+
+    if (adminUserId) {
+      query = query.where(eq(impersonationSessions.adminUserId, adminUserId));
+    }
+    if (targetUserId) {
+      query = query.where(eq(impersonationSessions.targetUserId, targetUserId));
+    }
+
+    return query.orderBy(desc(impersonationSessions.startedAt));
+  }
+
+  // Balance Override History
+  async createBalanceOverride(override: InsertBalanceOverrideHistory): Promise<BalanceOverrideHistory> {
+    const [balanceOverride] = await db.insert(balanceOverrideHistory).values(override).returning();
+    return balanceOverride;
+  }
+
+  async getBalanceOverrideHistory(
+    organizationId: string,
+    filters?: {
+      targetUserId?: string;
+      adminUserId?: string;
+      overrideType?: string;
+      entityType?: string;
+      dateFrom?: string;
+      dateTo?: string;
+    }
+  ): Promise<BalanceOverrideHistory[]> {
+    let query = db
+      .select()
+      .from(balanceOverrideHistory)
+      .where(eq(balanceOverrideHistory.organizationId, organizationId));
+
+    if (filters?.targetUserId) {
+      query = query.where(eq(balanceOverrideHistory.targetUserId, filters.targetUserId));
+    }
+    if (filters?.adminUserId) {
+      query = query.where(eq(balanceOverrideHistory.adminUserId, filters.adminUserId));
+    }
+    if (filters?.overrideType) {
+      query = query.where(eq(balanceOverrideHistory.overrideType, filters.overrideType));
+    }
+    if (filters?.entityType) {
+      query = query.where(eq(balanceOverrideHistory.entityType, filters.entityType));
+    }
+    if (filters?.dateFrom) {
+      query = query.where(gte(balanceOverrideHistory.createdAt, new Date(filters.dateFrom)));
+    }
+    if (filters?.dateTo) {
+      query = query.where(lte(balanceOverrideHistory.createdAt, new Date(filters.dateTo)));
+    }
+
+    return query.orderBy(desc(balanceOverrideHistory.createdAt));
+  }
+
+  // Portfolio Manager Assignments
+  async createPMAssignment(assignment: InsertPortfolioManagerAssignment): Promise<PortfolioManagerAssignment> {
+    const [pmAssignment] = await db.insert(portfolioManagerAssignments).values(assignment).returning();
+    return pmAssignment;
+  }
+
+  async getPMAssignments(
+    organizationId: string,
+    managerId?: string,
+    propertyId?: number
+  ): Promise<PortfolioManagerAssignment[]> {
+    let query = db
+      .select()
+      .from(portfolioManagerAssignments)
+      .where(
+        and(
+          eq(portfolioManagerAssignments.organizationId, organizationId),
+          eq(portfolioManagerAssignments.isActive, true)
+        )
+      );
+
+    if (managerId) {
+      query = query.where(eq(portfolioManagerAssignments.managerId, managerId));
+    }
+    if (propertyId) {
+      query = query.where(eq(portfolioManagerAssignments.propertyId, propertyId));
+    }
+
+    return query.orderBy(desc(portfolioManagerAssignments.assignedAt));
+  }
+
+  async getPMPortfolioProperties(organizationId: string, managerId: string): Promise<number[]> {
+    const assignments = await db
+      .select({ propertyId: portfolioManagerAssignments.propertyId })
+      .from(portfolioManagerAssignments)
+      .where(
+        and(
+          eq(portfolioManagerAssignments.organizationId, organizationId),
+          eq(portfolioManagerAssignments.managerId, managerId),
+          eq(portfolioManagerAssignments.isActive, true)
+        )
+      );
+
+    return assignments.map(a => a.propertyId);
+  }
+
+  async deactivatePMAssignment(id: number): Promise<void> {
+    await db
+      .update(portfolioManagerAssignments)
+      .set({ isActive: false })
+      .where(eq(portfolioManagerAssignments.id, id));
+  }
+
+  // Helper method to log admin actions with audit trail
+  async logAdminAction(actionData: {
+    organizationId: string;
+    userId: string;
+    userRole: string;
+    userName: string;
+    actionType: string;
+    entityType: string;
+    entityId: string;
+    entityDescription?: string;
+    oldValues?: any;
+    newValues?: any;
+    changeReason?: string;
+    impersonatedUserId?: string;
+    ipAddress?: string;
+    userAgent?: string;
+    severity?: string;
+    isOverride?: boolean;
+  }): Promise<AuditTrail> {
+    return this.createAuditLog({
+      organizationId: actionData.organizationId,
+      userId: actionData.userId,
+      userRole: actionData.userRole,
+      userName: actionData.userName,
+      actionType: actionData.actionType,
+      entityType: actionData.entityType,
+      entityId: actionData.entityId,
+      entityDescription: actionData.entityDescription,
+      oldValues: actionData.oldValues,
+      newValues: actionData.newValues,
+      changeReason: actionData.changeReason,
+      impersonatedUserId: actionData.impersonatedUserId,
+      ipAddress: actionData.ipAddress,
+      userAgent: actionData.userAgent,
+      severity: actionData.severity || 'medium',
+      isOverride: actionData.isOverride || false
+    });
   }
 }
 

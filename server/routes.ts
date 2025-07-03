@@ -16022,4 +16022,406 @@ async function processGuestIssueForAI(issueReport: any) {
     
     return csv;
   }
+
+  // ===== AUDIT TRAIL & ADMIN OVERRIDE API ROUTES =====
+
+  // Admin middleware to check admin permissions
+  const requireAdmin = (req: Request, res: Response, next: NextFunction) => {
+    const user = req.user as any;
+    if (!user || user.role !== 'admin') {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+    next();
+  };
+
+  // Portfolio Manager middleware
+  const requirePortfolioManagerOrAdmin = (req: Request, res: Response, next: NextFunction) => {
+    const user = req.user as any;
+    if (!user || (!['admin', 'portfolio-manager'].includes(user.role))) {
+      return res.status(403).json({ message: "Portfolio Manager or Admin access required" });
+    }
+    next();
+  };
+
+  // Audit Trail Routes
+  app.get("/api/admin/audit-trail", requireAdmin, async (req, res) => {
+    try {
+      const user = req.user as any;
+      const {
+        userId,
+        entityType,
+        entityId,
+        actionType,
+        dateFrom,
+        dateTo,
+        severity
+      } = req.query;
+
+      const auditLogs = await storage.getAuditTrail(user.organizationId, {
+        userId: userId as string,
+        entityType: entityType as string,
+        entityId: entityId as string,
+        actionType: actionType as string,
+        dateFrom: dateFrom as string,
+        dateTo: dateTo as string,
+        severity: severity as string
+      });
+
+      res.json(auditLogs);
+    } catch (error) {
+      console.error("Error fetching audit trail:", error);
+      res.status(500).json({ message: "Failed to fetch audit trail" });
+    }
+  });
+
+  app.get("/api/admin/audit-trail/entity/:entityType/:entityId", requireAdmin, async (req, res) => {
+    try {
+      const user = req.user as any;
+      const { entityType, entityId } = req.params;
+
+      const history = await storage.getEntityChangeHistory(
+        user.organizationId,
+        entityType,
+        entityId
+      );
+
+      res.json(history);
+    } catch (error) {
+      console.error("Error fetching entity change history:", error);
+      res.status(500).json({ message: "Failed to fetch entity change history" });
+    }
+  });
+
+  // Admin Permission Management
+  app.get("/api/admin/permissions", requireAdmin, async (req, res) => {
+    try {
+      const user = req.user as any;
+      const { userId, entityType } = req.query;
+
+      const permissions = await storage.getAdminPermissions(
+        user.organizationId,
+        userId as string,
+        entityType as string
+      );
+
+      res.json(permissions);
+    } catch (error) {
+      console.error("Error fetching admin permissions:", error);
+      res.status(500).json({ message: "Failed to fetch admin permissions" });
+    }
+  });
+
+  app.post("/api/admin/permissions", requireAdmin, async (req, res) => {
+    try {
+      const user = req.user as any;
+      const permissionData = {
+        ...req.body,
+        organizationId: user.organizationId,
+        grantedBy: user.id
+      };
+
+      const permission = await storage.createAdminPermission(permissionData);
+
+      // Log the admin action
+      await storage.logAdminAction({
+        organizationId: user.organizationId,
+        userId: user.id,
+        userRole: user.role,
+        userName: user.email || user.username || 'Admin',
+        actionType: 'create',
+        entityType: 'admin_permission',
+        entityId: permission.id.toString(),
+        entityDescription: `Admin permission granted to ${permissionData.userId}`,
+        newValues: permissionData,
+        severity: 'high'
+      });
+
+      res.json(permission);
+    } catch (error) {
+      console.error("Error creating admin permission:", error);
+      res.status(500).json({ message: "Failed to create admin permission" });
+    }
+  });
+
+  // User Impersonation Routes
+  app.post("/api/admin/impersonate", requireAdmin, async (req, res) => {
+    try {
+      const user = req.user as any;
+      const { targetUserId, targetUserRole, reason } = req.body;
+
+      if (!reason) {
+        return res.status(400).json({ message: "Reason for impersonation is required" });
+      }
+
+      const sessionToken = `imp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+      const impersonationSession = await storage.createImpersonationSession({
+        organizationId: user.organizationId,
+        adminUserId: user.id,
+        targetUserId,
+        targetUserRole,
+        sessionToken,
+        reason,
+        ipAddress: req.ip,
+        userAgent: req.get('User-Agent') || ''
+      });
+
+      // Log the impersonation start
+      await storage.logAdminAction({
+        organizationId: user.organizationId,
+        userId: user.id,
+        userRole: user.role,
+        userName: user.email || user.username || 'Admin',
+        actionType: 'impersonate',
+        entityType: 'user',
+        entityId: targetUserId,
+        entityDescription: `Started impersonating user ${targetUserId}`,
+        changeReason: reason,
+        severity: 'critical',
+        isOverride: true
+      });
+
+      res.json({ sessionToken, message: "Impersonation session started" });
+    } catch (error) {
+      console.error("Error starting impersonation:", error);
+      res.status(500).json({ message: "Failed to start impersonation" });
+    }
+  });
+
+  app.post("/api/admin/impersonate/end", requireAdmin, async (req, res) => {
+    try {
+      const { sessionToken } = req.body;
+      const user = req.user as any;
+
+      await storage.endImpersonationSession(sessionToken);
+
+      // Log the impersonation end
+      await storage.logAdminAction({
+        organizationId: user.organizationId,
+        userId: user.id,
+        userRole: user.role,
+        userName: user.email || user.username || 'Admin',
+        actionType: 'end_impersonate',
+        entityType: 'user',
+        entityId: sessionToken,
+        entityDescription: `Ended impersonation session`,
+        severity: 'high'
+      });
+
+      res.json({ message: "Impersonation session ended" });
+    } catch (error) {
+      console.error("Error ending impersonation:", error);
+      res.status(500).json({ message: "Failed to end impersonation" });
+    }
+  });
+
+  app.get("/api/admin/impersonation-history", requireAdmin, async (req, res) => {
+    try {
+      const user = req.user as any;
+      const { adminUserId, targetUserId } = req.query;
+
+      const history = await storage.getImpersonationHistory(
+        user.organizationId,
+        adminUserId as string,
+        targetUserId as string
+      );
+
+      res.json(history);
+    } catch (error) {
+      console.error("Error fetching impersonation history:", error);
+      res.status(500).json({ message: "Failed to fetch impersonation history" });
+    }
+  });
+
+  // Balance Override Routes
+  app.post("/api/admin/balance-override", requireAdmin, async (req, res) => {
+    try {
+      const user = req.user as any;
+      const {
+        targetUserId,
+        targetUserRole,
+        overrideType,
+        entityType,
+        entityId,
+        previousValue,
+        newValue,
+        reason
+      } = req.body;
+
+      if (!reason) {
+        return res.status(400).json({ message: "Reason for balance override is required" });
+      }
+
+      const adjustmentAmount = parseFloat(newValue) - parseFloat(previousValue);
+
+      const override = await storage.createBalanceOverride({
+        organizationId: user.organizationId,
+        targetUserId,
+        targetUserRole,
+        adminUserId: user.id,
+        adminUserName: user.email || user.username || 'Admin',
+        overrideType,
+        entityType,
+        entityId,
+        previousValue,
+        newValue,
+        adjustmentAmount: adjustmentAmount.toString(),
+        reason
+      });
+
+      // Log the balance override
+      await storage.logAdminAction({
+        organizationId: user.organizationId,
+        userId: user.id,
+        userRole: user.role,
+        userName: user.email || user.username || 'Admin',
+        actionType: 'balance_override',
+        entityType,
+        entityId: entityId || targetUserId,
+        entityDescription: `Balance override for ${targetUserRole} ${targetUserId}`,
+        oldValues: { value: previousValue },
+        newValues: { value: newValue },
+        changeReason: reason,
+        severity: 'critical',
+        isOverride: true
+      });
+
+      res.json(override);
+    } catch (error) {
+      console.error("Error creating balance override:", error);
+      res.status(500).json({ message: "Failed to create balance override" });
+    }
+  });
+
+  app.get("/api/admin/balance-override-history", requireAdmin, async (req, res) => {
+    try {
+      const user = req.user as any;
+      const {
+        targetUserId,
+        adminUserId,
+        overrideType,
+        entityType,
+        dateFrom,
+        dateTo
+      } = req.query;
+
+      const history = await storage.getBalanceOverrideHistory(user.organizationId, {
+        targetUserId: targetUserId as string,
+        adminUserId: adminUserId as string,
+        overrideType: overrideType as string,
+        entityType: entityType as string,
+        dateFrom: dateFrom as string,
+        dateTo: dateTo as string
+      });
+
+      res.json(history);
+    } catch (error) {
+      console.error("Error fetching balance override history:", error);
+      res.status(500).json({ message: "Failed to fetch balance override history" });
+    }
+  });
+
+  // Portfolio Manager Assignment Routes
+  app.get("/api/admin/pm-assignments", requireAdmin, async (req, res) => {
+    try {
+      const user = req.user as any;
+      const { managerId, propertyId } = req.query;
+
+      const assignments = await storage.getPMAssignments(
+        user.organizationId,
+        managerId as string,
+        propertyId ? parseInt(propertyId as string) : undefined
+      );
+
+      res.json(assignments);
+    } catch (error) {
+      console.error("Error fetching PM assignments:", error);
+      res.status(500).json({ message: "Failed to fetch PM assignments" });
+    }
+  });
+
+  app.post("/api/admin/pm-assignments", requireAdmin, async (req, res) => {
+    try {
+      const user = req.user as any;
+      const assignmentData = {
+        ...req.body,
+        organizationId: user.organizationId,
+        assignedBy: user.id
+      };
+
+      const assignment = await storage.createPMAssignment(assignmentData);
+
+      // Log the PM assignment
+      await storage.logAdminAction({
+        organizationId: user.organizationId,
+        userId: user.id,
+        userRole: user.role,
+        userName: user.email || user.username || 'Admin',
+        actionType: 'create',
+        entityType: 'pm_assignment',
+        entityId: assignment.id.toString(),
+        entityDescription: `Assigned PM ${assignmentData.managerId} to property ${assignmentData.propertyId}`,
+        newValues: assignmentData,
+        severity: 'medium'
+      });
+
+      res.json(assignment);
+    } catch (error) {
+      console.error("Error creating PM assignment:", error);
+      res.status(500).json({ message: "Failed to create PM assignment" });
+    }
+  });
+
+  app.get("/api/pm/portfolio-properties", requirePortfolioManagerOrAdmin, async (req, res) => {
+    try {
+      const user = req.user as any;
+
+      // If admin, return all properties, otherwise return PM's assigned properties
+      if (user.role === 'admin') {
+        const properties = await storage.getPropertiesByOrganization(user.organizationId);
+        res.json(properties.map(p => p.id));
+      } else {
+        const propertyIds = await storage.getPMPortfolioProperties(user.organizationId, user.id);
+        res.json(propertyIds);
+      }
+    } catch (error) {
+      console.error("Error fetching portfolio properties:", error);
+      res.status(500).json({ message: "Failed to fetch portfolio properties" });
+    }
+  });
+
+  // Admin override for any entity - generic endpoint with proper logging
+  app.post("/api/admin/override/:entityType/:entityId", requireAdmin, async (req, res) => {
+    try {
+      const user = req.user as any;
+      const { entityType, entityId } = req.params;
+      const { action, data, reason } = req.body;
+
+      if (!reason) {
+        return res.status(400).json({ message: "Reason for override is required" });
+      }
+
+      // Log the admin override action
+      await storage.logAdminAction({
+        organizationId: user.organizationId,
+        userId: user.id,
+        userRole: user.role,
+        userName: user.email || user.username || 'Admin',
+        actionType: action,
+        entityType,
+        entityId,
+        entityDescription: `Admin override ${action} on ${entityType} ${entityId}`,
+        oldValues: data.oldValues,
+        newValues: data.newValues,
+        changeReason: reason,
+        severity: 'high',
+        isOverride: true
+      });
+
+      res.json({ message: "Admin override logged successfully" });
+    } catch (error) {
+      console.error("Error processing admin override:", error);
+      res.status(500).json({ message: "Failed to process admin override" });
+    }
+  });
 }
