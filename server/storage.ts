@@ -429,6 +429,25 @@ import {
   type InsertStaffCommission,
   type PaySlip,
   type InsertPaySlip,
+  // Property Access Management types
+  propertyAccessCredentials,
+  propertyAccessPhotos,
+  accessChangeLog,
+  guestAccessSessions,
+  smartLockSyncLog,
+  codeRotationSchedule,
+  type PropertyAccessCredential,
+  type InsertPropertyAccessCredential,
+  type PropertyAccessPhoto,
+  type InsertPropertyAccessPhoto,
+  type AccessChangeLog,
+  type InsertAccessChangeLog,
+  type GuestAccessSession,
+  type InsertGuestAccessSession,
+  type SmartLockSyncLog,
+  type InsertSmartLockSyncLog,
+  type CodeRotationSchedule,
+  type InsertCodeRotationSchedule,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, or, desc, asc, lt, gte, lte, isNull, sql, sum, count, avg, max } from "drizzle-orm";
@@ -1146,6 +1165,48 @@ export interface IStorage {
     expiringCount: number;
     recentUploads: number;
   }>;
+
+  // Property Access Management operations
+  getPropertyAccessCredentials(organizationId: string, propertyId?: number): Promise<PropertyAccessCredential[]>;
+  getPropertyAccessCredential(id: number): Promise<PropertyAccessCredential | undefined>;
+  createPropertyAccessCredential(credential: InsertPropertyAccessCredential): Promise<PropertyAccessCredential>;
+  updatePropertyAccessCredential(id: number, credential: Partial<InsertPropertyAccessCredential>): Promise<PropertyAccessCredential | undefined>;
+  deletePropertyAccessCredential(id: number): Promise<boolean>;
+  
+  // Property Access Photos operations
+  getPropertyAccessPhotos(credentialId: number): Promise<PropertyAccessPhoto[]>;
+  createPropertyAccessPhoto(photo: InsertPropertyAccessPhoto): Promise<PropertyAccessPhoto>;
+  deletePropertyAccessPhoto(id: number): Promise<boolean>;
+  
+  // Access Change Log operations
+  getAccessChangeLog(credentialId: number): Promise<AccessChangeLog[]>;
+  createAccessChangeLog(log: InsertAccessChangeLog): Promise<AccessChangeLog>;
+  
+  // Guest Access Sessions operations
+  getGuestAccessSessions(organizationId: string, filters?: { bookingId?: number; credentialId?: number; guestEmail?: string }): Promise<GuestAccessSession[]>;
+  createGuestAccessSession(session: InsertGuestAccessSession): Promise<GuestAccessSession>;
+  updateGuestAccessSession(id: number, session: Partial<InsertGuestAccessSession>): Promise<GuestAccessSession | undefined>;
+  revokeGuestAccessSession(id: number, revokedBy: string, reason: string): Promise<GuestAccessSession | undefined>;
+  
+  // Smart Lock Sync Log operations
+  getSmartLockSyncLog(credentialId: number): Promise<SmartLockSyncLog[]>;
+  createSmartLockSyncLog(log: InsertSmartLockSyncLog): Promise<SmartLockSyncLog>;
+  
+  // Code Rotation Schedule operations
+  getCodeRotationSchedules(organizationId: string, filters?: { propertyId?: number; dueForRotation?: boolean }): Promise<CodeRotationSchedule[]>;
+  createCodeRotationSchedule(schedule: InsertCodeRotationSchedule): Promise<CodeRotationSchedule>;
+  updateCodeRotationSchedule(id: number, schedule: Partial<InsertCodeRotationSchedule>): Promise<CodeRotationSchedule | undefined>;
+  
+  // Access visibility filtering based on user role
+  getFilteredAccessCredentials(organizationId: string, userRole: string, userId: string, propertyId?: number): Promise<PropertyAccessCredential[]>;
+  
+  // QR Code generation and access token management
+  generateGuestAccessToken(bookingId: number, credentialId: number): Promise<string>;
+  validateGuestAccessToken(token: string): Promise<{ valid: boolean; credentialId?: number; bookingId?: number }>;
+  
+  // Rotation reminders and notifications
+  getDueRotationReminders(organizationId: string): Promise<CodeRotationSchedule[]>;
+  markRotationReminderSent(scheduleId: number): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -20003,6 +20064,273 @@ Plant Care:
       expiringCount,
       recentUploads
     };
+  }
+
+  // ===== PROPERTY ACCESS MANAGEMENT IMPLEMENTATION =====
+
+  // Property Access Credentials operations
+  async getPropertyAccessCredentials(organizationId: string, propertyId?: number): Promise<PropertyAccessCredential[]> {
+    const conditions = [
+      eq(propertyAccessCredentials.organizationId, organizationId),
+      eq(propertyAccessCredentials.isActive, true)
+    ];
+    
+    if (propertyId) {
+      conditions.push(eq(propertyAccessCredentials.propertyId, propertyId));
+    }
+
+    return await db.select()
+      .from(propertyAccessCredentials)
+      .where(and(...conditions))
+      .orderBy(desc(propertyAccessCredentials.createdAt));
+  }
+
+  async getPropertyAccessCredential(id: number): Promise<PropertyAccessCredential | undefined> {
+    const [credential] = await db.select()
+      .from(propertyAccessCredentials)
+      .where(eq(propertyAccessCredentials.id, id));
+    return credential;
+  }
+
+  async createPropertyAccessCredential(credential: InsertPropertyAccessCredential): Promise<PropertyAccessCredential> {
+    const [newCredential] = await db.insert(propertyAccessCredentials)
+      .values(credential)
+      .returning();
+    return newCredential;
+  }
+
+  async updatePropertyAccessCredential(id: number, credential: Partial<InsertPropertyAccessCredential>): Promise<PropertyAccessCredential | undefined> {
+    const [updatedCredential] = await db.update(propertyAccessCredentials)
+      .set({
+        ...credential,
+        updatedAt: new Date(),
+        lastUpdated: new Date()
+      })
+      .where(eq(propertyAccessCredentials.id, id))
+      .returning();
+    return updatedCredential;
+  }
+
+  async deletePropertyAccessCredential(id: number): Promise<boolean> {
+    const [deletedCredential] = await db.update(propertyAccessCredentials)
+      .set({ isActive: false, updatedAt: new Date() })
+      .where(eq(propertyAccessCredentials.id, id))
+      .returning();
+    return !!deletedCredential;
+  }
+
+  // Property Access Photos operations
+  async getPropertyAccessPhotos(credentialId: number): Promise<PropertyAccessPhoto[]> {
+    return await db.select()
+      .from(propertyAccessPhotos)
+      .where(and(
+        eq(propertyAccessPhotos.credentialId, credentialId),
+        eq(propertyAccessPhotos.isActive, true)
+      ))
+      .orderBy(desc(propertyAccessPhotos.uploadedAt));
+  }
+
+  async createPropertyAccessPhoto(photo: InsertPropertyAccessPhoto): Promise<PropertyAccessPhoto> {
+    const [newPhoto] = await db.insert(propertyAccessPhotos)
+      .values(photo)
+      .returning();
+    return newPhoto;
+  }
+
+  async deletePropertyAccessPhoto(id: number): Promise<boolean> {
+    const [deletedPhoto] = await db.update(propertyAccessPhotos)
+      .set({ isActive: false })
+      .where(eq(propertyAccessPhotos.id, id))
+      .returning();
+    return !!deletedPhoto;
+  }
+
+  // Access Change Log operations
+  async getAccessChangeLog(credentialId: number): Promise<AccessChangeLog[]> {
+    return await db.select()
+      .from(accessChangeLog)
+      .where(eq(accessChangeLog.credentialId, credentialId))
+      .orderBy(desc(accessChangeLog.changedAt));
+  }
+
+  async createAccessChangeLog(log: InsertAccessChangeLog): Promise<AccessChangeLog> {
+    const [newLog] = await db.insert(accessChangeLog)
+      .values(log)
+      .returning();
+    return newLog;
+  }
+
+  // Guest Access Sessions operations
+  async getGuestAccessSessions(organizationId: string, filters?: { bookingId?: number; credentialId?: number; guestEmail?: string }): Promise<GuestAccessSession[]> {
+    const conditions = [eq(guestAccessSessions.organizationId, organizationId)];
+    
+    if (filters?.bookingId) {
+      conditions.push(eq(guestAccessSessions.bookingId, filters.bookingId));
+    }
+    if (filters?.credentialId) {
+      conditions.push(eq(guestAccessSessions.credentialId, filters.credentialId));
+    }
+    if (filters?.guestEmail) {
+      conditions.push(eq(guestAccessSessions.guestEmail, filters.guestEmail));
+    }
+
+    return await db.select()
+      .from(guestAccessSessions)
+      .where(and(...conditions))
+      .orderBy(desc(guestAccessSessions.accessGrantedAt));
+  }
+
+  async createGuestAccessSession(session: InsertGuestAccessSession): Promise<GuestAccessSession> {
+    const [newSession] = await db.insert(guestAccessSessions)
+      .values(session)
+      .returning();
+    return newSession;
+  }
+
+  async updateGuestAccessSession(id: number, session: Partial<InsertGuestAccessSession>): Promise<GuestAccessSession | undefined> {
+    const [updatedSession] = await db.update(guestAccessSessions)
+      .set(session)
+      .where(eq(guestAccessSessions.id, id))
+      .returning();
+    return updatedSession;
+  }
+
+  async revokeGuestAccessSession(id: number, revokedBy: string, reason: string): Promise<GuestAccessSession | undefined> {
+    const [revokedSession] = await db.update(guestAccessSessions)
+      .set({
+        isActive: false,
+        revokedAt: new Date(),
+        revokedBy,
+        revokedReason: reason
+      })
+      .where(eq(guestAccessSessions.id, id))
+      .returning();
+    return revokedSession;
+  }
+
+  // Smart Lock Sync Log operations
+  async getSmartLockSyncLog(credentialId: number): Promise<SmartLockSyncLog[]> {
+    return await db.select()
+      .from(smartLockSyncLog)
+      .where(eq(smartLockSyncLog.credentialId, credentialId))
+      .orderBy(desc(smartLockSyncLog.syncStartedAt));
+  }
+
+  async createSmartLockSyncLog(log: InsertSmartLockSyncLog): Promise<SmartLockSyncLog> {
+    const [newLog] = await db.insert(smartLockSyncLog)
+      .values(log)
+      .returning();
+    return newLog;
+  }
+
+  // Code Rotation Schedule operations
+  async getCodeRotationSchedules(organizationId: string, filters?: { propertyId?: number; dueForRotation?: boolean }): Promise<CodeRotationSchedule[]> {
+    const conditions = [
+      eq(codeRotationSchedule.organizationId, organizationId),
+      eq(codeRotationSchedule.isActive, true)
+    ];
+    
+    if (filters?.dueForRotation) {
+      conditions.push(lte(codeRotationSchedule.nextRotationDate, new Date()));
+    }
+
+    return await db.select()
+      .from(codeRotationSchedule)
+      .where(and(...conditions))
+      .orderBy(asc(codeRotationSchedule.nextRotationDate));
+  }
+
+  async createCodeRotationSchedule(schedule: InsertCodeRotationSchedule): Promise<CodeRotationSchedule> {
+    const [newSchedule] = await db.insert(codeRotationSchedule)
+      .values(schedule)
+      .returning();
+    return newSchedule;
+  }
+
+  async updateCodeRotationSchedule(id: number, schedule: Partial<InsertCodeRotationSchedule>): Promise<CodeRotationSchedule | undefined> {
+    const [updatedSchedule] = await db.update(codeRotationSchedule)
+      .set({
+        ...schedule,
+        updatedAt: new Date()
+      })
+      .where(eq(codeRotationSchedule.id, id))
+      .returning();
+    return updatedSchedule;
+  }
+
+  // Access visibility filtering based on user role
+  async getFilteredAccessCredentials(organizationId: string, userRole: string, userId: string, propertyId?: number): Promise<PropertyAccessCredential[]> {
+    const conditions = [
+      eq(propertyAccessCredentials.organizationId, organizationId),
+      eq(propertyAccessCredentials.isActive, true)
+    ];
+    
+    if (propertyId) {
+      conditions.push(eq(propertyAccessCredentials.propertyId, propertyId));
+    }
+
+    const allCredentials = await db.select()
+      .from(propertyAccessCredentials)
+      .where(and(...conditions))
+      .orderBy(desc(propertyAccessCredentials.createdAt));
+
+    // Filter based on visibility settings and user role
+    return allCredentials.filter(credential => {
+      const visibleTo = credential.visibleTo as string[];
+      return visibleTo.includes(userRole) || visibleTo.includes('all');
+    });
+  }
+
+  // QR Code generation and access token management
+  async generateGuestAccessToken(bookingId: number, credentialId: number): Promise<string> {
+    // Generate a unique token (in real implementation, you'd use crypto.randomBytes or similar)
+    const token = `guest_${bookingId}_${credentialId}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    return token;
+  }
+
+  async validateGuestAccessToken(token: string): Promise<{ valid: boolean; credentialId?: number; bookingId?: number }> {
+    const session = await db.select()
+      .from(guestAccessSessions)
+      .where(and(
+        eq(guestAccessSessions.accessToken, token),
+        eq(guestAccessSessions.isActive, true),
+        gte(guestAccessSessions.accessExpiresAt, new Date())
+      ))
+      .limit(1);
+
+    if (session.length === 0) {
+      return { valid: false };
+    }
+
+    return {
+      valid: true,
+      credentialId: session[0].credentialId,
+      bookingId: session[0].bookingId
+    };
+  }
+
+  // Rotation reminders and notifications
+  async getDueRotationReminders(organizationId: string): Promise<CodeRotationSchedule[]> {
+    return await db.select()
+      .from(codeRotationSchedule)
+      .where(and(
+        eq(codeRotationSchedule.organizationId, organizationId),
+        eq(codeRotationSchedule.isActive, true),
+        lte(codeRotationSchedule.nextRotationDate, new Date()),
+        eq(codeRotationSchedule.reminderSent, false)
+      ))
+      .orderBy(asc(codeRotationSchedule.nextRotationDate));
+  }
+
+  async markRotationReminderSent(scheduleId: number): Promise<boolean> {
+    const [updatedSchedule] = await db.update(codeRotationSchedule)
+      .set({
+        reminderSent: true,
+        reminderSentAt: new Date()
+      })
+      .where(eq(codeRotationSchedule.id, scheduleId))
+      .returning();
+    return !!updatedSchedule;
   }
 }
 

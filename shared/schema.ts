@@ -7675,3 +7675,224 @@ export type InsertBalanceOverrideHistory = z.infer<typeof insertBalanceOverrideH
 export type PortfolioManagerAssignment = typeof portfolioManagerAssignments.$inferSelect;
 export type InsertPortfolioManagerAssignment = z.infer<typeof insertPortfolioManagerAssignmentSchema>;
 
+// ===== PROPERTY ACCESS MANAGEMENT =====
+
+// Property Access Credentials - Store all access methods for each property
+export const propertyAccessCredentials = pgTable("property_access_credentials", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  propertyId: integer("property_id").references(() => properties.id).notNull(),
+  
+  // Access Details
+  accessType: varchar("access_type").notNull(), // door_lock, safe_box, wifi, smart_lock, alarm, gate, parking
+  accessName: varchar("access_name").notNull(), // "Front Door Lock", "Master Bedroom Safe", "WiFi Network"
+  accessDetails: jsonb("access_details").notNull(), // Code, PIN, password, URL, etc.
+  
+  // Smart Lock Integration
+  smartLockProvider: varchar("smart_lock_provider"), // ttlock, igloohome, august, schlage
+  smartLockApiData: jsonb("smart_lock_api_data"), // API-specific data for sync
+  isApiEnabled: boolean("is_api_enabled").default(false),
+  
+  // Visibility Controls
+  visibleTo: jsonb("visible_to").notNull(), // ["admin", "pm", "staff", "owner", "guest"]
+  guestAccessWindow: boolean("guest_access_window").default(false), // Show to guests only during stay
+  
+  // Photos and Documentation
+  photoUrl: varchar("photo_url"), // URL to photo of key location/lockbox
+  instructions: text("instructions"), // Special instructions for access
+  location: varchar("location"), // "Behind the bush", "Under the mat"
+  
+  // Security and Maintenance
+  lastUpdated: timestamp("last_updated").defaultNow(),
+  codeRotationDays: integer("code_rotation_days").default(90), // Days until code should be rotated
+  nextRotationDate: timestamp("next_rotation_date"),
+  rotationRemindersEnabled: boolean("rotation_reminders_enabled").default(true),
+  
+  // Audit
+  isActive: boolean("is_active").default(true),
+  createdBy: varchar("created_by").references(() => users.id).notNull(),
+  lastModifiedBy: varchar("last_modified_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Property Access Photos - Store multiple photos per access credential
+export const propertyAccessPhotos = pgTable("property_access_photos", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  credentialId: integer("credential_id").references(() => propertyAccessCredentials.id).notNull(),
+  
+  // Photo Details
+  photoUrl: varchar("photo_url").notNull(),
+  photoDescription: varchar("photo_description"), // "Lockbox behind bush", "Key safe location"
+  photoType: varchar("photo_type").default("location"), // location, instruction, reference
+  
+  // Metadata
+  fileName: varchar("file_name"),
+  fileSize: integer("file_size"),
+  uploadedBy: varchar("uploaded_by").references(() => users.id).notNull(),
+  uploadedAt: timestamp("uploaded_at").defaultNow(),
+  isActive: boolean("is_active").default(true),
+});
+
+// Access Change Log - Track all changes to access credentials
+export const accessChangeLog = pgTable("access_change_log", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  credentialId: integer("credential_id").references(() => propertyAccessCredentials.id).notNull(),
+  
+  // Change Details
+  changeType: varchar("change_type").notNull(), // created, updated, rotated, deactivated, deleted
+  fieldChanged: varchar("field_changed"), // access_details, visibility, instructions
+  oldValue: text("old_value"), // Previous value (encrypted)
+  newValue: text("new_value"), // New value (encrypted)
+  changeReason: varchar("change_reason"), // scheduled_rotation, security_breach, guest_checkout, manual_update
+  
+  // Context
+  triggeredBy: varchar("triggered_by"), // manual, scheduled, api_sync, security_event
+  relatedBookingId: integer("related_booking_id").references(() => bookings.id),
+  
+  // Audit
+  changedBy: varchar("changed_by").references(() => users.id).notNull(),
+  changedAt: timestamp("changed_at").defaultNow(),
+  ipAddress: varchar("ip_address"),
+  userAgent: varchar("user_agent"),
+});
+
+// Guest Access Sessions - Track when guests access credentials during stays
+export const guestAccessSessions = pgTable("guest_access_sessions", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  credentialId: integer("credential_id").references(() => propertyAccessCredentials.id).notNull(),
+  bookingId: integer("booking_id").references(() => bookings.id).notNull(),
+  
+  // Access Session
+  guestName: varchar("guest_name").notNull(),
+  guestEmail: varchar("guest_email").notNull(),
+  accessGrantedAt: timestamp("access_granted_at").defaultNow(),
+  accessExpiresAt: timestamp("access_expires_at").notNull(),
+  
+  // Access Method
+  accessMethod: varchar("access_method").notNull(), // qr_code, email_link, sms_link, manual_share
+  accessToken: varchar("access_token"), // Unique token for digital access
+  qrCodeUrl: varchar("qr_code_url"), // URL to generated QR code
+  
+  // Usage Tracking
+  viewCount: integer("view_count").default(0),
+  lastViewed: timestamp("last_viewed"),
+  deviceInfo: jsonb("device_info"), // Device details when accessed
+  
+  // Status
+  isActive: boolean("is_active").default(true),
+  revokedAt: timestamp("revoked_at"),
+  revokedBy: varchar("revoked_by").references(() => users.id),
+  revokedReason: varchar("revoked_reason"),
+});
+
+// Smart Lock API Sync Log - Track API synchronization with smart lock providers
+export const smartLockSyncLog = pgTable("smart_lock_sync_log", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  credentialId: integer("credential_id").references(() => propertyAccessCredentials.id).notNull(),
+  
+  // Sync Details
+  provider: varchar("provider").notNull(), // ttlock, igloohome, august
+  syncType: varchar("sync_type").notNull(), // update_code, create_temp_code, revoke_access, sync_status
+  syncDirection: varchar("sync_direction").notNull(), // to_provider, from_provider, bidirectional
+  
+  // API Response
+  apiRequest: jsonb("api_request"), // Request payload sent to provider
+  apiResponse: jsonb("api_response"), // Response received from provider
+  status: varchar("status").notNull(), // success, failed, pending, timeout
+  errorMessage: text("error_message"),
+  httpStatusCode: integer("http_status_code"),
+  
+  // Timing
+  syncInitiatedBy: varchar("sync_initiated_by").references(() => users.id),
+  syncStartedAt: timestamp("sync_started_at").defaultNow(),
+  syncCompletedAt: timestamp("sync_completed_at"),
+  responseTimeMs: integer("response_time_ms"),
+  
+  // Context
+  triggeredBy: varchar("triggered_by"), // manual, scheduled, booking_event, code_rotation
+  relatedBookingId: integer("related_booking_id").references(() => bookings.id),
+});
+
+// Code Rotation Schedule - Manage automatic code rotation
+export const codeRotationSchedule = pgTable("code_rotation_schedule", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  credentialId: integer("credential_id").references(() => propertyAccessCredentials.id).notNull(),
+  
+  // Rotation Settings
+  rotationFrequencyDays: integer("rotation_frequency_days").default(90),
+  lastRotationDate: timestamp("last_rotation_date"),
+  nextRotationDate: timestamp("next_rotation_date").notNull(),
+  
+  // Notification Settings
+  reminderDaysBefore: integer("reminder_days_before").default(7), // Remind 7 days before rotation
+  reminderSent: boolean("reminder_sent").default(false),
+  reminderSentAt: timestamp("reminder_sent_at"),
+  
+  // Automation
+  autoRotationEnabled: boolean("auto_rotation_enabled").default(false),
+  autoNotifyStaff: boolean("auto_notify_staff").default(true),
+  autoNotifyOwner: boolean("auto_notify_owner").default(false),
+  
+  // Status
+  isActive: boolean("is_active").default(true),
+  pausedUntil: timestamp("paused_until"), // Temporarily pause rotation
+  pauseReason: varchar("pause_reason"), // high_occupancy, maintenance, owner_request
+  
+  createdBy: varchar("created_by").references(() => users.id).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Create insert schemas for Property Access Management
+export const insertPropertyAccessCredentialSchema = createInsertSchema(propertyAccessCredentials).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertPropertyAccessPhotoSchema = createInsertSchema(propertyAccessPhotos).omit({
+  id: true,
+  uploadedAt: true,
+});
+
+export const insertAccessChangeLogSchema = createInsertSchema(accessChangeLog).omit({
+  id: true,
+  changedAt: true,
+});
+
+export const insertGuestAccessSessionSchema = createInsertSchema(guestAccessSessions).omit({
+  id: true,
+  accessGrantedAt: true,
+});
+
+export const insertSmartLockSyncLogSchema = createInsertSchema(smartLockSyncLog).omit({
+  id: true,
+  syncStartedAt: true,
+});
+
+export const insertCodeRotationScheduleSchema = createInsertSchema(codeRotationSchedule).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+// Types for Property Access Management
+export type PropertyAccessCredential = typeof propertyAccessCredentials.$inferSelect;
+export type InsertPropertyAccessCredential = z.infer<typeof insertPropertyAccessCredentialSchema>;
+export type PropertyAccessPhoto = typeof propertyAccessPhotos.$inferSelect;
+export type InsertPropertyAccessPhoto = z.infer<typeof insertPropertyAccessPhotoSchema>;
+export type AccessChangeLog = typeof accessChangeLog.$inferSelect;
+export type InsertAccessChangeLog = z.infer<typeof insertAccessChangeLogSchema>;
+export type GuestAccessSession = typeof guestAccessSessions.$inferSelect;
+export type InsertGuestAccessSession = z.infer<typeof insertGuestAccessSessionSchema>;
+export type SmartLockSyncLog = typeof smartLockSyncLog.$inferSelect;
+export type InsertSmartLockSyncLog = z.infer<typeof insertSmartLockSyncLogSchema>;
+export type CodeRotationSchedule = typeof codeRotationSchedule.$inferSelect;
+export type InsertCodeRotationSchedule = z.infer<typeof insertCodeRotationScheduleSchema>;
+

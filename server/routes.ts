@@ -14352,6 +14352,402 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ===== PROPERTY ACCESS MANAGEMENT API ROUTES =====
+
+  // Get property access credentials
+  app.get("/api/property-access/credentials", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = req.user?.organizationId || 'default-org';
+      const { propertyId } = req.query;
+      
+      const credentials = await storage.getPropertyAccessCredentials(
+        organizationId, 
+        propertyId ? parseInt(propertyId) : undefined
+      );
+      
+      res.json(credentials);
+    } catch (error) {
+      console.error("Error fetching property access credentials:", error);
+      res.status(500).json({ message: "Failed to fetch property access credentials" });
+    }
+  });
+
+  // Get filtered property access credentials based on user role
+  app.get("/api/property-access/credentials/filtered", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = req.user?.organizationId || 'default-org';
+      const userRole = req.user?.role || 'staff';
+      const userId = req.user?.id || '';
+      const { propertyId } = req.query;
+      
+      const credentials = await storage.getFilteredAccessCredentials(
+        organizationId, 
+        userRole,
+        userId,
+        propertyId ? parseInt(propertyId) : undefined
+      );
+      
+      res.json(credentials);
+    } catch (error) {
+      console.error("Error fetching filtered property access credentials:", error);
+      res.status(500).json({ message: "Failed to fetch filtered property access credentials" });
+    }
+  });
+
+  // Get single property access credential
+  app.get("/api/property-access/credentials/:id", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const credential = await storage.getPropertyAccessCredential(parseInt(id));
+      
+      if (!credential) {
+        return res.status(404).json({ message: "Property access credential not found" });
+      }
+      
+      res.json(credential);
+    } catch (error) {
+      console.error("Error fetching property access credential:", error);
+      res.status(500).json({ message: "Failed to fetch property access credential" });
+    }
+  });
+
+  // Create property access credential
+  app.post("/api/property-access/credentials", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = req.user?.organizationId || 'default-org';
+      const userId = req.user?.id || '';
+      
+      const credentialData = {
+        ...req.body,
+        organizationId,
+        createdBy: userId,
+        updatedBy: userId
+      };
+      
+      const newCredential = await storage.createPropertyAccessCredential(credentialData);
+      
+      // Log the creation
+      await storage.createAccessChangeLog({
+        credentialId: newCredential.id,
+        changeType: 'created',
+        changedBy: userId,
+        oldValue: null,
+        newValue: JSON.stringify(credentialData),
+        changeReason: 'Initial creation'
+      });
+      
+      res.status(201).json(newCredential);
+    } catch (error) {
+      console.error("Error creating property access credential:", error);
+      res.status(500).json({ message: "Failed to create property access credential" });
+    }
+  });
+
+  // Update property access credential
+  app.put("/api/property-access/credentials/:id", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const userId = req.user?.id || '';
+      
+      // Get the old credential for logging
+      const oldCredential = await storage.getPropertyAccessCredential(parseInt(id));
+      if (!oldCredential) {
+        return res.status(404).json({ message: "Property access credential not found" });
+      }
+      
+      const updatedCredential = await storage.updatePropertyAccessCredential(
+        parseInt(id), 
+        { ...req.body, updatedBy: userId }
+      );
+      
+      if (!updatedCredential) {
+        return res.status(404).json({ message: "Property access credential not found" });
+      }
+      
+      // Log the update
+      await storage.createAccessChangeLog({
+        credentialId: parseInt(id),
+        changeType: 'updated',
+        changedBy: userId,
+        oldValue: JSON.stringify(oldCredential),
+        newValue: JSON.stringify(updatedCredential),
+        changeReason: req.body.changeReason || 'Manual update'
+      });
+      
+      res.json(updatedCredential);
+    } catch (error) {
+      console.error("Error updating property access credential:", error);
+      res.status(500).json({ message: "Failed to update property access credential" });
+    }
+  });
+
+  // Delete property access credential
+  app.delete("/api/property-access/credentials/:id", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const userId = req.user?.id || '';
+      
+      // Get the credential for logging
+      const credential = await storage.getPropertyAccessCredential(parseInt(id));
+      if (!credential) {
+        return res.status(404).json({ message: "Property access credential not found" });
+      }
+      
+      const deleted = await storage.deletePropertyAccessCredential(parseInt(id));
+      
+      if (!deleted) {
+        return res.status(404).json({ message: "Property access credential not found" });
+      }
+      
+      // Log the deletion
+      await storage.createAccessChangeLog({
+        credentialId: parseInt(id),
+        changeType: 'deleted',
+        changedBy: userId,
+        oldValue: JSON.stringify(credential),
+        newValue: null,
+        changeReason: 'Manual deletion'
+      });
+      
+      res.json({ message: "Property access credential deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting property access credential:", error);
+      res.status(500).json({ message: "Failed to delete property access credential" });
+    }
+  });
+
+  // Get property access photos
+  app.get("/api/property-access/credentials/:id/photos", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const photos = await storage.getPropertyAccessPhotos(parseInt(id));
+      res.json(photos);
+    } catch (error) {
+      console.error("Error fetching property access photos:", error);
+      res.status(500).json({ message: "Failed to fetch property access photos" });
+    }
+  });
+
+  // Create property access photo
+  app.post("/api/property-access/credentials/:id/photos", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const userId = req.user?.id || '';
+      
+      const photoData = {
+        ...req.body,
+        credentialId: parseInt(id),
+        uploadedBy: userId
+      };
+      
+      const newPhoto = await storage.createPropertyAccessPhoto(photoData);
+      res.status(201).json(newPhoto);
+    } catch (error) {
+      console.error("Error creating property access photo:", error);
+      res.status(500).json({ message: "Failed to create property access photo" });
+    }
+  });
+
+  // Delete property access photo
+  app.delete("/api/property-access/photos/:id", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const deleted = await storage.deletePropertyAccessPhoto(parseInt(id));
+      
+      if (!deleted) {
+        return res.status(404).json({ message: "Property access photo not found" });
+      }
+      
+      res.json({ message: "Property access photo deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting property access photo:", error);
+      res.status(500).json({ message: "Failed to delete property access photo" });
+    }
+  });
+
+  // Get access change log
+  app.get("/api/property-access/credentials/:id/changelog", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const changeLog = await storage.getAccessChangeLog(parseInt(id));
+      res.json(changeLog);
+    } catch (error) {
+      console.error("Error fetching access change log:", error);
+      res.status(500).json({ message: "Failed to fetch access change log" });
+    }
+  });
+
+  // Get guest access sessions
+  app.get("/api/property-access/guest-sessions", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = req.user?.organizationId || 'default-org';
+      const { bookingId, credentialId, guestEmail } = req.query;
+      
+      const filters: any = {};
+      if (bookingId) filters.bookingId = parseInt(bookingId);
+      if (credentialId) filters.credentialId = parseInt(credentialId);
+      if (guestEmail) filters.guestEmail = guestEmail;
+      
+      const sessions = await storage.getGuestAccessSessions(organizationId, filters);
+      res.json(sessions);
+    } catch (error) {
+      console.error("Error fetching guest access sessions:", error);
+      res.status(500).json({ message: "Failed to fetch guest access sessions" });
+    }
+  });
+
+  // Create guest access session
+  app.post("/api/property-access/guest-sessions", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = req.user?.organizationId || 'default-org';
+      const userId = req.user?.id || '';
+      
+      // Generate access token
+      const accessToken = await storage.generateGuestAccessToken(
+        req.body.bookingId,
+        req.body.credentialId
+      );
+      
+      const sessionData = {
+        ...req.body,
+        organizationId,
+        accessToken,
+        grantedBy: userId
+      };
+      
+      const newSession = await storage.createGuestAccessSession(sessionData);
+      res.status(201).json(newSession);
+    } catch (error) {
+      console.error("Error creating guest access session:", error);
+      res.status(500).json({ message: "Failed to create guest access session" });
+    }
+  });
+
+  // Revoke guest access session
+  app.patch("/api/property-access/guest-sessions/:id/revoke", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const { reason } = req.body;
+      const userId = req.user?.id || '';
+      
+      const revokedSession = await storage.revokeGuestAccessSession(
+        parseInt(id),
+        userId,
+        reason || 'Manual revocation'
+      );
+      
+      if (!revokedSession) {
+        return res.status(404).json({ message: "Guest access session not found" });
+      }
+      
+      res.json(revokedSession);
+    } catch (error) {
+      console.error("Error revoking guest access session:", error);
+      res.status(500).json({ message: "Failed to revoke guest access session" });
+    }
+  });
+
+  // Validate guest access token
+  app.post("/api/property-access/validate-token", async (req, res) => {
+    try {
+      const { token } = req.body;
+      
+      if (!token) {
+        return res.status(400).json({ message: "Token is required" });
+      }
+      
+      const validation = await storage.validateGuestAccessToken(token);
+      res.json(validation);
+    } catch (error) {
+      console.error("Error validating guest access token:", error);
+      res.status(500).json({ message: "Failed to validate guest access token" });
+    }
+  });
+
+  // Get code rotation schedules
+  app.get("/api/property-access/rotation-schedules", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = req.user?.organizationId || 'default-org';
+      const { propertyId, dueForRotation } = req.query;
+      
+      const filters: any = {};
+      if (propertyId) filters.propertyId = parseInt(propertyId);
+      if (dueForRotation === 'true') filters.dueForRotation = true;
+      
+      const schedules = await storage.getCodeRotationSchedules(organizationId, filters);
+      res.json(schedules);
+    } catch (error) {
+      console.error("Error fetching code rotation schedules:", error);
+      res.status(500).json({ message: "Failed to fetch code rotation schedules" });
+    }
+  });
+
+  // Create code rotation schedule
+  app.post("/api/property-access/rotation-schedules", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = req.user?.organizationId || 'default-org';
+      const userId = req.user?.id || '';
+      
+      const scheduleData = {
+        ...req.body,
+        organizationId,
+        createdBy: userId
+      };
+      
+      const newSchedule = await storage.createCodeRotationSchedule(scheduleData);
+      res.status(201).json(newSchedule);
+    } catch (error) {
+      console.error("Error creating code rotation schedule:", error);
+      res.status(500).json({ message: "Failed to create code rotation schedule" });
+    }
+  });
+
+  // Update code rotation schedule
+  app.put("/api/property-access/rotation-schedules/:id", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const updatedSchedule = await storage.updateCodeRotationSchedule(parseInt(id), req.body);
+      
+      if (!updatedSchedule) {
+        return res.status(404).json({ message: "Code rotation schedule not found" });
+      }
+      
+      res.json(updatedSchedule);
+    } catch (error) {
+      console.error("Error updating code rotation schedule:", error);
+      res.status(500).json({ message: "Failed to update code rotation schedule" });
+    }
+  });
+
+  // Get due rotation reminders
+  app.get("/api/property-access/due-reminders", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = req.user?.organizationId || 'default-org';
+      const dueReminders = await storage.getDueRotationReminders(organizationId);
+      res.json(dueReminders);
+    } catch (error) {
+      console.error("Error fetching due rotation reminders:", error);
+      res.status(500).json({ message: "Failed to fetch due rotation reminders" });
+    }
+  });
+
+  // Mark rotation reminder as sent
+  app.patch("/api/property-access/rotation-schedules/:id/mark-sent", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const marked = await storage.markRotationReminderSent(parseInt(id));
+      
+      if (!marked) {
+        return res.status(404).json({ message: "Code rotation schedule not found" });
+      }
+      
+      res.json({ message: "Rotation reminder marked as sent" });
+    } catch (error) {
+      console.error("Error marking rotation reminder as sent:", error);
+      res.status(500).json({ message: "Failed to mark rotation reminder as sent" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

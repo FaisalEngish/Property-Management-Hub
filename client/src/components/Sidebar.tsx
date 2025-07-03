@@ -41,7 +41,8 @@ import {
   Star,
   Car,
   Coffee,
-  FolderOpen
+  FolderOpen,
+  Key
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
@@ -90,6 +91,7 @@ const getRoleBasedMenus = (role: string): MenuSection[] => {
           { label: "Maintenance System", icon: Wrench, href: "/maintenance-task-system" },
           { label: "Task Attachments", icon: FileText, href: "/task-attachments-notes" },
           { label: "Document Center", icon: FolderOpen, href: "/document-center" },
+          { label: "Property Access", icon: Key, href: "/property-access" },
           { label: "AI Task Manager", icon: Activity, href: "/ai-task-manager" },
           { label: "Welcome Packs", icon: Package, href: "/welcome-packs" },
           { label: "Inventory Dashboard", icon: Package, href: "/inventory-dashboard" },
@@ -134,6 +136,7 @@ const getRoleBasedMenus = (role: string): MenuSection[] => {
           { label: "Bookings", icon: Calendar, href: "/bookings" },
           { label: "Maintenance", icon: Wrench, href: "/maintenance-task-system" },
           { label: "Document Center", icon: FolderOpen, href: "/document-center" },
+          { label: "Property Access", icon: Key, href: "/property-access" },
         ]
       },
       {
