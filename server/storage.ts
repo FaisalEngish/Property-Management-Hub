@@ -8303,6 +8303,267 @@ Plant Care:
       createdAt: new Date().toISOString()
     };
   }
+
+  // ==================== ENHANCED FINANCE ENGINE ====================
+
+  // Owner Balance Tracker Management
+  async getOwnerBalanceTracker(organizationId: string, ownerId: string, propertyId?: number): Promise<OwnerBalanceTracker | undefined> {
+    let query = db
+      .select()
+      .from(ownerBalanceTracker)
+      .where(
+        and(
+          eq(ownerBalanceTracker.organizationId, organizationId),
+          eq(ownerBalanceTracker.ownerId, ownerId)
+        )
+      );
+
+    if (propertyId) {
+      query = query.where(eq(ownerBalanceTracker.propertyId, propertyId));
+    }
+
+    const [balance] = await query;
+    return balance;
+  }
+
+  async updateOwnerBalanceTracker(organizationId: string, ownerId: string, updates: Partial<InsertOwnerBalanceTracker>): Promise<OwnerBalanceTracker> {
+    const [updated] = await db
+      .update(ownerBalanceTracker)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(
+        and(
+          eq(ownerBalanceTracker.organizationId, organizationId),
+          eq(ownerBalanceTracker.ownerId, ownerId)
+        )
+      )
+      .returning();
+    return updated;
+  }
+
+  async createOwnerBalanceTracker(balance: InsertOwnerBalanceTracker): Promise<OwnerBalanceTracker> {
+    const [newBalance] = await db.insert(ownerBalanceTracker).values(balance).returning();
+    return newBalance;
+  }
+
+  // Payout Routing Rules Management
+  async getPayoutRoutingRules(organizationId: string, propertyId?: number): Promise<PayoutRoutingRule[]> {
+    let query = db
+      .select()
+      .from(payoutRoutingRules)
+      .where(eq(payoutRoutingRules.organizationId, organizationId));
+
+    if (propertyId) {
+      query = query.where(eq(payoutRoutingRules.propertyId, propertyId));
+    }
+
+    return query.where(eq(payoutRoutingRules.isActive, true));
+  }
+
+  async createPayoutRoutingRule(rule: InsertPayoutRoutingRule): Promise<PayoutRoutingRule> {
+    const [newRule] = await db.insert(payoutRoutingRules).values(rule).returning();
+    return newRule;
+  }
+
+  async updatePayoutRoutingRule(id: number, updates: Partial<InsertPayoutRoutingRule>): Promise<PayoutRoutingRule | undefined> {
+    const [updated] = await db
+      .update(payoutRoutingRules)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(payoutRoutingRules.id, id))
+      .returning();
+    return updated;
+  }
+
+  // Utility Bill Processing Management
+  async getUtilityBillProcessing(organizationId: string, filters?: {
+    utilityBillId?: number;
+    processingStatus?: string;
+  }): Promise<UtilityBillProcessing[]> {
+    let query = db
+      .select()
+      .from(utilityBillProcessing)
+      .where(eq(utilityBillProcessing.organizationId, organizationId));
+
+    if (filters?.utilityBillId) {
+      query = query.where(eq(utilityBillProcessing.utilityBillId, filters.utilityBillId));
+    }
+    if (filters?.processingStatus) {
+      query = query.where(eq(utilityBillProcessing.processingStatus, filters.processingStatus));
+    }
+
+    return query.orderBy(desc(utilityBillProcessing.createdAt));
+  }
+
+  async createUtilityBillProcessing(processing: InsertUtilityBillProcessing): Promise<UtilityBillProcessing> {
+    const [newProcessing] = await db.insert(utilityBillProcessing).values(processing).returning();
+    return newProcessing;
+  }
+
+  async updateUtilityBillProcessing(id: number, updates: Partial<InsertUtilityBillProcessing>): Promise<UtilityBillProcessing | undefined> {
+    const [updated] = await db
+      .update(utilityBillProcessing)
+      .set(updates)
+      .where(eq(utilityBillProcessing.id, id))
+      .returning();
+    return updated;
+  }
+
+  // Enhanced Finance Transaction Logs
+  async getEnhancedFinanceTransactionLogs(organizationId: string, filters?: {
+    transactionType?: string;
+    relatedTableName?: string;
+    processedBy?: string;
+    fromDate?: Date;
+    toDate?: Date;
+  }): Promise<EnhancedFinanceTransactionLog[]> {
+    let query = db
+      .select()
+      .from(enhancedFinanceTransactionLogs)
+      .where(eq(enhancedFinanceTransactionLogs.organizationId, organizationId));
+
+    if (filters?.transactionType) {
+      query = query.where(eq(enhancedFinanceTransactionLogs.transactionType, filters.transactionType));
+    }
+    if (filters?.relatedTableName) {
+      query = query.where(eq(enhancedFinanceTransactionLogs.relatedTableName, filters.relatedTableName));
+    }
+    if (filters?.processedBy) {
+      query = query.where(eq(enhancedFinanceTransactionLogs.processedBy, filters.processedBy));
+    }
+    if (filters?.fromDate) {
+      query = query.where(gte(enhancedFinanceTransactionLogs.transactionDate, filters.fromDate));
+    }
+    if (filters?.toDate) {
+      query = query.where(lte(enhancedFinanceTransactionLogs.transactionDate, filters.toDate));
+    }
+
+    return query.orderBy(desc(enhancedFinanceTransactionLogs.transactionDate));
+  }
+
+  async createEnhancedFinanceTransactionLog(transaction: InsertEnhancedFinanceTransactionLog): Promise<EnhancedFinanceTransactionLog> {
+    const [newTransaction] = await db
+      .insert(enhancedFinanceTransactionLogs)
+      .values(transaction)
+      .returning();
+    return newTransaction;
+  }
+
+  // Enhanced Finance Analytics
+  async getOwnerFinancialSummary(organizationId: string, ownerId: string): Promise<{
+    currentBalance: number;
+    thisMonthEarnings: number;
+    thisMonthExpenses: number;
+    netIncome: number;
+    pendingPayouts: number;
+    totalLifetimeEarnings: number;
+    recentTransactions: EnhancedFinanceTransactionLog[];
+  }> {
+    const balance = await this.getOwnerBalanceTracker(organizationId, ownerId);
+    
+    // Get recent transactions for this owner (filter by related to owner payouts)
+    const recentTransactions = await this.getEnhancedFinanceTransactionLogs(organizationId, {
+      relatedTableName: 'owner_payouts',
+      fromDate: new Date(new Date().getFullYear(), new Date().getMonth(), 1), // Start of current month
+    });
+
+    // Get pending payouts from existing owner_payouts table
+    const pendingPayouts = await db
+      .select()
+      .from(ownerPayouts)
+      .where(
+        and(
+          eq(ownerPayouts.organizationId, organizationId),
+          eq(ownerPayouts.ownerId, ownerId),
+          eq(ownerPayouts.status, 'pending')
+        )
+      );
+
+    const totalPendingPayouts = pendingPayouts.reduce((sum, payout) => 
+      sum + parseFloat(payout.amount.toString()), 0);
+
+    return {
+      currentBalance: parseFloat(balance?.currentBalance?.toString() || '0'),
+      thisMonthEarnings: parseFloat(balance?.thisMonthEarnings?.toString() || '0'),
+      thisMonthExpenses: parseFloat(balance?.thisMonthExpenses?.toString() || '0'),
+      netIncome: parseFloat(balance?.thisMonthEarnings?.toString() || '0') - parseFloat(balance?.thisMonthExpenses?.toString() || '0'),
+      pendingPayouts: totalPendingPayouts,
+      totalLifetimeEarnings: parseFloat(balance?.totalLifetimeEarnings?.toString() || '0'),
+      recentTransactions,
+    };
+  }
+
+  async getPlatformPayoutBreakdown(organizationId: string, propertyId: number): Promise<{
+    platform: string;
+    ownerPercentage: number;
+    managementPercentage: number;
+    platformFeePercentage: number;
+    routingType: string;
+  }[]> {
+    const rules = await this.getPayoutRoutingRules(organizationId, propertyId);
+    
+    return rules.map(rule => ({
+      platform: rule.platform,
+      ownerPercentage: parseFloat(rule.ownerPercentage.toString()),
+      managementPercentage: parseFloat(rule.managementPercentage.toString()),
+      platformFeePercentage: parseFloat(rule.platformFeePercentage?.toString() || '0'),
+      routingType: rule.routingType,
+    }));
+  }
+
+  // Process utility bill with enhanced routing
+  async processUtilityBillWithRouting(billId: number, routingDecision: string, processedBy: string, notes?: string): Promise<{
+    success: boolean;
+    message: string;
+    processing?: UtilityBillProcessing;
+    transaction?: EnhancedFinanceTransactionLog;
+  }> {
+    try {
+      // Get the utility bill
+      const [bill] = await db
+        .select()
+        .from(utilityBills)
+        .where(eq(utilityBills.id, billId));
+
+      if (!bill) {
+        return { success: false, message: 'Utility bill not found' };
+      }
+
+      // Create processing record
+      const processing = await this.createUtilityBillProcessing({
+        organizationId: bill.organizationId,
+        utilityBillId: billId,
+        processedBy,
+        processingStatus: 'processed',
+        routingDecision,
+        processingNotes: notes,
+        processedAt: new Date(),
+      });
+
+      // Create enhanced finance transaction log
+      const transaction = await this.createEnhancedFinanceTransactionLog({
+        organizationId: bill.organizationId,
+        transactionType: 'utility_charge',
+        relatedTableId: billId,
+        relatedTableName: 'utility_bills',
+        amount: bill.amount || '0',
+        currency: bill.currency || 'AUD',
+        description: `Utility bill processed - ${bill.type} for property ${bill.propertyId}`,
+        processedBy,
+        processingNotes: `Routing: ${routingDecision}. ${notes || ''}`,
+      });
+
+      return {
+        success: true,
+        message: 'Utility bill processed successfully',
+        processing,
+        transaction,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: `Error processing utility bill: ${error}`,
+      };
+    }
+  }
 }
 
 export const storage = new DatabaseStorage();

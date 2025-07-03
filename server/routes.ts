@@ -6391,6 +6391,222 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ==================== ENHANCED FINANCE ENGINE ====================
+
+  // Owner Balance Tracker endpoints
+  app.get("/api/finance/owner-balance/:ownerId", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { ownerId } = req.params;
+      const { propertyId } = req.query;
+      const organizationId = req.user?.organizationId || "default-org";
+
+      const balance = await storage.getOwnerBalanceTracker(
+        organizationId, 
+        ownerId, 
+        propertyId ? parseInt(propertyId) : undefined
+      );
+      
+      res.json(balance || { message: "No balance tracker found" });
+    } catch (error) {
+      console.error("Error fetching owner balance:", error);
+      res.status(500).json({ message: "Failed to fetch owner balance" });
+    }
+  });
+
+  app.post("/api/finance/owner-balance", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = req.user?.organizationId || "default-org";
+      const balanceData = { ...req.body, organizationId };
+
+      const balance = await storage.createOwnerBalanceTracker(balanceData);
+      res.status(201).json(balance);
+    } catch (error) {
+      console.error("Error creating owner balance tracker:", error);
+      res.status(500).json({ message: "Failed to create owner balance tracker" });
+    }
+  });
+
+  app.patch("/api/finance/owner-balance/:ownerId", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { ownerId } = req.params;
+      const organizationId = req.user?.organizationId || "default-org";
+
+      const balance = await storage.updateOwnerBalanceTracker(organizationId, ownerId, req.body);
+      res.json(balance);
+    } catch (error) {
+      console.error("Error updating owner balance:", error);
+      res.status(500).json({ message: "Failed to update owner balance" });
+    }
+  });
+
+  // Owner Financial Summary endpoint
+  app.get("/api/finance/owner-summary/:ownerId", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { ownerId } = req.params;
+      const organizationId = req.user?.organizationId || "default-org";
+
+      const summary = await storage.getOwnerFinancialSummary(organizationId, ownerId);
+      res.json(summary);
+    } catch (error) {
+      console.error("Error fetching owner financial summary:", error);
+      res.status(500).json({ message: "Failed to fetch owner financial summary" });
+    }
+  });
+
+  // Payout Routing Rules endpoints
+  app.get("/api/finance/payout-routing-rules", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { propertyId } = req.query;
+      const organizationId = req.user?.organizationId || "default-org";
+
+      const rules = await storage.getPayoutRoutingRules(
+        organizationId, 
+        propertyId ? parseInt(propertyId) : undefined
+      );
+      res.json(rules);
+    } catch (error) {
+      console.error("Error fetching payout routing rules:", error);
+      res.status(500).json({ message: "Failed to fetch payout routing rules" });
+    }
+  });
+
+  app.post("/api/finance/payout-routing-rules", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      const organizationId = user?.organizationId || "default-org";
+      
+      // Only admin and portfolio managers can create routing rules
+      if (user?.role !== 'admin' && user?.role !== 'portfolio-manager') {
+        return res.status(403).json({ message: "Insufficient permissions" });
+      }
+
+      const ruleData = { 
+        ...req.body, 
+        organizationId,
+        createdBy: user.id 
+      };
+
+      const rule = await storage.createPayoutRoutingRule(ruleData);
+      res.status(201).json(rule);
+    } catch (error) {
+      console.error("Error creating payout routing rule:", error);
+      res.status(500).json({ message: "Failed to create payout routing rule" });
+    }
+  });
+
+  app.patch("/api/finance/payout-routing-rules/:id", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      const { id } = req.params;
+      
+      // Only admin and portfolio managers can update routing rules
+      if (user?.role !== 'admin' && user?.role !== 'portfolio-manager') {
+        return res.status(403).json({ message: "Insufficient permissions" });
+      }
+
+      const rule = await storage.updatePayoutRoutingRule(parseInt(id), req.body);
+      res.json(rule);
+    } catch (error) {
+      console.error("Error updating payout routing rule:", error);
+      res.status(500).json({ message: "Failed to update payout routing rule" });
+    }
+  });
+
+  // Platform Payout Breakdown endpoint
+  app.get("/api/finance/payout-breakdown/:propertyId", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { propertyId } = req.params;
+      const organizationId = req.user?.organizationId || "default-org";
+
+      const breakdown = await storage.getPlatformPayoutBreakdown(organizationId, parseInt(propertyId));
+      res.json(breakdown);
+    } catch (error) {
+      console.error("Error fetching payout breakdown:", error);
+      res.status(500).json({ message: "Failed to fetch payout breakdown" });
+    }
+  });
+
+  // Utility Bill Processing endpoints
+  app.get("/api/finance/utility-bill-processing", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { utilityBillId, processingStatus } = req.query;
+      const organizationId = req.user?.organizationId || "default-org";
+
+      const processing = await storage.getUtilityBillProcessing(organizationId, {
+        utilityBillId: utilityBillId ? parseInt(utilityBillId) : undefined,
+        processingStatus
+      });
+      res.json(processing);
+    } catch (error) {
+      console.error("Error fetching utility bill processing:", error);
+      res.status(500).json({ message: "Failed to fetch utility bill processing" });
+    }
+  });
+
+  app.post("/api/finance/process-utility-bill/:billId", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { billId } = req.params;
+      const { routingDecision, notes } = req.body;
+      const user = req.user;
+
+      // Only admin, portfolio managers, and staff can process bills
+      if (!['admin', 'portfolio-manager', 'staff'].includes(user?.role)) {
+        return res.status(403).json({ message: "Insufficient permissions" });
+      }
+
+      const result = await storage.processUtilityBillWithRouting(
+        parseInt(billId), 
+        routingDecision, 
+        user.id,
+        notes
+      );
+      
+      res.json(result);
+    } catch (error) {
+      console.error("Error processing utility bill:", error);
+      res.status(500).json({ message: "Failed to process utility bill" });
+    }
+  });
+
+  // Enhanced Finance Transaction Logs endpoints
+  app.get("/api/finance/transaction-logs", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { transactionType, relatedTableName, processedBy, fromDate, toDate } = req.query;
+      const organizationId = req.user?.organizationId || "default-org";
+
+      const logs = await storage.getEnhancedFinanceTransactionLogs(organizationId, {
+        transactionType,
+        relatedTableName,
+        processedBy,
+        fromDate: fromDate ? new Date(fromDate) : undefined,
+        toDate: toDate ? new Date(toDate) : undefined,
+      });
+      res.json(logs);
+    } catch (error) {
+      console.error("Error fetching transaction logs:", error);
+      res.status(500).json({ message: "Failed to fetch transaction logs" });
+    }
+  });
+
+  app.post("/api/finance/transaction-logs", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      const organizationId = user?.organizationId || "default-org";
+
+      const logData = { 
+        ...req.body, 
+        organizationId,
+        processedBy: user.id 
+      };
+
+      const log = await storage.createEnhancedFinanceTransactionLog(logData);
+      res.status(201).json(log);
+    } catch (error) {
+      console.error("Error creating transaction log:", error);
+      res.status(500).json({ message: "Failed to create transaction log" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

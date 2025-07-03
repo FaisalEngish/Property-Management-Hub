@@ -123,10 +123,12 @@ export default function MaintenanceTaskSystem() {
   const [showArchived, setShowArchived] = useState(false);
 
   // Fetch tasks
-  const { data: tasks = [], isLoading: tasksLoading } = useQuery({
+  const { data: tasksData, isLoading: tasksLoading } = useQuery({
     queryKey: ["/api/tasks", departmentFilter, statusFilter, showArchived],
     queryFn: () => apiRequest("GET", `/api/tasks?department=${departmentFilter}&status=${statusFilter}&archived=${showArchived}`)
   });
+  
+  const tasks = Array.isArray(tasksData) ? tasksData : [];
 
   // Fetch checklists
   const { data: checklists = [] } = useQuery({

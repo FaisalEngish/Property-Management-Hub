@@ -2448,6 +2448,132 @@ export const insertOwnerPreferencesSchema = createInsertSchema(ownerPreferences)
   updatedAt: true,
 });
 
+// ===== ENHANCED FINANCE ENGINE =====
+// Working with existing tables, not duplicating them
+// Enhanced owner balance tracking - extends existing owner_payouts table
+export const ownerBalanceTracker = pgTable("owner_balance_tracker", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  ownerId: varchar("owner_id").references(() => users.id).notNull(),
+  propertyId: integer("property_id").references(() => properties.id),
+  currentBalance: decimal("current_balance", { precision: 12, scale: 2 }).default("0.00"),
+  pendingEarnings: decimal("pending_earnings", { precision: 12, scale: 2 }).default("0.00"),
+  thisMonthEarnings: decimal("this_month_earnings", { precision: 12, scale: 2 }).default("0.00"),
+  thisMonthExpenses: decimal("this_month_expenses", { precision: 12, scale: 2 }).default("0.00"),
+  lastPayoutAmount: decimal("last_payout_amount", { precision: 12, scale: 2 }),
+  lastPayoutDate: timestamp("last_payout_date"),
+  totalLifetimeEarnings: decimal("total_lifetime_earnings", { precision: 12, scale: 2 }).default("0.00"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Enhanced payout routing configuration
+export const payoutRoutingRules = pgTable("payout_routing_rules", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  propertyId: integer("property_id").references(() => properties.id).notNull(),
+  platform: varchar("platform").notNull(), // airbnb, vrbo, booking_com, direct, stripe
+  ownerPercentage: decimal("owner_percentage", { precision: 5, scale: 2 }).notNull(),
+  managementPercentage: decimal("management_percentage", { precision: 5, scale: 2 }).notNull(),
+  platformFeePercentage: decimal("platform_fee_percentage", { precision: 5, scale: 2 }).default("0.00"),
+  routingType: varchar("routing_type").notNull(), // split_payout, management_only, owner_direct
+  isActive: boolean("is_active").default(true),
+  notes: text("notes"),
+  createdBy: varchar("created_by").references(() => users.id).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Enhanced utility bill processing - extends existing utility_bills table
+export const utilityBillProcessing = pgTable("utility_bill_processing", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  utilityBillId: integer("utility_bill_id").references(() => utilityBills.id).notNull(),
+  processedBy: varchar("processed_by").references(() => users.id),
+  processingStatus: varchar("processing_status").default("pending"), // pending, processed, error
+  routingDecision: varchar("routing_decision"), // owner_charge, company_expense
+  processingNotes: text("processing_notes"),
+  processedAt: timestamp("processed_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Enhanced finance transaction logs
+export const enhancedFinanceTransactionLogs = pgTable("enhanced_finance_transaction_logs", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  transactionType: varchar("transaction_type").notNull(), // owner_balance_update, payout_routing, utility_charge
+  relatedTableId: integer("related_table_id").notNull(),
+  relatedTableName: varchar("related_table_name").notNull(),
+  amount: decimal("amount", { precision: 12, scale: 2 }).notNull(),
+  currency: varchar("currency").default("AUD"),
+  description: text("description").notNull(),
+  processedBy: varchar("processed_by").references(() => users.id).notNull(),
+  processingNotes: text("processing_notes"),
+  transactionDate: timestamp("transaction_date").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Relations for Enhanced Finance Engine
+export const ownerBalanceTrackerRelations = relations(ownerBalanceTracker, ({ one }) => ({
+  organization: one(organizations, { fields: [ownerBalanceTracker.organizationId], references: [organizations.id] }),
+  owner: one(users, { fields: [ownerBalanceTracker.ownerId], references: [users.id] }),
+  property: one(properties, { fields: [ownerBalanceTracker.propertyId], references: [properties.id] }),
+}));
+
+export const payoutRoutingRulesRelations = relations(payoutRoutingRules, ({ one }) => ({
+  organization: one(organizations, { fields: [payoutRoutingRules.organizationId], references: [organizations.id] }),
+  property: one(properties, { fields: [payoutRoutingRules.propertyId], references: [properties.id] }),
+  createdByUser: one(users, { fields: [payoutRoutingRules.createdBy], references: [users.id] }),
+}));
+
+export const utilityBillProcessingRelations = relations(utilityBillProcessing, ({ one }) => ({
+  organization: one(organizations, { fields: [utilityBillProcessing.organizationId], references: [organizations.id] }),
+  utilityBill: one(utilityBills, { fields: [utilityBillProcessing.utilityBillId], references: [utilityBills.id] }),
+  processedByUser: one(users, { fields: [utilityBillProcessing.processedBy], references: [users.id] }),
+}));
+
+export const enhancedFinanceTransactionLogsRelations = relations(enhancedFinanceTransactionLogs, ({ one }) => ({
+  organization: one(organizations, { fields: [enhancedFinanceTransactionLogs.organizationId], references: [organizations.id] }),
+  processedByUser: one(users, { fields: [enhancedFinanceTransactionLogs.processedBy], references: [users.id] }),
+}));
+
+// Insert schemas for Enhanced Finance Engine
+export const insertOwnerBalanceTrackerSchema = createInsertSchema(ownerBalanceTracker).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertPayoutRoutingRuleSchema = createInsertSchema(payoutRoutingRules).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertUtilityBillProcessingSchema = createInsertSchema(utilityBillProcessing).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertEnhancedFinanceTransactionLogSchema = createInsertSchema(enhancedFinanceTransactionLogs).omit({
+  id: true,
+  transactionDate: true,
+  createdAt: true,
+});
+
+// Type exports for Enhanced Finance Engine
+export type OwnerBalanceTracker = typeof ownerBalanceTracker.$inferSelect;
+export type InsertOwnerBalanceTracker = z.infer<typeof insertOwnerBalanceTrackerSchema>;
+
+export type PayoutRoutingRule = typeof payoutRoutingRules.$inferSelect;
+export type InsertPayoutRoutingRule = z.infer<typeof insertPayoutRoutingRuleSchema>;
+
+export type UtilityBillProcessing = typeof utilityBillProcessing.$inferSelect;
+export type InsertUtilityBillProcessing = z.infer<typeof insertUtilityBillProcessingSchema>;
+
+export type EnhancedFinanceTransactionLog = typeof enhancedFinanceTransactionLogs.$inferSelect;
+export type InsertEnhancedFinanceTransactionLog = z.infer<typeof insertEnhancedFinanceTransactionLogSchema>;
+
 // Owner Dashboard types
 export type OwnerActivityTimeline = typeof ownerActivityTimeline.$inferSelect;
 export type InsertOwnerActivityTimeline = z.infer<typeof insertOwnerActivityTimelineSchema>;
