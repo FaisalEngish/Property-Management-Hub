@@ -1680,6 +1680,280 @@ export const agentBookingRequestsRelations = relations(agentBookingRequests, ({ 
   }),
 }));
 
+// ===== AUTOMATED INVOICE CREATOR TOOL =====
+
+// Invoice Templates and Configuration
+export const invoiceTemplates = pgTable("invoice_templates", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  templateName: varchar("template_name").notNull(),
+  templateType: varchar("template_type").notNull(), // booking_commission, monthly_summary, portfolio_manager, service_fee, expense_reimbursement
+  
+  // Template Configuration
+  defaultSender: varchar("default_sender").notNull(), // management, owner, portfolio_manager
+  defaultReceiver: varchar("default_receiver").notNull(), // management, owner, portfolio_manager
+  autoIncludeItems: jsonb("auto_include_items"), // JSON array of what to include
+  taxRate: decimal("tax_rate", { precision: 5, scale: 2 }).default(0),
+  taxEnabled: boolean("tax_enabled").default(false),
+  
+  // Template Styling
+  logoUrl: varchar("logo_url"),
+  primaryColor: varchar("primary_color").default("#000000"),
+  headerText: text("header_text"),
+  footerText: text("footer_text"),
+  
+  // Status
+  isActive: boolean("is_active").default(true),
+  isDefault: boolean("is_default").default(false),
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Generated Invoices
+export const generatedInvoices = pgTable("generated_invoices", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  invoiceNumber: varchar("invoice_number").notNull().unique(),
+  templateId: integer("template_id").references(() => invoiceTemplates.id),
+  
+  // Parties
+  senderType: varchar("sender_type").notNull(), // management, owner, portfolio_manager
+  senderId: varchar("sender_id"), // User ID if applicable
+  senderName: varchar("sender_name").notNull(),
+  senderEmail: varchar("sender_email"),
+  senderAddress: text("sender_address"),
+  
+  receiverType: varchar("receiver_type").notNull(), // management, owner, portfolio_manager
+  receiverId: varchar("receiver_id"), // User ID if applicable
+  receiverName: varchar("receiver_name").notNull(),
+  receiverEmail: varchar("receiver_email"),
+  receiverAddress: text("receiver_address"),
+  
+  // Invoice Details
+  invoiceDate: date("invoice_date").notNull(),
+  dueDate: date("due_date"),
+  periodStart: date("period_start"),
+  periodEnd: date("period_end"),
+  
+  // Financial
+  subtotal: decimal("subtotal", { precision: 12, scale: 2 }).notNull(),
+  taxAmount: decimal("tax_amount", { precision: 12, scale: 2 }).default(0),
+  totalAmount: decimal("total_amount", { precision: 12, scale: 2 }).notNull(),
+  currency: varchar("currency").default("AUD"),
+  
+  // Status and Payment
+  status: varchar("status").default("draft"), // draft, sent, paid, overdue, cancelled
+  paymentStatus: varchar("payment_status").default("unpaid"), // unpaid, partial, paid
+  paymentMethod: varchar("payment_method"), // bank_transfer, stripe, cash, manual
+  paymentReference: varchar("payment_reference"),
+  paymentDate: date("payment_date"),
+  
+  // Attachments and Notes
+  notes: text("notes"),
+  internalNotes: text("internal_notes"),
+  attachmentUrls: jsonb("attachment_urls"), // Array of receipt/document URLs
+  
+  // PDF Generation
+  pdfUrl: varchar("pdf_url"),
+  pdfGeneratedAt: timestamp("pdf_generated_at"),
+  
+  // Audit Trail
+  createdBy: varchar("created_by").references(() => users.id).notNull(),
+  sentBy: varchar("sent_by").references(() => users.id),
+  sentAt: timestamp("sent_at"),
+  lastModifiedBy: varchar("last_modified_by").references(() => users.id),
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Invoice Line Items
+export const invoiceLineItems = pgTable("invoice_line_items", {
+  id: serial("id").primaryKey(),
+  invoiceId: integer("invoice_id").references(() => generatedInvoices.id).notNull(),
+  
+  // Line Item Details
+  itemType: varchar("item_type").notNull(), // booking_revenue, commission, addon_service, expense, adjustment, tax
+  description: text("description").notNull(),
+  itemReference: varchar("item_reference"), // booking ID, service ID, etc.
+  
+  // Pricing
+  quantity: decimal("quantity", { precision: 10, scale: 2 }).default(1),
+  unitPrice: decimal("unit_price", { precision: 12, scale: 2 }).notNull(),
+  lineTotal: decimal("line_total", { precision: 12, scale: 2 }).notNull(),
+  
+  // Categorization
+  category: varchar("category"), // revenue, commission, service, expense, adjustment
+  subcategory: varchar("subcategory"), // cleaning, transport, management_fee, etc.
+  
+  // Source Tracking
+  sourceType: varchar("source_type"), // booking, addon_service, manual, commission
+  sourceId: integer("source_id"), // ID of source record
+  
+  // Manual Adjustments
+  isManualEntry: boolean("is_manual_entry").default(false),
+  adjustmentReason: text("adjustment_reason"),
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Invoice Booking Links - Track which bookings are included in each invoice
+export const invoiceBookingLinks = pgTable("invoice_booking_links", {
+  id: serial("id").primaryKey(),
+  invoiceId: integer("invoice_id").references(() => generatedInvoices.id).notNull(),
+  bookingId: integer("booking_id").references(() => bookings.id).notNull(),
+  
+  // Financial Breakdown for this booking
+  bookingRevenue: decimal("booking_revenue", { precision: 12, scale: 2 }).notNull(),
+  managementCommission: decimal("management_commission", { precision: 12, scale: 2 }).default(0),
+  portfolioManagerCommission: decimal("portfolio_manager_commission", { precision: 12, scale: 2 }).default(0),
+  ownerPayout: decimal("owner_payout", { precision: 12, scale: 2 }).default(0),
+  
+  // Add-on Services for this booking
+  addonServicesTotal: decimal("addon_services_total", { precision: 12, scale: 2 }).default(0),
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Invoice Service Links - Track which add-on services are included
+export const invoiceServiceLinks = pgTable("invoice_service_links", {
+  id: serial("id").primaryKey(),
+  invoiceId: integer("invoice_id").references(() => generatedInvoices.id).notNull(),
+  serviceBookingId: integer("service_booking_id").references(() => guestAddonBookings.id).notNull(),
+  
+  // Service Details
+  serviceName: varchar("service_name").notNull(),
+  serviceAmount: decimal("service_amount", { precision: 10, scale: 2 }).notNull(),
+  billingRoute: varchar("billing_route").notNull(), // guest_billable, owner_billable, company_expense
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Invoice Generation History and Analytics
+export const invoiceGenerationLog = pgTable("invoice_generation_log", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  
+  // Generation Details
+  generationType: varchar("generation_type").notNull(), // manual, scheduled, api_triggered
+  templateUsed: varchar("template_used"),
+  generatedBy: varchar("generated_by").references(() => users.id),
+  
+  // Scope
+  periodStart: date("period_start"),
+  periodEnd: date("period_end"),
+  propertiesIncluded: jsonb("properties_included"), // Array of property IDs
+  
+  // Results
+  invoicesGenerated: integer("invoices_generated").default(0),
+  totalAmount: decimal("total_amount", { precision: 15, scale: 2 }).default(0),
+  
+  // Status
+  status: varchar("status").default("completed"), // in_progress, completed, failed
+  errorMessage: text("error_message"),
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Relations for Invoice System
+export const invoiceTemplatesRelations = relations(invoiceTemplates, ({ many }) => ({
+  generatedInvoices: many(generatedInvoices),
+}));
+
+export const generatedInvoicesRelations = relations(generatedInvoices, ({ one, many }) => ({
+  template: one(invoiceTemplates, {
+    fields: [generatedInvoices.templateId],
+    references: [invoiceTemplates.id],
+  }),
+  lineItems: many(invoiceLineItems),
+  bookingLinks: many(invoiceBookingLinks),
+  serviceLinks: many(invoiceServiceLinks),
+  creator: one(users, {
+    fields: [generatedInvoices.createdBy],
+    references: [users.id],
+  }),
+}));
+
+export const invoiceLineItemsRelations = relations(invoiceLineItems, ({ one }) => ({
+  invoice: one(generatedInvoices, {
+    fields: [invoiceLineItems.invoiceId],
+    references: [generatedInvoices.id],
+  }),
+}));
+
+export const invoiceBookingLinksRelations = relations(invoiceBookingLinks, ({ one }) => ({
+  invoice: one(generatedInvoices, {
+    fields: [invoiceBookingLinks.invoiceId],
+    references: [generatedInvoices.id],
+  }),
+  booking: one(bookings, {
+    fields: [invoiceBookingLinks.bookingId],
+    references: [bookings.id],
+  }),
+}));
+
+export const invoiceServiceLinksRelations = relations(invoiceServiceLinks, ({ one }) => ({
+  invoice: one(generatedInvoices, {
+    fields: [invoiceServiceLinks.invoiceId],
+    references: [generatedInvoices.id],
+  }),
+  serviceBooking: one(guestAddonBookings, {
+    fields: [invoiceServiceLinks.serviceBookingId],
+    references: [guestAddonBookings.id],
+  }),
+}));
+
+// Insert Schemas for Invoice System
+export const insertInvoiceTemplateSchema = createInsertSchema(invoiceTemplates).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertGeneratedInvoiceSchema = createInsertSchema(generatedInvoices).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertInvoiceLineItemSchema = createInsertSchema(invoiceLineItems).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertInvoiceBookingLinkSchema = createInsertSchema(invoiceBookingLinks).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertInvoiceServiceLinkSchema = createInsertSchema(invoiceServiceLinks).omit({
+  id: true,
+  createdAt: true,
+});
+
+// Type exports for Invoice System
+export type InvoiceTemplate = typeof invoiceTemplates.$inferSelect;
+export type InsertInvoiceTemplate = z.infer<typeof insertInvoiceTemplateSchema>;
+
+export type GeneratedInvoice = typeof generatedInvoices.$inferSelect;
+export type InsertGeneratedInvoice = z.infer<typeof insertGeneratedInvoiceSchema>;
+
+export type InvoiceLineItem = typeof invoiceLineItems.$inferSelect;
+export type InsertInvoiceLineItem = z.infer<typeof insertInvoiceLineItemSchema>;
+
+export type InvoiceBookingLink = typeof invoiceBookingLinks.$inferSelect;
+export type InsertInvoiceBookingLink = z.infer<typeof insertInvoiceBookingLinkSchema>;
+
+export type InvoiceServiceLink = typeof invoiceServiceLinks.$inferSelect;
+export type InsertInvoiceServiceLink = z.infer<typeof insertInvoiceServiceLinkSchema>;
+
 // Additional Insert Schemas
 export const insertPropertyMarketingMediaSchema = createInsertSchema(propertyMarketingMedia).omit({
   id: true,

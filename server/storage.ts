@@ -17287,6 +17287,553 @@ Plant Care:
 
     return { fileUrl, fileName, fileSize, recordCount };
   }
+  // ===== AUTOMATED INVOICE CREATOR TOOL OPERATIONS =====
+
+  // Invoice Templates
+  async getInvoiceTemplates(organizationId: string, filters?: { templateType?: string; isActive?: boolean }): Promise<InvoiceTemplate[]> {
+    let query = db.select().from(invoiceTemplates).where(eq(invoiceTemplates.organizationId, organizationId));
+    
+    if (filters?.templateType) {
+      query = query.where(eq(invoiceTemplates.templateType, filters.templateType));
+    }
+    
+    if (filters?.isActive !== undefined) {
+      query = query.where(eq(invoiceTemplates.isActive, filters.isActive));
+    }
+    
+    return await query.orderBy(asc(invoiceTemplates.templateName));
+  }
+
+  async getInvoiceTemplateById(id: number): Promise<InvoiceTemplate | undefined> {
+    const [template] = await db.select().from(invoiceTemplates).where(eq(invoiceTemplates.id, id));
+    return template;
+  }
+
+  async createInvoiceTemplate(template: InsertInvoiceTemplate): Promise<InvoiceTemplate> {
+    const [newTemplate] = await db.insert(invoiceTemplates).values(template).returning();
+    return newTemplate;
+  }
+
+  async updateInvoiceTemplate(id: number, template: Partial<InsertInvoiceTemplate>): Promise<InvoiceTemplate | undefined> {
+    const [updatedTemplate] = await db
+      .update(invoiceTemplates)
+      .set({ ...template, updatedAt: new Date() })
+      .where(eq(invoiceTemplates.id, id))
+      .returning();
+    return updatedTemplate;
+  }
+
+  async deleteInvoiceTemplate(id: number): Promise<boolean> {
+    const result = await db.delete(invoiceTemplates).where(eq(invoiceTemplates.id, id));
+    return (result.rowCount || 0) > 0;
+  }
+
+  // Generated Invoices
+  async getGeneratedInvoices(organizationId: string, filters?: { 
+    status?: string; 
+    paymentStatus?: string; 
+    senderType?: string; 
+    receiverType?: string;
+    startDate?: string;
+    endDate?: string;
+  }): Promise<GeneratedInvoice[]> {
+    let query = db.select().from(generatedInvoices).where(eq(generatedInvoices.organizationId, organizationId));
+    
+    if (filters?.status) {
+      query = query.where(eq(generatedInvoices.status, filters.status));
+    }
+    
+    if (filters?.paymentStatus) {
+      query = query.where(eq(generatedInvoices.paymentStatus, filters.paymentStatus));
+    }
+    
+    if (filters?.senderType) {
+      query = query.where(eq(generatedInvoices.senderType, filters.senderType));
+    }
+    
+    if (filters?.receiverType) {
+      query = query.where(eq(generatedInvoices.receiverType, filters.receiverType));
+    }
+    
+    if (filters?.startDate) {
+      query = query.where(gte(generatedInvoices.invoiceDate, filters.startDate));
+    }
+    
+    if (filters?.endDate) {
+      query = query.where(lte(generatedInvoices.invoiceDate, filters.endDate));
+    }
+    
+    return await query.orderBy(desc(generatedInvoices.createdAt));
+  }
+
+  async getGeneratedInvoiceById(id: number): Promise<GeneratedInvoice | undefined> {
+    const [invoice] = await db.select().from(generatedInvoices).where(eq(generatedInvoices.id, id));
+    return invoice;
+  }
+
+  async getInvoiceByNumber(invoiceNumber: string): Promise<GeneratedInvoice | undefined> {
+    const [invoice] = await db.select().from(generatedInvoices).where(eq(generatedInvoices.invoiceNumber, invoiceNumber));
+    return invoice;
+  }
+
+  async createGeneratedInvoice(invoice: InsertGeneratedInvoice): Promise<GeneratedInvoice> {
+    const [newInvoice] = await db.insert(generatedInvoices).values(invoice).returning();
+    return newInvoice;
+  }
+
+  async updateGeneratedInvoice(id: number, invoice: Partial<InsertGeneratedInvoice>): Promise<GeneratedInvoice | undefined> {
+    const [updatedInvoice] = await db
+      .update(generatedInvoices)
+      .set({ ...invoice, updatedAt: new Date() })
+      .where(eq(generatedInvoices.id, id))
+      .returning();
+    return updatedInvoice;
+  }
+
+  async markInvoiceAsPaid(id: number, paymentData: {
+    paymentStatus: string;
+    paymentMethod?: string;
+    paymentReference?: string;
+    paymentDate: string;
+  }): Promise<GeneratedInvoice | undefined> {
+    const [updatedInvoice] = await db
+      .update(generatedInvoices)
+      .set({
+        ...paymentData,
+        status: 'paid',
+        updatedAt: new Date(),
+      })
+      .where(eq(generatedInvoices.id, id))
+      .returning();
+    return updatedInvoice;
+  }
+
+  // Invoice Line Items
+  async getInvoiceLineItems(invoiceId: number): Promise<InvoiceLineItem[]> {
+    return await db.select().from(invoiceLineItems)
+      .where(eq(invoiceLineItems.invoiceId, invoiceId))
+      .orderBy(asc(invoiceLineItems.id));
+  }
+
+  async addInvoiceLineItem(lineItem: InsertInvoiceLineItem): Promise<InvoiceLineItem> {
+    const [newLineItem] = await db.insert(invoiceLineItems).values(lineItem).returning();
+    return newLineItem;
+  }
+
+  async updateInvoiceLineItem(id: number, lineItem: Partial<InsertInvoiceLineItem>): Promise<InvoiceLineItem | undefined> {
+    const [updatedLineItem] = await db
+      .update(invoiceLineItems)
+      .set(lineItem)
+      .where(eq(invoiceLineItems.id, id))
+      .returning();
+    return updatedLineItem;
+  }
+
+  async deleteInvoiceLineItem(id: number): Promise<boolean> {
+    const result = await db.delete(invoiceLineItems).where(eq(invoiceLineItems.id, id));
+    return (result.rowCount || 0) > 0;
+  }
+
+  // Invoice Booking Links
+  async getInvoiceBookingLinks(invoiceId: number): Promise<InvoiceBookingLink[]> {
+    return await db.select().from(invoiceBookingLinks)
+      .where(eq(invoiceBookingLinks.invoiceId, invoiceId))
+      .orderBy(asc(invoiceBookingLinks.id));
+  }
+
+  async addInvoiceBookingLink(bookingLink: InsertInvoiceBookingLink): Promise<InvoiceBookingLink> {
+    const [newBookingLink] = await db.insert(invoiceBookingLinks).values(bookingLink).returning();
+    return newBookingLink;
+  }
+
+  // Invoice Service Links
+  async getInvoiceServiceLinks(invoiceId: number): Promise<InvoiceServiceLink[]> {
+    return await db.select().from(invoiceServiceLinks)
+      .where(eq(invoiceServiceLinks.invoiceId, invoiceId))
+      .orderBy(asc(invoiceServiceLinks.id));
+  }
+
+  async addInvoiceServiceLink(serviceLink: InsertInvoiceServiceLink): Promise<InvoiceServiceLink> {
+    const [newServiceLink] = await db.insert(invoiceServiceLinks).values(serviceLink).returning();
+    return newServiceLink;
+  }
+
+  // Invoice Generation Utilities
+  async generateInvoiceNumber(organizationId: string): Promise<string> {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    
+    // Get count of invoices this month
+    const startOfMonth = `${year}-${month}-01`;
+    const endOfMonth = `${year}-${month}-31`;
+    
+    const monthlyInvoices = await db.select({ count: sql<number>`count(*)` })
+      .from(generatedInvoices)
+      .where(
+        and(
+          eq(generatedInvoices.organizationId, organizationId),
+          gte(generatedInvoices.invoiceDate, startOfMonth),
+          lte(generatedInvoices.invoiceDate, endOfMonth)
+        )
+      );
+    
+    const sequence = (monthlyInvoices[0]?.count || 0) + 1;
+    return `INV-${year}${month}-${String(sequence).padStart(4, '0')}`;
+  }
+
+  // Booking Data for Invoice Generation
+  async getBookingsForInvoice(organizationId: string, filters: {
+    propertyIds?: number[];
+    startDate: string;
+    endDate: string;
+    ownerId?: string;
+    portfolioManagerId?: string;
+  }): Promise<any[]> {
+    let query = db.select({
+      id: bookings.id,
+      propertyId: bookings.propertyId,
+      guestName: bookings.guestName,
+      checkIn: bookings.checkIn,
+      checkOut: bookings.checkOut,
+      totalAmount: bookings.totalAmount,
+      currency: bookings.currency,
+      status: bookings.status,
+      // Add property information
+      propertyName: properties.name,
+      propertyAddress: properties.address,
+      // Add owner information
+      ownerId: properties.ownerId,
+    })
+    .from(bookings)
+    .leftJoin(properties, eq(bookings.propertyId, properties.id))
+    .where(
+      and(
+        eq(bookings.organizationId, organizationId),
+        gte(bookings.checkIn, filters.startDate),
+        lte(bookings.checkOut, filters.endDate),
+        eq(bookings.status, 'confirmed')
+      )
+    );
+
+    if (filters.propertyIds && filters.propertyIds.length > 0) {
+      query = query.where(inArray(bookings.propertyId, filters.propertyIds));
+    }
+
+    if (filters.ownerId) {
+      query = query.where(eq(properties.ownerId, filters.ownerId));
+    }
+
+    return await query.orderBy(asc(bookings.checkIn));
+  }
+
+  // Add-on Services for Invoice Generation
+  async getAddonServicesForInvoice(organizationId: string, filters: {
+    propertyIds?: number[];
+    startDate: string;
+    endDate: string;
+    billingRoute?: string;
+  }): Promise<any[]> {
+    let query = db.select({
+      id: guestAddonBookings.id,
+      serviceId: guestAddonBookings.serviceId,
+      propertyId: guestAddonBookings.propertyId,
+      serviceName: guestAddonServices.serviceName,
+      serviceDate: guestAddonBookings.serviceDate,
+      totalAmount: guestAddonBookings.totalAmount,
+      billingRoute: guestAddonBookings.billingRoute,
+      status: guestAddonBookings.status,
+      guestName: guestAddonBookings.guestName,
+    })
+    .from(guestAddonBookings)
+    .leftJoin(guestAddonServices, eq(guestAddonBookings.serviceId, guestAddonServices.id))
+    .where(
+      and(
+        eq(guestAddonBookings.organizationId, organizationId),
+        gte(guestAddonBookings.serviceDate, filters.startDate),
+        lte(guestAddonBookings.serviceDate, filters.endDate),
+        eq(guestAddonBookings.status, 'completed')
+      )
+    );
+
+    if (filters.propertyIds && filters.propertyIds.length > 0) {
+      query = query.where(inArray(guestAddonBookings.propertyId, filters.propertyIds));
+    }
+
+    if (filters.billingRoute) {
+      query = query.where(eq(guestAddonBookings.billingRoute, filters.billingRoute));
+    }
+
+    return await query.orderBy(asc(guestAddonBookings.serviceDate));
+  }
+
+  // Commission Data for Portfolio Manager Invoices
+  async getCommissionDataForInvoice(organizationId: string, filters: {
+    portfolioManagerId: string;
+    startDate: string;
+    endDate: string;
+    propertyIds?: number[];
+  }): Promise<any[]> {
+    // This would typically pull from commission tracking tables
+    // For now, we'll calculate based on bookings and commission rules
+    const bookings = await this.getBookingsForInvoice(organizationId, {
+      startDate: filters.startDate,
+      endDate: filters.endDate,
+      propertyIds: filters.propertyIds,
+      portfolioManagerId: filters.portfolioManagerId,
+    });
+
+    return bookings.map(booking => ({
+      ...booking,
+      managementCommission: parseFloat(booking.totalAmount) * 0.30, // 30% management fee
+      portfolioManagerShare: parseFloat(booking.totalAmount) * 0.15, // 50% of management goes to PM
+    }));
+  }
+
+  // Invoice Analytics
+  async getInvoiceAnalytics(organizationId: string, dateRange?: { startDate: string; endDate: string }): Promise<any> {
+    let query = db.select({
+      totalInvoices: sql<number>`count(*)`,
+      totalAmount: sql<number>`sum(${generatedInvoices.totalAmount})`,
+      paidAmount: sql<number>`sum(case when ${generatedInvoices.paymentStatus} = 'paid' then ${generatedInvoices.totalAmount} else 0 end)`,
+      unpaidAmount: sql<number>`sum(case when ${generatedInvoices.paymentStatus} = 'unpaid' then ${generatedInvoices.totalAmount} else 0 end)`,
+    })
+    .from(generatedInvoices)
+    .where(eq(generatedInvoices.organizationId, organizationId));
+
+    if (dateRange) {
+      query = query.where(
+        and(
+          gte(generatedInvoices.invoiceDate, dateRange.startDate),
+          lte(generatedInvoices.invoiceDate, dateRange.endDate)
+        )
+      );
+    }
+
+    const [analytics] = await query;
+    return analytics;
+  }
+
+  // ===== AUTOMATED INVOICE CREATOR TOOL OPERATIONS =====
+
+  // Invoice Templates
+  async getInvoiceTemplates(organizationId: string, filters?: { templateType?: string; isActive?: boolean }): Promise<InvoiceTemplate[]> {
+    let query = db.select().from(invoiceTemplates).where(eq(invoiceTemplates.organizationId, organizationId));
+    
+    if (filters?.templateType) {
+      query = query.where(eq(invoiceTemplates.templateType, filters.templateType));
+    }
+    if (filters?.isActive !== undefined) {
+      query = query.where(eq(invoiceTemplates.isActive, filters.isActive));
+    }
+
+    return await query;
+  }
+
+  async createInvoiceTemplate(template: InsertInvoiceTemplate): Promise<InvoiceTemplate> {
+    const [newTemplate] = await db.insert(invoiceTemplates).values(template).returning();
+    return newTemplate;
+  }
+
+  async updateInvoiceTemplate(id: number, updates: Partial<InsertInvoiceTemplate>): Promise<InvoiceTemplate> {
+    const [updatedTemplate] = await db
+      .update(invoiceTemplates)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(invoiceTemplates.id, id))
+      .returning();
+    return updatedTemplate;
+  }
+
+  async deleteInvoiceTemplate(id: number): Promise<void> {
+    await db.delete(invoiceTemplates).where(eq(invoiceTemplates.id, id));
+  }
+
+  // Generated Invoices
+  async getInvoices(organizationId: string, filters?: { 
+    status?: string; 
+    senderType?: string; 
+    receiverType?: string; 
+    periodStart?: string; 
+    periodEnd?: string;
+  }): Promise<GeneratedInvoice[]> {
+    let query = db.select().from(generatedInvoices).where(eq(generatedInvoices.organizationId, organizationId));
+    
+    if (filters?.status) {
+      query = query.where(eq(generatedInvoices.status, filters.status));
+    }
+    if (filters?.senderType) {
+      query = query.where(eq(generatedInvoices.senderType, filters.senderType));
+    }
+    if (filters?.receiverType) {
+      query = query.where(eq(generatedInvoices.receiverType, filters.receiverType));
+    }
+    if (filters?.periodStart) {
+      query = query.where(gte(generatedInvoices.periodStart, filters.periodStart));
+    }
+    if (filters?.periodEnd) {
+      query = query.where(lte(generatedInvoices.periodEnd, filters.periodEnd));
+    }
+
+    return await query.orderBy(desc(generatedInvoices.createdAt));
+  }
+
+  async getInvoiceById(id: number): Promise<GeneratedInvoice | undefined> {
+    const [invoice] = await db.select().from(generatedInvoices).where(eq(generatedInvoices.id, id));
+    return invoice;
+  }
+
+  async createInvoice(invoice: InsertGeneratedInvoice): Promise<GeneratedInvoice> {
+    const [newInvoice] = await db.insert(generatedInvoices).values(invoice).returning();
+    return newInvoice;
+  }
+
+  async updateInvoice(id: number, updates: Partial<InsertGeneratedInvoice>): Promise<GeneratedInvoice> {
+    const [updatedInvoice] = await db
+      .update(generatedInvoices)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(generatedInvoices.id, id))
+      .returning();
+    return updatedInvoice;
+  }
+
+  async deleteInvoice(id: number): Promise<void> {
+    await db.delete(generatedInvoices).where(eq(generatedInvoices.id, id));
+  }
+
+  // Invoice Line Items
+  async getInvoiceLineItems(invoiceId: number): Promise<InvoiceLineItem[]> {
+    return await db.select().from(invoiceLineItems).where(eq(invoiceLineItems.invoiceId, invoiceId));
+  }
+
+  async createInvoiceLineItem(lineItem: InsertInvoiceLineItem): Promise<InvoiceLineItem> {
+    const [newLineItem] = await db.insert(invoiceLineItems).values(lineItem).returning();
+    return newLineItem;
+  }
+
+  async updateInvoiceLineItem(id: number, updates: Partial<InsertInvoiceLineItem>): Promise<InvoiceLineItem> {
+    const [updatedLineItem] = await db
+      .update(invoiceLineItems)
+      .set(updates)
+      .where(eq(invoiceLineItems.id, id))
+      .returning();
+    return updatedLineItem;
+  }
+
+  async deleteInvoiceLineItem(id: number): Promise<void> {
+    await db.delete(invoiceLineItems).where(eq(invoiceLineItems.id, id));
+  }
+
+  // Invoice Booking Links
+  async getInvoiceBookingLinks(invoiceId: number): Promise<InvoiceBookingLink[]> {
+    return await db.select().from(invoiceBookingLinks).where(eq(invoiceBookingLinks.invoiceId, invoiceId));
+  }
+
+  async createInvoiceBookingLink(link: InsertInvoiceBookingLink): Promise<InvoiceBookingLink> {
+    const [newLink] = await db.insert(invoiceBookingLinks).values(link).returning();
+    return newLink;
+  }
+
+  // Invoice Service Links
+  async getInvoiceServiceLinks(invoiceId: number): Promise<InvoiceServiceLink[]> {
+    return await db.select().from(invoiceServiceLinks).where(eq(invoiceServiceLinks.invoiceId, invoiceId));
+  }
+
+  async createInvoiceServiceLink(link: InsertInvoiceServiceLink): Promise<InvoiceServiceLink> {
+    const [newLink] = await db.insert(invoiceServiceLinks).values(link).returning();
+    return newLink;
+  }
+
+  // Invoice Analytics
+  async getInvoiceAnalytics(organizationId: string, filters?: { 
+    startDate?: string; 
+    endDate?: string; 
+    invoiceType?: string;
+  }): Promise<{
+    totalInvoices: number;
+    totalAmount: number;
+    paidAmount: number;
+    unpaidAmount: number;
+    averageInvoiceValue: number;
+    monthlyBreakdown: Array<{
+      month: string;
+      totalInvoices: number;
+      totalAmount: number;
+      paidAmount: number;
+    }>;
+  }> {
+    let baseQuery = db.select().from(generatedInvoices).where(eq(generatedInvoices.organizationId, organizationId));
+    
+    if (filters?.startDate) {
+      baseQuery = baseQuery.where(gte(generatedInvoices.invoiceDate, filters.startDate));
+    }
+    if (filters?.endDate) {
+      baseQuery = baseQuery.where(lte(generatedInvoices.invoiceDate, filters.endDate));
+    }
+
+    const invoices = await baseQuery;
+    
+    const totalInvoices = invoices.length;
+    const totalAmount = invoices.reduce((sum, inv) => sum + parseFloat(inv.totalAmount), 0);
+    const paidInvoices = invoices.filter(inv => inv.paymentStatus === 'paid');
+    const paidAmount = paidInvoices.reduce((sum, inv) => sum + parseFloat(inv.totalAmount), 0);
+    const unpaidAmount = totalAmount - paidAmount;
+    const averageInvoiceValue = totalInvoices > 0 ? totalAmount / totalInvoices : 0;
+
+    // Monthly breakdown
+    const monthlyMap = new Map<string, { totalInvoices: number; totalAmount: number; paidAmount: number }>();
+    
+    invoices.forEach(invoice => {
+      const month = new Date(invoice.invoiceDate).toISOString().slice(0, 7); // YYYY-MM format
+      if (!monthlyMap.has(month)) {
+        monthlyMap.set(month, { totalInvoices: 0, totalAmount: 0, paidAmount: 0 });
+      }
+      const monthData = monthlyMap.get(month)!;
+      monthData.totalInvoices++;
+      monthData.totalAmount += parseFloat(invoice.totalAmount);
+      if (invoice.paymentStatus === 'paid') {
+        monthData.paidAmount += parseFloat(invoice.totalAmount);
+      }
+    });
+
+    const monthlyBreakdown = Array.from(monthlyMap.entries()).map(([month, data]) => ({
+      month,
+      ...data
+    })).sort((a, b) => a.month.localeCompare(b.month));
+
+    return {
+      totalInvoices,
+      totalAmount,
+      paidAmount,
+      unpaidAmount,
+      averageInvoiceValue,
+      monthlyBreakdown
+    };
+  }
+
+  // Utility method to generate next invoice number
+  async generateInvoiceNumber(organizationId: string): Promise<string> {
+    const currentDate = new Date();
+    const year = currentDate.getFullYear();
+    const month = String(currentDate.getMonth() + 1).padStart(2, '0');
+    
+    // Get the count of invoices for this month
+    const monthStart = `${year}-${month}-01`;
+    const monthEnd = `${year}-${month}-31`;
+    
+    const invoicesThisMonth = await db
+      .select()
+      .from(generatedInvoices)
+      .where(
+        and(
+          eq(generatedInvoices.organizationId, organizationId),
+          gte(generatedInvoices.invoiceDate, monthStart),
+          lte(generatedInvoices.invoiceDate, monthEnd)
+        )
+      );
+    
+    const sequence = invoicesThisMonth.length + 1;
+    return `INV-${year}${month}-${String(sequence).padStart(4, '0')}`;
+  }
 }
 
 export const storage = new DatabaseStorage();

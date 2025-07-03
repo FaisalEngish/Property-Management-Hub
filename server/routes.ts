@@ -7604,6 +7604,536 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ===== AUTOMATED INVOICE CREATOR TOOL API =====
+
+  // Invoice Templates Management
+  app.get("/api/invoice-templates", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role } = req.user;
+      
+      if (!['admin', 'portfolio-manager'].includes(role)) {
+        return res.status(403).json({ message: "Admin or Portfolio Manager access required" });
+      }
+
+      const { templateType, isActive } = req.query;
+      const filters: any = {};
+      if (templateType) filters.templateType = templateType;
+      if (isActive !== undefined) filters.isActive = isActive === 'true';
+
+      const templates = await storage.getInvoiceTemplates(organizationId, filters);
+      res.json(templates);
+    } catch (error) {
+      console.error("Error fetching invoice templates:", error);
+      res.status(500).json({ message: "Failed to fetch invoice templates" });
+    }
+  });
+
+  app.post("/api/invoice-templates", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role, id: createdBy } = req.user;
+      
+      if (!['admin', 'portfolio-manager'].includes(role)) {
+        return res.status(403).json({ message: "Admin or Portfolio Manager access required" });
+      }
+
+      const templateData = {
+        ...req.body,
+        organizationId,
+      };
+
+      const template = await storage.createInvoiceTemplate(templateData);
+      res.json(template);
+    } catch (error) {
+      console.error("Error creating invoice template:", error);
+      res.status(500).json({ message: "Failed to create invoice template" });
+    }
+  });
+
+  app.put("/api/invoice-templates/:id", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { role } = req.user;
+      const { id } = req.params;
+      
+      if (!['admin', 'portfolio-manager'].includes(role)) {
+        return res.status(403).json({ message: "Admin or Portfolio Manager access required" });
+      }
+
+      const template = await storage.updateInvoiceTemplate(parseInt(id), req.body);
+      if (!template) {
+        return res.status(404).json({ message: "Invoice template not found" });
+      }
+
+      res.json(template);
+    } catch (error) {
+      console.error("Error updating invoice template:", error);
+      res.status(500).json({ message: "Failed to update invoice template" });
+    }
+  });
+
+  // Generated Invoices Management
+  app.get("/api/generated-invoices", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role } = req.user;
+      
+      if (!['admin', 'portfolio-manager', 'owner'].includes(role)) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const { status, paymentStatus, senderType, receiverType, startDate, endDate } = req.query;
+      const filters: any = {};
+      if (status) filters.status = status;
+      if (paymentStatus) filters.paymentStatus = paymentStatus;
+      if (senderType) filters.senderType = senderType;
+      if (receiverType) filters.receiverType = receiverType;
+      if (startDate) filters.startDate = startDate;
+      if (endDate) filters.endDate = endDate;
+
+      const invoices = await storage.getGeneratedInvoices(organizationId, filters);
+      res.json(invoices);
+    } catch (error) {
+      console.error("Error fetching generated invoices:", error);
+      res.status(500).json({ message: "Failed to fetch invoices" });
+    }
+  });
+
+  app.get("/api/generated-invoices/:id", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { role } = req.user;
+      const { id } = req.params;
+      
+      if (!['admin', 'portfolio-manager', 'owner'].includes(role)) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const invoice = await storage.getGeneratedInvoiceById(parseInt(id));
+      if (!invoice) {
+        return res.status(404).json({ message: "Invoice not found" });
+      }
+
+      // Get line items and related data
+      const lineItems = await storage.getInvoiceLineItems(invoice.id);
+      const bookingLinks = await storage.getInvoiceBookingLinks(invoice.id);
+      const serviceLinks = await storage.getInvoiceServiceLinks(invoice.id);
+
+      res.json({
+        ...invoice,
+        lineItems,
+        bookingLinks,
+        serviceLinks,
+      });
+    } catch (error) {
+      console.error("Error fetching invoice details:", error);
+      res.status(500).json({ message: "Failed to fetch invoice details" });
+    }
+  });
+
+  // Generate Invoice API
+  app.post("/api/generate-invoice", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role, id: createdBy } = req.user;
+      
+      if (!['admin', 'portfolio-manager'].includes(role)) {
+        return res.status(403).json({ message: "Admin or Portfolio Manager access required" });
+      }
+
+      const {
+        templateId,
+        senderType,
+        receiverType,
+        senderId,
+        receiverId,
+        senderName,
+        receiverName,
+        senderEmail,
+        receiverEmail,
+        periodStart,
+        periodEnd,
+        propertyIds,
+        includeBookings,
+        includeAddons,
+        includeCommissions,
+        taxEnabled,
+        taxRate,
+        notes,
+        dueDate,
+      } = req.body;
+
+      // Generate invoice number
+      const invoiceNumber = await storage.generateInvoiceNumber(organizationId);
+      const today = new Date().toISOString().split('T')[0];
+
+      // Create base invoice
+      const invoiceData = {
+        organizationId,
+        invoiceNumber,
+        templateId: templateId || null,
+        senderType,
+        senderId,
+        senderName,
+        senderEmail,
+        receiverType,
+        receiverId,
+        receiverName,
+        receiverEmail,
+        invoiceDate: today,
+        dueDate: dueDate || today,
+        periodStart,
+        periodEnd,
+        subtotal: "0",
+        taxAmount: "0",
+        totalAmount: "0",
+        currency: "AUD",
+        notes,
+        createdBy,
+      };
+
+      const invoice = await storage.createGeneratedInvoice(invoiceData);
+      let subtotal = 0;
+
+      // Add booking revenue line items
+      if (includeBookings) {
+        const bookings = await storage.getBookingsForInvoice(organizationId, {
+          propertyIds,
+          startDate: periodStart,
+          endDate: periodEnd,
+          ownerId: receiverType === 'owner' ? receiverId : undefined,
+        });
+
+        for (const booking of bookings) {
+          const amount = parseFloat(booking.totalAmount);
+          
+          // Add booking revenue line item
+          await storage.addInvoiceLineItem({
+            invoiceId: invoice.id,
+            itemType: 'booking_revenue',
+            description: `Booking Revenue - ${booking.guestName} (${booking.checkIn} to ${booking.checkOut})`,
+            itemReference: booking.id.toString(),
+            quantity: "1",
+            unitPrice: amount.toString(),
+            lineTotal: amount.toString(),
+            category: 'revenue',
+            subcategory: 'accommodation',
+            sourceType: 'booking',
+            sourceId: booking.id,
+          });
+
+          // Add booking link
+          await storage.addInvoiceBookingLink({
+            invoiceId: invoice.id,
+            bookingId: booking.id,
+            bookingRevenue: amount.toString(),
+            managementCommission: (amount * 0.30).toString(),
+            portfolioManagerCommission: (amount * 0.15).toString(),
+            ownerPayout: (amount * 0.70).toString(),
+            addonServicesTotal: "0",
+          });
+
+          subtotal += amount;
+
+          // Add management commission if invoice is to owner
+          if (receiverType === 'owner') {
+            const commissionAmount = amount * 0.30;
+            await storage.addInvoiceLineItem({
+              invoiceId: invoice.id,
+              itemType: 'commission',
+              description: `Management Commission (30%) - ${booking.guestName}`,
+              itemReference: booking.id.toString(),
+              quantity: "1",
+              unitPrice: (-commissionAmount).toString(),
+              lineTotal: (-commissionAmount).toString(),
+              category: 'commission',
+              subcategory: 'management_fee',
+              sourceType: 'booking',
+              sourceId: booking.id,
+            });
+
+            subtotal -= commissionAmount;
+          }
+        }
+      }
+
+      // Add addon services
+      if (includeAddons) {
+        const addonServices = await storage.getAddonServicesForInvoice(organizationId, {
+          propertyIds,
+          startDate: periodStart,
+          endDate: periodEnd,
+          billingRoute: receiverType === 'owner' ? 'owner_billable' : undefined,
+        });
+
+        for (const service of addonServices) {
+          const amount = parseFloat(service.totalAmount);
+          
+          await storage.addInvoiceLineItem({
+            invoiceId: invoice.id,
+            itemType: 'addon_service',
+            description: `${service.serviceName} - ${service.guestName}`,
+            itemReference: service.id.toString(),
+            quantity: "1",
+            unitPrice: amount.toString(),
+            lineTotal: amount.toString(),
+            category: 'service',
+            subcategory: service.serviceName.toLowerCase().replace(/\s+/g, '_'),
+            sourceType: 'addon_service',
+            sourceId: service.id,
+          });
+
+          // Add service link
+          await storage.addInvoiceServiceLink({
+            invoiceId: invoice.id,
+            serviceBookingId: service.id,
+            serviceName: service.serviceName,
+            serviceAmount: amount.toString(),
+            billingRoute: service.billingRoute,
+          });
+
+          if (service.billingRoute === 'owner_billable') {
+            subtotal += amount;
+          } else if (service.billingRoute === 'company_expense') {
+            subtotal -= amount;
+          }
+        }
+      }
+
+      // Add portfolio manager commissions
+      if (includeCommissions && receiverType === 'portfolio_manager') {
+        const commissionData = await storage.getCommissionDataForInvoice(organizationId, {
+          portfolioManagerId: receiverId,
+          startDate: periodStart,
+          endDate: periodEnd,
+          propertyIds,
+        });
+
+        for (const commission of commissionData) {
+          const amount = commission.portfolioManagerShare;
+          
+          await storage.addInvoiceLineItem({
+            invoiceId: invoice.id,
+            itemType: 'commission',
+            description: `Portfolio Manager Commission (50% of management) - ${commission.guestName}`,
+            itemReference: commission.id.toString(),
+            quantity: "1",
+            unitPrice: amount.toString(),
+            lineTotal: amount.toString(),
+            category: 'commission',
+            subcategory: 'portfolio_manager_share',
+            sourceType: 'booking',
+            sourceId: commission.id,
+          });
+
+          subtotal += amount;
+        }
+      }
+
+      // Calculate tax if enabled
+      let taxAmount = 0;
+      if (taxEnabled && taxRate > 0) {
+        taxAmount = subtotal * (parseFloat(taxRate) / 100);
+        
+        await storage.addInvoiceLineItem({
+          invoiceId: invoice.id,
+          itemType: 'tax',
+          description: `Tax (${taxRate}%)`,
+          quantity: "1",
+          unitPrice: taxAmount.toString(),
+          lineTotal: taxAmount.toString(),
+          category: 'tax',
+          isManualEntry: true,
+        });
+      }
+
+      const totalAmount = subtotal + taxAmount;
+
+      // Update invoice totals
+      await storage.updateGeneratedInvoice(invoice.id, {
+        subtotal: subtotal.toString(),
+        taxAmount: taxAmount.toString(),
+        totalAmount: totalAmount.toString(),
+        status: 'draft',
+      });
+
+      res.json({
+        message: "Invoice generated successfully",
+        invoice: {
+          ...invoice,
+          subtotal: subtotal.toString(),
+          taxAmount: taxAmount.toString(),
+          totalAmount: totalAmount.toString(),
+        },
+        invoiceNumber,
+      });
+    } catch (error) {
+      console.error("Error generating invoice:", error);
+      res.status(500).json({ message: "Failed to generate invoice" });
+    }
+  });
+
+  // Mark Invoice as Paid
+  app.post("/api/generated-invoices/:id/mark-paid", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { role } = req.user;
+      const { id } = req.params;
+      const { paymentMethod, paymentReference, paymentDate } = req.body;
+      
+      if (!['admin', 'portfolio-manager'].includes(role)) {
+        return res.status(403).json({ message: "Admin or Portfolio Manager access required" });
+      }
+
+      const invoice = await storage.markInvoiceAsPaid(parseInt(id), {
+        paymentStatus: 'paid',
+        paymentMethod,
+        paymentReference,
+        paymentDate,
+      });
+
+      if (!invoice) {
+        return res.status(404).json({ message: "Invoice not found" });
+      }
+
+      res.json({
+        message: "Invoice marked as paid successfully",
+        invoice,
+      });
+    } catch (error) {
+      console.error("Error marking invoice as paid:", error);
+      res.status(500).json({ message: "Failed to mark invoice as paid" });
+    }
+  });
+
+  // Update Invoice Line Item
+  app.put("/api/invoice-line-items/:id", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { role } = req.user;
+      const { id } = req.params;
+      
+      if (!['admin', 'portfolio-manager'].includes(role)) {
+        return res.status(403).json({ message: "Admin or Portfolio Manager access required" });
+      }
+
+      const lineItem = await storage.updateInvoiceLineItem(parseInt(id), req.body);
+      if (!lineItem) {
+        return res.status(404).json({ message: "Line item not found" });
+      }
+
+      res.json(lineItem);
+    } catch (error) {
+      console.error("Error updating line item:", error);
+      res.status(500).json({ message: "Failed to update line item" });
+    }
+  });
+
+  // Add Manual Line Item
+  app.post("/api/generated-invoices/:invoiceId/line-items", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { role } = req.user;
+      const { invoiceId } = req.params;
+      
+      if (!['admin', 'portfolio-manager'].includes(role)) {
+        return res.status(403).json({ message: "Admin or Portfolio Manager access required" });
+      }
+
+      const lineItemData = {
+        ...req.body,
+        invoiceId: parseInt(invoiceId),
+        isManualEntry: true,
+      };
+
+      const lineItem = await storage.addInvoiceLineItem(lineItemData);
+      res.json(lineItem);
+    } catch (error) {
+      console.error("Error adding line item:", error);
+      res.status(500).json({ message: "Failed to add line item" });
+    }
+  });
+
+  // Delete Line Item
+  app.delete("/api/invoice-line-items/:id", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { role } = req.user;
+      const { id } = req.params;
+      
+      if (!['admin', 'portfolio-manager'].includes(role)) {
+        return res.status(403).json({ message: "Admin or Portfolio Manager access required" });
+      }
+
+      const deleted = await storage.deleteInvoiceLineItem(parseInt(id));
+      if (!deleted) {
+        return res.status(404).json({ message: "Line item not found" });
+      }
+
+      res.json({ message: "Line item deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting line item:", error);
+      res.status(500).json({ message: "Failed to delete line item" });
+    }
+  });
+
+  // Invoice Analytics
+  app.get("/api/invoice-analytics", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role } = req.user;
+      
+      if (!['admin', 'portfolio-manager'].includes(role)) {
+        return res.status(403).json({ message: "Admin or Portfolio Manager access required" });
+      }
+
+      const { startDate, endDate } = req.query;
+      const dateRange = startDate && endDate ? { startDate, endDate } : undefined;
+
+      const analytics = await storage.getInvoiceAnalytics(organizationId, dateRange);
+      res.json(analytics);
+    } catch (error) {
+      console.error("Error fetching invoice analytics:", error);
+      res.status(500).json({ message: "Failed to fetch invoice analytics" });
+    }
+  });
+
+  // Get Booking Data for Invoice Preview
+  app.get("/api/invoice-preview-data", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role } = req.user;
+      
+      if (!['admin', 'portfolio-manager'].includes(role)) {
+        return res.status(403).json({ message: "Admin or Portfolio Manager access required" });
+      }
+
+      const { startDate, endDate, propertyIds, ownerId, portfolioManagerId } = req.query;
+      
+      const bookings = await storage.getBookingsForInvoice(organizationId, {
+        startDate,
+        endDate,
+        propertyIds: propertyIds ? propertyIds.split(',').map(Number) : undefined,
+        ownerId,
+        portfolioManagerId,
+      });
+
+      const addonServices = await storage.getAddonServicesForInvoice(organizationId, {
+        startDate,
+        endDate,
+        propertyIds: propertyIds ? propertyIds.split(',').map(Number) : undefined,
+      });
+
+      // Calculate totals
+      const bookingTotal = bookings.reduce((sum, booking) => sum + parseFloat(booking.totalAmount), 0);
+      const addonTotal = addonServices.reduce((sum, service) => sum + parseFloat(service.totalAmount), 0);
+
+      res.json({
+        bookings,
+        addonServices,
+        totals: {
+          bookingRevenue: bookingTotal,
+          addonServices: addonTotal,
+          managementCommission: bookingTotal * 0.30,
+          portfolioManagerCommission: bookingTotal * 0.15,
+          ownerPayout: bookingTotal * 0.70,
+        },
+      });
+    } catch (error) {
+      console.error("Error fetching invoice preview data:", error);
+      res.status(500).json({ message: "Failed to fetch preview data" });
+    }
+  });
+
   // ===== PROPERTY SEARCH INDEX MANAGEMENT API =====
 
   // Update property search index (admin/PM access)
