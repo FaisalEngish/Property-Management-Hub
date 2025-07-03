@@ -10,6 +10,9 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Switch } from "@/components/ui/switch";
+import { Progress } from "@/components/ui/progress";
+import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { 
@@ -25,7 +28,15 @@ import {
   Camera,
   Banknote,
   TrendingUp,
-  Users
+  Users,
+  MapPin,
+  Play,
+  Square,
+  Timer,
+  History,
+  Award,
+  Calculator,
+  Zap
 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -44,6 +55,34 @@ interface StaffAdvanceRequest {
   paidAmount?: string;
   paidDate?: string;
   remainingBalance?: string;
+}
+
+interface ClockEntry {
+  id: number;
+  staffId: string;
+  taskId?: number;
+  propertyId?: number;
+  clockInTime: string;
+  clockOutTime?: string;
+  taskDescription: string;
+  isOvertime: boolean;
+  overtimeHours?: number;
+  gpsLocation?: string;
+  photoEvidence?: string;
+  status: "active" | "completed" | "emergency";
+  emergencyReason?: string;
+  supervisorApproved?: boolean;
+  createdAt: string;
+}
+
+interface OvertimeSettings {
+  standardStartTime: string; // e.g., "08:00"
+  standardEndTime: string;   // e.g., "18:00"
+  overtimeThreshold: string; // e.g., "20:00" - when overtime becomes significant
+  emergencyTaskMultiplier: number; // e.g., 1.5 for emergency tasks
+  autoDeductAdvances: boolean;
+  requirePhotoEvidence: boolean;
+  requireGpsTracking: boolean;
 }
 
 interface StaffOvertimeLog {
@@ -91,12 +130,28 @@ export default function StaffAdvanceSalaryOvertimeTracker() {
   const [advanceDialogOpen, setAdvanceDialogOpen] = useState(false);
   const [overtimeDialogOpen, setOvertimeDialogOpen] = useState(false);
   const [settingsDialogOpen, setSettingsDialogOpen] = useState(false);
+  const [clockInDialogOpen, setClockInDialogOpen] = useState(false);
+  
+  // GPS and Clock In State
+  const [currentLocation, setCurrentLocation] = useState<{ lat: number; lng: number; accuracy: number } | null>(null);
+  const [locationError, setLocationError] = useState<string | null>(null);
+  const [isClockingIn, setIsClockingIn] = useState(false);
+  const [activeTimer, setActiveTimer] = useState<ClockEntry | null>(null);
+  const [currentTime, setCurrentTime] = useState(new Date());
 
   // Form states
   const [advanceForm, setAdvanceForm] = useState({
     requestAmount: "",
     requestReason: "",
     proofAttachment: ""
+  });
+
+  const [clockInForm, setClockInForm] = useState({
+    taskDescription: "",
+    propertyId: "",
+    isEmergency: false,
+    emergencyReason: "",
+    photoEvidence: "",
   });
 
   const [overtimeForm, setOvertimeForm] = useState({
@@ -140,6 +195,163 @@ export default function StaffAdvanceSalaryOvertimeTracker() {
 
   const { data: overtimeSettings = [] } = useQuery({
     queryKey: ["/api/staff-overtime-settings"],
+  });
+
+  const { data: clockEntries = [] } = useQuery({
+    queryKey: ["/api/staff-clock-entries"],
+  });
+
+  // GPS and location effects
+  useEffect(() => {
+    // Update current time every second for active timer display
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    // Get user's current location for GPS tracking
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setCurrentLocation({
+            lat: position.coords.latitude,
+            lng: position.coords.longitude,
+            accuracy: position.coords.accuracy,
+          });
+          setLocationError(null);
+        },
+        (error) => {
+          console.error("GPS error:", error);
+          setLocationError(error.message);
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 300000, // 5 minutes
+        }
+      );
+    } else {
+      setLocationError("GPS not supported by this device");
+    }
+  }, []);
+
+  // Check for active clock entry on component mount
+  useEffect(() => {
+    const activeEntry = clockEntries.find((entry: ClockEntry) => 
+      entry.status === "active" && !entry.clockOutTime
+    );
+    setActiveTimer(activeEntry || null);
+  }, [clockEntries]);
+
+  // Utility functions
+  const getCurrentTimeString = () => {
+    return format(currentTime, "HH:mm:ss");
+  };
+
+  const isOvertimeHour = (timeString: string) => {
+    const hour = parseInt(timeString.split(':')[0]);
+    const standardEndHour = parseInt(overtimeSettings[0]?.standardEndTime?.split(':')[0] || "18");
+    const overtimeThresholdHour = parseInt(overtimeSettings[0]?.overtimeThreshold?.split(':')[0] || "20");
+    
+    return hour >= standardEndHour;
+  };
+
+  const isSignificantOvertime = (timeString: string) => {
+    const hour = parseInt(timeString.split(':')[0]);
+    const overtimeThresholdHour = parseInt(overtimeSettings[0]?.overtimeThreshold?.split(':')[0] || "20");
+    
+    return hour >= overtimeThresholdHour;
+  };
+
+  const calculateWorkDuration = (startTime: string, endTime: string) => {
+    const start = new Date(`2000-01-01T${startTime}`);
+    const end = new Date(`2000-01-01T${endTime}`);
+    const diffMs = end.getTime() - start.getTime();
+    const diffHours = diffMs / (1000 * 60 * 60);
+    return diffHours.toFixed(2);
+  };
+
+  const getLocationDisplay = () => {
+    if (locationError) {
+      return `GPS Error: ${locationError}`;
+    }
+    if (!currentLocation) {
+      return "Getting location...";
+    }
+    return `Lat: ${currentLocation.lat.toFixed(6)}, Lng: ${currentLocation.lng.toFixed(6)} (±${currentLocation.accuracy}m)`;
+  };
+
+  // Clock In/Out Mutations
+  const clockInMutation = useMutation({
+    mutationFn: async (clockData: any) => {
+      const gpsLocation = currentLocation ? 
+        `${currentLocation.lat},${currentLocation.lng}` : 
+        "GPS not available";
+      
+      return await apiRequest("POST", "/api/staff-clock-in", {
+        ...clockData,
+        gpsLocation,
+        clockInTime: getCurrentTimeString(),
+        isOvertime: isOvertimeHour(getCurrentTimeString()),
+      });
+    },
+    onSuccess: () => {
+      toast({
+        title: "Clocked In Successfully",
+        description: `Started work at ${getCurrentTimeString()}${isOvertimeHour(getCurrentTimeString()) ? ' (Overtime)' : ''}`,
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/staff-clock-entries"] });
+      setClockInDialogOpen(false);
+      setClockInForm({
+        taskDescription: "",
+        propertyId: "",
+        isEmergency: false,
+        emergencyReason: "",
+        photoEvidence: "",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Clock In Failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const clockOutMutation = useMutation({
+    mutationFn: async (clockEntryId: number) => {
+      const gpsLocation = currentLocation ? 
+        `${currentLocation.lat},${currentLocation.lng}` : 
+        "GPS not available";
+        
+      return await apiRequest("PUT", `/api/staff-clock-out/${clockEntryId}`, {
+        clockOutTime: getCurrentTimeString(),
+        gpsLocationOut: gpsLocation,
+      });
+    },
+    onSuccess: (data: any) => {
+      const duration = data.duration || "0";
+      const overtimeHours = data.overtimeHours || "0";
+      
+      toast({
+        title: "Clocked Out Successfully",
+        description: `Work completed. Duration: ${duration}h${overtimeHours > 0 ? `, Overtime: ${overtimeHours}h` : ''}`,
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/staff-clock-entries"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/staff-overtime-logs"] });
+      setActiveTimer(null);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Clock Out Failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
   });
 
   // Mutations
@@ -783,32 +995,223 @@ export default function StaffAdvanceSalaryOvertimeTracker() {
 
         {/* Clock In/Out Tab */}
         <TabsContent value="clock-in-out" className="space-y-6">
+          {/* Active Timer Card */}
+          {activeTimer && (
+            <Card className="border-green-200 bg-green-50 dark:bg-green-900/20 dark:border-green-800">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-green-800 dark:text-green-400">
+                  <Timer className="w-5 h-5 animate-pulse" />
+                  Active Work Session
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <Label className="text-sm font-medium">Started</Label>
+                    <div className="text-xl font-bold text-green-700 dark:text-green-300">
+                      {activeTimer.clockInTime}
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      {format(new Date(activeTimer.createdAt), "MMM dd, yyyy")}
+                    </p>
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium">Current Time</Label>
+                    <div className="text-xl font-bold">
+                      {getCurrentTimeString()}
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      {isOvertimeHour(getCurrentTimeString()) ? "Overtime Hours" : "Regular Hours"}
+                    </p>
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium">Duration</Label>
+                    <div className="text-xl font-bold">
+                      {calculateWorkDuration(activeTimer.clockInTime, getCurrentTimeString())}h
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      Task: {activeTimer.taskDescription}
+                    </p>
+                  </div>
+                </div>
+                <div className="mt-4 flex gap-4">
+                  <Button 
+                    onClick={() => clockOutMutation.mutate(activeTimer.id)}
+                    className="bg-red-600 hover:bg-red-700"
+                    disabled={clockOutMutation.isPending}
+                  >
+                    <Square className="w-4 h-4 mr-2" />
+                    {clockOutMutation.isPending ? "Clocking Out..." : "Clock Out"}
+                  </Button>
+                  {isSignificantOvertime(getCurrentTimeString()) && (
+                    <Badge variant="destructive" className="px-3 py-1">
+                      <Zap className="w-3 h-3 mr-1" />
+                      Significant Overtime ({getCurrentTimeString()})
+                    </Badge>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Clock In/Out Controls */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Clock In Card */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Play className="w-5 h-5 text-green-600" />
+                  Clock In System
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="text-center">
+                  <div className="text-3xl font-bold text-green-600 mb-2">
+                    {getCurrentTimeString()}
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    {format(currentTime, "EEEE, MMMM dd, yyyy")}
+                  </p>
+                  {isOvertimeHour(getCurrentTimeString()) && (
+                    <Badge variant="secondary" className="mt-2">
+                      <Clock className="w-3 h-3 mr-1" />
+                      Overtime Period
+                    </Badge>
+                  )}
+                </div>
+
+                <Separator />
+
+                <div className="space-y-3">
+                  <div>
+                    <Label className="text-sm font-medium">GPS Location</Label>
+                    <div className="text-xs p-2 bg-gray-50 dark:bg-gray-800 rounded border">
+                      {getLocationDisplay()}
+                    </div>
+                  </div>
+                  
+                  {!activeTimer ? (
+                    <Button 
+                      onClick={() => setClockInDialogOpen(true)}
+                      className="w-full bg-green-600 hover:bg-green-700"
+                      disabled={!currentLocation && !locationError}
+                    >
+                      <Play className="w-4 h-4 mr-2" />
+                      Clock In to Start Work
+                    </Button>
+                  ) : (
+                    <div className="text-center text-sm text-muted-foreground">
+                      Already clocked in. Use the active timer above to clock out.
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Recent Clock Entries */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <History className="w-5 h-5" />
+                  Recent Work Sessions
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {clockEntries.length > 0 ? (
+                  <div className="space-y-3 max-h-64 overflow-y-auto">
+                    {clockEntries.slice(0, 5).map((entry: ClockEntry) => (
+                      <div key={entry.id} className="flex justify-between items-center p-3 border rounded">
+                        <div>
+                          <div className="font-medium text-sm">
+                            {format(new Date(entry.createdAt), "MMM dd")}
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            {entry.clockInTime} - {entry.clockOutTime || "Active"}
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            {entry.taskDescription}
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          {entry.clockOutTime && (
+                            <div className="text-sm font-medium">
+                              {calculateWorkDuration(entry.clockInTime, entry.clockOutTime)}h
+                            </div>
+                          )}
+                          <Badge variant={entry.status === "completed" ? "default" : entry.status === "emergency" ? "destructive" : "secondary"}>
+                            {entry.status}
+                          </Badge>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <Clock className="w-12 h-12 mx-auto text-gray-400 mb-3" />
+                    <p className="text-sm text-muted-foreground">
+                      No clock entries yet. Clock in to start tracking your work.
+                    </p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Work Statistics */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Calendar className="w-5 h-5" />
-                Clock In/Out System
+                <Calculator className="w-5 h-5" />
+                Today's Work Summary
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-center py-12">
-                <Clock className="w-16 h-16 mx-auto text-gray-400 mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
-                  Clock In/Out Feature
-                </h3>
-                <p className="text-gray-600 dark:text-gray-400 mb-6">
-                  This feature allows staff to clock in and out for their shifts, 
-                  automatically tracking regular hours and detecting overtime.
-                </p>
-                <div className="flex justify-center gap-4">
-                  <Button size="lg" className="bg-green-600 hover:bg-green-700">
-                    <Users className="w-5 h-5 mr-2" />
-                    Clock In
-                  </Button>
-                  <Button size="lg" variant="outline">
-                    <Users className="w-5 h-5 mr-2" />
-                    Clock Out
-                  </Button>
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-blue-600">
+                    {clockEntries.filter((entry: ClockEntry) => 
+                      format(new Date(entry.createdAt), "yyyy-MM-dd") === format(new Date(), "yyyy-MM-dd")
+                    ).length}
+                  </div>
+                  <p className="text-sm text-muted-foreground">Work Sessions</p>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-green-600">
+                    {clockEntries
+                      .filter((entry: ClockEntry) => 
+                        format(new Date(entry.createdAt), "yyyy-MM-dd") === format(new Date(), "yyyy-MM-dd") && 
+                        entry.clockOutTime
+                      )
+                      .reduce((total, entry) => 
+                        total + parseFloat(calculateWorkDuration(entry.clockInTime, entry.clockOutTime!)), 0
+                      )
+                      .toFixed(1)}h
+                  </div>
+                  <p className="text-sm text-muted-foreground">Total Hours</p>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-orange-600">
+                    {clockEntries
+                      .filter((entry: ClockEntry) => 
+                        format(new Date(entry.createdAt), "yyyy-MM-dd") === format(new Date(), "yyyy-MM-dd") && 
+                        entry.isOvertime
+                      )
+                      .reduce((total, entry) => 
+                        total + (entry.overtimeHours || 0), 0
+                      )
+                      .toFixed(1)}h
+                  </div>
+                  <p className="text-sm text-muted-foreground">Overtime Hours</p>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-red-600">
+                    {clockEntries
+                      .filter((entry: ClockEntry) => 
+                        format(new Date(entry.createdAt), "yyyy-MM-dd") === format(new Date(), "yyyy-MM-dd") && 
+                        entry.status === "emergency"
+                      ).length}
+                  </div>
+                  <p className="text-sm text-muted-foreground">Emergency Tasks</p>
                 </div>
               </div>
             </CardContent>
@@ -961,6 +1364,168 @@ export default function StaffAdvanceSalaryOvertimeTracker() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Clock In Dialog */}
+      <Dialog open={clockInDialogOpen} onOpenChange={setClockInDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Play className="w-5 h-5 text-green-600" />
+              Clock In to Start Work
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            {/* Current Time and GPS Info */}
+            <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg border border-green-200 dark:border-green-800">
+              <div className="text-center">
+                <div className="text-2xl font-bold text-green-600 mb-1">
+                  {getCurrentTimeString()}
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  {format(currentTime, "EEEE, MMMM dd, yyyy")}
+                </p>
+                {isOvertimeHour(getCurrentTimeString()) && (
+                  <Badge variant="secondary" className="mt-2">
+                    <Clock className="w-3 h-3 mr-1" />
+                    Starting in Overtime Period
+                  </Badge>
+                )}
+              </div>
+            </div>
+
+            {/* GPS Location Display */}
+            <div>
+              <Label className="text-sm font-medium flex items-center gap-2">
+                <MapPin className="w-4 h-4" />
+                GPS Location
+              </Label>
+              <div className="text-xs p-3 bg-gray-50 dark:bg-gray-800 rounded border mt-1">
+                {getLocationDisplay()}
+              </div>
+              {locationError && (
+                <p className="text-xs text-red-600 mt-1">
+                  GPS is required for clock in. Please enable location services.
+                </p>
+              )}
+            </div>
+
+            {/* Task Description */}
+            <div>
+              <Label htmlFor="task-description">Task Description *</Label>
+              <Textarea
+                id="task-description"
+                placeholder="Describe the work you're about to start..."
+                value={clockInForm.taskDescription}
+                onChange={(e) => setClockInForm(prev => ({ ...prev, taskDescription: e.target.value }))}
+                className="mt-1"
+              />
+            </div>
+
+            {/* Property Selection */}
+            <div>
+              <Label htmlFor="property-select">Property (Optional)</Label>
+              <Select 
+                value={clockInForm.propertyId} 
+                onValueChange={(value) => setClockInForm(prev => ({ ...prev, propertyId: value }))}
+              >
+                <SelectTrigger className="mt-1">
+                  <SelectValue placeholder="Select a property..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">No specific property</SelectItem>
+                  {properties.map((property: any) => (
+                    <SelectItem key={property.id} value={property.id.toString()}>
+                      {property.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Emergency Task Toggle */}
+            <div className="flex items-center space-x-2">
+              <Switch
+                id="emergency-task"
+                checked={clockInForm.isEmergency}
+                onCheckedChange={(checked) => setClockInForm(prev => ({ ...prev, isEmergency: checked }))}
+              />
+              <Label htmlFor="emergency-task" className="flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 text-red-500" />
+                Emergency Task (2x Rate)
+              </Label>
+            </div>
+
+            {/* Emergency Reason */}
+            {clockInForm.isEmergency && (
+              <div>
+                <Label htmlFor="emergency-reason">Emergency Reason *</Label>
+                <Textarea
+                  id="emergency-reason"
+                  placeholder="Explain why this is an emergency task..."
+                  value={clockInForm.emergencyReason}
+                  onChange={(e) => setClockInForm(prev => ({ ...prev, emergencyReason: e.target.value }))}
+                  className="mt-1"
+                />
+              </div>
+            )}
+
+            {/* Photo Evidence Upload */}
+            <div>
+              <Label htmlFor="photo-evidence">Photo Evidence (Optional)</Label>
+              <Input
+                id="photo-evidence"
+                type="file"
+                accept="image/*"
+                className="mt-1"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                      setClockInForm(prev => ({ 
+                        ...prev, 
+                        photoEvidence: e.target?.result as string 
+                      }));
+                    };
+                    reader.readAsDataURL(file);
+                  }
+                }}
+              />
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex gap-3 pt-4">
+              <Button
+                onClick={() => setClockInDialogOpen(false)}
+                variant="outline"
+                className="flex-1"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={() => clockInMutation.mutate(clockInForm)}
+                className="flex-1 bg-green-600 hover:bg-green-700"
+                disabled={
+                  !clockInForm.taskDescription || 
+                  (clockInForm.isEmergency && !clockInForm.emergencyReason) ||
+                  (!currentLocation && !locationError) ||
+                  clockInMutation.isPending
+                }
+              >
+                <Play className="w-4 h-4 mr-2" />
+                {clockInMutation.isPending ? "Clocking In..." : "Start Work"}
+              </Button>
+            </div>
+
+            {/* Notice */}
+            <div className="text-xs text-muted-foreground text-center bg-blue-50 dark:bg-blue-900/20 p-3 rounded border border-blue-200 dark:border-blue-800">
+              <Clock className="w-4 h-4 inline mr-1" />
+              Your work session will be tracked with GPS timestamps. 
+              {isOvertimeHour(getCurrentTimeString()) ? " Starting in overtime period." : " Regular hours until 18:00."}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -3721,6 +3721,54 @@ export const staffAdvanceRequests = pgTable("staff_advance_requests", {
   index("IDX_advance_status").on(table.status),
 ]);
 
+// Staff Clock Entries with GPS Tracking
+export const staffClockEntries = pgTable("staff_clock_entries", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  staffId: varchar("staff_id").references(() => users.id).notNull(),
+  
+  // Task Information
+  taskId: integer("task_id").references(() => tasks.id), // Optional link to task
+  propertyId: integer("property_id").references(() => properties.id), // Optional property link
+  taskDescription: text("task_description").notNull(),
+  
+  // Clock In/Out Timing
+  clockInTime: varchar("clock_in_time").notNull(), // HH:mm:ss format
+  clockOutTime: varchar("clock_out_time"), // HH:mm:ss format, null if active
+  workDate: date("work_date").defaultNow().notNull(),
+  
+  // GPS Tracking
+  gpsLocationIn: text("gps_location_in"), // "lat,lng" format
+  gpsLocationOut: text("gps_location_out"), // "lat,lng" format 
+  locationAccuracy: decimal("location_accuracy", { precision: 6, scale: 2 }), // meters
+  
+  // Overtime Tracking
+  isOvertime: boolean("is_overtime").default(false),
+  overtimeHours: decimal("overtime_hours", { precision: 4, scale: 2 }).default("0.00"),
+  totalHours: decimal("total_hours", { precision: 4, scale: 2 }),
+  
+  // Evidence and Approval
+  photoEvidence: text("photo_evidence"), // Base64 or URL
+  isEmergency: boolean("is_emergency").default(false),
+  emergencyReason: text("emergency_reason"),
+  supervisorApproved: boolean("supervisor_approved").default(false),
+  approvedBy: varchar("approved_by").references(() => users.id),
+  approvedAt: timestamp("approved_at"),
+  
+  // Status Tracking
+  status: varchar("status").default("active").notNull(), // active, completed, emergency
+  completedAt: timestamp("completed_at"),
+  
+  // Metadata
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_clock_staff").on(table.staffId),
+  index("IDX_clock_org").on(table.organizationId),
+  index("IDX_clock_date").on(table.workDate),
+  index("IDX_clock_status").on(table.status),
+]);
+
 // Staff Overtime & Emergency Task Logs
 export const staffOvertimeLogs = pgTable("staff_overtime_logs", {
   id: serial("id").primaryKey(),
@@ -3846,6 +3894,14 @@ export const insertStaffAdvanceRequestSchema = createInsertSchema(staffAdvanceRe
   updatedAt: true,
 });
 
+export const insertStaffClockEntrySchema = createInsertSchema(staffClockEntries).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  completedAt: true,
+  approvedAt: true,
+});
+
 export const insertStaffOvertimeLogSchema = createInsertSchema(staffOvertimeLogs).omit({
   id: true,
   createdAt: true,
@@ -3866,6 +3922,8 @@ export const insertStaffMonthlySummarySchema = createInsertSchema(staffMonthlySu
 // Type definitions for Staff Advance & Overtime System
 export type StaffAdvanceRequest = typeof staffAdvanceRequests.$inferSelect;
 export type InsertStaffAdvanceRequest = z.infer<typeof insertStaffAdvanceRequestSchema>;
+export type StaffClockEntry = typeof staffClockEntries.$inferSelect;
+export type InsertStaffClockEntry = z.infer<typeof insertStaffClockEntrySchema>;
 export type StaffOvertimeLog = typeof staffOvertimeLogs.$inferSelect;
 export type InsertStaffOvertimeLog = z.infer<typeof insertStaffOvertimeLogSchema>;
 export type StaffOvertimeSettings = typeof staffOvertimeSettings.$inferSelect;
@@ -6381,5 +6439,327 @@ export const staffOvertimeSessions = pgTable("staff_overtime_sessions", {
   index("IDX_overtime_sessions_status").on(table.status),
 ]);
 
+// ===== MULTI-CURRENCY FINANCE + QUICKBOOKS INTEGRATION =====
+
+// Currency exchange rates tracking
+export const currencyExchangeRates = pgTable("currency_exchange_rates", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  
+  // Rate Details
+  fromCurrency: varchar("from_currency", { length: 3 }).notNull(), // USD, EUR, GBP, etc.
+  toCurrency: varchar("to_currency", { length: 3 }).notNull(), // THB is base
+  exchangeRate: decimal("exchange_rate", { precision: 10, scale: 6 }).notNull(),
+  rateDate: date("rate_date").notNull(),
+  
+  // Rate Source
+  rateSource: varchar("rate_source").default("manual"), // manual, api, bank
+  apiProvider: varchar("api_provider"), // xe.com, currencyapi.com, etc.
+  
+  // Metadata
+  isActive: boolean("is_active").default(true),
+  updatedBy: varchar("updated_by").references(() => users.id),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_exchange_rates_org").on(table.organizationId),
+  index("IDX_exchange_rates_currencies").on(table.fromCurrency, table.toCurrency),
+  index("IDX_exchange_rates_date").on(table.rateDate),
+]);
+
+// Enhanced financial records with multi-currency support
+export const multiCurrencyFinances = pgTable("multi_currency_finances", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  
+  // Transaction Details
+  transactionDate: date("transaction_date").notNull(),
+  description: text("description").notNull(),
+  category: varchar("category").notNull(), // income, expense, transfer
+  subcategory: varchar("subcategory"), // booking, utilities, maintenance, etc.
+  
+  // Multi-Currency Support
+  originalCurrency: varchar("original_currency", { length: 3 }).notNull(),
+  originalAmount: decimal("original_amount", { precision: 12, scale: 2 }).notNull(),
+  thbAmount: decimal("thb_amount", { precision: 12, scale: 2 }).notNull(),
+  exchangeRate: decimal("exchange_rate", { precision: 10, scale: 6 }).notNull(),
+  exchangeRateId: integer("exchange_rate_id").references(() => currencyExchangeRates.id),
+  
+  // Associations
+  propertyId: integer("property_id").references(() => properties.id),
+  bookingId: integer("booking_id").references(() => bookings.id),
+  ownerId: varchar("owner_id").references(() => users.id),
+  processedBy: varchar("processed_by").references(() => users.id),
+  
+  // Export and Integration
+  exportedToQuickbooks: boolean("exported_to_quickbooks").default(false),
+  quickbooksId: varchar("quickbooks_id"),
+  exportedToGoogleSheets: boolean("exported_to_google_sheets").default(false),
+  googleSheetsRowId: varchar("google_sheets_row_id"),
+  
+  // Attachments and Proof
+  receiptUrl: varchar("receipt_url"),
+  invoiceNumber: varchar("invoice_number"),
+  referenceNumber: varchar("reference_number"),
+  
+  // Status and Approval
+  status: varchar("status").default("pending"), // pending, approved, rejected
+  approvedBy: varchar("approved_by").references(() => users.id),
+  approvedAt: timestamp("approved_at"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_multi_currency_org").on(table.organizationId),
+  index("IDX_multi_currency_date").on(table.transactionDate),
+  index("IDX_multi_currency_property").on(table.propertyId),
+  index("IDX_multi_currency_owner").on(table.ownerId),
+  index("IDX_multi_currency_currency").on(table.originalCurrency),
+]);
+
+// QuickBooks integration settings
+export const quickbooksIntegration = pgTable("quickbooks_integration", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  
+  // QuickBooks Credentials (encrypted)
+  companyId: varchar("company_id").notNull(),
+  accessToken: text("access_token"), // Encrypted
+  refreshToken: text("refresh_token"), // Encrypted
+  realmId: varchar("realm_id"),
+  
+  // Integration Settings
+  isActive: boolean("is_active").default(false),
+  autoSync: boolean("auto_sync").default(false),
+  syncFrequency: varchar("sync_frequency").default("daily"), // manual, daily, weekly
+  lastSyncAt: timestamp("last_sync_at"),
+  
+  // Sync Configuration
+  syncIncome: boolean("sync_income").default(true),
+  syncExpenses: boolean("sync_expenses").default(true),
+  syncInvoices: boolean("sync_invoices").default(true),
+  syncPayments: boolean("sync_payments").default(true),
+  
+  // Error Tracking
+  lastError: text("last_error"),
+  errorCount: integer("error_count").default(0),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_quickbooks_org").on(table.organizationId),
+]);
+
+// Property-specific finance settings
+export const propertyFinanceSettings = pgTable("property_finance_settings", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  propertyId: integer("property_id").references(() => properties.id).notNull(),
+  ownerId: varchar("owner_id").references(() => users.id).notNull(),
+  
+  // Output Preferences
+  financeOutputMode: varchar("finance_output_mode").default("system_reports"), // system_reports, google_sheets, both
+  preferredCurrency: varchar("preferred_currency", { length: 3 }).default("THB"),
+  
+  // QuickBooks Settings
+  enableQuickbooksSync: boolean("enable_quickbooks_sync").default(false),
+  quickbooksCustomerId: varchar("quickbooks_customer_id"),
+  quickbooksItemId: varchar("quickbooks_item_id"),
+  
+  // Google Sheets Settings
+  googleSheetsUrl: varchar("google_sheets_url"),
+  googleSheetsTabName: varchar("google_sheets_tab_name").default("Finances"),
+  lastGoogleSheetsSync: timestamp("last_google_sheets_sync"),
+  
+  // Report Settings
+  includeInMonthlyReports: boolean("include_in_monthly_reports").default(true),
+  emailReportsTo: varchar("email_reports_to"),
+  reportFrequency: varchar("report_frequency").default("monthly"), // weekly, monthly, quarterly
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_property_finance_org").on(table.organizationId),
+  index("IDX_property_finance_property").on(table.propertyId),
+  index("IDX_property_finance_owner").on(table.ownerId),
+]);
+
+// Export logs for tracking report generation
+export const financeExportLogs = pgTable("finance_export_logs", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  
+  // Export Details
+  exportType: varchar("export_type").notNull(), // excel, csv, pdf, quickbooks, google_sheets
+  exportFormat: varchar("export_format"), // monthly_summary, annual_report, detailed_breakdown
+  dateRange: varchar("date_range").notNull(), // 2025-01, 2025-Q1, 2025
+  
+  // Filters Applied
+  propertyIds: jsonb("property_ids"), // Array of property IDs
+  ownerIds: jsonb("owner_ids"), // Array of owner IDs
+  currencies: jsonb("currencies"), // Array of currencies included
+  categories: jsonb("categories"), // Array of categories
+  
+  // Export Results
+  status: varchar("status").default("pending"), // pending, completed, failed
+  fileUrl: varchar("file_url"),
+  fileName: varchar("file_name"),
+  fileSize: integer("file_size"), // In bytes
+  recordCount: integer("record_count"),
+  
+  // Error Handling
+  errorMessage: text("error_message"),
+  
+  // User and Timing
+  requestedBy: varchar("requested_by").references(() => users.id).notNull(),
+  completedAt: timestamp("completed_at"),
+  expiresAt: timestamp("expires_at"), // When file download expires
+  
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("IDX_export_logs_org").on(table.organizationId),
+  index("IDX_export_logs_type").on(table.exportType),
+  index("IDX_export_logs_user").on(table.requestedBy),
+  index("IDX_export_logs_date").on(table.dateRange),
+]);
+
+// Financial report templates
+export const financeReportTemplates = pgTable("finance_report_templates", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  
+  // Template Details
+  templateName: varchar("template_name").notNull(),
+  templateType: varchar("template_type").notNull(), // monthly_summary, annual_report, owner_statement
+  description: text("description"),
+  
+  // Configuration
+  includedFields: jsonb("included_fields").notNull(), // Array of field names
+  groupBy: jsonb("group_by"), // Array of grouping fields
+  sortBy: jsonb("sort_by"), // Array of sorting fields
+  filters: jsonb("filters"), // Default filters to apply
+  
+  // Formatting
+  currency: varchar("currency", { length: 3 }).default("THB"),
+  dateFormat: varchar("date_format").default("DD/MM/YYYY"),
+  numberFormat: varchar("number_format").default("en-US"),
+  
+  // Branding
+  includeLogo: boolean("include_logo").default(true),
+  headerText: text("header_text"),
+  footerText: text("footer_text"),
+  
+  // Sharing
+  isDefault: boolean("is_default").default(false),
+  isPublic: boolean("is_public").default(false), // Can be used by other orgs
+  createdBy: varchar("created_by").references(() => users.id).notNull(),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_report_templates_org").on(table.organizationId),
+  index("IDX_report_templates_type").on(table.templateType),
+  index("IDX_report_templates_creator").on(table.createdBy),
+]);
+
+// Occupancy rate tracking for reports
+export const occupancyRates = pgTable("occupancy_rates", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  propertyId: integer("property_id").references(() => properties.id).notNull(),
+  
+  // Time Period
+  periodType: varchar("period_type").notNull(), // daily, weekly, monthly, quarterly, yearly
+  periodValue: varchar("period_value").notNull(), // 2025-01-15, 2025-W03, 2025-01, 2025-Q1, 2025
+  
+  // Occupancy Data
+  totalDays: integer("total_days").notNull(),
+  occupiedDays: integer("occupied_days").notNull(),
+  occupancyRate: decimal("occupancy_rate", { precision: 5, scale: 2 }).notNull(), // Percentage
+  
+  // Revenue Data
+  totalRevenue: decimal("total_revenue", { precision: 12, scale: 2 }).default("0.00"),
+  currency: varchar("currency", { length: 3 }).default("THB"),
+  averageDailyRate: decimal("average_daily_rate", { precision: 8, scale: 2 }),
+  revenuePerAvailableRoom: decimal("revenue_per_available_room", { precision: 8, scale: 2 }),
+  
+  // Booking Data
+  totalBookings: integer("total_bookings").default(0),
+  averageStayLength: decimal("average_stay_length", { precision: 4, scale: 1 }),
+  
+  // Auto-calculated
+  calculatedAt: timestamp("calculated_at").defaultNow(),
+  calculatedBy: varchar("calculated_by").references(() => users.id),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("IDX_occupancy_org").on(table.organizationId),
+  index("IDX_occupancy_property").on(table.propertyId),
+  index("IDX_occupancy_period").on(table.periodType, table.periodValue),
+]);
+
+// Type definitions for multi-currency finance tables
+export type CurrencyExchangeRate = typeof currencyExchangeRates.$inferSelect;
+export type InsertCurrencyExchangeRate = typeof currencyExchangeRates.$inferInsert;
+
+export type MultiCurrencyFinance = typeof multiCurrencyFinances.$inferSelect;
+export type InsertMultiCurrencyFinance = typeof multiCurrencyFinances.$inferInsert;
+
+export type QuickbooksIntegration = typeof quickbooksIntegration.$inferSelect;
+export type InsertQuickbooksIntegration = typeof quickbooksIntegration.$inferInsert;
+
+export type PropertyFinanceSettings = typeof propertyFinanceSettings.$inferSelect;
+export type InsertPropertyFinanceSettings = typeof propertyFinanceSettings.$inferInsert;
+
+export type FinanceExportLog = typeof financeExportLogs.$inferSelect;
+export type InsertFinanceExportLog = typeof financeExportLogs.$inferInsert;
+
+export type FinanceReportTemplate = typeof financeReportTemplates.$inferSelect;
+export type InsertFinanceReportTemplate = typeof financeReportTemplates.$inferInsert;
+
+export type OccupancyRate = typeof occupancyRates.$inferSelect;
+export type InsertOccupancyRate = typeof occupancyRates.$inferInsert;
+
+// Zod schemas for validation
+export const insertCurrencyExchangeRateSchema = createInsertSchema(currencyExchangeRates).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertMultiCurrencyFinanceSchema = createInsertSchema(multiCurrencyFinances).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertQuickbooksIntegrationSchema = createInsertSchema(quickbooksIntegration).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertPropertyFinanceSettingsSchema = createInsertSchema(propertyFinanceSettings).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertFinanceExportLogSchema = createInsertSchema(financeExportLogs).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertFinanceReportTemplateSchema = createInsertSchema(financeReportTemplates).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertOccupancyRateSchema = createInsertSchema(occupancyRates).omit({
+  id: true,
+  createdAt: true,
+});
 
 

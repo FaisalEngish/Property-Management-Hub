@@ -143,6 +143,28 @@ import {
   type InsertStaffOvertimeSettings,
   type StaffMonthlySummary,
   type InsertStaffMonthlySummary,
+  // Multi-currency finance types
+  currencyExchangeRates,
+  multiCurrencyFinances,
+  quickbooksIntegration,
+  propertyFinanceSettings,
+  financeExportLogs,
+  financeReportTemplates,
+  occupancyRates,
+  type CurrencyExchangeRate,
+  type InsertCurrencyExchangeRate,
+  type MultiCurrencyFinance,
+  type InsertMultiCurrencyFinance,
+  type QuickbooksIntegration,
+  type InsertQuickbooksIntegration,
+  type PropertyFinanceSettings,
+  type InsertPropertyFinanceSettings,
+  type FinanceExportLog,
+  type InsertFinanceExportLog,
+  type FinanceReportTemplate,
+  type InsertFinanceReportTemplate,
+  type OccupancyRate,
+  type InsertOccupancyRate,
   staffSalaries,
   commissionEarnings,
   invoices,
@@ -946,6 +968,88 @@ export interface IStorage {
   // Owner-specific methods for dashboard
   getOwnerMaintenanceSuggestions(organizationId: string, ownerId: string): Promise<MaintenanceSuggestion[]>;
   getPendingOwnerApprovals(organizationId: string, ownerId: string): Promise<MaintenanceSuggestion[]>;
+
+  // ===== MULTI-CURRENCY FINANCE + QUICKBOOKS INTEGRATION =====
+
+  // Currency exchange rates operations
+  getCurrencyExchangeRates(organizationId: string, filters?: { fromCurrency?: string; toCurrency?: string; rateDate?: string }): Promise<CurrencyExchangeRate[]>;
+  getCurrencyExchangeRate(id: number): Promise<CurrencyExchangeRate | undefined>;
+  createCurrencyExchangeRate(rate: InsertCurrencyExchangeRate): Promise<CurrencyExchangeRate>;
+  updateCurrencyExchangeRate(id: number, rate: Partial<InsertCurrencyExchangeRate>): Promise<CurrencyExchangeRate | undefined>;
+  deleteCurrencyExchangeRate(id: number): Promise<boolean>;
+  getLatestExchangeRate(fromCurrency: string, toCurrency: string): Promise<CurrencyExchangeRate | undefined>;
+
+  // Multi-currency finances operations
+  getMultiCurrencyFinances(organizationId: string, filters?: { propertyId?: number; ownerId?: string; category?: string; fromDate?: Date; toDate?: Date; currency?: string }): Promise<MultiCurrencyFinance[]>;
+  getMultiCurrencyFinance(id: number): Promise<MultiCurrencyFinance | undefined>;
+  createMultiCurrencyFinance(finance: InsertMultiCurrencyFinance): Promise<MultiCurrencyFinance>;
+  updateMultiCurrencyFinance(id: number, finance: Partial<InsertMultiCurrencyFinance>): Promise<MultiCurrencyFinance | undefined>;
+  deleteMultiCurrencyFinance(id: number): Promise<boolean>;
+  convertCurrency(amount: number, fromCurrency: string, toCurrency: string, exchangeRateId?: number): Promise<{ convertedAmount: number; exchangeRate: number; rateId: number }>;
+
+  // QuickBooks integration operations
+  getQuickbooksIntegration(organizationId: string): Promise<QuickbooksIntegration | undefined>;
+  createQuickbooksIntegration(integration: InsertQuickbooksIntegration): Promise<QuickbooksIntegration>;
+  updateQuickbooksIntegration(organizationId: string, integration: Partial<InsertQuickbooksIntegration>): Promise<QuickbooksIntegration | undefined>;
+  deleteQuickbooksIntegration(organizationId: string): Promise<boolean>;
+  updateQuickbooksSync(organizationId: string, lastSyncAt: Date, errorMessage?: string): Promise<QuickbooksIntegration | undefined>;
+
+  // Property finance settings operations
+  getPropertyFinanceSettings(organizationId: string, filters?: { propertyId?: number; ownerId?: string }): Promise<PropertyFinanceSettings[]>;
+  getPropertyFinanceSetting(id: number): Promise<PropertyFinanceSettings | undefined>;
+  createPropertyFinanceSettings(settings: InsertPropertyFinanceSettings): Promise<PropertyFinanceSettings>;
+  updatePropertyFinanceSettings(id: number, settings: Partial<InsertPropertyFinanceSettings>): Promise<PropertyFinanceSettings | undefined>;
+  deletePropertyFinanceSettings(id: number): Promise<boolean>;
+
+  // Finance export logs operations
+  getFinanceExportLogs(organizationId: string, filters?: { exportType?: string; dateRange?: string; requestedBy?: string; status?: string }): Promise<FinanceExportLog[]>;
+  getFinanceExportLog(id: number): Promise<FinanceExportLog | undefined>;
+  createFinanceExportLog(log: InsertFinanceExportLog): Promise<FinanceExportLog>;
+  updateFinanceExportLog(id: number, log: Partial<InsertFinanceExportLog>): Promise<FinanceExportLog | undefined>;
+  deleteFinanceExportLog(id: number): Promise<boolean>;
+
+  // Finance report templates operations
+  getFinanceReportTemplates(organizationId: string, filters?: { templateType?: string; createdBy?: string; isDefault?: boolean }): Promise<FinanceReportTemplate[]>;
+  getFinanceReportTemplate(id: number): Promise<FinanceReportTemplate | undefined>;
+  createFinanceReportTemplate(template: InsertFinanceReportTemplate): Promise<FinanceReportTemplate>;
+  updateFinanceReportTemplate(id: number, template: Partial<InsertFinanceReportTemplate>): Promise<FinanceReportTemplate | undefined>;
+  deleteFinanceReportTemplate(id: number): Promise<boolean>;
+
+  // Occupancy rates operations
+  getOccupancyRates(organizationId: string, filters?: { propertyId?: number; periodType?: string; periodValue?: string }): Promise<OccupancyRate[]>;
+  getOccupancyRate(id: number): Promise<OccupancyRate | undefined>;
+  createOccupancyRate(rate: InsertOccupancyRate): Promise<OccupancyRate>;
+  updateOccupancyRate(id: number, rate: Partial<InsertOccupancyRate>): Promise<OccupancyRate | undefined>;
+  deleteOccupancyRate(id: number): Promise<boolean>;
+  calculateOccupancyRate(propertyId: number, periodType: string, periodValue: string): Promise<OccupancyRate>;
+
+  // Finance reporting and analytics
+  generateFinancialReport(organizationId: string, filters: {
+    reportType: string;
+    dateRange: string;
+    propertyIds?: number[];
+    ownerIds?: string[];
+    currencies?: string[];
+    templateId?: number;
+  }): Promise<{
+    reportData: any[];
+    summary: {
+      totalIncome: number;
+      totalExpenses: number;
+      netProfit: number;
+      currencyBreakdown: Array<{ currency: string; totalAmount: number; thbEquivalent: number }>;
+    };
+    occupancyData?: Array<{ propertyId: number; occupancyRate: number; averageRate: number }>;
+  }>;
+
+  // Export operations
+  exportFinancialData(organizationId: string, exportRequest: {
+    exportType: 'excel' | 'csv' | 'pdf' | 'quickbooks' | 'google_sheets';
+    format: string;
+    dateRange: string;
+    filters: any;
+    templateId?: number;
+  }): Promise<{ fileUrl: string; fileName: string; fileSize: number; recordCount: number }>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -5238,6 +5342,133 @@ export class DatabaseStorage implements IStorage {
       .returning();
     return updated;
   }
+  // ===== STAFF CLOCK ENTRIES METHODS (GPS TRACKING) =====
+
+  // Get staff clock entries with filtering
+  async getStaffClockEntries(organizationId: string, filters?: {
+    staffId?: string;
+    workDate?: string;
+    status?: string;
+    propertyId?: number;
+    taskId?: number;
+  }): Promise<StaffClockEntry[]> {
+    let query = db
+      .select()
+      .from(staffClockEntries)
+      .where(eq(staffClockEntries.organizationId, organizationId));
+
+    if (filters?.staffId) {
+      query = query.where(eq(staffClockEntries.staffId, filters.staffId));
+    }
+    if (filters?.workDate) {
+      query = query.where(eq(staffClockEntries.workDate, filters.workDate));
+    }
+    if (filters?.status) {
+      query = query.where(eq(staffClockEntries.status, filters.status));
+    }
+    if (filters?.propertyId) {
+      query = query.where(eq(staffClockEntries.propertyId, filters.propertyId));
+    }
+    if (filters?.taskId) {
+      query = query.where(eq(staffClockEntries.taskId, filters.taskId));
+    }
+
+    return query.orderBy(desc(staffClockEntries.workDate), desc(staffClockEntries.clockInTime));
+  }
+
+  // Get a specific clock entry
+  async getStaffClockEntry(id: number): Promise<StaffClockEntry | undefined> {
+    const [entry] = await db
+      .select()
+      .from(staffClockEntries)
+      .where(eq(staffClockEntries.id, id));
+    return entry;
+  }
+
+  // Create new clock entry (clock in)
+  async createStaffClockEntry(entry: InsertStaffClockEntry): Promise<StaffClockEntry> {
+    const [newEntry] = await db
+      .insert(staffClockEntries)
+      .values(entry)
+      .returning();
+    return newEntry;
+  }
+
+  // Update clock entry (clock out or other updates)
+  async updateStaffClockEntry(
+    id: number, 
+    updates: Partial<InsertStaffClockEntry>
+  ): Promise<StaffClockEntry | undefined> {
+    const [updated] = await db
+      .update(staffClockEntries)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(staffClockEntries.id, id))
+      .returning();
+    return updated;
+  }
+
+  // Clock out - complete clock entry
+  async clockOutStaffEntry(
+    id: number,
+    clockOutTime: string,
+    gpsLocationOut?: string,
+    photoEvidence?: string,
+    totalHours?: number,
+    overtimeHours?: number
+  ): Promise<StaffClockEntry | undefined> {
+    const updates: Partial<InsertStaffClockEntry> = {
+      clockOutTime,
+      gpsLocationOut,
+      photoEvidence,
+      totalHours,
+      overtimeHours,
+      status: overtimeHours && overtimeHours > 0 ? 'emergency' : 'completed',
+      completedAt: new Date(),
+    };
+
+    if (overtimeHours && overtimeHours > 0) {
+      updates.isOvertime = true;
+    }
+
+    return this.updateStaffClockEntry(id, updates);
+  }
+
+  // Get active clock entry for staff (currently clocked in)
+  async getActiveStaffClockEntry(organizationId: string, staffId: string): Promise<StaffClockEntry | undefined> {
+    const [entry] = await db
+      .select()
+      .from(staffClockEntries)
+      .where(and(
+        eq(staffClockEntries.organizationId, organizationId),
+        eq(staffClockEntries.staffId, staffId),
+        eq(staffClockEntries.status, 'active')
+      ))
+      .orderBy(desc(staffClockEntries.createdAt))
+      .limit(1);
+    return entry;
+  }
+
+  // Get today's clock entries for staff
+  async getTodayClockEntries(organizationId: string, staffId: string): Promise<StaffClockEntry[]> {
+    const today = new Date().toISOString().split('T')[0];
+    return this.getStaffClockEntries(organizationId, {
+      staffId,
+      workDate: today,
+    });
+  }
+
+  // Approve overtime for clock entry
+  async approveOvertimeClockEntry(
+    id: number,
+    approvedBy: string
+  ): Promise<StaffClockEntry | undefined> {
+    return this.updateStaffClockEntry(id, {
+      supervisorApproved: true,
+      approvedBy,
+      approvedAt: new Date(),
+    });
+  }
+
   // ===== STAFF DASHBOARD STORAGE METHODS =====
 
   // Staff Dashboard Overview
@@ -16540,6 +16771,521 @@ Plant Care:
       totalTimeOffCredits,
       recentLogs: logs.slice(0, 5),
     };
+  }
+
+  // ===== MULTI-CURRENCY FINANCE + QUICKBOOKS INTEGRATION =====
+
+  // Currency exchange rates operations
+  async getCurrencyExchangeRates(organizationId: string, filters?: { fromCurrency?: string; toCurrency?: string; rateDate?: string }): Promise<CurrencyExchangeRate[]> {
+    let query = db.select()
+      .from(currencyExchangeRates)
+      .where(eq(currencyExchangeRates.organizationId, organizationId));
+
+    if (filters?.fromCurrency) {
+      query = query.where(eq(currencyExchangeRates.fromCurrency, filters.fromCurrency));
+    }
+    if (filters?.toCurrency) {
+      query = query.where(eq(currencyExchangeRates.toCurrency, filters.toCurrency));
+    }
+    if (filters?.rateDate) {
+      query = query.where(eq(currencyExchangeRates.rateDate, filters.rateDate));
+    }
+
+    return await query
+      .orderBy(desc(currencyExchangeRates.rateDate), desc(currencyExchangeRates.createdAt));
+  }
+
+  async getCurrencyExchangeRate(id: number): Promise<CurrencyExchangeRate | undefined> {
+    const [rate] = await db.select()
+      .from(currencyExchangeRates)
+      .where(eq(currencyExchangeRates.id, id));
+    return rate;
+  }
+
+  async createCurrencyExchangeRate(rate: InsertCurrencyExchangeRate): Promise<CurrencyExchangeRate> {
+    const [newRate] = await db.insert(currencyExchangeRates)
+      .values(rate)
+      .returning();
+    return newRate;
+  }
+
+  async updateCurrencyExchangeRate(id: number, rate: Partial<InsertCurrencyExchangeRate>): Promise<CurrencyExchangeRate | undefined> {
+    const [updatedRate] = await db.update(currencyExchangeRates)
+      .set({ ...rate, updatedAt: new Date() })
+      .where(eq(currencyExchangeRates.id, id))
+      .returning();
+    return updatedRate;
+  }
+
+  async deleteCurrencyExchangeRate(id: number): Promise<boolean> {
+    const result = await db.delete(currencyExchangeRates)
+      .where(eq(currencyExchangeRates.id, id));
+    return result.rowCount > 0;
+  }
+
+  async getLatestExchangeRate(fromCurrency: string, toCurrency: string): Promise<CurrencyExchangeRate | undefined> {
+    const [rate] = await db.select()
+      .from(currencyExchangeRates)
+      .where(
+        and(
+          eq(currencyExchangeRates.fromCurrency, fromCurrency),
+          eq(currencyExchangeRates.toCurrency, toCurrency),
+          eq(currencyExchangeRates.isActive, true)
+        )
+      )
+      .orderBy(desc(currencyExchangeRates.rateDate))
+      .limit(1);
+    return rate;
+  }
+
+  // Multi-currency finances operations
+  async getMultiCurrencyFinances(organizationId: string, filters?: { 
+    propertyId?: number; 
+    ownerId?: string; 
+    category?: string; 
+    fromDate?: Date; 
+    toDate?: Date; 
+    currency?: string 
+  }): Promise<MultiCurrencyFinance[]> {
+    let query = db.select()
+      .from(multiCurrencyFinances)
+      .where(eq(multiCurrencyFinances.organizationId, organizationId));
+
+    if (filters?.propertyId) {
+      query = query.where(eq(multiCurrencyFinances.propertyId, filters.propertyId));
+    }
+    if (filters?.ownerId) {
+      query = query.where(eq(multiCurrencyFinances.ownerId, filters.ownerId));
+    }
+    if (filters?.category) {
+      query = query.where(eq(multiCurrencyFinances.category, filters.category));
+    }
+    if (filters?.fromDate) {
+      query = query.where(gte(multiCurrencyFinances.transactionDate, filters.fromDate.toISOString().split('T')[0]));
+    }
+    if (filters?.toDate) {
+      query = query.where(lte(multiCurrencyFinances.transactionDate, filters.toDate.toISOString().split('T')[0]));
+    }
+    if (filters?.currency) {
+      query = query.where(eq(multiCurrencyFinances.originalCurrency, filters.currency));
+    }
+
+    return await query.orderBy(desc(multiCurrencyFinances.transactionDate), desc(multiCurrencyFinances.createdAt));
+  }
+
+  async getMultiCurrencyFinance(id: number): Promise<MultiCurrencyFinance | undefined> {
+    const [finance] = await db.select()
+      .from(multiCurrencyFinances)
+      .where(eq(multiCurrencyFinances.id, id));
+    return finance;
+  }
+
+  async createMultiCurrencyFinance(finance: InsertMultiCurrencyFinance): Promise<MultiCurrencyFinance> {
+    const [newFinance] = await db.insert(multiCurrencyFinances)
+      .values(finance)
+      .returning();
+    return newFinance;
+  }
+
+  async updateMultiCurrencyFinance(id: number, finance: Partial<InsertMultiCurrencyFinance>): Promise<MultiCurrencyFinance | undefined> {
+    const [updatedFinance] = await db.update(multiCurrencyFinances)
+      .set({ ...finance, updatedAt: new Date() })
+      .where(eq(multiCurrencyFinances.id, id))
+      .returning();
+    return updatedFinance;
+  }
+
+  async deleteMultiCurrencyFinance(id: number): Promise<boolean> {
+    const result = await db.delete(multiCurrencyFinances)
+      .where(eq(multiCurrencyFinances.id, id));
+    return result.rowCount > 0;
+  }
+
+  async convertCurrency(amount: number, fromCurrency: string, toCurrency: string, exchangeRateId?: number): Promise<{ convertedAmount: number; exchangeRate: number; rateId: number }> {
+    let rate: CurrencyExchangeRate | undefined;
+    
+    if (exchangeRateId) {
+      rate = await this.getCurrencyExchangeRate(exchangeRateId);
+    } else {
+      rate = await this.getLatestExchangeRate(fromCurrency, toCurrency);
+    }
+
+    if (!rate) {
+      throw new Error(`Exchange rate not found for ${fromCurrency} to ${toCurrency}`);
+    }
+
+    const exchangeRateValue = parseFloat(rate.exchangeRate);
+    const convertedAmount = amount * exchangeRateValue;
+
+    return {
+      convertedAmount,
+      exchangeRate: exchangeRateValue,
+      rateId: rate.id
+    };
+  }
+
+  // QuickBooks integration operations
+  async getQuickbooksIntegration(organizationId: string): Promise<QuickbooksIntegration | undefined> {
+    const [integration] = await db.select()
+      .from(quickbooksIntegration)
+      .where(eq(quickbooksIntegration.organizationId, organizationId));
+    return integration;
+  }
+
+  async createQuickbooksIntegration(integration: InsertQuickbooksIntegration): Promise<QuickbooksIntegration> {
+    const [newIntegration] = await db.insert(quickbooksIntegration)
+      .values(integration)
+      .returning();
+    return newIntegration;
+  }
+
+  async updateQuickbooksIntegration(organizationId: string, integration: Partial<InsertQuickbooksIntegration>): Promise<QuickbooksIntegration | undefined> {
+    const [updatedIntegration] = await db.update(quickbooksIntegration)
+      .set({ ...integration, updatedAt: new Date() })
+      .where(eq(quickbooksIntegration.organizationId, organizationId))
+      .returning();
+    return updatedIntegration;
+  }
+
+  async deleteQuickbooksIntegration(organizationId: string): Promise<boolean> {
+    const result = await db.delete(quickbooksIntegration)
+      .where(eq(quickbooksIntegration.organizationId, organizationId));
+    return result.rowCount > 0;
+  }
+
+  async updateQuickbooksSync(organizationId: string, lastSyncAt: Date, errorMessage?: string): Promise<QuickbooksIntegration | undefined> {
+    const updateData: any = {
+      lastSyncAt,
+      updatedAt: new Date()
+    };
+
+    if (errorMessage) {
+      updateData.lastError = errorMessage;
+      updateData.errorCount = sql`${quickbooksIntegration.errorCount} + 1`;
+    } else {
+      updateData.lastError = null;
+      updateData.errorCount = 0;
+    }
+
+    const [updatedIntegration] = await db.update(quickbooksIntegration)
+      .set(updateData)
+      .where(eq(quickbooksIntegration.organizationId, organizationId))
+      .returning();
+    return updatedIntegration;
+  }
+
+  // Property finance settings operations
+  async getPropertyFinanceSettings(organizationId: string, filters?: { propertyId?: number; ownerId?: string }): Promise<PropertyFinanceSettings[]> {
+    let query = db.select()
+      .from(propertyFinanceSettings)
+      .where(eq(propertyFinanceSettings.organizationId, organizationId));
+
+    if (filters?.propertyId) {
+      query = query.where(eq(propertyFinanceSettings.propertyId, filters.propertyId));
+    }
+    if (filters?.ownerId) {
+      query = query.where(eq(propertyFinanceSettings.ownerId, filters.ownerId));
+    }
+
+    return await query.orderBy(propertyFinanceSettings.propertyId);
+  }
+
+  async getPropertyFinanceSetting(id: number): Promise<PropertyFinanceSettings | undefined> {
+    const [settings] = await db.select()
+      .from(propertyFinanceSettings)
+      .where(eq(propertyFinanceSettings.id, id));
+    return settings;
+  }
+
+  async createPropertyFinanceSettings(settings: InsertPropertyFinanceSettings): Promise<PropertyFinanceSettings> {
+    const [newSettings] = await db.insert(propertyFinanceSettings)
+      .values(settings)
+      .returning();
+    return newSettings;
+  }
+
+  async updatePropertyFinanceSettings(id: number, settings: Partial<InsertPropertyFinanceSettings>): Promise<PropertyFinanceSettings | undefined> {
+    const [updatedSettings] = await db.update(propertyFinanceSettings)
+      .set({ ...settings, updatedAt: new Date() })
+      .where(eq(propertyFinanceSettings.id, id))
+      .returning();
+    return updatedSettings;
+  }
+
+  async deletePropertyFinanceSettings(id: number): Promise<boolean> {
+    const result = await db.delete(propertyFinanceSettings)
+      .where(eq(propertyFinanceSettings.id, id));
+    return result.rowCount > 0;
+  }
+
+  // Finance export logs operations
+  async getFinanceExportLogs(organizationId: string, filters?: { exportType?: string; dateRange?: string; requestedBy?: string; status?: string }): Promise<FinanceExportLog[]> {
+    let query = db.select()
+      .from(financeExportLogs)
+      .where(eq(financeExportLogs.organizationId, organizationId));
+
+    if (filters?.exportType) {
+      query = query.where(eq(financeExportLogs.exportType, filters.exportType));
+    }
+    if (filters?.dateRange) {
+      query = query.where(eq(financeExportLogs.dateRange, filters.dateRange));
+    }
+    if (filters?.requestedBy) {
+      query = query.where(eq(financeExportLogs.requestedBy, filters.requestedBy));
+    }
+    if (filters?.status) {
+      query = query.where(eq(financeExportLogs.status, filters.status));
+    }
+
+    return await query.orderBy(desc(financeExportLogs.createdAt));
+  }
+
+  async getFinanceExportLog(id: number): Promise<FinanceExportLog | undefined> {
+    const [log] = await db.select()
+      .from(financeExportLogs)
+      .where(eq(financeExportLogs.id, id));
+    return log;
+  }
+
+  async createFinanceExportLog(log: InsertFinanceExportLog): Promise<FinanceExportLog> {
+    const [newLog] = await db.insert(financeExportLogs)
+      .values(log)
+      .returning();
+    return newLog;
+  }
+
+  async updateFinanceExportLog(id: number, log: Partial<InsertFinanceExportLog>): Promise<FinanceExportLog | undefined> {
+    const [updatedLog] = await db.update(financeExportLogs)
+      .set(log)
+      .where(eq(financeExportLogs.id, id))
+      .returning();
+    return updatedLog;
+  }
+
+  async deleteFinanceExportLog(id: number): Promise<boolean> {
+    const result = await db.delete(financeExportLogs)
+      .where(eq(financeExportLogs.id, id));
+    return result.rowCount > 0;
+  }
+
+  // Finance report templates operations
+  async getFinanceReportTemplates(organizationId: string, filters?: { templateType?: string; createdBy?: string; isDefault?: boolean }): Promise<FinanceReportTemplate[]> {
+    let query = db.select()
+      .from(financeReportTemplates)
+      .where(eq(financeReportTemplates.organizationId, organizationId));
+
+    if (filters?.templateType) {
+      query = query.where(eq(financeReportTemplates.templateType, filters.templateType));
+    }
+    if (filters?.createdBy) {
+      query = query.where(eq(financeReportTemplates.createdBy, filters.createdBy));
+    }
+    if (filters?.isDefault !== undefined) {
+      query = query.where(eq(financeReportTemplates.isDefault, filters.isDefault));
+    }
+
+    return await query.orderBy(financeReportTemplates.templateName);
+  }
+
+  async getFinanceReportTemplate(id: number): Promise<FinanceReportTemplate | undefined> {
+    const [template] = await db.select()
+      .from(financeReportTemplates)
+      .where(eq(financeReportTemplates.id, id));
+    return template;
+  }
+
+  async createFinanceReportTemplate(template: InsertFinanceReportTemplate): Promise<FinanceReportTemplate> {
+    const [newTemplate] = await db.insert(financeReportTemplates)
+      .values(template)
+      .returning();
+    return newTemplate;
+  }
+
+  async updateFinanceReportTemplate(id: number, template: Partial<InsertFinanceReportTemplate>): Promise<FinanceReportTemplate | undefined> {
+    const [updatedTemplate] = await db.update(financeReportTemplates)
+      .set({ ...template, updatedAt: new Date() })
+      .where(eq(financeReportTemplates.id, id))
+      .returning();
+    return updatedTemplate;
+  }
+
+  async deleteFinanceReportTemplate(id: number): Promise<boolean> {
+    const result = await db.delete(financeReportTemplates)
+      .where(eq(financeReportTemplates.id, id));
+    return result.rowCount > 0;
+  }
+
+  // Occupancy rates operations
+  async getOccupancyRates(organizationId: string, filters?: { propertyId?: number; periodType?: string; periodValue?: string }): Promise<OccupancyRate[]> {
+    let query = db.select()
+      .from(occupancyRates)
+      .where(eq(occupancyRates.organizationId, organizationId));
+
+    if (filters?.propertyId) {
+      query = query.where(eq(occupancyRates.propertyId, filters.propertyId));
+    }
+    if (filters?.periodType) {
+      query = query.where(eq(occupancyRates.periodType, filters.periodType));
+    }
+    if (filters?.periodValue) {
+      query = query.where(eq(occupancyRates.periodValue, filters.periodValue));
+    }
+
+    return await query.orderBy(desc(occupancyRates.periodValue));
+  }
+
+  async getOccupancyRate(id: number): Promise<OccupancyRate | undefined> {
+    const [rate] = await db.select()
+      .from(occupancyRates)
+      .where(eq(occupancyRates.id, id));
+    return rate;
+  }
+
+  async createOccupancyRate(rate: InsertOccupancyRate): Promise<OccupancyRate> {
+    const [newRate] = await db.insert(occupancyRates)
+      .values(rate)
+      .returning();
+    return newRate;
+  }
+
+  async updateOccupancyRate(id: number, rate: Partial<InsertOccupancyRate>): Promise<OccupancyRate | undefined> {
+    const [updatedRate] = await db.update(occupancyRates)
+      .set(rate)
+      .where(eq(occupancyRates.id, id))
+      .returning();
+    return updatedRate;
+  }
+
+  async deleteOccupancyRate(id: number): Promise<boolean> {
+    const result = await db.delete(occupancyRates)
+      .where(eq(occupancyRates.id, id));
+    return result.rowCount > 0;
+  }
+
+  async calculateOccupancyRate(propertyId: number, periodType: string, periodValue: string): Promise<OccupancyRate> {
+    // This would calculate occupancy based on bookings data
+    // For now, returning a placeholder implementation
+    const mockRate: InsertOccupancyRate = {
+      organizationId: "default-org",
+      propertyId,
+      periodType,
+      periodValue,
+      totalDays: 30,
+      occupiedDays: 22,
+      occupancyRate: "73.33",
+      totalRevenue: "45000.00",
+      currency: "THB",
+      averageDailyRate: "2045.45",
+      revenuePerAvailableRoom: "1500.00",
+      totalBookings: 8,
+      averageStayLength: "2.8",
+      calculatedBy: "system"
+    };
+
+    return await this.createOccupancyRate(mockRate);
+  }
+
+  // Finance reporting and analytics
+  async generateFinancialReport(organizationId: string, filters: {
+    reportType: string;
+    dateRange: string;
+    propertyIds?: number[];
+    ownerIds?: string[];
+    currencies?: string[];
+    templateId?: number;
+  }): Promise<{
+    reportData: any[];
+    summary: {
+      totalIncome: number;
+      totalExpenses: number;
+      netProfit: number;
+      currencyBreakdown: Array<{ currency: string; totalAmount: number; thbEquivalent: number }>;
+    };
+    occupancyData?: Array<{ propertyId: number; occupancyRate: number; averageRate: number }>;
+  }> {
+    // Get multi-currency finances based on filters
+    const finances = await this.getMultiCurrencyFinances(organizationId, {
+      propertyId: filters.propertyIds?.[0],
+      ownerId: filters.ownerIds?.[0],
+      currency: filters.currencies?.[0]
+    });
+
+    // Calculate summary
+    const income = finances
+      .filter(f => f.category === 'income')
+      .reduce((sum, f) => sum + parseFloat(f.thbAmount), 0);
+
+    const expenses = finances
+      .filter(f => f.category === 'expense')
+      .reduce((sum, f) => sum + parseFloat(f.thbAmount), 0);
+
+    // Currency breakdown
+    const currencyBreakdown = finances.reduce((acc: any[], finance) => {
+      const existing = acc.find(c => c.currency === finance.originalCurrency);
+      if (existing) {
+        existing.totalAmount += parseFloat(finance.originalAmount);
+        existing.thbEquivalent += parseFloat(finance.thbAmount);
+      } else {
+        acc.push({
+          currency: finance.originalCurrency,
+          totalAmount: parseFloat(finance.originalAmount),
+          thbEquivalent: parseFloat(finance.thbAmount)
+        });
+      }
+      return acc;
+    }, []);
+
+    return {
+      reportData: finances,
+      summary: {
+        totalIncome: income,
+        totalExpenses: expenses,
+        netProfit: income - expenses,
+        currencyBreakdown
+      }
+    };
+  }
+
+  // Export operations
+  async exportFinancialData(organizationId: string, exportRequest: {
+    exportType: 'excel' | 'csv' | 'pdf' | 'quickbooks' | 'google_sheets';
+    format: string;
+    dateRange: string;
+    filters: any;
+    templateId?: number;
+  }): Promise<{ fileUrl: string; fileName: string; fileSize: number; recordCount: number }> {
+    // Create export log
+    const exportLog = await this.createFinanceExportLog({
+      organizationId,
+      exportType: exportRequest.exportType,
+      exportFormat: exportRequest.format,
+      dateRange: exportRequest.dateRange,
+      propertyIds: exportRequest.filters.propertyIds,
+      ownerIds: exportRequest.filters.ownerIds,
+      currencies: exportRequest.filters.currencies,
+      categories: exportRequest.filters.categories,
+      requestedBy: "system", // This should be passed from the request
+      status: "pending"
+    });
+
+    // Mock export process (in real implementation, this would generate actual files)
+    const fileName = `finance_export_${exportRequest.dateRange}_${Date.now()}.${exportRequest.exportType === 'excel' ? 'xlsx' : exportRequest.exportType === 'csv' ? 'csv' : 'pdf'}`;
+    const fileUrl = `/exports/${fileName}`;
+    const fileSize = 2048; // Mock file size
+    const recordCount = 150; // Mock record count
+
+    // Update export log with completion
+    await this.updateFinanceExportLog(exportLog.id, {
+      status: "completed",
+      fileUrl,
+      fileName,
+      fileSize,
+      recordCount,
+      completedAt: new Date(),
+      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 days
+    });
+
+    return { fileUrl, fileName, fileSize, recordCount };
   }
 }
 

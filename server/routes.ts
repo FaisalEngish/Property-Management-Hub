@@ -7402,6 +7402,208 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ===== STAFF CLOCK ENTRIES API (GPS TRACKING) =====
+
+  // Get staff clock entries with filtering
+  app.get("/api/staff-clock-entries", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role, id: userId } = req.user;
+      const { staffId, workDate, status, propertyId, taskId } = req.query;
+
+      // Staff can only view their own entries, admin/PM can view all
+      const filterStaffId = role === 'staff' ? userId : staffId;
+
+      const entries = await storage.getStaffClockEntries(organizationId, {
+        staffId: filterStaffId,
+        workDate,
+        status,
+        propertyId: propertyId ? parseInt(propertyId) : undefined,
+        taskId: taskId ? parseInt(taskId) : undefined,
+      });
+
+      res.json(entries);
+    } catch (error) {
+      console.error("Error fetching staff clock entries:", error);
+      res.status(500).json({ message: "Failed to fetch clock entries" });
+    }
+  });
+
+  // Get active clock entry for current staff member
+  app.get("/api/staff-clock-entries/active", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: staffId } = req.user;
+
+      const activeEntry = await storage.getActiveStaffClockEntry(organizationId, staffId);
+      res.json(activeEntry || null);
+    } catch (error) {
+      console.error("Error fetching active clock entry:", error);
+      res.status(500).json({ message: "Failed to fetch active clock entry" });
+    }
+  });
+
+  // Get today's clock entries for current staff member
+  app.get("/api/staff-clock-entries/today", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: staffId } = req.user;
+
+      const todayEntries = await storage.getTodayClockEntries(organizationId, staffId);
+      res.json(todayEntries);
+    } catch (error) {
+      console.error("Error fetching today's clock entries:", error);
+      res.status(500).json({ message: "Failed to fetch today's entries" });
+    }
+  });
+
+  // Clock in (create new clock entry)
+  app.post("/api/staff-clock-entries/clock-in", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: staffId } = req.user;
+      const { taskDescription, propertyId, taskId, gpsLocation, locationAccuracy } = req.body;
+
+      // Check if staff is already clocked in
+      const activeEntry = await storage.getActiveStaffClockEntry(organizationId, staffId);
+      if (activeEntry) {
+        return res.status(400).json({ 
+          message: "You are already clocked in. Please clock out first.",
+          activeEntry 
+        });
+      }
+
+      const currentTime = new Date().toLocaleTimeString('en-GB', { hour12: false });
+      const today = new Date().toISOString().split('T')[0];
+
+      const clockEntry = await storage.createStaffClockEntry({
+        organizationId,
+        staffId,
+        taskId: taskId || null,
+        propertyId: propertyId || null,
+        taskDescription,
+        clockInTime: currentTime,
+        workDate: today,
+        gpsLocationIn: gpsLocation,
+        locationAccuracy: locationAccuracy ? parseFloat(locationAccuracy) : null,
+        status: 'active',
+      });
+
+      res.json({ 
+        message: "Successfully clocked in",
+        entry: clockEntry 
+      });
+    } catch (error) {
+      console.error("Error clocking in:", error);
+      res.status(500).json({ message: "Failed to clock in" });
+    }
+  });
+
+  // Clock out (update existing clock entry)
+  app.post("/api/staff-clock-entries/clock-out", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: staffId } = req.user;
+      const { gpsLocation, photoEvidence } = req.body;
+
+      // Get active clock entry
+      const activeEntry = await storage.getActiveStaffClockEntry(organizationId, staffId);
+      if (!activeEntry) {
+        return res.status(400).json({ 
+          message: "No active clock entry found. Please clock in first." 
+        });
+      }
+
+      const currentTime = new Date().toLocaleTimeString('en-GB', { hour12: false });
+      
+      // Calculate work hours
+      const clockInTime = activeEntry.clockInTime;
+      const [inHours, inMinutes] = clockInTime.split(':').map(Number);
+      const [outHours, outMinutes] = currentTime.split(':').map(Number);
+      
+      const clockInMinutes = inHours * 60 + inMinutes;
+      const clockOutMinutes = outHours * 60 + outMinutes;
+      const totalMinutes = clockOutMinutes - clockInMinutes;
+      const totalHours = totalMinutes / 60;
+
+      // Check for overtime (standard hours: 8:00-18:00, overtime after 20:00)
+      const standardEndTime = 18 * 60; // 18:00 in minutes
+      const overtimeStartTime = 20 * 60; // 20:00 in minutes
+      
+      let overtimeHours = 0;
+      if (clockOutMinutes > overtimeStartTime) {
+        overtimeHours = (clockOutMinutes - overtimeStartTime) / 60;
+      }
+
+      const updatedEntry = await storage.clockOutStaffEntry(
+        activeEntry.id,
+        currentTime,
+        gpsLocation,
+        photoEvidence,
+        totalHours,
+        overtimeHours
+      );
+
+      res.json({ 
+        message: "Successfully clocked out",
+        entry: updatedEntry,
+        totalHours: totalHours.toFixed(2),
+        overtimeHours: overtimeHours.toFixed(2),
+      });
+    } catch (error) {
+      console.error("Error clocking out:", error);
+      res.status(500).json({ message: "Failed to clock out" });
+    }
+  });
+
+  // Approve overtime for clock entry (admin/PM only)
+  app.post("/api/staff-clock-entries/:entryId/approve-overtime", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role, id: approvedBy } = req.user;
+      const { entryId } = req.params;
+
+      if (!['admin', 'portfolio-manager'].includes(role)) {
+        return res.status(403).json({ message: "Admin or Portfolio Manager access required" });
+      }
+
+      const approvedEntry = await storage.approveOvertimeClockEntry(
+        parseInt(entryId),
+        approvedBy
+      );
+
+      if (!approvedEntry) {
+        return res.status(404).json({ message: "Clock entry not found" });
+      }
+
+      res.json({ 
+        message: "Overtime approved successfully",
+        entry: approvedEntry 
+      });
+    } catch (error) {
+      console.error("Error approving overtime:", error);
+      res.status(500).json({ message: "Failed to approve overtime" });
+    }
+  });
+
+  // Get specific clock entry details
+  app.get("/api/staff-clock-entries/:entryId", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role, id: userId } = req.user;
+      const { entryId } = req.params;
+
+      const entry = await storage.getStaffClockEntry(parseInt(entryId));
+      
+      if (!entry) {
+        return res.status(404).json({ message: "Clock entry not found" });
+      }
+
+      // Staff can only view their own entries, admin/PM can view all
+      if (role === 'staff' && entry.staffId !== userId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      res.json(entry);
+    } catch (error) {
+      console.error("Error fetching clock entry:", error);
+      res.status(500).json({ message: "Failed to fetch clock entry" });
+    }
+  });
+
   // ===== PROPERTY SEARCH INDEX MANAGEMENT API =====
 
   // Update property search index (admin/PM access)
@@ -13883,6 +14085,391 @@ async function processGuestIssueForAI(issueReport: any) {
     } catch (error) {
       console.error("Error fetching overtime overview:", error);
       res.status(500).json({ message: "Failed to fetch overtime overview" });
+    }
+  });
+
+  // ===== MULTI-CURRENCY FINANCE + QUICKBOOKS INTEGRATION =====
+
+  // Currency exchange rates endpoints
+  app.get("/api/currency-exchange-rates", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId } = req.user;
+      const { fromCurrency, toCurrency, rateDate } = req.query;
+      
+      const rates = await storage.getCurrencyExchangeRates(organizationId, {
+        fromCurrency,
+        toCurrency,
+        rateDate
+      });
+      res.json(rates);
+    } catch (error) {
+      console.error("Error fetching exchange rates:", error);
+      res.status(500).json({ message: "Failed to fetch exchange rates" });
+    }
+  });
+
+  app.post("/api/currency-exchange-rates", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: userId } = req.user;
+      
+      const rate = await storage.createCurrencyExchangeRate({
+        ...req.body,
+        organizationId,
+        updatedBy: userId
+      });
+      res.json(rate);
+    } catch (error) {
+      console.error("Error creating exchange rate:", error);
+      res.status(500).json({ message: "Failed to create exchange rate" });
+    }
+  });
+
+  app.put("/api/currency-exchange-rates/:id", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { id: userId } = req.user;
+      const { id } = req.params;
+      
+      const rate = await storage.updateCurrencyExchangeRate(parseInt(id), {
+        ...req.body,
+        updatedBy: userId
+      });
+      res.json(rate);
+    } catch (error) {
+      console.error("Error updating exchange rate:", error);
+      res.status(500).json({ message: "Failed to update exchange rate" });
+    }
+  });
+
+  app.delete("/api/currency-exchange-rates/:id", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      
+      const success = await storage.deleteCurrencyExchangeRate(parseInt(id));
+      res.json({ success });
+    } catch (error) {
+      console.error("Error deleting exchange rate:", error);
+      res.status(500).json({ message: "Failed to delete exchange rate" });
+    }
+  });
+
+  // Multi-currency finances endpoints
+  app.get("/api/multi-currency-finances", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role, id: userId } = req.user;
+      const { propertyId, ownerId, category, fromDate, toDate, currency } = req.query;
+
+      let filters: any = {};
+      if (propertyId) filters.propertyId = parseInt(propertyId);
+      if (ownerId) filters.ownerId = ownerId;
+      if (category) filters.category = category;
+      if (currency) filters.currency = currency;
+      if (fromDate) filters.fromDate = new Date(fromDate);
+      if (toDate) filters.toDate = new Date(toDate);
+
+      // Role-based filtering
+      if (role === 'owner') {
+        filters.ownerId = userId;
+      }
+
+      const finances = await storage.getMultiCurrencyFinances(organizationId, filters);
+      res.json(finances);
+    } catch (error) {
+      console.error("Error fetching finances:", error);
+      res.status(500).json({ message: "Failed to fetch finances" });
+    }
+  });
+
+  app.post("/api/multi-currency-finances", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: userId } = req.user;
+      
+      const finance = await storage.createMultiCurrencyFinance({
+        ...req.body,
+        organizationId,
+        processedBy: userId
+      });
+      res.json(finance);
+    } catch (error) {
+      console.error("Error creating finance record:", error);
+      res.status(500).json({ message: "Failed to create finance record" });
+    }
+  });
+
+  app.put("/api/multi-currency-finances/:id", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { id: userId } = req.user;
+      const { id } = req.params;
+      
+      const finance = await storage.updateMultiCurrencyFinance(parseInt(id), {
+        ...req.body,
+        processedBy: userId
+      });
+      res.json(finance);
+    } catch (error) {
+      console.error("Error updating finance record:", error);
+      res.status(500).json({ message: "Failed to update finance record" });
+    }
+  });
+
+  app.delete("/api/multi-currency-finances/:id", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      
+      const success = await storage.deleteMultiCurrencyFinance(parseInt(id));
+      res.json({ success });
+    } catch (error) {
+      console.error("Error deleting finance record:", error);
+      res.status(500).json({ message: "Failed to delete finance record" });
+    }
+  });
+
+  // Currency conversion endpoint
+  app.post("/api/convert-currency", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { amount, fromCurrency, toCurrency, exchangeRateId } = req.body;
+      
+      const result = await storage.convertCurrency(amount, fromCurrency, toCurrency, exchangeRateId);
+      res.json(result);
+    } catch (error) {
+      console.error("Error converting currency:", error);
+      res.status(500).json({ message: "Failed to convert currency" });
+    }
+  });
+
+  // QuickBooks integration endpoints
+  app.get("/api/quickbooks-integration", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId } = req.user;
+      
+      const integration = await storage.getQuickbooksIntegration(organizationId);
+      res.json(integration);
+    } catch (error) {
+      console.error("Error fetching QuickBooks integration:", error);
+      res.status(500).json({ message: "Failed to fetch QuickBooks integration" });
+    }
+  });
+
+  app.post("/api/quickbooks-integration", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role } = req.user;
+      
+      if (role !== 'admin') {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+      
+      const integration = await storage.createQuickbooksIntegration({
+        ...req.body,
+        organizationId
+      });
+      res.json(integration);
+    } catch (error) {
+      console.error("Error creating QuickBooks integration:", error);
+      res.status(500).json({ message: "Failed to create QuickBooks integration" });
+    }
+  });
+
+  app.put("/api/quickbooks-integration", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role } = req.user;
+      
+      if (role !== 'admin') {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+      
+      const integration = await storage.updateQuickbooksIntegration(organizationId, req.body);
+      res.json(integration);
+    } catch (error) {
+      console.error("Error updating QuickBooks integration:", error);
+      res.status(500).json({ message: "Failed to update QuickBooks integration" });
+    }
+  });
+
+  app.delete("/api/quickbooks-integration", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role } = req.user;
+      
+      if (role !== 'admin') {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+      
+      const success = await storage.deleteQuickbooksIntegration(organizationId);
+      res.json({ success });
+    } catch (error) {
+      console.error("Error deleting QuickBooks integration:", error);
+      res.status(500).json({ message: "Failed to delete QuickBooks integration" });
+    }
+  });
+
+  // Property finance settings endpoints
+  app.get("/api/property-finance-settings", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role, id: userId } = req.user;
+      const { propertyId, ownerId } = req.query;
+
+      let filters: any = {};
+      if (propertyId) filters.propertyId = parseInt(propertyId);
+      if (ownerId) filters.ownerId = ownerId;
+
+      // Role-based filtering
+      if (role === 'owner') {
+        filters.ownerId = userId;
+      }
+
+      const settings = await storage.getPropertyFinanceSettings(organizationId, filters);
+      res.json(settings);
+    } catch (error) {
+      console.error("Error fetching property finance settings:", error);
+      res.status(500).json({ message: "Failed to fetch property finance settings" });
+    }
+  });
+
+  app.post("/api/property-finance-settings", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId } = req.user;
+      
+      const settings = await storage.createPropertyFinanceSettings({
+        ...req.body,
+        organizationId
+      });
+      res.json(settings);
+    } catch (error) {
+      console.error("Error creating property finance settings:", error);
+      res.status(500).json({ message: "Failed to create property finance settings" });
+    }
+  });
+
+  app.put("/api/property-finance-settings/:id", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      
+      const settings = await storage.updatePropertyFinanceSettings(parseInt(id), req.body);
+      res.json(settings);
+    } catch (error) {
+      console.error("Error updating property finance settings:", error);
+      res.status(500).json({ message: "Failed to update property finance settings" });
+    }
+  });
+
+  // Finance export endpoints
+  app.get("/api/finance-export-logs", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role, id: userId } = req.user;
+      const { exportType, dateRange, status } = req.query;
+
+      let filters: any = {};
+      if (exportType) filters.exportType = exportType;
+      if (dateRange) filters.dateRange = dateRange;
+      if (status) filters.status = status;
+      
+      // Role-based filtering
+      if (role !== 'admin' && role !== 'portfolio-manager') {
+        filters.requestedBy = userId;
+      }
+
+      const logs = await storage.getFinanceExportLogs(organizationId, filters);
+      res.json(logs);
+    } catch (error) {
+      console.error("Error fetching export logs:", error);
+      res.status(500).json({ message: "Failed to fetch export logs" });
+    }
+  });
+
+  app.post("/api/finance-export", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: userId } = req.user;
+      
+      const result = await storage.exportFinancialData(organizationId, {
+        ...req.body,
+        requestedBy: userId
+      });
+      res.json(result);
+    } catch (error) {
+      console.error("Error exporting financial data:", error);
+      res.status(500).json({ message: "Failed to export financial data" });
+    }
+  });
+
+  // Finance report templates endpoints
+  app.get("/api/finance-report-templates", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId } = req.user;
+      const { templateType, isDefault } = req.query;
+
+      let filters: any = {};
+      if (templateType) filters.templateType = templateType;
+      if (isDefault !== undefined) filters.isDefault = isDefault === 'true';
+
+      const templates = await storage.getFinanceReportTemplates(organizationId, filters);
+      res.json(templates);
+    } catch (error) {
+      console.error("Error fetching report templates:", error);
+      res.status(500).json({ message: "Failed to fetch report templates" });
+    }
+  });
+
+  app.post("/api/finance-report-templates", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: userId } = req.user;
+      
+      const template = await storage.createFinanceReportTemplate({
+        ...req.body,
+        organizationId,
+        createdBy: userId
+      });
+      res.json(template);
+    } catch (error) {
+      console.error("Error creating report template:", error);
+      res.status(500).json({ message: "Failed to create report template" });
+    }
+  });
+
+  // Financial reporting endpoint
+  app.post("/api/financial-report", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role, id: userId } = req.user;
+      const filters = req.body;
+
+      // Role-based filtering
+      if (role === 'owner') {
+        filters.ownerIds = [userId];
+      }
+
+      const report = await storage.generateFinancialReport(organizationId, filters);
+      res.json(report);
+    } catch (error) {
+      console.error("Error generating financial report:", error);
+      res.status(500).json({ message: "Failed to generate financial report" });
+    }
+  });
+
+  // Occupancy rates endpoints
+  app.get("/api/occupancy-rates", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId } = req.user;
+      const { propertyId, periodType, periodValue } = req.query;
+
+      let filters: any = {};
+      if (propertyId) filters.propertyId = parseInt(propertyId);
+      if (periodType) filters.periodType = periodType;
+      if (periodValue) filters.periodValue = periodValue;
+
+      const rates = await storage.getOccupancyRates(organizationId, filters);
+      res.json(rates);
+    } catch (error) {
+      console.error("Error fetching occupancy rates:", error);
+      res.status(500).json({ message: "Failed to fetch occupancy rates" });
+    }
+  });
+
+  app.post("/api/occupancy-rates/calculate", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { propertyId, periodType, periodValue } = req.body;
+      
+      const rate = await storage.calculateOccupancyRate(propertyId, periodType, periodValue);
+      res.json(rate);
+    } catch (error) {
+      console.error("Error calculating occupancy rate:", error);
+      res.status(500).json({ message: "Failed to calculate occupancy rate" });
     }
   });
 }
