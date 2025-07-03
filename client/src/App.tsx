@@ -28,6 +28,7 @@ import RetailAgentDashboard from "@/pages/RetailAgentDashboard";
 import ReferralAgentDashboard from "@/pages/ReferralAgentDashboard";
 import StaffDashboard from "@/pages/StaffDashboard";
 import AiFeedbackMonitor from "@/pages/AiFeedbackMonitor";
+import GuestPortalAiFeedbackDashboard from "@/pages/GuestPortalAiFeedbackDashboard";
 import GuestAddonServices from "@/pages/GuestAddonServices";
 import RecurringServicesBilling from "@/pages/RecurringServicesBilling";
 import PropertyMediaLibrary from "@/pages/PropertyMediaLibrary";
@@ -137,6 +138,7 @@ function Router() {
           <Route path="/utility-tracker" component={EnhancedUtilityTracker} />
           <Route path="/utility-tracking" component={UtilityTracking} />
           <Route path="/ai-feedback" component={AiFeedbackMonitor} />
+          <Route path="/guest-portal-ai-feedback" component={GuestPortalAiFeedbackDashboard} />
           <Route path="/guest-addon-services" component={GuestAddonServices} />
           <Route path="/recurring-services" component={RecurringServicesBilling} />
           <Route path="/referral-agent" component={ReferralAgentDashboard} />

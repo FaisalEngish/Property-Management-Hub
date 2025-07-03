@@ -311,6 +311,13 @@ const navigationModules = [
         description: "Smart guest feedback monitoring and automatic task creation"
       },
       { 
+        path: "/guest-portal-ai-feedback", 
+        icon: Brain, 
+        label: "AI Feedback Dashboard", 
+        roles: ["admin", "portfolio-manager"],
+        description: "Enhanced guest portal AI feedback trigger system with analytics"
+      },
+      { 
         path: "/ai-task-manager", 
         icon: Brain, 
         label: "AI Task Manager", 

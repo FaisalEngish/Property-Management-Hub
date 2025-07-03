@@ -1460,6 +1460,146 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/ai/processing-log", isDemoAuthenticated, async (req, res) => {
+    try {
+      const organizationId = "demo-org";
+      const { feedbackId } = req.query;
+      
+      const logs = await storage.getProcessingLogs(
+        organizationId,
+        feedbackId ? parseInt(feedbackId as string) : undefined
+      );
+      res.json(logs);
+    } catch (error) {
+      console.error("Error fetching processing logs:", error);
+      res.status(500).json({ message: "Failed to fetch processing logs" });
+    }
+  });
+
+  // Enhanced AI feedback endpoints for advanced dashboard
+  app.get("/api/ai/task-rules", isDemoAuthenticated, async (req, res) => {
+    try {
+      const organizationId = "demo-org";
+      const rules = await storage.getAiTaskRules(organizationId);
+      res.json(rules);
+    } catch (error) {
+      console.error("Error fetching AI task rules:", error);
+      res.status(500).json({ message: "Failed to fetch AI task rules" });
+    }
+  });
+
+  app.get("/api/ai/feedback-analytics", isDemoAuthenticated, async (req, res) => {
+    try {
+      const organizationId = "demo-org";
+      
+      // Mock analytics data - in production this would be calculated from real data
+      const analytics = {
+        totalFeedback: 127,
+        unprocessedCount: 8,
+        highUrgencyCount: 3,
+        averageProcessingTime: 125, // seconds
+        topIssueCategories: [
+          { category: "Maintenance", count: 45 },
+          { category: "Cleanliness", count: 32 },
+          { category: "Pool Issues", count: 28 },
+          { category: "Garden/Landscaping", count: 22 }
+        ],
+        recentTrends: [
+          { date: "2025-01-01", count: 12 },
+          { date: "2025-01-02", count: 15 },
+          { date: "2025-01-03", count: 8 },
+          { date: "2025-01-04", count: 18 },
+          { date: "2025-01-05", count: 11 }
+        ],
+        automationRate: 87
+      };
+      
+      res.json(analytics);
+    } catch (error) {
+      console.error("Error fetching feedback analytics:", error);
+      res.status(500).json({ message: "Failed to fetch feedback analytics" });
+    }
+  });
+
+  app.post("/api/ai/feedback/:id/process", isDemoAuthenticated, async (req, res) => {
+    try {
+      const feedbackId = parseInt(req.params.id);
+      const { action, notes } = req.body;
+      const user = req.user as any;
+      
+      let result: any = {
+        success: true,
+        action,
+        feedbackId
+      };
+      
+      if (action === 'create_task') {
+        // Create a mock task
+        result.taskTitle = "Maintenance Task - Guest Feedback";
+        result.taskId = Math.floor(Math.random() * 1000) + 1;
+        
+        // Update feedback status
+        await storage.updateGuestFeedbackProcessing(feedbackId, {
+          isProcessed: true,
+          processedBy: user.username,
+          processingNotes: notes || "Auto-generated task from feedback",
+          assignedTaskId: result.taskId,
+          processedAt: new Date()
+        });
+      } else if (action === 'mark_resolved') {
+        await storage.updateGuestFeedbackProcessing(feedbackId, {
+          isProcessed: true,
+          processedBy: user.username,
+          processingNotes: notes || "Marked as resolved manually",
+          processedAt: new Date()
+        });
+      }
+      
+      res.json(result);
+    } catch (error) {
+      console.error("Error processing feedback:", error);
+      res.status(500).json({ message: "Failed to process feedback" });
+    }
+  });
+
+  app.post("/api/ai/auto-process-feedback", isDemoAuthenticated, async (req, res) => {
+    try {
+      const organizationId = "demo-org";
+      
+      // Get all unprocessed high urgency feedback
+      const urgentFeedback = await storage.getGuestFeedback(organizationId, {
+        processed: false,
+        urgencyLevel: 'high'
+      });
+      
+      let processedCount = 0;
+      
+      for (const feedback of urgentFeedback) {
+        try {
+          // Auto-process high urgency items
+          await storage.updateGuestFeedbackProcessing(feedback.id, {
+            isProcessed: true,
+            processedBy: 'system',
+            processingNotes: 'Auto-processed due to high urgency',
+            processedAt: new Date()
+          });
+          processedCount++;
+        } catch (error) {
+          console.error(`Error auto-processing feedback ${feedback.id}:`, error);
+        }
+      }
+      
+      res.json({
+        success: true,
+        processedCount,
+        message: `Auto-processed ${processedCount} high-urgency feedback items`
+      });
+    } catch (error) {
+      console.error("Error auto-processing feedback:", error);
+      res.status(500).json({ message: "Failed to auto-process feedback" });
+    }
+  });
+
   // AI Configuration endpoints
   app.get("/api/ai/config", isDemoAuthenticated, async (req, res) => {
     try {
