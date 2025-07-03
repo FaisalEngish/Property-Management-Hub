@@ -42,6 +42,7 @@ import LiveBookingCalendar from "@/pages/LiveBookingCalendar";
 import RetailAgentBookingEngine from "@/pages/RetailAgentBookingEngine";
 import GuestPortal from "@/pages/GuestPortal";
 import FinanceEngine from "@/pages/FinanceEngine";
+import MaintenanceTaskSystem from "@/pages/MaintenanceTaskSystem";
 
 function Router() {
   const { isAuthenticated, isLoading, user } = useAuth();
@@ -106,6 +107,7 @@ function Router() {
           <Route path="/properties" component={Properties} />
           <Route path="/tasks" component={Tasks} />
           <Route path="/staff-tasks" component={StaffTasks} />
+          <Route path="/maintenance-task-system" component={MaintenanceTaskSystem} />
           <Route path="/bookings" component={Bookings} />
           <Route path="/services" component={Services} />
           <Route path="/welcome-packs" component={WelcomePacks} />

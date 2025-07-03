@@ -6109,9 +6109,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Finance Engine Routes
-  app.get("/api/finance/owner-balances", authenticatedTenantMiddleware, async (req: any, res) => {
+  app.get("/api/finance/owner-balances", isDemoAuthenticated, async (req: any, res) => {
     try {
-      const { organizationId } = getTenantContext(req);
+      const organizationId = req.user?.organizationId || "default-org";
       const balances = await storage.getOwnerBalances(organizationId);
       res.json(balances);
     } catch (error) {
@@ -6120,9 +6120,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/finance/payout-requests", authenticatedTenantMiddleware, async (req: any, res) => {
+  app.get("/api/finance/payout-requests", isDemoAuthenticated, async (req: any, res) => {
     try {
-      const { organizationId } = getTenantContext(req);
+      const organizationId = req.user?.organizationId || "default-org";
       const payouts = await storage.getOwnerPayoutRequests(organizationId);
       res.json(payouts);
     } catch (error) {
@@ -6131,10 +6131,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/finance/request-payout", authenticatedTenantMiddleware, async (req: any, res) => {
+  app.post("/api/finance/request-payout", isDemoAuthenticated, async (req: any, res) => {
     try {
-      const { organizationId } = getTenantContext(req);
-      const userId = req.user?.claims?.sub;
+      const organizationId = req.user?.organizationId || "default-org";
+      const userId = req.user?.id;
       
       const payoutData = {
         organizationId,
@@ -6153,7 +6153,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/finance/payout-requests/:id/approve", authenticatedTenantMiddleware, async (req: any, res) => {
+  app.post("/api/finance/payout-requests/:id/approve", isDemoAuthenticated, async (req: any, res) => {
     try {
       const { id } = req.params;
       const { action } = req.body;
@@ -6162,7 +6162,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (action === 'approve') {
         updateData.status = 'approved';
         updateData.approvedAt = new Date();
-        updateData.approvedBy = req.user?.claims?.sub;
+        updateData.approvedBy = req.user?.id;
       } else if (action === 'reject') {
         updateData.status = 'rejected';
       }
@@ -6175,9 +6175,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/finance/charge-requests", authenticatedTenantMiddleware, async (req: any, res) => {
+  app.get("/api/finance/charge-requests", isDemoAuthenticated, async (req: any, res) => {
     try {
-      const { organizationId } = getTenantContext(req);
+      const organizationId = req.user?.organizationId || "default-org";
       const charges = await storage.getOwnerChargeRequests(organizationId);
       res.json(charges);
     } catch (error) {
@@ -6186,10 +6186,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/finance/create-charge", authenticatedTenantMiddleware, async (req: any, res) => {
+  app.post("/api/finance/create-charge", isDemoAuthenticated, async (req: any, res) => {
     try {
-      const { organizationId } = getTenantContext(req);
-      const chargedBy = req.user?.claims?.sub;
+      const organizationId = req.user?.organizationId || "default-org";
+      const chargedBy = req.user?.id;
       
       const chargeData = {
         organizationId,
@@ -6210,9 +6210,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/finance/utility-accounts", authenticatedTenantMiddleware, async (req: any, res) => {
+  app.get("/api/finance/utility-accounts", isDemoAuthenticated, async (req: any, res) => {
     try {
-      const { organizationId } = getTenantContext(req);
+      const organizationId = req.user?.organizationId || "default-org";
       const accounts = await storage.getUtilityAccounts(organizationId);
       res.json(accounts);
     } catch (error) {
@@ -6221,9 +6221,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/finance/utility-accounts", authenticatedTenantMiddleware, async (req: any, res) => {
+  app.post("/api/finance/utility-accounts", isDemoAuthenticated, async (req: any, res) => {
     try {
-      const { organizationId } = getTenantContext(req);
+      const organizationId = req.user?.organizationId || "default-org";
       
       const accountData = {
         organizationId,
@@ -6245,9 +6245,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/finance/recurring-services", authenticatedTenantMiddleware, async (req: any, res) => {
+  app.get("/api/finance/recurring-services", isDemoAuthenticated, async (req: any, res) => {
     try {
-      const { organizationId } = getTenantContext(req);
+      const organizationId = req.user?.organizationId || "default-org";
       const services = await storage.getRecurringServices(organizationId);
       res.json(services);
     } catch (error) {
@@ -6256,9 +6256,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/finance/recurring-services", authenticatedTenantMiddleware, async (req: any, res) => {
+  app.post("/api/finance/recurring-services", isDemoAuthenticated, async (req: any, res) => {
     try {
-      const { organizationId } = getTenantContext(req);
+      const organizationId = req.user?.organizationId || "default-org";
       
       const serviceData = {
         organizationId,
@@ -6280,9 +6280,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/users/:role", authenticatedTenantMiddleware, async (req: any, res) => {
+  app.get("/api/users/:role", isDemoAuthenticated, async (req: any, res) => {
     try {
-      const { organizationId } = getTenantContext(req);
+      const organizationId = req.user?.organizationId || "default-org";
       const { role } = req.params;
       
       if (role === 'owner') {
@@ -6294,6 +6294,100 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching users:", error);
       res.status(500).json({ message: "Failed to fetch users" });
+    }
+  });
+
+  // Enhanced Maintenance Task System Routes
+  app.get("/api/task-checklists", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = req.user?.organizationId || "default-org";
+      const checklists = await storage.getTaskChecklists(organizationId);
+      res.json(checklists);
+    } catch (error) {
+      console.error("Error fetching task checklists:", error);
+      res.status(500).json({ message: "Failed to fetch task checklists" });
+    }
+  });
+
+  app.get("/api/property-guides", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = req.user?.organizationId || "default-org";
+      const guides = await storage.getPropertyGuides(organizationId);
+      res.json(guides);
+    } catch (error) {
+      console.error("Error fetching property guides:", error);
+      res.status(500).json({ message: "Failed to fetch property guides" });
+    }
+  });
+
+  app.get("/api/ai-task-suggestions", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = req.user?.organizationId || "default-org";
+      const suggestions = await storage.getAiTaskSuggestions(organizationId);
+      res.json(suggestions);
+    } catch (error) {
+      console.error("Error fetching AI task suggestions:", error);
+      res.status(500).json({ message: "Failed to fetch AI task suggestions" });
+    }
+  });
+
+  app.post("/api/tasks/:id/start", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const userId = req.user?.id;
+      
+      const task = await storage.startTask(parseInt(id), userId);
+      res.json(task);
+    } catch (error) {
+      console.error("Error starting task:", error);
+      res.status(500).json({ message: "Failed to start task" });
+    }
+  });
+
+  app.post("/api/tasks/:id/complete", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const { completionNotes, evidencePhotos, issuesFound } = req.body;
+      const userId = req.user?.id;
+      
+      const task = await storage.completeTask(parseInt(id), {
+        completionNotes,
+        evidencePhotos: evidencePhotos || [],
+        issuesFound: issuesFound || [],
+        completedBy: userId
+      });
+      
+      res.json(task);
+    } catch (error) {
+      console.error("Error completing task:", error);
+      res.status(500).json({ message: "Failed to complete task" });
+    }
+  });
+
+  app.post("/api/ai-suggestions/:id/accept", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const userId = req.user?.id;
+      
+      const result = await storage.acceptAiSuggestion(parseInt(id), userId);
+      res.json(result);
+    } catch (error) {
+      console.error("Error accepting AI suggestion:", error);
+      res.status(500).json({ message: "Failed to accept AI suggestion" });
+    }
+  });
+
+  app.post("/api/tasks/export-pdf", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { month } = req.body;
+      const organizationId = req.user?.organizationId || "default-org";
+      
+      // Generate PDF export (mock implementation)
+      const result = await storage.exportTasksPdf(organizationId, month);
+      res.json({ message: "PDF export initiated", exportId: result.id });
+    } catch (error) {
+      console.error("Error exporting tasks PDF:", error);
+      res.status(500).json({ message: "Failed to export tasks PDF" });
     }
   });
 

@@ -108,7 +108,7 @@ export const properties = pgTable("properties", {
   index("IDX_property_external").on(table.externalId),
 ]);
 
-export const tasks = pgTable("tasks", {
+export const tasks: any = pgTable("tasks", {
   id: serial("id").primaryKey(),
   organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
   title: varchar("title").notNull(),
@@ -138,6 +138,84 @@ export const tasks = pgTable("tasks", {
   issuesFound: text("issues_found").array().default([]),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Task Checklists for different task types
+export const taskChecklists = pgTable("task_checklists", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  taskType: varchar("task_type").notNull(), // cleaning, maintenance, pool, garden, inspection
+  department: varchar("department").notNull(), // cleaning, maintenance, pool, garden, general
+  checklistName: varchar("checklist_name").notNull(),
+  checklistItems: text("checklist_items").array().notNull(), // Array of checklist items
+  isDefault: boolean("is_default").default(false), // Whether this is the default checklist for this type
+  propertyId: integer("property_id").references(() => properties.id), // NULL for organization-wide, specific for property-specific
+  isActive: boolean("is_active").default(true),
+  createdBy: varchar("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Property-specific guides (e.g., special equipment instructions)
+export const propertyGuides = pgTable("property_guides", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  propertyId: integer("property_id").references(() => properties.id).notNull(),
+  guideName: varchar("guide_name").notNull(),
+  guideContent: text("guide_content").notNull(),
+  category: varchar("category").notNull(), // equipment, procedures, safety, special-instructions
+  department: varchar("department"), // cleaning, maintenance, pool, garden, general
+  attachments: text("attachments").array().default([]), // File paths for images/documents
+  isActive: boolean("is_active").default(true),
+  createdBy: varchar("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// AI-suggested tasks based on bookings, feedback, etc.
+export const aiTaskSuggestions = pgTable("ai_task_suggestions", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  propertyId: integer("property_id").references(() => properties.id).notNull(),
+  suggestedTaskType: varchar("suggested_task_type").notNull(),
+  department: varchar("department").notNull(),
+  priority: varchar("priority").notNull().default("medium"),
+  reason: text("reason").notNull(), // Why AI suggested this task
+  triggerData: text("trigger_data"), // JSON data about what triggered the suggestion
+  suggestedDate: timestamp("suggested_date"),
+  status: varchar("status").notNull().default("pending"), // pending, accepted, rejected, auto-created
+  createdTaskId: integer("created_task_id").references(() => tasks.id), // If suggestion was accepted
+  reviewedBy: varchar("reviewed_by").references(() => users.id),
+  reviewedAt: timestamp("reviewed_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Task expenses tracking
+export const taskExpenses = pgTable("task_expenses", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  taskId: integer("task_id").references(() => tasks.id).notNull(),
+  itemName: varchar("item_name").notNull(),
+  category: varchar("category").notNull(), // supplies, tools, materials, services
+  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+  currency: varchar("currency").notNull().default("THB"),
+  receipt: varchar("receipt"), // File path for receipt image
+  notes: text("notes"),
+  addedBy: varchar("added_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Task archiving for performance and PDF export
+export const archivedTasks = pgTable("archived_tasks", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  originalTaskId: integer("original_task_id").notNull(),
+  taskData: text("task_data").notNull(), // JSON serialized task data
+  archiveMonth: varchar("archive_month").notNull(), // YYYY-MM format
+  propertyId: integer("property_id"),
+  archivedAt: timestamp("archived_at").defaultNow(),
+  pdfExported: boolean("pdf_exported").default(false),
+  exportedAt: timestamp("exported_at"),
 });
 
 export const taskHistory = pgTable("task_history", {
@@ -2511,38 +2589,7 @@ export const staffSalaries = pgTable("staff_salaries", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
-// Task Checklists & Guides
-export const taskChecklists = pgTable("task_checklists", {
-  id: serial("id").primaryKey(),
-  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
-  
-  // Checklist Configuration
-  name: varchar("name").notNull(),
-  taskType: varchar("task_type").notNull(), // cleaning, pool-service, garden, maintenance, inspection
-  department: varchar("department").notNull(), // cleaning, pool, garden, maintenance, general
-  
-  // Checklist Items
-  items: jsonb("items").notNull(), // Array of checklist items with descriptions
-  estimatedTime: integer("estimated_time"), // In minutes
-  requiredPhotos: integer("required_photos").default(1),
-  requiresComments: boolean("requires_comments").default(true),
-  
-  // Guides and Instructions
-  instructions: text("instructions"),
-  guideImageUrls: text("guide_image_urls").array().default([]),
-  guidePdfUrl: varchar("guide_pdf_url"),
-  safetyNotes: text("safety_notes"),
-  
-  // Property-specific customization
-  propertyId: integer("property_id").references(() => properties.id), // null for default, specific for property override
-  
-  // Status
-  isActive: boolean("is_active").default(true),
-  
-  createdAt: timestamp("created_at").defaultNow(),
-  createdBy: varchar("created_by").references(() => users.id),
-  updatedAt: timestamp("updated_at").defaultNow(),
-});
+// Enhanced task checklists will use the earlier definition
 
 // Task Completion Records with Enhanced Tracking
 export const taskCompletions = pgTable("task_completions", {
@@ -3815,6 +3862,19 @@ export type GuestPropertyLocalInfo = typeof guestPropertyLocalInfo.$inferSelect;
 export type InsertGuestPropertyLocalInfo = z.infer<typeof insertGuestPropertyLocalInfoSchema>;
 export type GuestMaintenanceReport = typeof guestMaintenanceReports.$inferSelect;
 export type InsertGuestMaintenanceReport = z.infer<typeof insertGuestMaintenanceReportSchema>;
+
+// ===== ENHANCED MAINTENANCE TASK SYSTEM TYPES =====
+
+export type TaskChecklist = typeof taskChecklists.$inferSelect;
+export type InsertTaskChecklist = typeof taskChecklists.$inferInsert;
+export type PropertyGuide = typeof propertyGuides.$inferSelect; 
+export type InsertPropertyGuide = typeof propertyGuides.$inferInsert;
+export type AiTaskSuggestion = typeof aiTaskSuggestions.$inferSelect;
+export type InsertAiTaskSuggestion = typeof aiTaskSuggestions.$inferInsert;
+export type TaskExpense = typeof taskExpenses.$inferSelect;
+export type InsertTaskExpense = typeof taskExpenses.$inferInsert;
+export type ArchivedTask = typeof archivedTasks.$inferSelect;
+export type InsertArchivedTask = typeof archivedTasks.$inferInsert;
 
 // ===== STAFF DASHBOARD TYPES =====
 

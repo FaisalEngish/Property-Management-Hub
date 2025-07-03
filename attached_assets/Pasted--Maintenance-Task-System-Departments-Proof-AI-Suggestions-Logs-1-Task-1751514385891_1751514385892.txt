@@ -1,0 +1,83 @@
+🧰 **Maintenance & Task System – Departments, Proof, AI Suggestions & Logs**
+
+---
+
+### 1. **Task Types + Department Tagging**
+
+- Every task must be assigned a department:
+  - 🧹 Cleaning
+  - 🏝 Garden
+  - 🏊 Pool
+  - 🔧 Maintenance
+  - 🗂 General
+
+- Tasks can be:
+  - 🔁 Recurring (e.g. pool clean weekly)
+  - 🧠 AI-Suggested (e.g. mid-stay clean for 6+ nights)
+  - 📅 Booking-based (auto clean on checkout)
+  - ✍️ Manually created by staff, PM, or owner
+
+---
+
+### 2. **Checklists + Special Guides**
+
+- 🧾 Standard checklist per task type (e.g. checkout clean)
+- 📝 Each property can upload custom checklists
+- 📘 Property-Specific Guides (e.g. meat aging machine in Villa Maya, or water-from-air unit in Buddha Garden)
+- ✅ Checklists viewable on staff login when task is started
+
+---
+
+### 3. **Task Flow**
+
+1. Task is triggered (auto/manual/AI)
+2. Staff sees task in dashboard
+3. Staff opens checklist & guide
+4. Can add:
+   - 🧾 Comments
+   - 💵 Expenses (e.g. toilet cleaner, broom)
+   - 📸 Proof Photos
+5. Click `✅ Complete Task`
+
+---
+
+### 4. **Manager Review**
+
+- Upon completion:
+  - PM/Admin receives notification
+  - Views:
+    - Proof photos
+    - Comments
+    - Expense logs
+  - Can approve or reopen task
+
+---
+
+### 5. **Task Archiving & PDF Export**
+
+- Task logs visible per property
+- After 30 days:
+  - Tasks archived
+  - Admin can click “🧾 Export Monthly PDF”
+  - Sent to Google Drive or cloud
+  - In-app view clears to reduce load
+
+---
+
+### 6. **Owner Visibility**
+
+- Owner dashboard includes:
+  - Task timeline (with photos and notes)
+  - Task type filter (e.g. only pool, only garden)
+  - Timeline format:  
+    - “👤 Guest checked in 12/6”  
+    - “🧹 Housekeeping cleaned 13/6”  
+    - “🪴 Gardened trimmed 14/6”  
+    - “🔧 Maintenance suggested sink replacement”
+
+- ✅ Owner/PM can confirm or approve maintenance
+
+---
+
+🎯 Goal:
+Smart, accountable, and trackable task system with departmental visibility, custom guides, and full proof of service. AI assists. PDF reports keep history clean.

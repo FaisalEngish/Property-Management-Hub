@@ -8076,6 +8076,233 @@ export class DatabaseStorage implements IStorage {
       eq(users.role, 'owner')
     ));
   }
+
+  // ===== ENHANCED MAINTENANCE TASK SYSTEM METHODS =====
+
+  // Task Checklists
+  async getTaskChecklists(organizationId: string) {
+    // Mock data for now - would query task_checklists table
+    return [
+      {
+        id: 1,
+        taskType: "cleaning",
+        department: "cleaning",
+        checklistName: "Standard Room Cleaning",
+        checklistItems: [
+          "Strip and remake beds with fresh linens",
+          "Clean and disinfect all surfaces",
+          "Vacuum carpets and mop floors",
+          "Restock toiletries and towels",
+          "Check and replace light bulbs",
+          "Empty trash and replace liners",
+          "Clean windows and mirrors",
+          "Inspect for damages"
+        ],
+        isDefault: true,
+        propertyId: null
+      },
+      {
+        id: 2,
+        taskType: "pool-service",
+        department: "pool",
+        checklistName: "Pool Maintenance",
+        checklistItems: [
+          "Test pH and chlorine levels",
+          "Skim surface debris",
+          "Brush pool walls and floor",
+          "Empty skimmer baskets",
+          "Clean pool equipment",
+          "Check filtration system",
+          "Document chemical readings"
+        ],
+        isDefault: true,
+        propertyId: null
+      },
+      {
+        id: 3,
+        taskType: "garden",
+        department: "garden",
+        checklistName: "Garden Maintenance",
+        checklistItems: [
+          "Water plants and trees",
+          "Trim overgrown vegetation",
+          "Remove weeds",
+          "Check irrigation system",
+          "Collect fallen leaves",
+          "Inspect for pest damage",
+          "Fertilize as needed"
+        ],
+        isDefault: true,
+        propertyId: null
+      }
+    ];
+  }
+
+  // Property Guides
+  async getPropertyGuides(organizationId: string) {
+    // Mock data for now - would query property_guides table
+    return [
+      {
+        id: 1,
+        propertyId: 1,
+        guideName: "Villa Sunset Pool Maintenance Guide",
+        guideContent: `Weekly Pool Service Procedure:
+
+1. Test water chemistry (pH 7.2-7.8, Free Chlorine 1.0-3.0 ppm)
+2. Skim surface and empty leaf baskets
+3. Brush walls, steps, and waterline
+4. Vacuum pool floor
+5. Backwash filter if pressure gauge reads 8-10 psi above clean reading
+6. Add chemicals as needed
+7. Document all readings and actions taken
+
+Special Notes:
+- Pool heater timer set for 6am-10pm
+- Waterfall feature runs on separate pump
+- Emergency shut-off valve located behind pool equipment`,
+        category: "Pool Service",
+        department: "pool",
+        attachments: ["pool_schematic.pdf", "chemical_chart.jpg"]
+      },
+      {
+        id: 2,
+        propertyId: 1,
+        guideName: "Garden Irrigation System",
+        guideContent: `Automated Irrigation Schedule:
+- Zone 1 (Front Garden): Daily 6am, 15 minutes
+- Zone 2 (Pool Area): Daily 7am, 10 minutes  
+- Zone 3 (Back Garden): Daily 6pm, 20 minutes
+
+Manual Override:
+- Controller located in utility room
+- Emergency shut-off at main water line
+- Seasonal adjustments: Reduce 30% in rainy season
+
+Plant Care:
+- Bougainvillea: Trim monthly to maintain shape
+- Palm trees: Remove dead fronds only
+- Orchids: Water 2x weekly, fertilize monthly`,
+        category: "Garden Care",
+        department: "garden",
+        attachments: ["irrigation_map.png"]
+      }
+    ];
+  }
+
+  // AI Task Suggestions
+  async getAiTaskSuggestions(organizationId: string) {
+    // Mock data for now - would query ai_task_suggestions table
+    return [
+      {
+        id: 1,
+        propertyId: 1,
+        suggestedTaskType: "pool-service",
+        department: "pool",
+        priority: "high",
+        reason: "Guest reported cloudy water. Immediate pool service recommended.",
+        status: "pending",
+        suggestedDate: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+      },
+      {
+        id: 2,
+        propertyId: 2,
+        suggestedTaskType: "maintenance",
+        department: "maintenance",
+        priority: "medium",
+        reason: "Air conditioning filter due for replacement based on usage data.",
+        status: "pending",
+        suggestedDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
+      },
+      {
+        id: 3,
+        propertyId: 1,
+        suggestedTaskType: "cleaning",
+        department: "cleaning",
+        priority: "urgent",
+        reason: "Check-in in 2 hours. Final cleaning verification needed.",
+        status: "pending",
+        suggestedDate: new Date().toISOString()
+      }
+    ];
+  }
+
+  // Start Task
+  async startTask(taskId: number, userId: string) {
+    // Mock implementation - would update task status and record start time
+    const startTime = new Date().toISOString();
+    
+    // In real implementation, this would:
+    // 1. Update task status to 'in-progress'
+    // 2. Set startedAt timestamp
+    // 3. Record user who started the task
+    // 4. Create task_history entry
+    
+    return {
+      id: taskId,
+      status: "in-progress",
+      startedAt: startTime,
+      startedBy: userId
+    };
+  }
+
+  // Complete Task
+  async completeTask(taskId: number, completionData: {
+    completionNotes?: string;
+    evidencePhotos?: string[];
+    issuesFound?: string[];
+    completedBy: string;
+  }) {
+    const completedAt = new Date().toISOString();
+    
+    // Mock implementation - would:
+    // 1. Update task status to 'completed'
+    // 2. Set completedAt timestamp
+    // 3. Save completion notes, photos, and issues
+    // 4. Create task_history entry
+    // 5. Trigger any follow-up actions
+    
+    return {
+      id: taskId,
+      status: "completed",
+      completedAt,
+      completionNotes: completionData.completionNotes,
+      evidencePhotos: completionData.evidencePhotos,
+      issuesFound: completionData.issuesFound,
+      completedBy: completionData.completedBy
+    };
+  }
+
+  // Accept AI Suggestion
+  async acceptAiSuggestion(suggestionId: number, userId: string) {
+    // Mock implementation - would:
+    // 1. Create new task from AI suggestion
+    // 2. Update AI suggestion status to 'accepted'
+    // 3. Record who accepted the suggestion
+    
+    const newTaskId = Math.floor(Math.random() * 1000) + 100;
+    
+    return {
+      suggestionId,
+      newTaskId,
+      status: "accepted",
+      acceptedBy: userId,
+      acceptedAt: new Date().toISOString()
+    };
+  }
+
+  // Export Tasks PDF
+  async exportTasksPdf(organizationId: string, month: string) {
+    // Mock implementation - would generate PDF report
+    const exportId = `export_${month}_${Date.now()}`;
+    
+    return {
+      id: exportId,
+      month,
+      organizationId,
+      status: "processing",
+      createdAt: new Date().toISOString()
+    };
+  }
 }
 
 export const storage = new DatabaseStorage();
