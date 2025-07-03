@@ -232,7 +232,20 @@ export async function setupDemoAuth(app: Express) {
         console.error("Logout error:", err);
         return res.status(500).json({ message: "Logout failed" });
       }
+      res.clearCookie('connect.sid');
       res.json({ message: "Logout successful", redirectUrl: "/" });
+    });
+  });
+
+  // GET logout route for direct navigation
+  app.get("/api/auth/demo-logout", (req: any, res) => {
+    req.session.destroy((err: any) => {
+      if (err) {
+        console.error("Logout error:", err);
+        return res.status(500).json({ message: "Logout failed" });
+      }
+      res.clearCookie('connect.sid');
+      res.redirect("/");
     });
   });
 
