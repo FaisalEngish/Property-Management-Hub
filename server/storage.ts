@@ -9396,6 +9396,363 @@ Plant Care:
     };
   }
 
+  // ==================== MEDIA LIBRARY & AGENT SHARING TOOLS ====================
+
+  async getPropertyMediaFiles(organizationId: string, propertyId?: number): Promise<any[]> {
+    let query = db
+      .select()
+      .from(propertyMediaFiles)
+      .where(eq(propertyMediaFiles.organizationId, organizationId));
+
+    if (propertyId) {
+      query = query.where(eq(propertyMediaFiles.propertyId, propertyId));
+    }
+
+    const files = await query.orderBy(desc(propertyMediaFiles.createdAt));
+    return files;
+  }
+
+  async createPropertyMediaFile(fileData: any): Promise<any> {
+    const [file] = await db
+      .insert(propertyMediaFiles)
+      .values(fileData)
+      .returning();
+    return file;
+  }
+
+  async updatePropertyMediaFile(fileId: number, updateData: any): Promise<any> {
+    const [updated] = await db
+      .update(propertyMediaFiles)
+      .set({
+        ...updateData,
+        updatedAt: new Date(),
+      })
+      .where(eq(propertyMediaFiles.id, fileId))
+      .returning();
+    return updated;
+  }
+
+  async deletePropertyMediaFile(fileId: number): Promise<boolean> {
+    const result = await db
+      .delete(propertyMediaFiles)
+      .where(eq(propertyMediaFiles.id, fileId));
+    return result.rowCount > 0;
+  }
+
+  async getAgentAccessibleMedia(organizationId: string, agentId: string, agentRole: string): Promise<any[]> {
+    const accessConditions = agentRole === "referral-agent" 
+      ? or(
+          eq(propertyMediaFiles.isAgentApproved, true),
+          eq(propertyMediaFiles.isUnbranded, true)
+        )
+      : eq(propertyMediaFiles.accessLevel, "agent_approved");
+
+    const files = await db
+      .select()
+      .from(propertyMediaFiles)
+      .where(
+        and(
+          eq(propertyMediaFiles.organizationId, organizationId),
+          eq(propertyMediaFiles.isActive, true),
+          accessConditions
+        )
+      )
+      .orderBy(desc(propertyMediaFiles.createdAt));
+
+    return files;
+  }
+
+  async logAgentMediaAccess(accessData: any): Promise<any> {
+    const [accessLog] = await db
+      .insert(agentMediaAccess)
+      .values(accessData)
+      .returning();
+    return accessLog;
+  }
+
+  async getAgentMediaAccessLogs(organizationId: string, mediaFileId?: number): Promise<any[]> {
+    let query = db
+      .select()
+      .from(agentMediaAccess)
+      .where(eq(agentMediaAccess.organizationId, organizationId));
+
+    if (mediaFileId) {
+      query = query.where(eq(agentMediaAccess.mediaFileId, mediaFileId));
+    }
+
+    const logs = await query.orderBy(desc(agentMediaAccess.createdAt));
+    return logs;
+  }
+
+  async getMediaFolders(organizationId: string, propertyId?: number): Promise<any[]> {
+    let query = db
+      .select()
+      .from(mediaFolders)
+      .where(eq(mediaFolders.organizationId, organizationId));
+
+    if (propertyId) {
+      query = query.where(eq(mediaFolders.propertyId, propertyId));
+    }
+
+    const folders = await query.orderBy(asc(mediaFolders.sortOrder));
+    return folders;
+  }
+
+  async createMediaFolder(folderData: any): Promise<any> {
+    const [folder] = await db
+      .insert(mediaFolders)
+      .values(folderData)
+      .returning();
+    return folder;
+  }
+
+  async updateMediaFolder(folderId: number, updateData: any): Promise<any> {
+    const [updated] = await db
+      .update(mediaFolders)
+      .set({
+        ...updateData,
+        updatedAt: new Date(),
+      })
+      .where(eq(mediaFolders.id, folderId))
+      .returning();
+    return updated;
+  }
+
+  async getPropertyMediaSettings(organizationId: string, propertyId: number): Promise<any> {
+    const [settings] = await db
+      .select()
+      .from(propertyMediaSettings)
+      .where(
+        and(
+          eq(propertyMediaSettings.organizationId, organizationId),
+          eq(propertyMediaSettings.propertyId, propertyId)
+        )
+      );
+    
+    // Return default settings if none exist
+    if (!settings) {
+      return {
+        allowOwnerUploads: true,
+        requireAdminApproval: true,
+        maxFileSize: "50MB",
+        allowedFormats: ["jpg", "jpeg", "png", "mp4", "pdf"],
+        allowReferralAgentAccess: true,
+        allowRetailAgentAccess: false,
+        autoApproveUnbranded: false,
+        enableAiSuggestions: true,
+        autoDetectMissingMedia: true,
+        autoFlagOutdated: true,
+        notifyOnNewUploads: true,
+        notifyOnAgentAccess: false,
+        notifyOnExpiry: true,
+      };
+    }
+    
+    return settings;
+  }
+
+  async updatePropertyMediaSettings(organizationId: string, propertyId: number, settingsData: any): Promise<any> {
+    // Check if settings exist
+    const existing = await db
+      .select()
+      .from(propertyMediaSettings)
+      .where(
+        and(
+          eq(propertyMediaSettings.organizationId, organizationId),
+          eq(propertyMediaSettings.propertyId, propertyId)
+        )
+      );
+
+    if (existing.length === 0) {
+      // Create new settings
+      const [created] = await db
+        .insert(propertyMediaSettings)
+        .values({
+          organizationId,
+          propertyId,
+          ...settingsData,
+        })
+        .returning();
+      return created;
+    } else {
+      // Update existing settings
+      const [updated] = await db
+        .update(propertyMediaSettings)
+        .set({
+          ...settingsData,
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(propertyMediaSettings.organizationId, organizationId),
+            eq(propertyMediaSettings.propertyId, propertyId)
+          )
+        )
+        .returning();
+      return updated;
+    }
+  }
+
+  async getMediaUsageAnalytics(organizationId: string, propertyId?: number): Promise<any[]> {
+    let query = db
+      .select()
+      .from(mediaUsageAnalytics)
+      .where(eq(mediaUsageAnalytics.organizationId, organizationId));
+
+    if (propertyId) {
+      query = query.where(eq(mediaUsageAnalytics.propertyId, propertyId));
+    }
+
+    const analytics = await query.orderBy(desc(mediaUsageAnalytics.popularityScore));
+    return analytics;
+  }
+
+  async updateMediaUsageAnalytics(mediaFileId: number, usageType: string): Promise<any> {
+    // Get existing analytics or create new
+    let [analytics] = await db
+      .select()
+      .from(mediaUsageAnalytics)
+      .where(eq(mediaUsageAnalytics.mediaFileId, mediaFileId));
+
+    if (!analytics) {
+      // Create new analytics record
+      const mediaFile = await db
+        .select()
+        .from(propertyMediaFiles)
+        .where(eq(propertyMediaFiles.id, mediaFileId))
+        .limit(1);
+
+      if (mediaFile.length === 0) return null;
+
+      [analytics] = await db
+        .insert(mediaUsageAnalytics)
+        .values({
+          organizationId: mediaFile[0].organizationId,
+          propertyId: mediaFile[0].propertyId,
+          mediaFileId,
+          viewCount: usageType === "view" ? 1 : 0,
+          downloadCount: usageType === "download" ? 1 : 0,
+          shareCount: usageType === "share" ? 1 : 0,
+          lastAccessed: new Date(),
+          weeklyViews: usageType === "view" ? 1 : 0,
+          monthlyViews: usageType === "view" ? 1 : 0,
+        })
+        .returning();
+    } else {
+      // Update existing analytics
+      const updates: any = {
+        lastAccessed: new Date(),
+        updatedAt: new Date(),
+      };
+
+      if (usageType === "view") {
+        updates.viewCount = analytics.viewCount + 1;
+        updates.weeklyViews = analytics.weeklyViews + 1;
+        updates.monthlyViews = analytics.monthlyViews + 1;
+      } else if (usageType === "download") {
+        updates.downloadCount = analytics.downloadCount + 1;
+      } else if (usageType === "share") {
+        updates.shareCount = analytics.shareCount + 1;
+      }
+
+      [analytics] = await db
+        .update(mediaUsageAnalytics)
+        .set(updates)
+        .where(eq(mediaUsageAnalytics.mediaFileId, mediaFileId))
+        .returning();
+    }
+
+    return analytics;
+  }
+
+  async getAiMediaSuggestions(organizationId: string, propertyId?: number): Promise<any[]> {
+    let query = db
+      .select()
+      .from(aiMediaSuggestions)
+      .where(eq(aiMediaSuggestions.organizationId, organizationId));
+
+    if (propertyId) {
+      query = query.where(eq(aiMediaSuggestions.propertyId, propertyId));
+    }
+
+    const suggestions = await query
+      .where(eq(aiMediaSuggestions.status, "pending"))
+      .orderBy(desc(aiMediaSuggestions.priority), desc(aiMediaSuggestions.confidenceScore));
+    
+    return suggestions;
+  }
+
+  async createAiMediaSuggestion(suggestionData: any): Promise<any> {
+    const [suggestion] = await db
+      .insert(aiMediaSuggestions)
+      .values(suggestionData)
+      .returning();
+    return suggestion;
+  }
+
+  async updateAiMediaSuggestion(suggestionId: number, updateData: any): Promise<any> {
+    const [updated] = await db
+      .update(aiMediaSuggestions)
+      .set({
+        ...updateData,
+        updatedAt: new Date(),
+      })
+      .where(eq(aiMediaSuggestions.id, suggestionId))
+      .returning();
+    return updated;
+  }
+
+  async getMediaLibraryStats(organizationId: string): Promise<any> {
+    // Get total files count
+    const totalFilesResult = await db
+      .select({ count: count() })
+      .from(propertyMediaFiles)
+      .where(
+        and(
+          eq(propertyMediaFiles.organizationId, organizationId),
+          eq(propertyMediaFiles.isActive, true)
+        )
+      );
+
+    // Get agent approved count
+    const agentApprovedResult = await db
+      .select({ count: count() })
+      .from(propertyMediaFiles)
+      .where(
+        and(
+          eq(propertyMediaFiles.organizationId, organizationId),
+          eq(propertyMediaFiles.isActive, true),
+          eq(propertyMediaFiles.isAgentApproved, true)
+        )
+      );
+
+    // Get pending approval count
+    const pendingApprovalResult = await db
+      .select({ count: count() })
+      .from(propertyMediaFiles)
+      .where(
+        and(
+          eq(propertyMediaFiles.organizationId, organizationId),
+          eq(propertyMediaFiles.isActive, true),
+          eq(propertyMediaFiles.accessLevel, "private"),
+          isNull(propertyMediaFiles.approvedBy)
+        )
+      );
+
+    // Get total views from analytics
+    const totalViewsResult = await db
+      .select({ total: sum(mediaUsageAnalytics.viewCount) })
+      .from(mediaUsageAnalytics)
+      .where(eq(mediaUsageAnalytics.organizationId, organizationId));
+
+    return {
+      totalFiles: totalFilesResult[0]?.count || 0,
+      agentApproved: agentApprovedResult[0]?.count || 0,
+      pendingApproval: pendingApprovalResult[0]?.count || 0,
+      totalViews: parseInt(totalViewsResult[0]?.total || "0"),
+    };
+  }
+
   // ==================== PLATFORM-BASED REVENUE ROUTING RULES ====================
 
   // Platform Routing Rules Operations

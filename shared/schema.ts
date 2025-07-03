@@ -2210,17 +2210,7 @@ export const propertyInternalNotes = pgTable("property_internal_notes", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
-export const agentMediaAccess = pgTable("agent_media_access", {
-  id: serial("id").primaryKey(),
-  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
-  agentId: varchar("agent_id").references(() => users.id).notNull(),
-  propertyId: integer("property_id").references(() => properties.id, { onDelete: "cascade" }),
-  mediaId: integer("media_id").references(() => propertyMedia.id, { onDelete: "cascade" }),
-  accessGrantedBy: varchar("access_granted_by").references(() => users.id).notNull(),
-  accessedAt: timestamp("accessed_at").defaultNow(),
-  lastViewedAt: timestamp("last_viewed_at"),
-  copyCount: integer("copy_count").default(0), // Track how many times links were copied
-});
+
 
 // Insert and Select schemas for Recurring Services
 export const insertRecurringServiceSchema = createInsertSchema(recurringServices);
@@ -2241,10 +2231,7 @@ export const insertPropertyInternalNotesSchema = createInsertSchema(propertyInte
   updatedAt: true,
 });
 
-export const insertAgentMediaAccessSchema = createInsertSchema(agentMediaAccess).omit({
-  id: true,
-  accessedAt: true,
-});
+
 
 export type RecurringService = typeof recurringServices.$inferSelect;
 export type InsertRecurringService = typeof recurringServices.$inferInsert;
@@ -4670,6 +4657,277 @@ export type InvoiceTemplate = typeof invoiceTemplates.$inferSelect;
 export type InsertInvoiceTemplate = z.infer<typeof insertInvoiceTemplateSchema>;
 export type InvoiceDeliveryLog = typeof invoiceDeliveryLog.$inferSelect;
 export type InsertInvoiceDeliveryLog = z.infer<typeof insertInvoiceDeliveryLogSchema>;
+
+// ==================== MEDIA LIBRARY & AGENT SHARING TOOLS ====================
+
+// Property Media Files - Cloud-based media management
+export const propertyMediaFiles = pgTable("property_media_files", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  propertyId: integer("property_id").references(() => properties.id).notNull(),
+  
+  // File Information
+  fileName: varchar("file_name").notNull(),
+  mediaType: varchar("media_type").notNull(), // photo, video, floor_plan, pdf_brochure, drone_footage, 360_tour
+  description: text("description"),
+  
+  // Cloud Storage Links
+  cloudLink: varchar("cloud_link").notNull(), // Google Drive, Dropbox, etc.
+  cloudProvider: varchar("cloud_provider").default("google_drive"), // google_drive, dropbox, onedrive, direct_url
+  thumbnailUrl: varchar("thumbnail_url"),
+  
+  // Access Control & Tags
+  accessLevel: varchar("access_level").default("private"), // private, agent_approved, public, unbranded
+  tags: varchar("tags").array().default("{}"), // ["unbranded", "promo", "internal", "360_tour"]
+  isAgentApproved: boolean("is_agent_approved").default(false),
+  isUnbranded: boolean("is_unbranded").default(false),
+  
+  // Version Control
+  version: integer("version").default(1),
+  isActive: boolean("is_active").default(true),
+  replacedBy: integer("replaced_by"), // References another media file ID
+  expiryDate: timestamp("expiry_date"), // Optional expiration
+  
+  // Metadata
+  fileSize: varchar("file_size"), // "2.5 MB"
+  lastUpdatedDate: timestamp("last_updated_date"),
+  uploadedBy: varchar("uploaded_by").references(() => users.id).notNull(),
+  approvedBy: varchar("approved_by").references(() => users.id),
+  approvedAt: timestamp("approved_at"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Agent Media Access Logs - Track who accessed what
+export const agentMediaAccess = pgTable("agent_media_access", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  mediaFileId: integer("media_file_id").references(() => propertyMediaFiles.id).notNull(),
+  agentId: varchar("agent_id").references(() => users.id).notNull(),
+  
+  // Access Details
+  accessType: varchar("access_type").notNull(), // view, download, preview
+  agentRole: varchar("agent_role").notNull(), // referral-agent, retail-agent
+  ipAddress: varchar("ip_address"),
+  userAgent: varchar("user_agent"),
+  
+  // Usage Context
+  accessReason: varchar("access_reason"), // listing_creation, client_presentation, website_upload
+  clientReference: varchar("client_reference"), // If shown to specific client
+  
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Media Folders - Organize media into folders
+export const mediaFolders = pgTable("media_folders", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  propertyId: integer("property_id").references(() => properties.id).notNull(),
+  
+  // Folder Information
+  folderName: varchar("folder_name").notNull(),
+  folderDescription: text("folder_description"),
+  parentFolderId: integer("parent_folder_id"), // For nested folders
+  
+  // Cloud Integration
+  cloudFolderLink: varchar("cloud_folder_link"),
+  cloudProvider: varchar("cloud_provider").default("google_drive"),
+  
+  // Access Control
+  accessLevel: varchar("access_level").default("private"), // private, agent_approved, public
+  isAgentApproved: boolean("is_agent_approved").default(false),
+  
+  // Metadata
+  createdBy: varchar("created_by").references(() => users.id).notNull(),
+  sortOrder: integer("sort_order").default(0),
+  isActive: boolean("is_active").default(true),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Property Media Settings - Per-property configuration
+export const propertyMediaSettings = pgTable("property_media_settings", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  propertyId: integer("property_id").references(() => properties.id).notNull(),
+  
+  // Owner Upload Settings
+  allowOwnerUploads: boolean("allow_owner_uploads").default(true),
+  requireAdminApproval: boolean("require_admin_approval").default(true),
+  maxFileSize: varchar("max_file_size").default("50MB"),
+  allowedFormats: varchar("allowed_formats").array().default("{jpg,jpeg,png,mp4,pdf}"),
+  
+  // Agent Access Settings
+  allowReferralAgentAccess: boolean("allow_referral_agent_access").default(true),
+  allowRetailAgentAccess: boolean("allow_retail_agent_access").default(false),
+  autoApproveUnbranded: boolean("auto_approve_unbranded").default(false),
+  
+  // AI Assistance Settings
+  enableAiSuggestions: boolean("enable_ai_suggestions").default(true),
+  autoDetectMissingMedia: boolean("auto_detect_missing_media").default(true),
+  autoFlagOutdated: boolean("auto_flag_outdated").default(true),
+  
+  // Notification Settings
+  notifyOnNewUploads: boolean("notify_on_new_uploads").default(true),
+  notifyOnAgentAccess: boolean("notify_on_agent_access").default(false),
+  notifyOnExpiry: boolean("notify_on_expiry").default(true),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Media Usage Analytics - Track usage patterns
+export const mediaUsageAnalytics = pgTable("media_usage_analytics", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  propertyId: integer("property_id").references(() => properties.id).notNull(),
+  mediaFileId: integer("media_file_id").references(() => propertyMediaFiles.id).notNull(),
+  
+  // Usage Metrics
+  viewCount: integer("view_count").default(0),
+  downloadCount: integer("download_count").default(0),
+  shareCount: integer("share_count").default(0),
+  lastAccessed: timestamp("last_accessed"),
+  
+  // Performance Metrics
+  popularityScore: decimal("popularity_score", { precision: 5, scale: 2 }).default("0.00"),
+  isHighPerforming: boolean("is_high_performing").default(false),
+  
+  // Period Tracking
+  weeklyViews: integer("weekly_views").default(0),
+  monthlyViews: integer("monthly_views").default(0),
+  resetDate: timestamp("reset_date").defaultNow(),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// AI Media Suggestions - Future AI integration
+export const aiMediaSuggestions = pgTable("ai_media_suggestions", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  propertyId: integer("property_id").references(() => properties.id).notNull(),
+  
+  // Suggestion Details
+  suggestionType: varchar("suggestion_type").notNull(), // missing_media, outdated_media, best_cover_photo, quality_improvement
+  suggestionText: text("suggestion_text").notNull(),
+  priority: varchar("priority").default("medium"), // low, medium, high, critical
+  
+  // AI Analysis
+  confidenceScore: decimal("confidence_score", { precision: 3, scale: 2 }).default("0.00"), // 0.00 to 1.00
+  detectedIssues: varchar("detected_issues").array().default("{}"),
+  recommendedActions: varchar("recommended_actions").array().default("{}"),
+  
+  // Media Context
+  relatedMediaId: integer("related_media_id").references(() => propertyMediaFiles.id),
+  suggestedMediaType: varchar("suggested_media_type"), // What type of media is needed
+  estimatedImpact: varchar("estimated_impact").default("low"), // low, medium, high
+  
+  // Status
+  status: varchar("status").default("pending"), // pending, accepted, rejected, implemented
+  reviewedBy: varchar("reviewed_by").references(() => users.id),
+  reviewedAt: timestamp("reviewed_at"),
+  reviewNotes: text("review_notes"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// ===== MEDIA LIBRARY RELATIONS =====
+
+export const propertyMediaFilesRelations = relations(propertyMediaFiles, ({ one, many }) => ({
+  organization: one(organizations, { fields: [propertyMediaFiles.organizationId], references: [organizations.id] }),
+  property: one(properties, { fields: [propertyMediaFiles.propertyId], references: [properties.id] }),
+  uploader: one(users, { fields: [propertyMediaFiles.uploadedBy], references: [users.id] }),
+  approver: one(users, { fields: [propertyMediaFiles.approvedBy], references: [users.id] }),
+  accessLogs: many(agentMediaAccess),
+  analytics: many(mediaUsageAnalytics),
+  suggestions: many(aiMediaSuggestions),
+}));
+
+export const agentMediaAccessRelations = relations(agentMediaAccess, ({ one }) => ({
+  organization: one(organizations, { fields: [agentMediaAccess.organizationId], references: [organizations.id] }),
+  mediaFile: one(propertyMediaFiles, { fields: [agentMediaAccess.mediaFileId], references: [propertyMediaFiles.id] }),
+  agent: one(users, { fields: [agentMediaAccess.agentId], references: [users.id] }),
+}));
+
+export const mediaFoldersRelations = relations(mediaFolders, ({ one }) => ({
+  organization: one(organizations, { fields: [mediaFolders.organizationId], references: [organizations.id] }),
+  property: one(properties, { fields: [mediaFolders.propertyId], references: [properties.id] }),
+  creator: one(users, { fields: [mediaFolders.createdBy], references: [users.id] }),
+}));
+
+export const propertyMediaSettingsRelations = relations(propertyMediaSettings, ({ one }) => ({
+  organization: one(organizations, { fields: [propertyMediaSettings.organizationId], references: [organizations.id] }),
+  property: one(properties, { fields: [propertyMediaSettings.propertyId], references: [properties.id] }),
+}));
+
+export const mediaUsageAnalyticsRelations = relations(mediaUsageAnalytics, ({ one }) => ({
+  organization: one(organizations, { fields: [mediaUsageAnalytics.organizationId], references: [organizations.id] }),
+  property: one(properties, { fields: [mediaUsageAnalytics.propertyId], references: [properties.id] }),
+  mediaFile: one(propertyMediaFiles, { fields: [mediaUsageAnalytics.mediaFileId], references: [propertyMediaFiles.id] }),
+}));
+
+export const aiMediaSuggestionsRelations = relations(aiMediaSuggestions, ({ one }) => ({
+  organization: one(organizations, { fields: [aiMediaSuggestions.organizationId], references: [organizations.id] }),
+  property: one(properties, { fields: [aiMediaSuggestions.propertyId], references: [properties.id] }),
+  relatedMedia: one(propertyMediaFiles, { fields: [aiMediaSuggestions.relatedMediaId], references: [propertyMediaFiles.id] }),
+  reviewer: one(users, { fields: [aiMediaSuggestions.reviewedBy], references: [users.id] }),
+}));
+
+// ===== MEDIA LIBRARY INSERT SCHEMAS =====
+
+export const insertPropertyMediaFileSchema = createInsertSchema(propertyMediaFiles).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertAgentMediaAccessSchema = createInsertSchema(agentMediaAccess).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertMediaFolderSchema = createInsertSchema(mediaFolders).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertPropertyMediaSettingSchema = createInsertSchema(propertyMediaSettings).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertMediaUsageAnalyticSchema = createInsertSchema(mediaUsageAnalytics).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertAiMediaSuggestionSchema = createInsertSchema(aiMediaSuggestions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+// ===== MEDIA LIBRARY TYPES =====
+
+export type PropertyMediaFile = typeof propertyMediaFiles.$inferSelect;
+export type InsertPropertyMediaFile = z.infer<typeof insertPropertyMediaFileSchema>;
+export type AgentMediaAccess = typeof agentMediaAccess.$inferSelect;
+export type InsertAgentMediaAccess = z.infer<typeof insertAgentMediaAccessSchema>;
+export type MediaFolder = typeof mediaFolders.$inferSelect;
+export type InsertMediaFolder = z.infer<typeof insertMediaFolderSchema>;
+export type PropertyMediaSetting = typeof propertyMediaSettings.$inferSelect;
+export type InsertPropertyMediaSetting = z.infer<typeof insertPropertyMediaSettingSchema>;
+export type MediaUsageAnalytic = typeof mediaUsageAnalytics.$inferSelect;
+export type InsertMediaUsageAnalytic = z.infer<typeof insertMediaUsageAnalyticSchema>;
+export type AiMediaSuggestion = typeof aiMediaSuggestions.$inferSelect;
+export type InsertAiMediaSuggestion = z.infer<typeof insertAiMediaSuggestionSchema>;
 
 // ===== STAFF DASHBOARD TYPES =====
 

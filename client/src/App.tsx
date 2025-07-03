@@ -30,6 +30,7 @@ import AiFeedbackMonitor from "@/pages/AiFeedbackMonitor";
 import GuestAddonServices from "@/pages/GuestAddonServices";
 import RecurringServicesBilling from "@/pages/RecurringServicesBilling";
 import PropertyMediaLibrary from "@/pages/PropertyMediaLibrary";
+import MediaLibrary from "@/pages/MediaLibrary";
 import GuestAddonBooking from "@/pages/GuestAddonBooking";
 import AdminAddonBookings from "@/pages/AdminAddonBookings";
 import AdminAddonSettings from "@/pages/AdminAddonSettings";
@@ -135,6 +136,7 @@ function Router() {
           <Route path="/agent-commission" component={AgentCommissionDashboard} />
           <Route path="/staff" component={StaffDashboard} />
           <Route path="/agent-media-library" component={PropertyMediaLibrary} />
+          <Route path="/media-library" component={MediaLibrary} />
           <Route path="/guest/add-ons" component={GuestAddonBooking} />
           <Route path="/admin/add-ons-bookings" component={AdminAddonBookings} />
           <Route path="/admin/add-ons-settings" component={AdminAddonSettings} />

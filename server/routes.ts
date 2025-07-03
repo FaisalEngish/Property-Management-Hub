@@ -7767,6 +7767,290 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ==================== MEDIA LIBRARY & AGENT SHARING TOOLS ====================
+
+  // Get property media files with optional property filter
+  app.get("/api/media/files", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = req.user.organizationId;
+      const propertyId = req.query.propertyId ? parseInt(req.query.propertyId) : undefined;
+      
+      const files = await storage.getPropertyMediaFiles(organizationId, propertyId);
+      res.json(files);
+    } catch (error) {
+      console.error("Error fetching media files:", error);
+      res.status(500).json({ message: "Failed to fetch media files" });
+    }
+  });
+
+  // Create new property media file
+  app.post("/api/media/files", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = req.user.organizationId;
+      const fileData = {
+        ...req.body,
+        organizationId,
+        uploadedBy: req.user.id,
+      };
+
+      const file = await storage.createPropertyMediaFile(fileData);
+      res.json(file);
+    } catch (error) {
+      console.error("Error creating media file:", error);
+      res.status(500).json({ message: "Failed to create media file" });
+    }
+  });
+
+  // Update property media file
+  app.put("/api/media/files/:id", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const fileId = parseInt(req.params.id);
+      const updateData = req.body;
+
+      // Add approval data if user is admin/PM
+      if (["admin", "portfolio-manager"].includes(req.user.role) && updateData.isAgentApproved) {
+        updateData.approvedBy = req.user.id;
+        updateData.approvedAt = new Date();
+      }
+
+      const updated = await storage.updatePropertyMediaFile(fileId, updateData);
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating media file:", error);
+      res.status(500).json({ message: "Failed to update media file" });
+    }
+  });
+
+  // Delete property media file
+  app.delete("/api/media/files/:id", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const fileId = parseInt(req.params.id);
+      const success = await storage.deletePropertyMediaFile(fileId);
+      
+      if (success) {
+        res.json({ message: "Media file deleted successfully" });
+      } else {
+        res.status(404).json({ message: "Media file not found" });
+      }
+    } catch (error) {
+      console.error("Error deleting media file:", error);
+      res.status(500).json({ message: "Failed to delete media file" });
+    }
+  });
+
+  // Get agent accessible media (for agents only)
+  app.get("/api/media/agent-accessible", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      if (!["referral-agent", "retail-agent"].includes(req.user.role)) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const organizationId = req.user.organizationId;
+      const files = await storage.getAgentAccessibleMedia(organizationId, req.user.id, req.user.role);
+      
+      // Log access for tracking
+      for (const file of files) {
+        await storage.logAgentMediaAccess({
+          organizationId,
+          mediaFileId: file.id,
+          agentId: req.user.id,
+          accessType: "view",
+          agentRole: req.user.role,
+          ipAddress: req.ip,
+          userAgent: req.get("User-Agent"),
+          accessReason: "media_library_browse",
+        });
+      }
+
+      res.json(files);
+    } catch (error) {
+      console.error("Error fetching agent accessible media:", error);
+      res.status(500).json({ message: "Failed to fetch accessible media" });
+    }
+  });
+
+  // Download/access specific media file (with analytics tracking)
+  app.get("/api/media/access/:id", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const fileId = parseInt(req.params.id);
+      const accessType = req.query.type || "view"; // view, download, preview
+      
+      // Update analytics
+      await storage.updateMediaUsageAnalytics(fileId, accessType);
+
+      // Log agent access if user is an agent
+      if (["referral-agent", "retail-agent"].includes(req.user.role)) {
+        await storage.logAgentMediaAccess({
+          organizationId: req.user.organizationId,
+          mediaFileId: fileId,
+          agentId: req.user.id,
+          accessType,
+          agentRole: req.user.role,
+          ipAddress: req.ip,
+          userAgent: req.get("User-Agent"),
+          accessReason: req.query.reason || "media_access",
+          clientReference: req.query.clientRef,
+        });
+      }
+
+      res.json({ message: "Access logged successfully" });
+    } catch (error) {
+      console.error("Error logging media access:", error);
+      res.status(500).json({ message: "Failed to log access" });
+    }
+  });
+
+  // Get media folders
+  app.get("/api/media/folders", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = req.user.organizationId;
+      const propertyId = req.query.propertyId ? parseInt(req.query.propertyId) : undefined;
+      
+      const folders = await storage.getMediaFolders(organizationId, propertyId);
+      res.json(folders);
+    } catch (error) {
+      console.error("Error fetching media folders:", error);
+      res.status(500).json({ message: "Failed to fetch media folders" });
+    }
+  });
+
+  // Create media folder
+  app.post("/api/media/folders", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = req.user.organizationId;
+      const folderData = {
+        ...req.body,
+        organizationId,
+        createdBy: req.user.id,
+      };
+
+      const folder = await storage.createMediaFolder(folderData);
+      res.json(folder);
+    } catch (error) {
+      console.error("Error creating media folder:", error);
+      res.status(500).json({ message: "Failed to create media folder" });
+    }
+  });
+
+  // Update media folder
+  app.put("/api/media/folders/:id", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const folderId = parseInt(req.params.id);
+      const updateData = req.body;
+
+      const updated = await storage.updateMediaFolder(folderId, updateData);
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating media folder:", error);
+      res.status(500).json({ message: "Failed to update media folder" });
+    }
+  });
+
+  // Get property media settings
+  app.get("/api/media/settings/:propertyId", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = req.user.organizationId;
+      const propertyId = parseInt(req.params.propertyId);
+      
+      const settings = await storage.getPropertyMediaSettings(organizationId, propertyId);
+      res.json(settings);
+    } catch (error) {
+      console.error("Error fetching media settings:", error);
+      res.status(500).json({ message: "Failed to fetch media settings" });
+    }
+  });
+
+  // Update property media settings
+  app.put("/api/media/settings/:propertyId", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = req.user.organizationId;
+      const propertyId = parseInt(req.params.propertyId);
+      const settingsData = req.body;
+
+      const updated = await storage.updatePropertyMediaSettings(organizationId, propertyId, settingsData);
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating media settings:", error);
+      res.status(500).json({ message: "Failed to update media settings" });
+    }
+  });
+
+  // Get media usage analytics
+  app.get("/api/media/analytics", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = req.user.organizationId;
+      const propertyId = req.query.propertyId ? parseInt(req.query.propertyId) : undefined;
+      
+      const analytics = await storage.getMediaUsageAnalytics(organizationId, propertyId);
+      res.json(analytics);
+    } catch (error) {
+      console.error("Error fetching media analytics:", error);
+      res.status(500).json({ message: "Failed to fetch media analytics" });
+    }
+  });
+
+  // Get agent media access logs (admin/PM only)
+  app.get("/api/media/access-logs", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      if (!["admin", "portfolio-manager"].includes(req.user.role)) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const organizationId = req.user.organizationId;
+      const mediaFileId = req.query.mediaFileId ? parseInt(req.query.mediaFileId) : undefined;
+      
+      const logs = await storage.getAgentMediaAccessLogs(organizationId, mediaFileId);
+      res.json(logs);
+    } catch (error) {
+      console.error("Error fetching access logs:", error);
+      res.status(500).json({ message: "Failed to fetch access logs" });
+    }
+  });
+
+  // Get AI media suggestions
+  app.get("/api/media/ai-suggestions", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = req.user.organizationId;
+      const propertyId = req.query.propertyId ? parseInt(req.query.propertyId) : undefined;
+      
+      const suggestions = await storage.getAiMediaSuggestions(organizationId, propertyId);
+      res.json(suggestions);
+    } catch (error) {
+      console.error("Error fetching AI suggestions:", error);
+      res.status(500).json({ message: "Failed to fetch AI suggestions" });
+    }
+  });
+
+  // Update AI media suggestion status
+  app.put("/api/media/ai-suggestions/:id", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const suggestionId = parseInt(req.params.id);
+      const updateData = {
+        ...req.body,
+        reviewedBy: req.user.id,
+        reviewedAt: new Date(),
+      };
+
+      const updated = await storage.updateAiMediaSuggestion(suggestionId, updateData);
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating AI suggestion:", error);
+      res.status(500).json({ message: "Failed to update AI suggestion" });
+    }
+  });
+
+  // Get media library stats dashboard
+  app.get("/api/media/stats", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = req.user.organizationId;
+      const stats = await storage.getMediaLibraryStats(organizationId);
+      res.json(stats);
+    } catch (error) {
+      console.error("Error fetching media stats:", error);
+      res.status(500).json({ message: "Failed to fetch media stats" });
+    }
+  });
+
   // ==================== ENHANCED UTILITY TRACKER ====================
 
   // Utility accounts endpoints

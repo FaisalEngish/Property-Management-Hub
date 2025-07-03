@@ -1,0 +1,78 @@
+📂 **Media Library & Agent Sharing Tools**
+
+---
+
+### 1. **Overview**
+
+Centralized property media hub for every villa, accessible by Admins, Owners, Portfolio Managers, and (if allowed) Referral Agents or Retail Agents.
+
+---
+
+### 2. **Cloud-Based Photo/Video Management**
+
+Each property has a **“Media” tab** in its settings:
+
+- Upload or paste **Google Drive, Dropbox, or cloud link** for:
+  - High-resolution photos
+  - Videos or drone footage
+  - Floor plans
+  - PDF brochures or presentations
+
+---
+
+### 3. **Agent Access Rules**
+
+- **Referral Agents** (those who brought in the property):
+  - Can view/download unbranded photos
+  - Can use for listing the property on their website
+
+- **Retail Agents** (resell bookings):
+  - View only what is marked “Available for Agent Use”
+  - Live availability, descriptions, and images are synced via Hostaway API
+
+- **Admins** can set “Public for Agents” vs “Private Only” tags per file or folder link
+
+---
+
+### 4. **Upload & Tag System**
+
+Admins and PMs can:
+
+- Upload files or paste cloud links
+- Add tags: `Unbranded`, `Promo`, `Internal`, `360 Tour`, etc.
+- Write short description per file or folder
+
+Example:
+> 📸 *Master Bedroom – 2023 Update*  
+> Link: https://drive.google.com/...  
+> Tags: `Unbranded`, `Agent Approved`
+
+---
+
+### 5. **Version Control & Expiration**
+
+- Replaced media can be marked “Old” or removed
+- Optional expiry (e.g., “Hide this drone video after September 2025”)
+
+---
+
+### 6. **AI Helper (Future Phase)**
+
+- Suggest best cover photo for bookings
+- Detect missing media (e.g., “No photos of Bedroom 2 uploaded”)
+- Flag out-of-date photos by scan metadata (“Last updated: 2019”)
+
+---
+
+### 7. **Connected to Owner Portal**
+
+- Owner can see which media is in use
+- Option to upload new photos (e.g., after a renovation)
+- Admin can approve before going live
+
+---
+
+### 8. **Connected to Booking Descriptions**
+
+- API description sync allows media to be checked alongside property text
+- Easy interface for Admins to verify that listings on Airbnb, Booking.com, etc. have proper photo/video assets
