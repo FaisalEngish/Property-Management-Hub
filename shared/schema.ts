@@ -5101,6 +5101,123 @@ export const aiSmartSuggestions = pgTable("ai_smart_suggestions", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// ===== STAFF SALARY, OVERTIME & EMERGENCY TRACKER =====
+
+// Staff Salary Settings
+export const staffSalarySettings = pgTable("staff_salary_settings", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").notNull(),
+  staffId: varchar("staff_id").notNull(), // references users.id
+  staffName: varchar("staff_name").notNull(),
+  department: varchar("department").notNull(), // housekeeping, pool, maintenance, security, general
+  fixedMonthlySalary: decimal("fixed_monthly_salary", { precision: 10, scale: 2 }).notNull(),
+  currency: varchar("currency").default("AUD"),
+  hourlyOvertime: decimal("hourly_overtime", { precision: 10, scale: 2 }),
+  emergencyTaskBonus: decimal("emergency_task_bonus", { precision: 10, scale: 2 }),
+  regularShiftStart: varchar("regular_shift_start"), // HH:MM format
+  regularShiftEnd: varchar("regular_shift_end"), // HH:MM format
+  workingDays: text("working_days").array(), // ["monday", "tuesday", ...]
+  bankAccountDetails: jsonb("bank_account_details"), // encrypted bank details
+  isActive: boolean("is_active").default(true),
+  effectiveFrom: date("effective_from").notNull(),
+  effectiveTo: date("effective_to"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Staff Clock In/Out Log
+export const staffClockLog = pgTable("staff_clock_log", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").notNull(),
+  staffId: varchar("staff_id").notNull(),
+  staffName: varchar("staff_name").notNull(),
+  clockInTime: timestamp("clock_in_time").notNull(),
+  clockOutTime: timestamp("clock_out_time"),
+  clockInReason: varchar("clock_in_reason"), // regular_shift, overtime_requested, emergency_call
+  clockOutReason: varchar("clock_out_reason"), // shift_end, emergency_complete, overtime_complete
+  totalHours: decimal("total_hours", { precision: 10, scale: 2 }),
+  regularHours: decimal("regular_hours", { precision: 10, scale: 2 }),
+  overtimeHours: decimal("overtime_hours", { precision: 10, scale: 2 }),
+  overtimeType: varchar("overtime_type"), // pre_approved, emergency, requested
+  overtimeApprovalStatus: varchar("overtime_approval_status").default("pending"), // pending, approved, rejected
+  approvedBy: varchar("approved_by"),
+  approvedAt: timestamp("approved_at"),
+  rejectionReason: text("rejection_reason"),
+  location: jsonb("location"), // GPS coordinates if available
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Emergency Task Bonuses
+export const emergencyTaskBonuses = pgTable("emergency_task_bonuses", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").notNull(),
+  taskId: integer("task_id").notNull(), // references tasks.id
+  staffId: varchar("staff_id").notNull(),
+  staffName: varchar("staff_name").notNull(),
+  emergencyType: varchar("emergency_type").notNull(), // water_leak, electrical, security, guest_emergency
+  bonusAmount: decimal("bonus_amount", { precision: 10, scale: 2 }).notNull(),
+  currency: varchar("currency").default("AUD"),
+  taskCompletedAt: timestamp("task_completed_at"),
+  bonusApprovalStatus: varchar("bonus_approval_status").default("pending"), // pending, approved, paid
+  approvedBy: varchar("approved_by"),
+  approvedAt: timestamp("approved_at"),
+  paidAt: timestamp("paid_at"),
+  paymentReference: varchar("payment_reference"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Monthly Payroll
+export const monthlyPayroll = pgTable("monthly_payroll", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").notNull(),
+  staffId: varchar("staff_id").notNull(),
+  staffName: varchar("staff_name").notNull(),
+  payrollMonth: varchar("payroll_month").notNull(), // YYYY-MM format
+  fixedSalary: decimal("fixed_salary", { precision: 10, scale: 2 }).notNull(),
+  overtimeHours: decimal("overtime_hours", { precision: 10, scale: 2 }).default("0"),
+  overtimePay: decimal("overtime_pay", { precision: 10, scale: 2 }).default("0"),
+  emergencyBonuses: decimal("emergency_bonuses", { precision: 10, scale: 2 }).default("0"),
+  totalEarnings: decimal("total_earnings", { precision: 10, scale: 2 }).notNull(),
+  deductions: decimal("deductions", { precision: 10, scale: 2 }).default("0"),
+  netPay: decimal("net_pay", { precision: 10, scale: 2 }).notNull(),
+  currency: varchar("currency").default("AUD"),
+  paymentStatus: varchar("payment_status").default("pending"), // pending, paid, overdue
+  paymentMethod: varchar("payment_method"), // bank_transfer, cash, cheque
+  paymentDate: date("payment_date"),
+  paymentReference: varchar("payment_reference"),
+  paymentReceiptUrl: varchar("payment_receipt_url"),
+  processedBy: varchar("processed_by"),
+  processedAt: timestamp("processed_at"),
+  staffConfirmed: boolean("staff_confirmed").default(false),
+  staffConfirmedAt: timestamp("staff_confirmed_at"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Payroll Summaries for Admin Dashboard
+export const payrollSummary = pgTable("payroll_summary", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").notNull(),
+  summaryMonth: varchar("summary_month").notNull(), // YYYY-MM format
+  totalStaff: integer("total_staff").notNull(),
+  totalFixedSalaries: decimal("total_fixed_salaries", { precision: 10, scale: 2 }).notNull(),
+  totalOvertimePay: decimal("total_overtime_pay", { precision: 10, scale: 2 }).default("0"),
+  totalEmergencyBonuses: decimal("total_emergency_bonuses", { precision: 10, scale: 2 }).default("0"),
+  totalPayroll: decimal("total_payroll", { precision: 10, scale: 2 }).notNull(),
+  departmentBreakdown: jsonb("department_breakdown"), // {housekeeping: 5000, pool: 2000, ...}
+  overtimeHoursBreakdown: jsonb("overtime_hours_breakdown"),
+  emergencyTasksCount: integer("emergency_tasks_count").default(0),
+  paymentCompletionRate: decimal("payment_completion_rate", { precision: 5, scale: 2 }),
+  averageOvertimeHours: decimal("average_overtime_hours", { precision: 10, scale: 2 }),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // Guest Communication Notifications
 export const guestCommunicationNotifications = pgTable("guest_communication_notifications", {
   id: serial("id").primaryKey(),

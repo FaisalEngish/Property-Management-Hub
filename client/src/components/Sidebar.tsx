@@ -301,6 +301,13 @@ const navigationModules = [
         description: "Staff salaries, commissions, and invoicing"
       },
       { 
+        path: "/staff-salary-overtime-tracker", 
+        icon: Clock, 
+        label: "Staff Salary & Overtime", 
+        roles: ["admin", "portfolio-manager", "staff"],
+        description: "Comprehensive staff salary management, overtime tracking, and emergency task bonuses"
+      },
+      { 
         path: "/invoice-generator", 
         icon: FileText, 
         label: "Invoice Generator", 

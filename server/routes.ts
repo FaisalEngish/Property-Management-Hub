@@ -3795,6 +3795,177 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ===== STAFF SALARY, OVERTIME & EMERGENCY TRACKER API =====
+  
+  // Get staff list for salary management
+  app.get("/api/staff-salary/staff-list", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const mockStaffList = [
+        { id: "staff1", name: "Maria Santos", department: "housekeeping", role: "staff" },
+        { id: "staff2", name: "Carlos Rivera", department: "pool", role: "staff" },
+        { id: "staff3", name: "Ana Rodriguez", department: "maintenance", role: "staff" },
+        { id: "staff4", name: "Diego Martinez", department: "security", role: "staff" },
+      ];
+      res.json(mockStaffList);
+    } catch (error) {
+      console.error("Error fetching staff list:", error);
+      res.status(500).json({ message: "Failed to fetch staff list" });
+    }
+  });
+
+  // Get salary settings for a staff member
+  app.get("/api/staff-salary/settings/:staffId", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { staffId } = req.params;
+      const mockSettings = {
+        id: 1,
+        staffId,
+        staffName: "Maria Santos",
+        department: "housekeeping",
+        fixedMonthlySalary: 4500.00,
+        currency: "AUD",
+        hourlyOvertime: 35.00,
+        emergencyTaskBonus: 100.00,
+        regularShiftStart: "08:00",
+        regularShiftEnd: "16:00",
+        workingDays: ["monday", "tuesday", "wednesday", "thursday", "friday"],
+        isActive: true,
+        effectiveFrom: "2024-01-01",
+      };
+      res.json(mockSettings);
+    } catch (error) {
+      console.error("Error fetching salary settings:", error);
+      res.status(500).json({ message: "Failed to fetch salary settings" });
+    }
+  });
+
+  // Get clock logs for a specific month
+  app.get("/api/staff-salary/clock-logs", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { month } = req.query;
+      const mockClockLogs = [
+        {
+          id: 1,
+          staffId: "demo-staff",
+          staffName: "Maria Santos",
+          clockInTime: "2024-12-01T08:00:00Z",
+          clockOutTime: "2024-12-01T16:30:00Z",
+          clockInReason: "regular_shift",
+          clockOutReason: "shift_end",
+          totalHours: 8.5,
+          regularHours: 8.0,
+          overtimeHours: 0.5,
+          overtimeType: "emergency",
+          overtimeApprovalStatus: "approved",
+          notes: "Extended shift for emergency pool cleaning"
+        },
+        {
+          id: 2,
+          staffId: "demo-staff",
+          staffName: "Maria Santos",
+          clockInTime: "2024-12-02T08:00:00Z",
+          clockOutTime: "2024-12-02T16:00:00Z",
+          clockInReason: "regular_shift",
+          clockOutReason: "shift_end",
+          totalHours: 8.0,
+          regularHours: 8.0,
+          overtimeHours: 0,
+          overtimeApprovalStatus: "approved",
+          notes: ""
+        }
+      ];
+      res.json(mockClockLogs);
+    } catch (error) {
+      console.error("Error fetching clock logs:", error);
+      res.status(500).json({ message: "Failed to fetch clock logs" });
+    }
+  });
+
+  // Get payroll summary for a specific month
+  app.get("/api/staff-salary/payroll-summary", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { month } = req.query;
+      const mockPayrollSummary = {
+        id: 1,
+        summaryMonth: month || "2024-12",
+        totalStaff: 4,
+        totalFixedSalaries: 18000.00,
+        totalOvertimePay: 875.00,
+        totalEmergencyBonuses: 400.00,
+        totalPayroll: 19275.00,
+        departmentBreakdown: {
+          housekeeping: 9000.00,
+          pool: 4500.00,
+          maintenance: 4500.00,
+          security: 1275.00
+        },
+        overtimeHoursBreakdown: {
+          housekeeping: 12.5,
+          pool: 8.0,
+          maintenance: 5.5,
+          security: 3.0
+        },
+        emergencyTasksCount: 4,
+        paymentCompletionRate: 95.5,
+        averageOvertimeHours: 7.25
+      };
+      res.json(mockPayrollSummary);
+    } catch (error) {
+      console.error("Error fetching payroll summary:", error);
+      res.status(500).json({ message: "Failed to fetch payroll summary" });
+    }
+  });
+
+  // Record clock in/out
+  app.post("/api/staff-salary/clock", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      const { action, reason, notes } = req.body;
+      
+      const mockResponse = {
+        id: Date.now(),
+        staffId: user.id,
+        staffName: user.name || "Staff Member",
+        action,
+        reason,
+        notes,
+        timestamp: new Date().toISOString(),
+        success: true
+      };
+      
+      res.json(mockResponse);
+    } catch (error) {
+      console.error("Error recording clock action:", error);
+      res.status(500).json({ message: "Failed to record clock action" });
+    }
+  });
+
+  // Record emergency task bonus
+  app.post("/api/staff-salary/emergency-bonus", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      const { taskId, bonusAmount, emergencyType, notes } = req.body;
+      
+      const mockResponse = {
+        id: Date.now(),
+        taskId,
+        staffId: user.id,
+        staffName: user.name || "Staff Member",
+        emergencyType,
+        bonusAmount,
+        currency: "AUD",
+        bonusApprovalStatus: "pending",
+        notes,
+        createdAt: new Date().toISOString()
+      };
+      
+      res.json(mockResponse);
+    } catch (error) {
+      console.error("Error recording emergency bonus:", error);
+      res.status(500).json({ message: "Failed to record emergency bonus" });
+    }
+  });
+
   // Task Checklist
   app.get("/api/staff/task-checklist/:taskType", async (req: any, res) => {
     try {

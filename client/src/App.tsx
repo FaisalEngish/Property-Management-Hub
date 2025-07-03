@@ -61,6 +61,7 @@ import OwnerBalanceManagement from "@/pages/OwnerBalanceManagement";
 import StaffOverhoursTracker from "@/pages/StaffOverhoursTracker";
 import StaffClockinOvertime from "@/pages/StaffClockinOvertime";
 import MaintenanceSuggestionsApproval from "@/pages/MaintenanceSuggestionsApproval";
+import StaffSalaryOvertimeTracker from "@/pages/StaffSalaryOvertimeTracker";
 
 function Router() {
   const { isAuthenticated, isLoading, user } = useAuth();
@@ -127,6 +128,7 @@ function Router() {
           <Route path="/staff-tasks" component={StaffTasks} />
           <Route path="/staff-overhours-tracker" component={StaffOverhoursTracker} />
           <Route path="/staff-clock-overtime" component={StaffClockinOvertime} />
+          <Route path="/staff-salary-overtime-tracker" component={StaffSalaryOvertimeTracker} />
           <Route path="/maintenance-task-system" component={MaintenanceTaskSystem} />
           <Route path="/task-attachments-notes" component={TaskAttachmentsNotes} />
           <Route path="/ai-task-manager" component={AiTaskManager} />
