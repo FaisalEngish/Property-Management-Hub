@@ -237,6 +237,51 @@ export const taskHistory = pgTable("task_history", {
   index("IDX_task_history_user").on(table.performedBy),
 ]);
 
+// Task Proof Uploads
+export const taskProofUploads = pgTable("task_proof_uploads", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  taskId: integer("task_id").references(() => tasks.id).notNull(),
+  propertyId: integer("property_id").references(() => properties.id),
+  uploadType: varchar("upload_type").notNull(), // before, after, evidence, receipt
+  fileName: varchar("file_name").notNull(),
+  fileUrl: varchar("file_url").notNull(),
+  fileSize: integer("file_size"), // in bytes
+  mimeType: varchar("mime_type"),
+  description: text("description"),
+  uploadedBy: varchar("uploaded_by").references(() => users.id).notNull(),
+  uploadedAt: timestamp("uploaded_at").defaultNow(),
+  isArchived: boolean("is_archived").default(false),
+  archivedAt: timestamp("archived_at"),
+}, (table) => [
+  index("IDX_task_proof_task").on(table.taskId),
+  index("IDX_task_proof_property").on(table.propertyId),
+  index("IDX_task_proof_date").on(table.uploadedAt),
+]);
+
+// Monthly Export Logs
+export const monthlyExportLogs = pgTable("monthly_export_logs", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  propertyId: integer("property_id").references(() => properties.id),
+  exportMonth: varchar("export_month").notNull(), // YYYY-MM format
+  exportType: varchar("export_type").notNull(), // task-logs, maintenance-report, full-report
+  fileName: varchar("file_name").notNull(),
+  fileUrl: varchar("file_url").notNull(),
+  fileSize: integer("file_size"), // in bytes
+  taskCount: integer("task_count").default(0),
+  photoCount: integer("photo_count").default(0),
+  exportStatus: varchar("export_status").default("processing"), // processing, completed, failed
+  errorMessage: text("error_message"),
+  cloudStorageUrl: varchar("cloud_storage_url"), // Google Drive URL
+  exportedBy: varchar("exported_by").references(() => users.id),
+  exportedAt: timestamp("exported_at").defaultNow(),
+  retentionDate: timestamp("retention_date"), // when to delete from local storage
+}, (table) => [
+  index("IDX_monthly_exports_property").on(table.propertyId),
+  index("IDX_monthly_exports_month").on(table.exportMonth),
+]);
+
 export const bookings = pgTable("bookings", {
   id: serial("id").primaryKey(),
   organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
@@ -2981,6 +3026,58 @@ export type GuestMessage = typeof guestMessages.$inferSelect;
 export type InsertGuestMessage = z.infer<typeof insertGuestMessageSchema>;
 export type MessagingTrigger = typeof messagingTriggers.$inferSelect;
 export type InsertMessagingTrigger = z.infer<typeof insertMessagingTriggerSchema>;
+
+// ===== TASK CHECKLISTS & PROOF UPLOAD TYPES =====
+
+// Task Checklists
+export const insertTaskChecklistSchema = createInsertSchema(taskChecklists).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type TaskChecklist = typeof taskChecklists.$inferSelect;
+export type InsertTaskChecklist = z.infer<typeof insertTaskChecklistSchema>;
+
+// Property Guides
+export const insertPropertyGuideSchema = createInsertSchema(propertyGuides).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type PropertyGuide = typeof propertyGuides.$inferSelect;
+export type InsertPropertyGuide = z.infer<typeof insertPropertyGuideSchema>;
+
+// Task Proof Uploads
+export const insertTaskProofUploadSchema = createInsertSchema(taskProofUploads).omit({
+  id: true,
+  uploadedAt: true,
+  isArchived: true,
+  archivedAt: true,
+});
+
+export type TaskProofUpload = typeof taskProofUploads.$inferSelect;
+export type InsertTaskProofUpload = z.infer<typeof insertTaskProofUploadSchema>;
+
+// Task Completions
+export const insertTaskCompletionSchema = createInsertSchema(taskCompletions).omit({
+  id: true,
+  completedAt: true,
+  createdAt: true,
+});
+
+export type TaskCompletion = typeof taskCompletions.$inferSelect;
+export type InsertTaskCompletion = z.infer<typeof insertTaskCompletionSchema>;
+
+// Monthly Export Logs
+export const insertMonthlyExportLogSchema = createInsertSchema(monthlyExportLogs).omit({
+  id: true,
+  exportedAt: true,
+});
+
+export type MonthlyExportLog = typeof monthlyExportLogs.$inferSelect;
+export type InsertMonthlyExportLog = z.infer<typeof insertMonthlyExportLogSchema>;
 export type SmartReplySuggestion = typeof smartReplySuggestions.$inferSelect;
 export type InsertSmartReplySuggestion = z.infer<typeof insertSmartReplySuggestionSchema>;
 export type AiMessageAnalysis = typeof aiMessageAnalysis.$inferSelect;

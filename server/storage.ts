@@ -8564,6 +8564,215 @@ Plant Care:
       };
     }
   }
+
+  // ==================== TASK CHECKLIST & PROOF SYSTEM ====================
+
+  // Mock Task Checklists - Stub implementation for MVP
+  async getTaskChecklists(organizationId: string, filters?: {
+    propertyId?: number;
+    taskType?: string;
+  }): Promise<any[]> {
+    // Return mock checklists for demonstration
+    const mockChecklists = [
+      {
+        id: 1,
+        organizationId,
+        taskType: "cleaning",
+        checklistName: "Checkout Clean",
+        checklistItems: [
+          { task: "Vacuum all floors", required: true, safetyNote: "Check for small objects", tools: ["Vacuum"] },
+          { task: "Clean bathrooms", required: true, safetyNote: "Use gloves", tools: ["Disinfectant", "Gloves"] },
+          { task: "Change bed linens", required: true, safetyNote: "Check for damage", tools: ["Fresh linens"] }
+        ],
+        isDefault: true,
+        propertyId: filters?.propertyId || null,
+        estimatedMinutes: 120,
+        safetyNotes: "Always wear gloves when handling chemicals",
+        version: "1.0",
+        createdBy: "system",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+      {
+        id: 2,
+        organizationId,
+        taskType: "pool",
+        checklistName: "Pool Maintenance",
+        checklistItems: [
+          { task: "Test water chemistry", required: true, safetyNote: "Handle chemicals carefully", tools: ["Test strips"] },
+          { task: "Skim surface debris", required: true, safetyNote: "Use proper skimmer", tools: ["Pool skimmer"] },
+          { task: "Empty skimmer baskets", required: true, safetyNote: "Wear gloves", tools: ["Gloves"] }
+        ],
+        isDefault: true,
+        propertyId: filters?.propertyId || null,
+        estimatedMinutes: 60,
+        safetyNotes: "Never mix different chemicals",
+        version: "1.0",
+        createdBy: "system",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      }
+    ];
+
+    return mockChecklists.filter(checklist => 
+      (!filters?.taskType || checklist.taskType === filters.taskType) &&
+      (!filters?.propertyId || checklist.propertyId === filters.propertyId || checklist.propertyId === null)
+    );
+  }
+
+  async createTaskChecklist(checklist: any): Promise<any> {
+    // Mock implementation - would create in database
+    return {
+      id: Math.floor(Math.random() * 1000),
+      ...checklist,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+  }
+
+  // Mock Property Guides - Stub implementation for MVP
+  async getPropertyGuides(organizationId: string, filters?: {
+    propertyId?: number;
+    taskCategory?: string;
+  }): Promise<any[]> {
+    const mockGuides = [
+      {
+        id: 1,
+        organizationId,
+        propertyId: 1,
+        guideName: "Pool Equipment Guide",
+        taskCategory: "pool",
+        instructions: "The pool has a special salt water system that requires weekly cleaning of the salt cell. Turn off power before maintenance.",
+        specialEquipment: ["Salt water chlorinator", "Salt cell cleaning tool"],
+        safetyWarnings: "Always turn off power before accessing electrical components",
+        frequency: "weekly",
+        version: "1.0",
+        isActive: true,
+        createdBy: "system",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      }
+    ];
+
+    return mockGuides.filter(guide => 
+      (!filters?.propertyId || guide.propertyId === filters.propertyId) &&
+      (!filters?.taskCategory || guide.taskCategory === filters.taskCategory)
+    );
+  }
+
+  async createPropertyGuide(guide: any): Promise<any> {
+    // Mock implementation - would create in database
+    return {
+      id: Math.floor(Math.random() * 1000),
+      ...guide,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+  }
+
+  // Mock Task Completions - Stub implementation for MVP
+  async getTaskCompletions(organizationId: string, filters?: {
+    propertyId?: number;
+    taskId?: number;
+  }): Promise<any[]> {
+    const mockCompletions = [
+      {
+        id: 1,
+        organizationId,
+        taskId: 1,
+        propertyId: 1,
+        completedBy: "staff@test.com",
+        completionNotes: "All cleaning tasks completed successfully. Found minor issue with bathroom faucet.",
+        issuesFound: ["Bathroom faucet dripping slightly"],
+        expenseAmount: 25.00,
+        expenseDescription: "Replacement faucet washer",
+        proofPhotos: ["photo1.jpg", "photo2.jpg", "photo3.jpg"],
+        reviewStatus: "approved",
+        completedAt: new Date().toISOString(),
+        createdAt: new Date().toISOString(),
+      },
+      {
+        id: 2,
+        organizationId,
+        taskId: 2,
+        propertyId: 1,
+        completedBy: "staff@test.com",
+        completionNotes: "Pool maintenance completed. Chemical levels balanced.",
+        issuesFound: [],
+        expenseAmount: 0,
+        expenseDescription: "",
+        proofPhotos: ["pool1.jpg", "pool2.jpg"],
+        reviewStatus: "pending",
+        completedAt: new Date().toISOString(),
+        createdAt: new Date().toISOString(),
+      }
+    ];
+
+    return mockCompletions.filter(completion => 
+      (!filters?.propertyId || completion.propertyId === filters.propertyId) &&
+      (!filters?.taskId || completion.taskId === filters.taskId)
+    );
+  }
+
+  // Mock Monthly Exports - Stub implementation for MVP
+  async getMonthlyExports(organizationId: string, filters?: {
+    propertyId?: number;
+    exportMonth?: string;
+  }): Promise<any[]> {
+    const mockExports = [
+      {
+        id: 1,
+        organizationId,
+        propertyId: 1,
+        exportMonth: "2024-12",
+        exportType: "full-report",
+        fileName: "task-report-2024-12.pdf",
+        fileUrl: "/exports/task-report-2024-12.pdf",
+        fileSize: 2048576, // 2MB
+        taskCount: 25,
+        photoCount: 45,
+        exportStatus: "completed",
+        exportedAt: new Date().toISOString(),
+        exportedBy: "admin@test.com",
+      },
+      {
+        id: 2,
+        organizationId,
+        propertyId: 1,
+        exportMonth: "2024-11",
+        exportType: "full-report",
+        fileName: "task-report-2024-11.pdf",
+        fileUrl: "/exports/task-report-2024-11.pdf",
+        fileSize: 1876543,
+        taskCount: 22,
+        photoCount: 38,
+        exportStatus: "completed",
+        exportedAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
+        exportedBy: "admin@test.com",
+      }
+    ];
+
+    return mockExports.filter(exportLog => 
+      (!filters?.propertyId || exportLog.propertyId === filters.propertyId) &&
+      (!filters?.exportMonth || exportLog.exportMonth === filters.exportMonth)
+    );
+  }
+
+  async createMonthlyExport(exportData: any): Promise<any> {
+    // Mock implementation - would create in database and start export process
+    return {
+      id: Math.floor(Math.random() * 1000),
+      ...exportData,
+      exportStatus: "processing",
+      fileName: `task-report-${exportData.exportMonth}.pdf`,
+      fileUrl: `/exports/task-report-${exportData.exportMonth}.pdf`,
+      fileSize: 0,
+      taskCount: 0,
+      photoCount: 0,
+      exportedAt: new Date().toISOString(),
+      exportedBy: exportData.exportedBy || "system",
+    };
+  }
 }
 
 export const storage = new DatabaseStorage();

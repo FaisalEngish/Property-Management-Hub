@@ -6607,6 +6607,137 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ===== TASK CHECKLIST & PROOF SYSTEM API ROUTES =====
+
+  // Get task checklists
+  app.get("/api/task-checklists", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId } = req.user;
+      const { propertyId, taskType } = req.query;
+      
+      const checklists = await storage.getTaskChecklists(organizationId, {
+        propertyId: propertyId ? parseInt(propertyId) : undefined,
+        taskType: taskType || undefined,
+      });
+      
+      res.json(checklists);
+    } catch (error) {
+      console.error("Error fetching task checklists:", error);
+      res.status(500).json({ message: "Failed to fetch task checklists" });
+    }
+  });
+
+  // Create task checklist
+  app.post("/api/task-checklists", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: userId } = req.user;
+      
+      const checklistData = {
+        ...req.body,
+        organizationId,
+        createdBy: userId,
+      };
+
+      const checklist = await storage.createTaskChecklist(checklistData);
+      res.status(201).json(checklist);
+    } catch (error) {
+      console.error("Error creating task checklist:", error);
+      res.status(500).json({ message: "Failed to create task checklist" });
+    }
+  });
+
+  // Get property guides
+  app.get("/api/property-guides", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId } = req.user;
+      const { propertyId, taskCategory } = req.query;
+      
+      const guides = await storage.getPropertyGuides(organizationId, {
+        propertyId: propertyId ? parseInt(propertyId) : undefined,
+        taskCategory: taskCategory || undefined,
+      });
+      
+      res.json(guides);
+    } catch (error) {
+      console.error("Error fetching property guides:", error);
+      res.status(500).json({ message: "Failed to fetch property guides" });
+    }
+  });
+
+  // Create property guide
+  app.post("/api/property-guides", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: userId } = req.user;
+      
+      const guideData = {
+        ...req.body,
+        organizationId,
+        createdBy: userId,
+      };
+
+      const guide = await storage.createPropertyGuide(guideData);
+      res.status(201).json(guide);
+    } catch (error) {
+      console.error("Error creating property guide:", error);
+      res.status(500).json({ message: "Failed to create property guide" });
+    }
+  });
+
+  // Get task completions
+  app.get("/api/task-completions", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId } = req.user;
+      const { propertyId, taskId } = req.query;
+      
+      const completions = await storage.getTaskCompletions(organizationId, {
+        propertyId: propertyId ? parseInt(propertyId) : undefined,
+        taskId: taskId ? parseInt(taskId) : undefined,
+      });
+      
+      res.json(completions);
+    } catch (error) {
+      console.error("Error fetching task completions:", error);
+      res.status(500).json({ message: "Failed to fetch task completions" });
+    }
+  });
+
+  // Get monthly exports
+  app.get("/api/monthly-exports", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId } = req.user;
+      const { propertyId, exportMonth } = req.query;
+      
+      const exports = await storage.getMonthlyExports(organizationId, {
+        propertyId: propertyId ? parseInt(propertyId) : undefined,
+        exportMonth: exportMonth || undefined,
+      });
+      
+      res.json(exports);
+    } catch (error) {
+      console.error("Error fetching monthly exports:", error);
+      res.status(500).json({ message: "Failed to fetch monthly exports" });
+    }
+  });
+
+  // Create monthly export
+  app.post("/api/monthly-exports", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: userId } = req.user;
+      
+      const exportData = {
+        ...req.body,
+        organizationId,
+        exportedBy: userId,
+      };
+
+      const exportLog = await storage.createMonthlyExport(exportData);
+      res.status(201).json(exportLog);
+    } catch (error) {
+      console.error("Error creating monthly export:", error);
+      res.status(500).json({ message: "Failed to create monthly export" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
