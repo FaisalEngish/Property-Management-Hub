@@ -831,7 +831,7 @@ export default function MediaLibrary() {
             <SelectValue placeholder="Filter by property" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">All Properties</SelectItem>
+            <SelectItem value="all">All Properties</SelectItem>
             {properties.map((property: any) => (
               <SelectItem key={property.id} value={property.id.toString()}>
                 {property.name}
