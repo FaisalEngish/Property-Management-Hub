@@ -23,6 +23,10 @@ import {
   leaveRequests,
   staffCommissions,
   paySlips,
+  staffAdvanceRequests,
+  staffOvertimeLogs,
+  staffOvertimeSettings,
+  staffMonthlySummary,
   notifications,
   notificationPreferences,
   guestAddonServices,
@@ -131,6 +135,14 @@ import {
   type InsertNotification,
   type NotificationPreference,
   type InsertNotificationPreference,
+  type StaffAdvanceRequest,
+  type InsertStaffAdvanceRequest,
+  type StaffOvertimeLog,
+  type InsertStaffOvertimeLog,
+  type StaffOvertimeSettings,
+  type InsertStaffOvertimeSettings,
+  type StaffMonthlySummary,
+  type InsertStaffMonthlySummary,
   staffSalaries,
   commissionEarnings,
   invoices,
@@ -337,7 +349,7 @@ import {
   type InsertPaySlip,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, desc, asc, lt, gte, lte, isNull, sql, sum, count, avg, max } from "drizzle-orm";
+import { eq, and, or, desc, asc, lt, gte, lte, isNull, sql, sum, count, avg, max } from "drizzle-orm";
 
 export interface IStorage {
   // User operations (mandatory for Replit Auth)
@@ -16110,6 +16122,424 @@ Plant Care:
       .groupBy(staffProfiles.department);
 
     return { staffOverview };
+  }
+
+  // ===== STAFF ADVANCE & OVERTIME TRACKING METHODS =====
+
+  // Salary Advance Request Methods
+  async getStaffAdvanceRequests(organizationId: string, filters?: {
+    staffId?: string;
+    status?: string;
+    reviewedBy?: string;
+  }): Promise<StaffAdvanceRequest[]> {
+    const conditions = [eq(staffAdvanceRequests.organizationId, organizationId)];
+    
+    if (filters?.staffId) {
+      conditions.push(eq(staffAdvanceRequests.staffId, filters.staffId));
+    }
+    if (filters?.status) {
+      conditions.push(eq(staffAdvanceRequests.status, filters.status));
+    }
+    if (filters?.reviewedBy) {
+      conditions.push(eq(staffAdvanceRequests.reviewedBy, filters.reviewedBy));
+    }
+
+    return await db
+      .select()
+      .from(staffAdvanceRequests)
+      .where(and(...conditions))
+      .orderBy(desc(staffAdvanceRequests.requestDate));
+  }
+
+  async getStaffAdvanceRequest(id: number): Promise<StaffAdvanceRequest | undefined> {
+    const [request] = await db
+      .select()
+      .from(staffAdvanceRequests)
+      .where(eq(staffAdvanceRequests.id, id));
+    return request;
+  }
+
+  async createStaffAdvanceRequest(request: InsertStaffAdvanceRequest): Promise<StaffAdvanceRequest> {
+    const [newRequest] = await db
+      .insert(staffAdvanceRequests)
+      .values(request)
+      .returning();
+    return newRequest;
+  }
+
+  async updateStaffAdvanceRequest(
+    id: number, 
+    updates: Partial<InsertStaffAdvanceRequest>
+  ): Promise<StaffAdvanceRequest | undefined> {
+    const [updated] = await db
+      .update(staffAdvanceRequests)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(staffAdvanceRequests.id, id))
+      .returning();
+    return updated;
+  }
+
+  async approveStaffAdvanceRequest(
+    id: number,
+    reviewedBy: string,
+    reviewNotes?: string,
+    paidAmount?: string
+  ): Promise<StaffAdvanceRequest | undefined> {
+    const [updated] = await db
+      .update(staffAdvanceRequests)
+      .set({
+        status: "approved",
+        reviewedBy,
+        reviewedAt: new Date(),
+        reviewNotes,
+        paidAmount,
+        paymentStatus: paidAmount ? "paid" : "not_paid",
+        paidDate: paidAmount ? new Date() : null,
+        remainingBalance: paidAmount,
+        updatedAt: new Date(),
+      })
+      .where(eq(staffAdvanceRequests.id, id))
+      .returning();
+    return updated;
+  }
+
+  async rejectStaffAdvanceRequest(
+    id: number,
+    reviewedBy: string,
+    reviewNotes: string
+  ): Promise<StaffAdvanceRequest | undefined> {
+    const [updated] = await db
+      .update(staffAdvanceRequests)
+      .set({
+        status: "rejected",
+        reviewedBy,
+        reviewedAt: new Date(),
+        reviewNotes,
+        updatedAt: new Date(),
+      })
+      .where(eq(staffAdvanceRequests.id, id))
+      .returning();
+    return updated;
+  }
+
+  // Overtime Log Methods
+  async getStaffOvertimeLogs(organizationId: string, filters?: {
+    staffId?: string;
+    status?: string;
+    workDate?: string;
+    propertyId?: number;
+  }): Promise<StaffOvertimeLog[]> {
+    const conditions = [eq(staffOvertimeLogs.organizationId, organizationId)];
+    
+    if (filters?.staffId) {
+      conditions.push(eq(staffOvertimeLogs.staffId, filters.staffId));
+    }
+    if (filters?.status) {
+      conditions.push(eq(staffOvertimeLogs.status, filters.status));
+    }
+    if (filters?.workDate) {
+      conditions.push(eq(staffOvertimeLogs.workDate, filters.workDate));
+    }
+    if (filters?.propertyId) {
+      conditions.push(eq(staffOvertimeLogs.propertyId, filters.propertyId));
+    }
+
+    return await db
+      .select()
+      .from(staffOvertimeLogs)
+      .where(and(...conditions))
+      .orderBy(desc(staffOvertimeLogs.workDate));
+  }
+
+  async getStaffOvertimeLog(id: number): Promise<StaffOvertimeLog | undefined> {
+    const [log] = await db
+      .select()
+      .from(staffOvertimeLogs)
+      .where(eq(staffOvertimeLogs.id, id));
+    return log;
+  }
+
+  async createStaffOvertimeLog(log: InsertStaffOvertimeLog): Promise<StaffOvertimeLog> {
+    const [newLog] = await db
+      .insert(staffOvertimeLogs)
+      .values(log)
+      .returning();
+    return newLog;
+  }
+
+  async updateStaffOvertimeLog(
+    id: number, 
+    updates: Partial<InsertStaffOvertimeLog>
+  ): Promise<StaffOvertimeLog | undefined> {
+    const [updated] = await db
+      .update(staffOvertimeLogs)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(staffOvertimeLogs.id, id))
+      .returning();
+    return updated;
+  }
+
+  async approveStaffOvertimeLog(
+    id: number,
+    approvedBy: string,
+    compensationType: string,
+    compensationAmount?: string,
+    timeOffHours?: string,
+    approvalNotes?: string
+  ): Promise<StaffOvertimeLog | undefined> {
+    const [updated] = await db
+      .update(staffOvertimeLogs)
+      .set({
+        status: "approved",
+        approvedBy,
+        approvedAt: new Date(),
+        compensationType,
+        compensationAmount,
+        timeOffHours,
+        approvalNotes,
+        paymentStatus: compensationType === "overtime_pay" ? "pending" : "credited",
+        updatedAt: new Date(),
+      })
+      .where(eq(staffOvertimeLogs.id, id))
+      .returning();
+    return updated;
+  }
+
+  async rejectStaffOvertimeLog(
+    id: number,
+    approvedBy: string,
+    approvalNotes: string
+  ): Promise<StaffOvertimeLog | undefined> {
+    const [updated] = await db
+      .update(staffOvertimeLogs)
+      .set({
+        status: "rejected",
+        approvedBy,
+        approvedAt: new Date(),
+        approvalNotes,
+        updatedAt: new Date(),
+      })
+      .where(eq(staffOvertimeLogs.id, id))
+      .returning();
+    return updated;
+  }
+
+  // Overtime Settings Methods
+  async getStaffOvertimeSettings(organizationId: string, staffId?: string): Promise<StaffOvertimeSettings[]> {
+    const conditions = [eq(staffOvertimeSettings.organizationId, organizationId)];
+    
+    if (staffId) {
+      conditions.push(
+        or(
+          eq(staffOvertimeSettings.staffId, staffId),
+          eq(staffOvertimeSettings.isGlobalSetting, true)
+        )
+      );
+    }
+
+    return await db
+      .select()
+      .from(staffOvertimeSettings)
+      .where(and(...conditions))
+      .orderBy(desc(staffOvertimeSettings.isGlobalSetting));
+  }
+
+  async createStaffOvertimeSettings(settings: InsertStaffOvertimeSettings): Promise<StaffOvertimeSettings> {
+    const [newSettings] = await db
+      .insert(staffOvertimeSettings)
+      .values(settings)
+      .returning();
+    return newSettings;
+  }
+
+  async updateStaffOvertimeSettings(
+    id: number, 
+    updates: Partial<InsertStaffOvertimeSettings>
+  ): Promise<StaffOvertimeSettings | undefined> {
+    const [updated] = await db
+      .update(staffOvertimeSettings)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(staffOvertimeSettings.id, id))
+      .returning();
+    return updated;
+  }
+
+  // Monthly Summary Methods
+  async getStaffMonthlySummary(
+    organizationId: string,
+    staffId: string,
+    summaryPeriod: string
+  ): Promise<StaffMonthlySummary | undefined> {
+    const [summary] = await db
+      .select()
+      .from(staffMonthlySummary)
+      .where(
+        and(
+          eq(staffMonthlySummary.organizationId, organizationId),
+          eq(staffMonthlySummary.staffId, staffId),
+          eq(staffMonthlySummary.summaryPeriod, summaryPeriod)
+        )
+      );
+    return summary;
+  }
+
+  async createOrUpdateStaffMonthlySummary(summary: InsertStaffMonthlySummary): Promise<StaffMonthlySummary> {
+    const [existing] = await db
+      .select()
+      .from(staffMonthlySummary)
+      .where(
+        and(
+          eq(staffMonthlySummary.organizationId, summary.organizationId),
+          eq(staffMonthlySummary.staffId, summary.staffId),
+          eq(staffMonthlySummary.summaryPeriod, summary.summaryPeriod)
+        )
+      );
+
+    if (existing) {
+      const [updated] = await db
+        .update(staffMonthlySummary)
+        .set({ ...summary, lastUpdated: new Date() })
+        .where(eq(staffMonthlySummary.id, existing.id))
+        .returning();
+      return updated;
+    } else {
+      const [created] = await db
+        .insert(staffMonthlySummary)
+        .values(summary)
+        .returning();
+      return created;
+    }
+  }
+
+  async calculateStaffMonthlySummary(
+    organizationId: string,
+    staffId: string,
+    year: number,
+    month: number
+  ): Promise<StaffMonthlySummary> {
+    const summaryPeriod = `${year}-${month.toString().padStart(2, '0')}`;
+    
+    // Calculate advance requests for the month
+    const advanceRequests = await this.getStaffAdvanceRequests(organizationId, { staffId });
+    const monthlyAdvances = advanceRequests.filter(req => {
+      const requestDate = new Date(req.requestDate);
+      return requestDate.getFullYear() === year && (requestDate.getMonth() + 1) === month;
+    });
+
+    const totalAdvanceRequests = monthlyAdvances.length;
+    const approvedAdvances = monthlyAdvances
+      .filter(req => req.status === "approved")
+      .reduce((sum, req) => sum + parseFloat(req.paidAmount || "0"), 0);
+    const pendingAdvances = monthlyAdvances
+      .filter(req => req.status === "pending")
+      .reduce((sum, req) => sum + parseFloat(req.requestAmount), 0);
+    const remainingAdvanceBalance = monthlyAdvances
+      .filter(req => req.status === "approved" && parseFloat(req.remainingBalance || "0") > 0)
+      .reduce((sum, req) => sum + parseFloat(req.remainingBalance || "0"), 0);
+
+    // Calculate overtime for the month
+    const overtimeLogs = await this.getStaffOvertimeLogs(organizationId, { staffId });
+    const monthlyOvertimes = overtimeLogs.filter(log => {
+      const workDate = new Date(log.workDate);
+      return workDate.getFullYear() === year && (workDate.getMonth() + 1) === month;
+    });
+
+    const totalOvertimeHours = monthlyOvertimes
+      .reduce((sum, log) => sum + parseFloat(log.totalHours), 0);
+    const approvedOvertimeHours = monthlyOvertimes
+      .filter(log => log.status === "approved")
+      .reduce((sum, log) => sum + parseFloat(log.totalHours), 0);
+    const pendingOvertimeHours = monthlyOvertimes
+      .filter(log => log.status === "pending")
+      .reduce((sum, log) => sum + parseFloat(log.totalHours), 0);
+    const overtimeEarnings = monthlyOvertimes
+      .filter(log => log.status === "approved" && log.compensationType === "overtime_pay")
+      .reduce((sum, log) => sum + parseFloat(log.compensationAmount || "0"), 0);
+    const timeOffCredits = monthlyOvertimes
+      .filter(log => log.status === "approved" && log.compensationType === "time_off_credit")
+      .reduce((sum, log) => sum + parseFloat(log.timeOffHours || "0"), 0);
+
+    // Task summaries
+    const emergencyTasks = monthlyOvertimes.filter(log => log.isEmergency).length;
+    const afterHoursTasks = monthlyOvertimes.length;
+
+    const summaryData: InsertStaffMonthlySummary = {
+      organizationId,
+      staffId,
+      summaryYear: year,
+      summaryMonth: month,
+      summaryPeriod,
+      totalAdvanceRequests,
+      approvedAdvances: approvedAdvances.toString(),
+      pendingAdvances: pendingAdvances.toString(),
+      remainingAdvanceBalance: remainingAdvanceBalance.toString(),
+      totalOvertimeHours: totalOvertimeHours.toString(),
+      approvedOvertimeHours: approvedOvertimeHours.toString(),
+      pendingOvertimeHours: pendingOvertimeHours.toString(),
+      overtimeEarnings: overtimeEarnings.toString(),
+      timeOffCredits: timeOffCredits.toString(),
+      emergencyTasks,
+      afterHoursTasks,
+    };
+
+    return await this.createOrUpdateStaffMonthlySummary(summaryData);
+  }
+
+  // Dashboard Analytics Methods
+  async getStaffAdvanceOverview(organizationId: string, staffId?: string): Promise<{
+    totalPendingRequests: number;
+    totalApprovedAmount: number;
+    totalRemainingBalance: number;
+    recentRequests: StaffAdvanceRequest[];
+  }> {
+    const requests = await this.getStaffAdvanceRequests(organizationId, { staffId });
+    
+    const pendingRequests = requests.filter(req => req.status === "pending");
+    const approvedRequests = requests.filter(req => req.status === "approved");
+    
+    const totalApprovedAmount = approvedRequests
+      .reduce((sum, req) => sum + parseFloat(req.paidAmount || "0"), 0);
+    const totalRemainingBalance = approvedRequests
+      .reduce((sum, req) => sum + parseFloat(req.remainingBalance || "0"), 0);
+
+    return {
+      totalPendingRequests: pendingRequests.length,
+      totalApprovedAmount,
+      totalRemainingBalance,
+      recentRequests: requests.slice(0, 5),
+    };
+  }
+
+  async getStaffOvertimeOverview(organizationId: string, staffId?: string): Promise<{
+    totalPendingHours: number;
+    totalApprovedHours: number;
+    totalOvertimeEarnings: number;
+    totalTimeOffCredits: number;
+    recentLogs: StaffOvertimeLog[];
+  }> {
+    const logs = await this.getStaffOvertimeLogs(organizationId, { staffId });
+    
+    const pendingLogs = logs.filter(log => log.status === "pending");
+    const approvedLogs = logs.filter(log => log.status === "approved");
+    
+    const totalPendingHours = pendingLogs
+      .reduce((sum, log) => sum + parseFloat(log.totalHours), 0);
+    const totalApprovedHours = approvedLogs
+      .reduce((sum, log) => sum + parseFloat(log.totalHours), 0);
+    const totalOvertimeEarnings = approvedLogs
+      .filter(log => log.compensationType === "overtime_pay")
+      .reduce((sum, log) => sum + parseFloat(log.compensationAmount || "0"), 0);
+    const totalTimeOffCredits = approvedLogs
+      .filter(log => log.compensationType === "time_off_credit")
+      .reduce((sum, log) => sum + parseFloat(log.timeOffHours || "0"), 0);
+
+    return {
+      totalPendingHours,
+      totalApprovedHours,
+      totalOvertimeEarnings,
+      totalTimeOffCredits,
+      recentLogs: logs.slice(0, 5),
+    };
   }
 }
 

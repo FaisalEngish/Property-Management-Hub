@@ -133,6 +133,7 @@ function Router() {
           <Route path="/staff-overhours-tracker" component={StaffOverhoursTracker} />
           <Route path="/staff-clock-overtime" component={StaffClockinOvertime} />
           <Route path="/staff-salary-overtime-tracker" component={StaffSalaryOvertimeTracker} />
+          <Route path="/staff-advance-salary-overtime-tracker" component={StaffAdvanceSalaryOvertimeTracker} />
           <Route path="/maintenance-task-system" component={MaintenanceTaskSystem} />
           <Route path="/task-attachments-notes" component={TaskAttachmentsNotes} />
           <Route path="/ai-task-manager" component={AiTaskManager} />

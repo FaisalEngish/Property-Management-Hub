@@ -13451,4 +13451,438 @@ async function processGuestIssueForAI(issueReport: any) {
       aiProcessingTime: 50
     };
   }
+
+  // ===== STAFF ADVANCE & OVERTIME TRACKING API ROUTES =====
+
+  // Staff Advance Request Routes
+  app.get("/api/staff-advance-requests", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      const organizationId = user?.organizationId || "default-org";
+      
+      const { staffId, status, reviewedBy } = req.query;
+      const filters: any = {};
+      
+      // Role-based filtering
+      if (user.role === 'staff') {
+        filters.staffId = user.id; // Staff can only see their own requests
+      } else if (staffId) {
+        filters.staffId = staffId;
+      }
+      
+      if (status) filters.status = status;
+      if (reviewedBy) filters.reviewedBy = reviewedBy;
+
+      const requests = await storage.getStaffAdvanceRequests(organizationId, filters);
+      res.json(requests);
+    } catch (error) {
+      console.error("Error fetching advance requests:", error);
+      res.status(500).json({ message: "Failed to fetch advance requests" });
+    }
+  });
+
+  app.get("/api/staff-advance-requests/:id", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      const requestId = parseInt(req.params.id);
+      
+      const request = await storage.getStaffAdvanceRequest(requestId);
+      if (!request) {
+        return res.status(404).json({ message: "Advance request not found" });
+      }
+
+      // Security check: staff can only view their own requests
+      if (user.role === 'staff' && request.staffId !== user.id) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      res.json(request);
+    } catch (error) {
+      console.error("Error fetching advance request:", error);
+      res.status(500).json({ message: "Failed to fetch advance request" });
+    }
+  });
+
+  app.post("/api/staff-advance-requests", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      const organizationId = user?.organizationId || "default-org";
+      
+      const requestData = {
+        ...req.body,
+        organizationId,
+        staffId: user.role === 'staff' ? user.id : req.body.staffId,
+      };
+
+      const newRequest = await storage.createStaffAdvanceRequest(requestData);
+      res.status(201).json(newRequest);
+    } catch (error) {
+      console.error("Error creating advance request:", error);
+      res.status(500).json({ message: "Failed to create advance request" });
+    }
+  });
+
+  app.put("/api/staff-advance-requests/:id", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      const requestId = parseInt(req.params.id);
+      
+      // Only admin/PM can update requests (for approval/rejection)
+      if (user.role !== 'admin' && user.role !== 'portfolio-manager') {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const updated = await storage.updateStaffAdvanceRequest(requestId, req.body);
+      if (!updated) {
+        return res.status(404).json({ message: "Advance request not found" });
+      }
+
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating advance request:", error);
+      res.status(500).json({ message: "Failed to update advance request" });
+    }
+  });
+
+  app.post("/api/staff-advance-requests/:id/approve", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      const requestId = parseInt(req.params.id);
+      
+      if (user.role !== 'admin' && user.role !== 'portfolio-manager') {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const { reviewNotes, paidAmount } = req.body;
+      const approved = await storage.approveStaffAdvanceRequest(
+        requestId,
+        user.id,
+        reviewNotes,
+        paidAmount
+      );
+
+      if (!approved) {
+        return res.status(404).json({ message: "Advance request not found" });
+      }
+
+      res.json(approved);
+    } catch (error) {
+      console.error("Error approving advance request:", error);
+      res.status(500).json({ message: "Failed to approve advance request" });
+    }
+  });
+
+  app.post("/api/staff-advance-requests/:id/reject", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      const requestId = parseInt(req.params.id);
+      
+      if (user.role !== 'admin' && user.role !== 'portfolio-manager') {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const { reviewNotes } = req.body;
+      const rejected = await storage.rejectStaffAdvanceRequest(
+        requestId,
+        user.id,
+        reviewNotes
+      );
+
+      if (!rejected) {
+        return res.status(404).json({ message: "Advance request not found" });
+      }
+
+      res.json(rejected);
+    } catch (error) {
+      console.error("Error rejecting advance request:", error);
+      res.status(500).json({ message: "Failed to reject advance request" });
+    }
+  });
+
+  // Staff Overtime Log Routes
+  app.get("/api/staff-overtime-logs", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      const organizationId = user?.organizationId || "default-org";
+      
+      const { staffId, status, workDate, propertyId } = req.query;
+      const filters: any = {};
+      
+      // Role-based filtering
+      if (user.role === 'staff') {
+        filters.staffId = user.id; // Staff can only see their own logs
+      } else if (staffId) {
+        filters.staffId = staffId;
+      }
+      
+      if (status) filters.status = status;
+      if (workDate) filters.workDate = workDate;
+      if (propertyId) filters.propertyId = parseInt(propertyId);
+
+      const logs = await storage.getStaffOvertimeLogs(organizationId, filters);
+      res.json(logs);
+    } catch (error) {
+      console.error("Error fetching overtime logs:", error);
+      res.status(500).json({ message: "Failed to fetch overtime logs" });
+    }
+  });
+
+  app.get("/api/staff-overtime-logs/:id", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      const logId = parseInt(req.params.id);
+      
+      const log = await storage.getStaffOvertimeLog(logId);
+      if (!log) {
+        return res.status(404).json({ message: "Overtime log not found" });
+      }
+
+      // Security check: staff can only view their own logs
+      if (user.role === 'staff' && log.staffId !== user.id) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      res.json(log);
+    } catch (error) {
+      console.error("Error fetching overtime log:", error);
+      res.status(500).json({ message: "Failed to fetch overtime log" });
+    }
+  });
+
+  app.post("/api/staff-overtime-logs", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      const organizationId = user?.organizationId || "default-org";
+      
+      const logData = {
+        ...req.body,
+        organizationId,
+        staffId: user.role === 'staff' ? user.id : req.body.staffId,
+      };
+
+      const newLog = await storage.createStaffOvertimeLog(logData);
+      res.status(201).json(newLog);
+    } catch (error) {
+      console.error("Error creating overtime log:", error);
+      res.status(500).json({ message: "Failed to create overtime log" });
+    }
+  });
+
+  app.put("/api/staff-overtime-logs/:id", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      const logId = parseInt(req.params.id);
+      
+      // Only admin/PM can update logs (for approval/rejection)
+      if (user.role !== 'admin' && user.role !== 'portfolio-manager') {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const updated = await storage.updateStaffOvertimeLog(logId, req.body);
+      if (!updated) {
+        return res.status(404).json({ message: "Overtime log not found" });
+      }
+
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating overtime log:", error);
+      res.status(500).json({ message: "Failed to update overtime log" });
+    }
+  });
+
+  app.post("/api/staff-overtime-logs/:id/approve", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      const logId = parseInt(req.params.id);
+      
+      if (user.role !== 'admin' && user.role !== 'portfolio-manager') {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const { compensationType, compensationAmount, timeOffHours, approvalNotes } = req.body;
+      const approved = await storage.approveStaffOvertimeLog(
+        logId,
+        user.id,
+        compensationType,
+        compensationAmount,
+        timeOffHours,
+        approvalNotes
+      );
+
+      if (!approved) {
+        return res.status(404).json({ message: "Overtime log not found" });
+      }
+
+      res.json(approved);
+    } catch (error) {
+      console.error("Error approving overtime log:", error);
+      res.status(500).json({ message: "Failed to approve overtime log" });
+    }
+  });
+
+  app.post("/api/staff-overtime-logs/:id/reject", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      const logId = parseInt(req.params.id);
+      
+      if (user.role !== 'admin' && user.role !== 'portfolio-manager') {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const { approvalNotes } = req.body;
+      const rejected = await storage.rejectStaffOvertimeLog(
+        logId,
+        user.id,
+        approvalNotes
+      );
+
+      if (!rejected) {
+        return res.status(404).json({ message: "Overtime log not found" });
+      }
+
+      res.json(rejected);
+    } catch (error) {
+      console.error("Error rejecting overtime log:", error);
+      res.status(500).json({ message: "Failed to reject overtime log" });
+    }
+  });
+
+  // Staff Overtime Settings Routes
+  app.get("/api/staff-overtime-settings", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      const organizationId = user?.organizationId || "default-org";
+      const { staffId } = req.query;
+      
+      const settings = await storage.getStaffOvertimeSettings(organizationId, staffId);
+      res.json(settings);
+    } catch (error) {
+      console.error("Error fetching overtime settings:", error);
+      res.status(500).json({ message: "Failed to fetch overtime settings" });
+    }
+  });
+
+  app.post("/api/staff-overtime-settings", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      const organizationId = user?.organizationId || "default-org";
+      
+      if (user.role !== 'admin' && user.role !== 'portfolio-manager') {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const settingsData = {
+        ...req.body,
+        organizationId,
+      };
+
+      const newSettings = await storage.createStaffOvertimeSettings(settingsData);
+      res.status(201).json(newSettings);
+    } catch (error) {
+      console.error("Error creating overtime settings:", error);
+      res.status(500).json({ message: "Failed to create overtime settings" });
+    }
+  });
+
+  app.put("/api/staff-overtime-settings/:id", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      const settingsId = parseInt(req.params.id);
+      
+      if (user.role !== 'admin' && user.role !== 'portfolio-manager') {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const updated = await storage.updateStaffOvertimeSettings(settingsId, req.body);
+      if (!updated) {
+        return res.status(404).json({ message: "Overtime settings not found" });
+      }
+
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating overtime settings:", error);
+      res.status(500).json({ message: "Failed to update overtime settings" });
+    }
+  });
+
+  // Staff Monthly Summary Routes
+  app.get("/api/staff-monthly-summary/:staffId/:period", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      const organizationId = user?.organizationId || "default-org";
+      const { staffId, period } = req.params;
+      
+      // Security check: staff can only view their own summary
+      if (user.role === 'staff' && staffId !== user.id) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const summary = await storage.getStaffMonthlySummary(organizationId, staffId, period);
+      if (!summary) {
+        // Auto-calculate if summary doesn't exist
+        const [year, month] = period.split('-').map(Number);
+        const calculated = await storage.calculateStaffMonthlySummary(organizationId, staffId, year, month);
+        res.json(calculated);
+      } else {
+        res.json(summary);
+      }
+    } catch (error) {
+      console.error("Error fetching monthly summary:", error);
+      res.status(500).json({ message: "Failed to fetch monthly summary" });
+    }
+  });
+
+  app.post("/api/staff-monthly-summary/calculate", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      const organizationId = user?.organizationId || "default-org";
+      const { staffId, year, month } = req.body;
+      
+      // Security check: staff can only calculate their own summary
+      if (user.role === 'staff' && staffId !== user.id) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const summary = await storage.calculateStaffMonthlySummary(organizationId, staffId, year, month);
+      res.json(summary);
+    } catch (error) {
+      console.error("Error calculating monthly summary:", error);
+      res.status(500).json({ message: "Failed to calculate monthly summary" });
+    }
+  });
+
+  // Dashboard Analytics Routes
+  app.get("/api/staff-advance-overview", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      const organizationId = user?.organizationId || "default-org";
+      const { staffId } = req.query;
+      
+      // Security check: staff can only view their own overview
+      const targetStaffId = user.role === 'staff' ? user.id : staffId;
+
+      const overview = await storage.getStaffAdvanceOverview(organizationId, targetStaffId);
+      res.json(overview);
+    } catch (error) {
+      console.error("Error fetching advance overview:", error);
+      res.status(500).json({ message: "Failed to fetch advance overview" });
+    }
+  });
+
+  app.get("/api/staff-overtime-overview", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      const organizationId = user?.organizationId || "default-org";
+      const { staffId } = req.query;
+      
+      // Security check: staff can only view their own overview
+      const targetStaffId = user.role === 'staff' ? user.id : staffId;
+
+      const overview = await storage.getStaffOvertimeOverview(organizationId, targetStaffId);
+      res.json(overview);
+    } catch (error) {
+      console.error("Error fetching overtime overview:", error);
+      res.status(500).json({ message: "Failed to fetch overtime overview" });
+    }
+  });
 }
