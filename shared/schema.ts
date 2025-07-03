@@ -2102,6 +2102,69 @@ export type InsertInvoiceBookingLink = z.infer<typeof insertInvoiceBookingLinkSc
 export type InvoiceServiceLink = typeof invoiceServiceLinks.$inferSelect;
 export type InsertInvoiceServiceLink = z.infer<typeof insertInvoiceServiceLinkSchema>;
 
+// ===== OWNER STATEMENT EXPORTS =====
+export const ownerStatementExports = pgTable("owner_statement_exports", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  ownerId: varchar("owner_id").references(() => users.id).notNull(),
+  
+  // Export parameters
+  exportType: varchar("export_type").notNull(), // "pdf", "csv"
+  dateRangeType: varchar("date_range_type").notNull(), // "month", "custom"
+  startDate: date("start_date").notNull(),
+  endDate: date("end_date").notNull(),
+  
+  // Property selection
+  propertyIds: jsonb("property_ids").notNull(), // Array of property IDs for bulk export
+  
+  // Export options
+  includeNotes: boolean("include_notes").default(false),
+  includeServiceLogs: boolean("include_service_logs").default(false),
+  includeBranding: boolean("include_branding").default(true),
+  
+  // Generated file info
+  fileName: varchar("file_name").notNull(),
+  fileSize: integer("file_size"), // in bytes
+  fileUrl: varchar("file_url"), // S3 URL or file path
+  
+  // Summary data (for quick display)
+  totalEarnings: decimal("total_earnings", { precision: 15, scale: 2 }).default(0),
+  totalExpenses: decimal("total_expenses", { precision: 15, scale: 2 }).default(0),
+  managementCommission: decimal("management_commission", { precision: 15, scale: 2 }).default(0),
+  netBalance: decimal("net_balance", { precision: 15, scale: 2 }).default(0),
+  
+  // Status
+  status: varchar("status").default("generating"), // generating, completed, failed
+  errorMessage: text("error_message"),
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow(),
+  completedAt: timestamp("completed_at"),
+});
+
+// Relations for Owner Statement Exports
+export const ownerStatementExportsRelations = relations(ownerStatementExports, ({ one }) => ({
+  organization: one(organizations, {
+    fields: [ownerStatementExports.organizationId],
+    references: [organizations.id],
+  }),
+  owner: one(users, {
+    fields: [ownerStatementExports.ownerId],
+    references: [users.id],
+  }),
+}));
+
+// Insert Schema for Owner Statement Exports
+export const insertOwnerStatementExportSchema = createInsertSchema(ownerStatementExports).omit({
+  id: true,
+  createdAt: true,
+  completedAt: true,
+});
+
+// Type exports for Owner Statement Exports
+export type OwnerStatementExport = typeof ownerStatementExports.$inferSelect;
+export type InsertOwnerStatementExport = z.infer<typeof insertOwnerStatementExportSchema>;
+
 // Additional Insert Schemas
 export const insertPropertyMarketingMediaSchema = createInsertSchema(propertyMarketingMedia).omit({
   id: true,

@@ -212,6 +212,9 @@ import {
   balanceResetAudit,
   type BalanceResetAudit,
   type InsertBalanceResetAudit,
+  ownerStatementExports,
+  type OwnerStatementExport,
+  type InsertOwnerStatementExport,
   // Communication System types
   type CommunicationChannel,
   type InsertCommunicationChannel,
@@ -19129,6 +19132,223 @@ Plant Care:
     }
 
     return query.orderBy(desc(financialSummaryReports.createdAt));
+  }
+
+  // ===== OWNER STATEMENT EXPORTS =====
+  
+  // Create owner statement export request
+  async createOwnerStatementExport(exportData: InsertOwnerStatementExport): Promise<OwnerStatementExport> {
+    const [statementExport] = await db
+      .insert(ownerStatementExports)
+      .values(exportData)
+      .returning();
+    return statementExport;
+  }
+
+  // Get owner statement exports
+  async getOwnerStatementExports(organizationId: string, ownerId?: string): Promise<OwnerStatementExport[]> {
+    let query = db
+      .select()
+      .from(ownerStatementExports)
+      .where(eq(ownerStatementExports.organizationId, organizationId));
+
+    if (ownerId) {
+      query = query.where(eq(ownerStatementExports.ownerId, ownerId));
+    }
+
+    return query.orderBy(desc(ownerStatementExports.createdAt));
+  }
+
+  // Update statement export status
+  async updateOwnerStatementExport(id: number, updates: Partial<OwnerStatementExport>): Promise<OwnerStatementExport> {
+    const [updated] = await db
+      .update(ownerStatementExports)
+      .set({
+        ...updates,
+        completedAt: updates.status === 'completed' ? new Date() : undefined
+      })
+      .where(eq(ownerStatementExports.id, id))
+      .returning();
+    return updated;
+  }
+
+  // Get detailed financial data for owner statement
+  async getOwnerStatementData(organizationId: string, ownerId: string, propertyIds: number[], startDate: string, endDate: string) {
+    // Get earnings (bookings)
+    const earnings = await db
+      .select({
+        id: bookings.id,
+        propertyId: bookings.propertyId,
+        platform: bookings.platform,
+        checkIn: bookings.checkInDate,
+        checkOut: bookings.checkOutDate,
+        guestName: bookings.guestName,
+        amount: bookings.totalAmount,
+        currency: bookings.currency,
+        status: bookings.status,
+      })
+      .from(bookings)
+      .innerJoin(properties, eq(bookings.propertyId, properties.id))
+      .where(
+        and(
+          eq(bookings.organizationId, organizationId),
+          eq(properties.ownerId, ownerId),
+          inArray(bookings.propertyId, propertyIds),
+          gte(bookings.checkInDate, startDate),
+          lte(bookings.checkOutDate, endDate),
+          eq(bookings.status, 'confirmed')
+        )
+      )
+      .orderBy(desc(bookings.checkInDate));
+
+    // Get expenses (finance records)
+    const expenses = await db
+      .select({
+        id: finances.id,
+        propertyId: finances.propertyId,
+        date: finances.date,
+        category: finances.category,
+        amount: finances.amount,
+        description: finances.description,
+        type: finances.type,
+        source: finances.source,
+        status: finances.status,
+      })
+      .from(finances)
+      .where(
+        and(
+          eq(finances.organizationId, organizationId),
+          inArray(finances.propertyId, propertyIds),
+          gte(finances.date, startDate),
+          lte(finances.date, endDate),
+          eq(finances.type, 'expense')
+        )
+      )
+      .orderBy(desc(finances.date));
+
+    // Get addon service expenses
+    const addonExpenses = await db
+      .select({
+        id: guestAddonBookings.id,
+        propertyId: guestAddonBookings.propertyId,
+        serviceDate: guestAddonBookings.serviceDate,
+        serviceName: guestAddonServices.name,
+        amount: guestAddonBookings.totalAmount,
+        currency: guestAddonBookings.currency,
+        status: guestAddonBookings.status,
+        guestName: guestAddonBookings.guestName,
+      })
+      .from(guestAddonBookings)
+      .innerJoin(guestAddonServices, eq(guestAddonBookings.serviceId, guestAddonServices.id))
+      .where(
+        and(
+          eq(guestAddonBookings.organizationId, organizationId),
+          inArray(guestAddonBookings.propertyId, propertyIds),
+          gte(guestAddonBookings.serviceDate, startDate),
+          lte(guestAddonBookings.serviceDate, endDate),
+          eq(guestAddonBookings.status, 'completed')
+        )
+      )
+      .orderBy(desc(guestAddonBookings.serviceDate));
+
+    // Get management commission records
+    const commissions = await db
+      .select({
+        id: finances.id,
+        propertyId: finances.propertyId,
+        date: finances.date,
+        amount: finances.amount,
+        description: finances.description,
+        category: finances.category,
+      })
+      .from(finances)
+      .where(
+        and(
+          eq(finances.organizationId, organizationId),
+          inArray(finances.propertyId, propertyIds),
+          gte(finances.date, startDate),
+          lte(finances.date, endDate),
+          eq(finances.category, 'management_commission')
+        )
+      )
+      .orderBy(desc(finances.date));
+
+    // Get property details
+    const propertyDetails = await db
+      .select()
+      .from(properties)
+      .where(
+        and(
+          eq(properties.organizationId, organizationId),
+          eq(properties.ownerId, ownerId),
+          inArray(properties.id, propertyIds)
+        )
+      );
+
+    return {
+      earnings,
+      expenses,
+      addonExpenses,
+      commissions,
+      propertyDetails,
+    };
+  }
+
+  // Calculate statement totals
+  async calculateStatementTotals(organizationId: string, propertyIds: number[], startDate: string, endDate: string) {
+    // Total earnings from bookings
+    const [earningsResult] = await db
+      .select({ total: sql<number>`COALESCE(sum(cast(total_amount as decimal)), 0)` })
+      .from(bookings)
+      .where(
+        and(
+          eq(bookings.organizationId, organizationId),
+          inArray(bookings.propertyId, propertyIds),
+          gte(bookings.checkInDate, startDate),
+          lte(bookings.checkOutDate, endDate),
+          eq(bookings.status, 'confirmed')
+        )
+      );
+
+    // Total expenses
+    const [expensesResult] = await db
+      .select({ total: sql<number>`COALESCE(sum(cast(amount as decimal)), 0)` })
+      .from(finances)
+      .where(
+        and(
+          eq(finances.organizationId, organizationId),
+          inArray(finances.propertyId, propertyIds),
+          gte(finances.date, startDate),
+          lte(finances.date, endDate),
+          eq(finances.type, 'expense')
+        )
+      );
+
+    // Management commission
+    const [commissionResult] = await db
+      .select({ total: sql<number>`COALESCE(sum(cast(amount as decimal)), 0)` })
+      .from(finances)
+      .where(
+        and(
+          eq(finances.organizationId, organizationId),
+          inArray(finances.propertyId, propertyIds),
+          gte(finances.date, startDate),
+          lte(finances.date, endDate),
+          eq(finances.category, 'management_commission')
+        )
+      );
+
+    const totalEarnings = earningsResult?.total || 0;
+    const totalExpenses = expensesResult?.total || 0;
+    const managementCommission = commissionResult?.total || 0;
+    const netBalance = totalEarnings - totalExpenses - managementCommission;
+
+    return {
+      totalEarnings,
+      totalExpenses,
+      managementCommission,
+      netBalance,
+    };
   }
 }
 

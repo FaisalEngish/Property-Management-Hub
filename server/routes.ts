@@ -15731,4 +15731,295 @@ async function processGuestIssueForAI(issueReport: any) {
       res.status(500).json({ message: "Failed to fetch owner invoicing analytics" });
     }
   });
+
+  // ===== OWNER STATEMENT EXPORTS =====
+
+  // Get owner statement exports
+  app.get("/api/owner-statement-exports", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: userId, role } = req.user;
+      
+      // Only owners can request their own statements, admin/PM can view all
+      const ownerId = role === 'owner' ? userId : req.query.ownerId;
+      
+      const exports = await storage.getOwnerStatementExports(organizationId, ownerId);
+      res.json(exports);
+    } catch (error) {
+      console.error("Error fetching owner statement exports:", error);
+      res.status(500).json({ message: "Failed to fetch statement exports" });
+    }
+  });
+
+  // Create owner statement export
+  app.post("/api/owner-statement-exports", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: userId, role } = req.user;
+      const {
+        exportType,
+        dateRangeType,
+        startDate,
+        endDate,
+        propertyIds,
+        includeNotes,
+        includeServiceLogs,
+        includeBranding
+      } = req.body;
+
+      // Validate required fields
+      if (!exportType || !dateRangeType || !startDate || !endDate || !propertyIds?.length) {
+        return res.status(400).json({ message: "Missing required export parameters" });
+      }
+
+      // Only owners can export their own statements, admin/PM can export for any owner
+      const ownerId = role === 'owner' ? userId : req.body.ownerId;
+      
+      if (!ownerId) {
+        return res.status(400).json({ message: "Owner ID is required" });
+      }
+
+      // Calculate totals
+      const totals = await storage.calculateStatementTotals(
+        organizationId,
+        propertyIds,
+        startDate,
+        endDate
+      );
+
+      // Generate filename
+      const properties = await storage.getProperties(organizationId, { ownerId });
+      const propertyNames = properties
+        .filter(p => propertyIds.includes(p.id))
+        .map(p => p.name)
+        .join('_');
+      
+      const dateStr = dateRangeType === 'month' 
+        ? new Date(startDate).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }).replace(' ', '')
+        : `${new Date(startDate).toISOString().split('T')[0]}_to_${new Date(endDate).toISOString().split('T')[0]}`;
+      
+      const fileName = `OwnerStatement_${propertyNames}_${dateStr}.${exportType}`;
+
+      // Create export record
+      const exportData = {
+        organizationId,
+        ownerId,
+        exportType,
+        dateRangeType,
+        startDate,
+        endDate,
+        propertyIds: JSON.stringify(propertyIds),
+        includeNotes: includeNotes || false,
+        includeServiceLogs: includeServiceLogs || false,
+        includeBranding: includeBranding !== false,
+        fileName,
+        totalEarnings: totals.totalEarnings.toString(),
+        totalExpenses: totals.totalExpenses.toString(),
+        managementCommission: totals.managementCommission.toString(),
+        netBalance: totals.netBalance.toString(),
+        status: 'generating'
+      };
+
+      const statementExport = await storage.createOwnerStatementExport(exportData);
+
+      // Start async generation process (in real implementation, this would be a background job)
+      // For demo purposes, we'll simulate immediate completion
+      setTimeout(async () => {
+        try {
+          await storage.updateOwnerStatementExport(statementExport.id, {
+            status: 'completed',
+            fileUrl: `/api/owner-statement-exports/${statementExport.id}/download`,
+            fileSize: Math.floor(Math.random() * 1000000) + 50000 // Simulate file size
+          });
+        } catch (error) {
+          console.error("Error updating statement export:", error);
+          await storage.updateOwnerStatementExport(statementExport.id, {
+            status: 'failed',
+            errorMessage: error.message
+          });
+        }
+      }, 2000);
+
+      res.json({ 
+        message: "Statement export started", 
+        exportId: statementExport.id,
+        export: statementExport 
+      });
+    } catch (error) {
+      console.error("Error creating owner statement export:", error);
+      res.status(500).json({ message: "Failed to create statement export" });
+    }
+  });
+
+  // Get statement export details
+  app.get("/api/owner-statement-exports/:exportId", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: userId, role } = req.user;
+      const { exportId } = req.params;
+
+      const exports = await storage.getOwnerStatementExports(organizationId);
+      const exportRecord = exports.find(e => e.id === parseInt(exportId));
+
+      if (!exportRecord) {
+        return res.status(404).json({ message: "Export not found" });
+      }
+
+      // Check ownership
+      if (role === 'owner' && exportRecord.ownerId !== userId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      res.json(exportRecord);
+    } catch (error) {
+      console.error("Error fetching statement export:", error);
+      res.status(500).json({ message: "Failed to fetch statement export" });
+    }
+  });
+
+  // Download statement export
+  app.get("/api/owner-statement-exports/:exportId/download", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: userId, role } = req.user;
+      const { exportId } = req.params;
+
+      const exports = await storage.getOwnerStatementExports(organizationId);
+      const exportRecord = exports.find(e => e.id === parseInt(exportId));
+
+      if (!exportRecord) {
+        return res.status(404).json({ message: "Export not found" });
+      }
+
+      // Check ownership
+      if (role === 'owner' && exportRecord.ownerId !== userId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      if (exportRecord.status !== 'completed') {
+        return res.status(400).json({ message: "Export not ready for download" });
+      }
+
+      // Get statement data
+      const propertyIds = JSON.parse(exportRecord.propertyIds);
+      const statementData = await storage.getOwnerStatementData(
+        organizationId,
+        exportRecord.ownerId,
+        propertyIds,
+        exportRecord.startDate,
+        exportRecord.endDate
+      );
+
+      if (exportRecord.exportType === 'csv') {
+        // Generate CSV
+        const csvData = generateCSVStatement(statementData, exportRecord);
+        res.setHeader('Content-Type', 'text/csv');
+        res.setHeader('Content-Disposition', `attachment; filename="${exportRecord.fileName}"`);
+        res.send(csvData);
+      } else {
+        // For PDF, return statement data for frontend PDF generation
+        res.json({
+          exportRecord,
+          statementData,
+          downloadUrl: `/api/owner-statement-exports/${exportId}/pdf`
+        });
+      }
+    } catch (error) {
+      console.error("Error downloading statement export:", error);
+      res.status(500).json({ message: "Failed to download statement export" });
+    }
+  });
+
+  // Generate PDF statement data
+  app.get("/api/owner-statement-exports/:exportId/pdf-data", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: userId, role } = req.user;
+      const { exportId } = req.params;
+
+      const exports = await storage.getOwnerStatementExports(organizationId);
+      const exportRecord = exports.find(e => e.id === parseInt(exportId));
+
+      if (!exportRecord) {
+        return res.status(404).json({ message: "Export not found" });
+      }
+
+      // Check ownership
+      if (role === 'owner' && exportRecord.ownerId !== userId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      // Get complete statement data
+      const propertyIds = JSON.parse(exportRecord.propertyIds);
+      const statementData = await storage.getOwnerStatementData(
+        organizationId,
+        exportRecord.ownerId,
+        propertyIds,
+        exportRecord.startDate,
+        exportRecord.endDate
+      );
+
+      // Get organization settings for branding
+      const organization = await storage.getOrganization(organizationId);
+
+      res.json({
+        exportRecord,
+        statementData,
+        organization,
+        totals: {
+          totalEarnings: parseFloat(exportRecord.totalEarnings),
+          totalExpenses: parseFloat(exportRecord.totalExpenses),
+          managementCommission: parseFloat(exportRecord.managementCommission),
+          netBalance: parseFloat(exportRecord.netBalance)
+        }
+      });
+    } catch (error) {
+      console.error("Error fetching PDF statement data:", error);
+      res.status(500).json({ message: "Failed to fetch statement data" });
+    }
+  });
+
+  // Helper function to generate CSV
+  function generateCSVStatement(statementData: any, exportRecord: any) {
+    const { earnings, expenses, addonExpenses, commissions, propertyDetails } = statementData;
+    
+    let csv = `Owner Financial Statement\n`;
+    csv += `Period: ${exportRecord.startDate} to ${exportRecord.endDate}\n`;
+    csv += `Properties: ${propertyDetails.map(p => p.name).join(', ')}\n\n`;
+    
+    // Earnings section
+    csv += `EARNINGS\n`;
+    csv += `Date,Property,Platform,Guest Name,Check In,Check Out,Amount,Currency\n`;
+    earnings.forEach((earning: any) => {
+      const property = propertyDetails.find(p => p.id === earning.propertyId);
+      csv += `${earning.checkIn},${property?.name || 'Unknown'},${earning.platform},${earning.guestName},${earning.checkIn},${earning.checkOut},${earning.amount},${earning.currency}\n`;
+    });
+    
+    csv += `\nEXPENSES\n`;
+    csv += `Date,Property,Category,Description,Amount\n`;
+    expenses.forEach((expense: any) => {
+      const property = propertyDetails.find(p => p.id === expense.propertyId);
+      csv += `${expense.date},${property?.name || 'Unknown'},${expense.category},${expense.description},${expense.amount}\n`;
+    });
+    
+    // Add-on services
+    csv += `\nADD-ON SERVICES\n`;
+    csv += `Date,Property,Service,Guest Name,Amount,Currency\n`;
+    addonExpenses.forEach((addon: any) => {
+      const property = propertyDetails.find(p => p.id === addon.propertyId);
+      csv += `${addon.serviceDate},${property?.name || 'Unknown'},${addon.serviceName},${addon.guestName},${addon.amount},${addon.currency}\n`;
+    });
+    
+    // Commissions
+    csv += `\nMANAGEMENT COMMISSION\n`;
+    csv += `Date,Property,Description,Amount\n`;
+    commissions.forEach((commission: any) => {
+      const property = propertyDetails.find(p => p.id === commission.propertyId);
+      csv += `${commission.date},${property?.name || 'Unknown'},${commission.description},${commission.amount}\n`;
+    });
+    
+    // Summary
+    csv += `\nSUMMARY\n`;
+    csv += `Total Earnings,${exportRecord.totalEarnings}\n`;
+    csv += `Total Expenses,${exportRecord.totalExpenses}\n`;
+    csv += `Management Commission,${exportRecord.managementCommission}\n`;
+    csv += `Net Balance,${exportRecord.netBalance}\n`;
+    
+    return csv;
+  }
 }

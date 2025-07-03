@@ -82,6 +82,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
 import { RoleBackButton } from "@/components/BackButton";
+import { OwnerStatementExport } from "@/components/OwnerStatementExport";
 
 // Enhanced types for comprehensive owner dashboard
 interface EarningsOverview {
@@ -1057,6 +1058,10 @@ export default function OwnerDashboard() {
             <Activity className="h-4 w-4" />
             📋 Timeline Feed
           </TabsTrigger>
+          <TabsTrigger value="finance" className="flex items-center gap-2">
+            <FileText className="h-4 w-4" />
+            📄 Financial Reports
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="earnings">
@@ -1073,6 +1078,10 @@ export default function OwnerDashboard() {
 
         <TabsContent value="timeline">
           <TimelineTab />
+        </TabsContent>
+
+        <TabsContent value="finance">
+          <OwnerStatementExport />
         </TabsContent>
       </Tabs>
 
