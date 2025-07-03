@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { Clock, DollarSign, Users, FileText, Timer, AlertTriangle, CalendarClock, Calculator } from "lucide-react";
+import { Clock, DollarSign, Users, FileText, Timer, AlertTriangle, CalendarClock, Calculator, CreditCard, Send, CheckCircle, XCircle, Pause } from "lucide-react";
 
 export default function StaffSalaryOvertimeTracker() {
   const { toast } = useToast();
@@ -34,6 +34,16 @@ export default function StaffSalaryOvertimeTracker() {
 
   const { data: payrollSummary, isLoading: loadingPayroll } = useQuery({
     queryKey: ["/api/staff-salary/payroll-summary", selectedMonth],
+  });
+
+  // Advance Request Queries
+  const { data: advanceRequests, isLoading: loadingAdvances } = useQuery({
+    queryKey: ["/api/staff-salary/advance-requests"],
+  });
+
+  // Overtime Requests Query
+  const { data: overtimeRequests, isLoading: loadingOvertimeRequests } = useQuery({
+    queryKey: ["/api/staff-salary/overtime-requests"],
   });
 
   // Clock In/Out Mutation
@@ -67,6 +77,77 @@ export default function StaffSalaryOvertimeTracker() {
       toast({
         title: "Error",
         description: error.message || "Failed to record bonus",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Advance Request Mutation
+  const advanceRequestMutation = useMutation({
+    mutationFn: async (data: { amount: number; reason: string; requestedDate: string }) => {
+      return await apiRequest("POST", "/api/staff-salary/advance-request", data);
+    },
+    onSuccess: () => {
+      toast({ title: "Advance request submitted successfully" });
+      queryClient.invalidateQueries({ queryKey: ["/api/staff-salary/advance-requests"] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to submit advance request",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Overtime Request Mutation
+  const overtimeRequestMutation = useMutation({
+    mutationFn: async (data: { taskId: number; hoursWorked: number; requestType: "pay" | "time_off"; notes?: string }) => {
+      return await apiRequest("POST", "/api/staff-salary/overtime-request", data);
+    },
+    onSuccess: () => {
+      toast({ title: "Overtime request submitted successfully" });
+      queryClient.invalidateQueries({ queryKey: ["/api/staff-salary/overtime-requests"] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to submit overtime request",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Admin Approval Mutations
+  const approveAdvanceMutation = useMutation({
+    mutationFn: async (data: { requestId: number; action: "approve" | "reject" | "pending"; notes?: string }) => {
+      return await apiRequest("POST", "/api/staff-salary/approve-advance", data);
+    },
+    onSuccess: () => {
+      toast({ title: "Advance request updated successfully" });
+      queryClient.invalidateQueries({ queryKey: ["/api/staff-salary/advance-requests"] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update advance request",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const approveOvertimeMutation = useMutation({
+    mutationFn: async (data: { requestId: number; action: "approve" | "reject"; notes?: string }) => {
+      return await apiRequest("POST", "/api/staff-salary/approve-overtime", data);
+    },
+    onSuccess: () => {
+      toast({ title: "Overtime request updated successfully" });
+      queryClient.invalidateQueries({ queryKey: ["/api/staff-salary/overtime-requests"] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update overtime request",
         variant: "destructive",
       });
     },
@@ -133,8 +214,10 @@ export default function StaffSalaryOvertimeTracker() {
       </div>
 
       <Tabs defaultValue="overview" className="w-full">
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-7">
           <TabsTrigger value="overview">📊 Overview</TabsTrigger>
+          <TabsTrigger value="advance">💸 Advance Requests</TabsTrigger>
+          <TabsTrigger value="overtime">⏱ Overtime Tracker</TabsTrigger>
           <TabsTrigger value="clock">🕒 Clock In/Out</TabsTrigger>
           <TabsTrigger value="settings">⚙️ Settings</TabsTrigger>
           <TabsTrigger value="emergency">🚨 Emergency Tasks</TabsTrigger>
@@ -227,6 +310,280 @@ export default function StaffSalaryOvertimeTracker() {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* Advance Request Tab */}
+        <TabsContent value="advance" className="space-y-6">
+          <div className="grid gap-6 md:grid-cols-2">
+            {/* Request Advance Form */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <CreditCard className="h-5 w-5" />
+                  Request Salary Advance
+                </CardTitle>
+                <CardDescription>
+                  Request an advance on your monthly salary
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="advance-amount">Amount (AUD)</Label>
+                  <Input
+                    id="advance-amount"
+                    type="number"
+                    placeholder="Enter amount"
+                    step="0.01"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="advance-reason">Reason</Label>
+                  <Textarea
+                    id="advance-reason"
+                    placeholder="Explain why you need this advance"
+                    rows={3}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="advance-date">Date Needed</Label>
+                  <Input
+                    id="advance-date"
+                    type="date"
+                  />
+                </div>
+                <Button
+                  className="w-full"
+                  onClick={() => {
+                    const amount = (document.getElementById("advance-amount") as HTMLInputElement)?.value;
+                    const reason = (document.getElementById("advance-reason") as HTMLTextAreaElement)?.value;
+                    const date = (document.getElementById("advance-date") as HTMLInputElement)?.value;
+                    
+                    if (amount && reason && date) {
+                      advanceRequestMutation.mutate({
+                        amount: parseFloat(amount),
+                        reason,
+                        requestedDate: date
+                      });
+                    }
+                  }}
+                  disabled={advanceRequestMutation.isPending}
+                >
+                  <Send className="h-4 w-4 mr-2" />
+                  Submit Request
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* Advance Request History */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Your Advance Requests</CardTitle>
+                <CardDescription>
+                  View your advance request history and status
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {advanceRequests?.map((request: any) => (
+                    <div key={request.id} className="flex items-center justify-between p-4 border rounded-lg">
+                      <div>
+                        <p className="font-medium">{formatCurrency(request.amount)}</p>
+                        <p className="text-sm text-muted-foreground">{request.reason}</p>
+                        <p className="text-xs text-muted-foreground">
+                          Requested: {new Date(request.requestedDate).toLocaleDateString()}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <Badge 
+                          variant={
+                            request.status === "approved" ? "default" :
+                            request.status === "rejected" ? "destructive" : "secondary"
+                          }
+                        >
+                          {request.status === "approved" && <CheckCircle className="h-3 w-3 mr-1" />}
+                          {request.status === "rejected" && <XCircle className="h-3 w-3 mr-1" />}
+                          {request.status === "pending" && <Pause className="h-3 w-3 mr-1" />}
+                          {request.status}
+                        </Badge>
+                        {userRole === "admin" && request.status === "pending" && (
+                          <div className="flex gap-1 mt-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => approveAdvanceMutation.mutate({ 
+                                requestId: request.id, 
+                                action: "approve" 
+                              })}
+                            >
+                              <CheckCircle className="h-3 w-3" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => approveAdvanceMutation.mutate({ 
+                                requestId: request.id, 
+                                action: "reject" 
+                              })}
+                            >
+                              <XCircle className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                  {(!advanceRequests || advanceRequests.length === 0) && (
+                    <p className="text-center text-muted-foreground py-8">No advance requests found</p>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        {/* Overtime Tracker Tab */}
+        <TabsContent value="overtime" className="space-y-6">
+          <div className="grid gap-6 md:grid-cols-2">
+            {/* Overtime Request Form */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Timer className="h-5 w-5" />
+                  Request Overtime Compensation
+                </CardTitle>
+                <CardDescription>
+                  Request compensation for overtime work
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="overtime-task">Task ID</Label>
+                  <Input
+                    id="overtime-task"
+                    type="number"
+                    placeholder="Enter task ID"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="overtime-hours">Hours Worked</Label>
+                  <Input
+                    id="overtime-hours"
+                    type="number"
+                    placeholder="Enter hours"
+                    step="0.5"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="overtime-type">Compensation Type</Label>
+                  <Select>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select compensation type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="pay">Overtime Pay</SelectItem>
+                      <SelectItem value="time_off">Compensatory Time Off</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="overtime-notes">Notes</Label>
+                  <Textarea
+                    id="overtime-notes"
+                    placeholder="Additional details about the overtime work"
+                    rows={3}
+                  />
+                </div>
+                <Button
+                  className="w-full"
+                  onClick={() => {
+                    const taskId = (document.getElementById("overtime-task") as HTMLInputElement)?.value;
+                    const hours = (document.getElementById("overtime-hours") as HTMLInputElement)?.value;
+                    const notes = (document.getElementById("overtime-notes") as HTMLTextAreaElement)?.value;
+                    
+                    if (taskId && hours) {
+                      overtimeRequestMutation.mutate({
+                        taskId: parseInt(taskId),
+                        hoursWorked: parseFloat(hours),
+                        requestType: "pay", // This should come from the select
+                        notes
+                      });
+                    }
+                  }}
+                  disabled={overtimeRequestMutation.isPending}
+                >
+                  <Send className="h-4 w-4 mr-2" />
+                  Submit Request
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* Overtime Request History */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Overtime Requests</CardTitle>
+                <CardDescription>
+                  Track your overtime compensation requests
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {overtimeRequests?.map((request: any) => (
+                    <div key={request.id} className="flex items-center justify-between p-4 border rounded-lg">
+                      <div>
+                        <p className="font-medium">Task #{request.taskId}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {formatHours(request.hoursWorked)} • {request.requestType}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {new Date(request.createdAt).toLocaleDateString()}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <Badge 
+                          variant={
+                            request.status === "approved" ? "default" :
+                            request.status === "rejected" ? "destructive" : "secondary"
+                          }
+                        >
+                          {request.status === "approved" && <CheckCircle className="h-3 w-3 mr-1" />}
+                          {request.status === "rejected" && <XCircle className="h-3 w-3 mr-1" />}
+                          {request.status === "pending" && <Pause className="h-3 w-3 mr-1" />}
+                          {request.status}
+                        </Badge>
+                        {userRole === "admin" && request.status === "pending" && (
+                          <div className="flex gap-1 mt-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => approveOvertimeMutation.mutate({ 
+                                requestId: request.id, 
+                                action: "approve" 
+                              })}
+                            >
+                              <CheckCircle className="h-3 w-3" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => approveOvertimeMutation.mutate({ 
+                                requestId: request.id, 
+                                action: "reject" 
+                              })}
+                            >
+                              <XCircle className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                  {(!overtimeRequests || overtimeRequests.length === 0) && (
+                    <p className="text-center text-muted-foreground py-8">No overtime requests found</p>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
 
         {/* Clock In/Out Tab */}

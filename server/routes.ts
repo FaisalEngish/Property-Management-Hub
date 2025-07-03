@@ -3966,6 +3966,177 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get advance requests
+  app.get("/api/staff-salary/advance-requests", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const mockAdvanceRequests = [
+        {
+          id: 1,
+          staffId: "demo-staff",
+          staffName: "Maria Santos",
+          amount: 500.00,
+          reason: "Medical emergency",
+          requestedDate: "2024-12-15",
+          status: "pending",
+          createdAt: "2024-12-01T10:00:00Z",
+          approvedBy: null,
+          approvedAt: null
+        },
+        {
+          id: 2,
+          staffId: "demo-staff",
+          staffName: "Maria Santos",
+          amount: 300.00,
+          reason: "Family celebration",
+          requestedDate: "2024-11-20",
+          status: "approved",
+          createdAt: "2024-11-10T14:30:00Z",
+          approvedBy: "admin",
+          approvedAt: "2024-11-11T09:15:00Z"
+        }
+      ];
+      res.json(mockAdvanceRequests);
+    } catch (error) {
+      console.error("Error fetching advance requests:", error);
+      res.status(500).json({ message: "Failed to fetch advance requests" });
+    }
+  });
+
+  // Submit advance request
+  app.post("/api/staff-salary/advance-request", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      const { amount, reason, requestedDate } = req.body;
+      
+      const mockResponse = {
+        id: Date.now(),
+        staffId: user.id,
+        staffName: user.name || "Staff Member",
+        amount,
+        reason,
+        requestedDate,
+        status: "pending",
+        createdAt: new Date().toISOString(),
+        approvedBy: null,
+        approvedAt: null
+      };
+      
+      res.json(mockResponse);
+    } catch (error) {
+      console.error("Error submitting advance request:", error);
+      res.status(500).json({ message: "Failed to submit advance request" });
+    }
+  });
+
+  // Get overtime requests
+  app.get("/api/staff-salary/overtime-requests", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const mockOvertimeRequests = [
+        {
+          id: 1,
+          staffId: "demo-staff",
+          staffName: "Maria Santos",
+          taskId: 101,
+          hoursWorked: 3.5,
+          requestType: "pay",
+          status: "approved",
+          notes: "Emergency pool cleaning after storm",
+          createdAt: "2024-12-01T18:00:00Z",
+          approvedBy: "admin",
+          approvedAt: "2024-12-02T08:30:00Z"
+        },
+        {
+          id: 2,
+          staffId: "demo-staff",
+          staffName: "Maria Santos",
+          taskId: 102,
+          hoursWorked: 2.0,
+          requestType: "time_off",
+          status: "pending",
+          notes: "Extended housekeeping due to large group checkout",
+          createdAt: "2024-12-03T16:30:00Z",
+          approvedBy: null,
+          approvedAt: null
+        }
+      ];
+      res.json(mockOvertimeRequests);
+    } catch (error) {
+      console.error("Error fetching overtime requests:", error);
+      res.status(500).json({ message: "Failed to fetch overtime requests" });
+    }
+  });
+
+  // Submit overtime request
+  app.post("/api/staff-salary/overtime-request", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      const { taskId, hoursWorked, requestType, notes } = req.body;
+      
+      const mockResponse = {
+        id: Date.now(),
+        staffId: user.id,
+        staffName: user.name || "Staff Member",
+        taskId,
+        hoursWorked,
+        requestType,
+        status: "pending",
+        notes,
+        createdAt: new Date().toISOString(),
+        approvedBy: null,
+        approvedAt: null
+      };
+      
+      res.json(mockResponse);
+    } catch (error) {
+      console.error("Error submitting overtime request:", error);
+      res.status(500).json({ message: "Failed to submit overtime request" });
+    }
+  });
+
+  // Approve/reject advance request
+  app.post("/api/staff-salary/approve-advance", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      const { requestId, action, notes } = req.body;
+      
+      const mockResponse = {
+        id: requestId,
+        action,
+        approvedBy: user.id,
+        approvedAt: new Date().toISOString(),
+        notes,
+        success: true
+      };
+      
+      res.json(mockResponse);
+    } catch (error) {
+      console.error("Error updating advance request:", error);
+      res.status(500).json({ message: "Failed to update advance request" });
+    }
+  });
+
+  // Approve/reject overtime request
+  app.post("/api/staff-salary/approve-overtime", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      const { requestId, action, notes } = req.body;
+      
+      const mockResponse = {
+        id: requestId,
+        action,
+        approvedBy: user.id,
+        approvedAt: new Date().toISOString(),
+        notes,
+        success: true
+      };
+      
+      res.json(mockResponse);
+    } catch (error) {
+      console.error("Error updating overtime request:", error);
+      res.status(500).json({ message: "Failed to update overtime request" });
+    }
+  });
+
   // Task Checklist
   app.get("/api/staff/task-checklist/:taskType", async (req: any, res) => {
     try {
