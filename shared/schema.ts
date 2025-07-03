@@ -2230,6 +2230,158 @@ export type PropertyInternalNotes = typeof propertyInternalNotes.$inferSelect;
 export type InsertAgentMediaAccess = z.infer<typeof insertAgentMediaAccessSchema>;
 export type AgentMediaAccess = typeof agentMediaAccess.$inferSelect;
 
+// ===== ADD-ON SERVICES ENGINE WITH BILLING RULES =====
+
+// Service catalog that guests can book
+export const addonServiceCatalog = pgTable("addon_service_catalog", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  serviceName: varchar("service_name").notNull(),
+  category: varchar("category").notNull(), // tours, chef, transport, massage, rental, grocery, baby, photography, airport, events
+  description: text("description"),
+  basePrice: decimal("base_price", { precision: 10, scale: 2 }).notNull(),
+  currency: varchar("currency").default("THB"),
+  duration: integer("duration"), // in minutes
+  imageUrl: varchar("image_url"),
+  thumbnailUrl: varchar("thumbnail_url"),
+  isActive: boolean("is_active").default(true),
+  isAvailableOnline: boolean("is_available_online").default(true),
+  maxGuests: integer("max_guests").default(10),
+  advanceBookingHours: integer("advance_booking_hours").default(24), // min hours before service
+  cancellationPolicy: text("cancellation_policy"),
+  specialRequirements: text("special_requirements"),
+  providerName: varchar("provider_name"), // external service provider
+  providerContact: varchar("provider_contact"),
+  commissionRate: decimal("commission_rate", { precision: 5, scale: 2 }).default("0.00"), // % for internal tracking
+  tags: text("tags").array(),
+  displayOrder: integer("display_order").default(0),
+  createdBy: varchar("created_by").references(() => users.id).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Guest bookings for addon services
+export const addonServiceBookings = pgTable("addon_service_bookings", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  serviceId: integer("service_id").references(() => addonServiceCatalog.id, { onDelete: "cascade" }).notNull(),
+  propertyId: integer("property_id").references(() => properties.id),
+  guestName: varchar("guest_name").notNull(),
+  guestEmail: varchar("guest_email"),
+  guestPhone: varchar("guest_phone"),
+  guestCount: integer("guest_count").default(1),
+  serviceDate: date("service_date").notNull(),
+  serviceTime: varchar("service_time"), // HH:MM format
+  totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).notNull(),
+  
+  // Billing Flexibility
+  billingRule: varchar("billing_rule").notNull(), // guest_charged, owner_charged, company_expense, complimentary
+  billingType: varchar("billing_type").notNull(), // charged, owner_gift, company_gift, complimentary
+  paymentStatus: varchar("payment_status").default("pending"), // pending, paid, cancelled, refunded
+  paymentMethod: varchar("payment_method"), // cash, card, online, bank_transfer
+  
+  status: varchar("status").default("pending"), // pending, confirmed, in_progress, completed, cancelled
+  specialRequests: text("special_requests"),
+  internalNotes: text("internal_notes"),
+  cancellationReason: text("cancellation_reason"),
+  
+  // Financial Tracking
+  commissionAmount: decimal("commission_amount", { precision: 10, scale: 2 }).default("0.00"),
+  commissionPaidToStaff: boolean("commission_paid_to_staff").default(false),
+  receiptUrl: varchar("receipt_url"), // Upload receipt/proof
+  referenceNumber: varchar("reference_number"),
+  
+  // Booking Metadata
+  bookedBy: varchar("booked_by").references(() => users.id), // staff who made booking
+  confirmedBy: varchar("confirmed_by").references(() => users.id),
+  confirmedAt: timestamp("confirmed_at"),
+  completedAt: timestamp("completed_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Service category configuration and billing rules
+export const addonServiceCategories = pgTable("addon_service_categories", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  categoryName: varchar("category_name").notNull(),
+  categoryIcon: varchar("category_icon"),
+  categoryColor: varchar("category_color"),
+  defaultBillingRule: varchar("default_billing_rule").default("guest_charged"),
+  defaultCommissionRate: decimal("default_commission_rate", { precision: 5, scale: 2 }).default("0.00"),
+  isActive: boolean("is_active").default(true),
+  displayOrder: integer("display_order").default(0),
+  description: text("description"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Commission tracking and staff bonus calculations
+export const addonServiceCommissions = pgTable("addon_service_commissions", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  bookingId: integer("booking_id").references(() => addonServiceBookings.id, { onDelete: "cascade" }).notNull(),
+  serviceId: integer("service_id").references(() => addonServiceCatalog.id).notNull(),
+  category: varchar("category").notNull(),
+  staffId: varchar("staff_id").references(() => users.id),
+  commissionAmount: decimal("commission_amount", { precision: 10, scale: 2 }).notNull(),
+  commissionRate: decimal("commission_rate", { precision: 5, scale: 2 }).notNull(),
+  paymentStatus: varchar("payment_status").default("pending"), // pending, paid, cancelled
+  paymentDate: timestamp("payment_date"),
+  paymentMethod: varchar("payment_method"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Monthly service category reports and analytics
+export const addonServiceReports = pgTable("addon_service_reports", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  reportMonth: varchar("report_month").notNull(), // YYYY-MM format
+  category: varchar("category").notNull(),
+  totalBookings: integer("total_bookings").default(0),
+  totalRevenue: decimal("total_revenue", { precision: 10, scale: 2 }).default("0.00"),
+  totalCommissions: decimal("total_commissions", { precision: 10, scale: 2 }).default("0.00"),
+  guestChargedRevenue: decimal("guest_charged_revenue", { precision: 10, scale: 2 }).default("0.00"),
+  ownerChargedRevenue: decimal("owner_charged_revenue", { precision: 10, scale: 2 }).default("0.00"),
+  companyExpenseAmount: decimal("company_expense_amount", { precision: 10, scale: 2 }).default("0.00"),
+  complimentaryAmount: decimal("complimentary_amount", { precision: 10, scale: 2 }).default("0.00"),
+  averageBookingValue: decimal("average_booking_value", { precision: 10, scale: 2 }).default("0.00"),
+  topService: varchar("top_service"),
+  reportGeneratedAt: timestamp("report_generated_at").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Service availability and booking slots
+export const addonServiceAvailability = pgTable("addon_service_availability", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  serviceId: integer("service_id").references(() => addonServiceCatalog.id, { onDelete: "cascade" }).notNull(),
+  availableDate: date("available_date").notNull(),
+  timeSlots: jsonb("time_slots"), // Array of available time slots
+  maxCapacity: integer("max_capacity").default(1),
+  currentBookings: integer("current_bookings").default(0),
+  isBlocked: boolean("is_blocked").default(false),
+  blockReason: text("block_reason"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Billing rule configurations
+export const addonBillingRules = pgTable("addon_billing_rules", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  ruleName: varchar("rule_name").notNull(),
+  category: varchar("category"), // applies to specific category or null for all
+  billingRule: varchar("billing_rule").notNull(), // guest_charged, owner_charged, company_expense, complimentary
+  billingType: varchar("billing_type").notNull(), // charged, owner_gift, company_gift, complimentary
+  autoApply: boolean("auto_apply").default(false),
+  conditions: jsonb("conditions"), // Conditions for auto-application
+  isActive: boolean("is_active").default(true),
+  priority: integer("priority").default(0),
+  createdBy: varchar("created_by").references(() => users.id).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // ===== LOYALTY & REPEAT GUEST TRACKER + SMART MESSAGING SYSTEM =====
 
 // Guest loyalty profile and repeat guest tracking
@@ -3524,6 +3676,64 @@ export type UniversalInvoiceLineItem = typeof universalInvoiceLineItems.$inferSe
 export type InsertUniversalInvoiceLineItem = z.infer<typeof insertUniversalInvoiceLineItemSchema>;
 export type PaymentConfirmation = typeof paymentConfirmations.$inferSelect;
 export type InsertPaymentConfirmation = z.infer<typeof insertPaymentConfirmationSchema>;
+
+// ===== ADD-ON SERVICES ENGINE SCHEMAS AND TYPES =====
+
+// Insert schemas for Add-On Services Engine
+export const insertAddonServiceCatalogSchema = createInsertSchema(addonServiceCatalog).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertAddonServiceBookingSchema = createInsertSchema(addonServiceBookings).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertAddonServiceCategorySchema = createInsertSchema(addonServiceCategories).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertAddonServiceCommissionSchema = createInsertSchema(addonServiceCommissions).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertAddonServiceReportSchema = createInsertSchema(addonServiceReports).omit({
+  id: true,
+  createdAt: true,
+  reportGeneratedAt: true,
+});
+
+export const insertAddonServiceAvailabilitySchema = createInsertSchema(addonServiceAvailability).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertAddonBillingRuleSchema = createInsertSchema(addonBillingRules).omit({
+  id: true,
+  createdAt: true,
+});
+
+// Type definitions for Add-On Services Engine
+export type AddonServiceCatalog = typeof addonServiceCatalog.$inferSelect;
+export type InsertAddonServiceCatalog = z.infer<typeof insertAddonServiceCatalogSchema>;
+export type AddonServiceBooking = typeof addonServiceBookings.$inferSelect;
+export type InsertAddonServiceBooking = z.infer<typeof insertAddonServiceBookingSchema>;
+export type AddonServiceCategory = typeof addonServiceCategories.$inferSelect;
+export type InsertAddonServiceCategory = z.infer<typeof insertAddonServiceCategorySchema>;
+export type AddonServiceCommission = typeof addonServiceCommissions.$inferSelect;
+export type InsertAddonServiceCommission = z.infer<typeof insertAddonServiceCommissionSchema>;
+export type AddonServiceReport = typeof addonServiceReports.$inferSelect;
+export type InsertAddonServiceReport = z.infer<typeof insertAddonServiceReportSchema>;
+export type AddonServiceAvailability = typeof addonServiceAvailability.$inferSelect;
+export type InsertAddonServiceAvailability = z.infer<typeof insertAddonServiceAvailabilitySchema>;
+export type AddonBillingRule = typeof addonBillingRules.$inferSelect;
+export type InsertAddonBillingRule = z.infer<typeof insertAddonBillingRuleSchema>;
 
 // ===== LIVE BOOKING CALENDAR & AGENT SYSTEM =====
 

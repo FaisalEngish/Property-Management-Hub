@@ -293,6 +293,27 @@ import {
   type InsertMaintenanceSuggestionSettings,
   type MaintenanceTimelineEntry,
   type InsertMaintenanceTimelineEntry,
+  addonServiceCatalog,
+  addonServiceBookings,
+  addonServiceCategories,
+  addonServiceCommissions,
+  addonServiceReports,
+  addonServiceAvailability,
+  addonBillingRules,
+  type AddonServiceCatalog,
+  type InsertAddonServiceCatalog,
+  type AddonServiceBooking,
+  type InsertAddonServiceBooking,
+  type AddonServiceCategory,
+  type InsertAddonServiceCategory,
+  type AddonServiceCommission,
+  type InsertAddonServiceCommission,
+  type AddonServiceReport,
+  type InsertAddonServiceReport,
+  type AddonServiceAvailability,
+  type InsertAddonServiceAvailability,
+  type AddonBillingRule,
+  type InsertAddonBillingRule,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, asc, lt, gte, lte, isNull, sql, sum, count, avg, max } from "drizzle-orm";
@@ -677,6 +698,91 @@ export interface IStorage {
   // Service availability
   getServiceAvailability(serviceId: number): Promise<any[]>;
   createServiceAvailability(availability: any): Promise<any>;
+
+  // ===== ADD-ON SERVICES ENGINE OPERATIONS =====
+  
+  // Service catalog management
+  getAddonServiceCatalog(organizationId: string, filters?: { category?: string; isActive?: boolean }): Promise<AddonServiceCatalog[]>;
+  getAddonServiceCatalogItem(id: number): Promise<AddonServiceCatalog | undefined>;
+  createAddonServiceCatalogItem(service: InsertAddonServiceCatalog): Promise<AddonServiceCatalog>;
+  updateAddonServiceCatalogItem(id: number, updates: Partial<InsertAddonServiceCatalog>): Promise<AddonServiceCatalog | undefined>;
+  deleteAddonServiceCatalogItem(id: number): Promise<boolean>;
+  
+  // Service bookings with billing flexibility
+  getAddonServiceBookings(organizationId: string, filters?: { 
+    propertyId?: number; 
+    status?: string; 
+    billingRule?: string; 
+    dateFrom?: string; 
+    dateTo?: string;
+    category?: string;
+  }): Promise<AddonServiceBooking[]>;
+  getAddonServiceBooking(id: number): Promise<AddonServiceBooking | undefined>;
+  createAddonServiceBooking(booking: InsertAddonServiceBooking): Promise<AddonServiceBooking>;
+  updateAddonServiceBooking(id: number, updates: Partial<InsertAddonServiceBooking>): Promise<AddonServiceBooking | undefined>;
+  deleteAddonServiceBooking(id: number): Promise<boolean>;
+  confirmAddonServiceBooking(id: number, confirmedBy: string): Promise<AddonServiceBooking | undefined>;
+  completeAddonServiceBooking(id: number, completedAt: Date, notes?: string): Promise<AddonServiceBooking | undefined>;
+  
+  // Service categories configuration
+  getAddonServiceCategories(organizationId: string): Promise<AddonServiceCategory[]>;
+  getAddonServiceCategory(id: number): Promise<AddonServiceCategory | undefined>;
+  createAddonServiceCategory(category: InsertAddonServiceCategory): Promise<AddonServiceCategory>;
+  updateAddonServiceCategory(id: number, updates: Partial<InsertAddonServiceCategory>): Promise<AddonServiceCategory | undefined>;
+  deleteAddonServiceCategory(id: number): Promise<boolean>;
+  
+  // Commission tracking and staff bonuses
+  getAddonServiceCommissions(organizationId: string, filters?: { 
+    staffId?: string; 
+    category?: string; 
+    paymentStatus?: string;
+    dateFrom?: string;
+    dateTo?: string;
+  }): Promise<AddonServiceCommission[]>;
+  getAddonServiceCommission(id: number): Promise<AddonServiceCommission | undefined>;
+  createAddonServiceCommission(commission: InsertAddonServiceCommission): Promise<AddonServiceCommission>;
+  updateAddonServiceCommission(id: number, updates: Partial<InsertAddonServiceCommission>): Promise<AddonServiceCommission | undefined>;
+  processCommissionPayment(id: number, paymentDate: Date, paymentMethod: string): Promise<AddonServiceCommission | undefined>;
+  
+  // Monthly service reports and analytics
+  getAddonServiceReports(organizationId: string, filters?: { 
+    reportMonth?: string; 
+    category?: string;
+  }): Promise<AddonServiceReport[]>;
+  getAddonServiceReport(id: number): Promise<AddonServiceReport | undefined>;
+  generateMonthlyServiceReport(organizationId: string, reportMonth: string): Promise<AddonServiceReport[]>;
+  getServiceCategorySummary(organizationId: string, startDate: string, endDate: string): Promise<{
+    totalBookings: number;
+    totalRevenue: number;
+    totalCommissions: number;
+    categoryBreakdown: any[];
+    billingRuleBreakdown: any[];
+  }>;
+  
+  // Service availability and scheduling
+  getAddonServiceAvailability(serviceId: number, filters?: { 
+    dateFrom?: string; 
+    dateTo?: string;
+  }): Promise<AddonServiceAvailability[]>;
+  createAddonServiceAvailability(availability: InsertAddonServiceAvailability): Promise<AddonServiceAvailability>;
+  updateAddonServiceAvailability(id: number, updates: Partial<InsertAddonServiceAvailability>): Promise<AddonServiceAvailability | undefined>;
+  blockServiceAvailability(serviceId: number, dateRange: { start: string; end: string }, reason: string): Promise<AddonServiceAvailability>;
+  
+  // Billing rules configuration
+  getAddonBillingRules(organizationId: string, filters?: { 
+    category?: string; 
+    isActive?: boolean;
+  }): Promise<AddonBillingRule[]>;
+  getAddonBillingRule(id: number): Promise<AddonBillingRule | undefined>;
+  createAddonBillingRule(rule: InsertAddonBillingRule): Promise<AddonBillingRule>;
+  updateAddonBillingRule(id: number, updates: Partial<InsertAddonBillingRule>): Promise<AddonBillingRule | undefined>;
+  deleteAddonBillingRule(id: number): Promise<boolean>;
+  applyBillingRule(serviceId: number, bookingData: any): Promise<{ billingRule: string; billingType: string }>;
+  
+  // Finance integration for add-on services
+  createFinanceRecordFromBooking(bookingId: number): Promise<Finance>;
+  updateOwnerBalanceFromService(bookingId: number): Promise<void>;
+  processServiceRefund(bookingId: number, refundAmount: number, reason: string): Promise<AddonServiceBooking | undefined>;
   updateServiceAvailability(id: number, updates: any): Promise<any | undefined>;
 
   // Staff Salary & Overtime Management
