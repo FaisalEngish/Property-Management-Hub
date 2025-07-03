@@ -2,6 +2,8 @@ import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
+import Sidebar from "@/components/Sidebar";
+import TopBar from "@/components/TopBar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -464,7 +466,7 @@ export default function MaintenanceTaskSystem() {
     return TASK_TYPES.find(t => t.value === type) || TASK_TYPES[0];
   };
 
-  const filteredTasks = tasks?.filter((task: Task) => {
+  const filteredTasks = (tasks || []).filter((task: Task) => {
     const matchesDepartment = !selectedDepartment || task.department === selectedDepartment;
     const matchesStatus = !selectedStatus || task.status === selectedStatus;
     const matchesProperty = !selectedProperty || task.propertyId?.toString() === selectedProperty;
@@ -630,7 +632,12 @@ export default function MaintenanceTaskSystem() {
   };
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
+    <div className="min-h-screen flex bg-background">
+      <Sidebar />
+      <div className="flex-1 flex flex-col overflow-hidden">
+        <TopBar title="Maintenance & Task System" />
+        <main className="flex-1 overflow-y-auto p-6">
+          <div className="max-w-7xl mx-auto space-y-6">
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
@@ -766,11 +773,11 @@ export default function MaintenanceTaskSystem() {
             </div>
           ) : (
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {filteredTasks.map((task: Task) => (
+              {(filteredTasks || []).map((task: Task) => (
                 <TaskCard key={task.id} task={task} />
               ))}
               
-              {filteredTasks.length === 0 && (
+              {(filteredTasks || []).length === 0 && (
                 <div className="col-span-full">
                   <Card>
                     <CardContent className="pt-6">
@@ -815,7 +822,7 @@ export default function MaintenanceTaskSystem() {
             </div>
           ) : (
             <div className="grid gap-4">
-              {checklists?.map((checklist: TaskChecklist) => (
+              {(checklists || []).map((checklist: TaskChecklist) => (
                 <Card key={checklist.id}>
                   <CardHeader>
                     <div className="flex items-center justify-between">
@@ -841,9 +848,9 @@ export default function MaintenanceTaskSystem() {
                   <CardContent>
                     <div className="space-y-4">
                       <div>
-                        <h4 className="font-medium mb-2">Checklist Items ({checklist.checklistItems.length})</h4>
+                        <h4 className="font-medium mb-2">Checklist Items ({(checklist.checklistItems || []).length})</h4>
                         <ul className="space-y-1">
-                          {checklist.checklistItems.slice(0, 3).map((item: ChecklistItem, idx: number) => (
+                          {(checklist.checklistItems || []).slice(0, 3).map((item: ChecklistItem, idx: number) => (
                             <li key={item.id} className="flex items-center gap-2 text-sm">
                               <CheckCircle className="h-3 w-3 text-gray-400" />
                               {item.text}
@@ -905,7 +912,7 @@ export default function MaintenanceTaskSystem() {
             </div>
           ) : (
             <div className="grid gap-4">
-              {propertyGuides?.map((guide: PropertyGuide) => (
+              {(propertyGuides || []).map((guide: PropertyGuide) => (
                 <Card key={guide.id}>
                   <CardHeader>
                     <div className="flex items-center justify-between">
@@ -978,7 +985,7 @@ export default function MaintenanceTaskSystem() {
             </div>
           ) : (
             <div className="grid gap-4">
-              {aiSuggestions?.map((suggestion: AiSuggestion) => (
+              {(aiSuggestions || []).map((suggestion: AiSuggestion) => (
                 <Card key={suggestion.id} className="border-l-4 border-l-indigo-500">
                   <CardHeader>
                     <div className="flex items-center justify-between">
@@ -1233,7 +1240,7 @@ export default function MaintenanceTaskSystem() {
                     <SelectValue placeholder="Select property" />
                   </SelectTrigger>
                   <SelectContent>
-                    {properties?.map((property: any) => (
+                    {(properties || []).map((property: any) => (
                       <SelectItem key={property.id} value={property.id.toString()}>
                         {property.name}
                       </SelectItem>
@@ -1249,7 +1256,7 @@ export default function MaintenanceTaskSystem() {
                     <SelectValue placeholder="Select staff member" />
                   </SelectTrigger>
                   <SelectContent>
-                    {users?.filter((u: any) => ['staff', 'admin', 'portfolio-manager'].includes(u.role)).map((user: any) => (
+                    {(users || []).filter((u: any) => ['staff', 'admin', 'portfolio-manager'].includes(u.role)).map((user: any) => (
                       <SelectItem key={user.id} value={user.id}>
                         {user.firstName} {user.lastName} ({user.role})
                       </SelectItem>
@@ -1528,6 +1535,9 @@ export default function MaintenanceTaskSystem() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+          </div>
+        </main>
+      </div>
     </div>
   );
 }

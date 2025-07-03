@@ -15,8 +15,8 @@ export default function PropertyCard({ property, onDelete }: PropertyCardProps) 
                      property.status === 'maintenance' ? 'secondary' : 'destructive';
 
   const handleViewProperty = () => {
-    // For now, navigate to dashboard with property context
-    setLocation(`/?propertyId=${property.id}`);
+    // Navigate to property detail view
+    setLocation(`/property/${property.id}`);
   };
 
   const handleManageProperty = () => {
