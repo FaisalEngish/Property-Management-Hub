@@ -115,6 +115,13 @@ const navigationModules = [
         description: "Photo proof system with approval workflow and PDF archiving"
       },
       { 
+        path: "/task-attachments-notes", 
+        icon: FileText, 
+        label: "Task Attachments & Notes", 
+        roles: ["admin", "portfolio-manager", "staff"],
+        description: "Visual guides and property-specific notes for enhanced task execution"
+      },
+      { 
         path: "/welcome-packs", 
         icon: Gift, 
         label: "Welcome Packs", 

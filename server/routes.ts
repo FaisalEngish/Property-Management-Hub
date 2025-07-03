@@ -9534,6 +9534,299 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ===== TASK ATTACHMENTS & PROPERTY NOTES API ENDPOINTS =====
+
+  // Task attachments routes
+  app.get("/api/tasks/:taskId/attachments", isDemoAuthenticated, async (req, res) => {
+    try {
+      const taskId = parseInt(req.params.taskId);
+      const attachments = await storage.getTaskAttachments(taskId);
+      res.json(attachments);
+    } catch (error) {
+      console.error("Error fetching task attachments:", error);
+      res.status(500).json({ message: "Failed to fetch task attachments" });
+    }
+  });
+
+  app.post("/api/tasks/:taskId/attachments", isDemoAuthenticated, async (req, res) => {
+    try {
+      const taskId = parseInt(req.params.taskId);
+      const user = req.user;
+      
+      const attachmentData = {
+        ...req.body,
+        taskId,
+        organizationId: user.organizationId,
+        uploadedBy: user.id,
+        uploadedByName: user.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : user.email || 'Unknown User',
+      };
+      
+      const attachment = await storage.createTaskAttachment(attachmentData);
+      res.json(attachment);
+    } catch (error) {
+      console.error("Error creating task attachment:", error);
+      res.status(500).json({ message: "Failed to create task attachment" });
+    }
+  });
+
+  app.put("/api/task-attachments/:id", isDemoAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const attachment = await storage.updateTaskAttachment(id, req.body);
+      res.json(attachment);
+    } catch (error) {
+      console.error("Error updating task attachment:", error);
+      res.status(500).json({ message: "Failed to update task attachment" });
+    }
+  });
+
+  app.delete("/api/task-attachments/:id", isDemoAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const success = await storage.deleteTaskAttachment(id);
+      res.json({ success });
+    } catch (error) {
+      console.error("Error deleting task attachment:", error);
+      res.status(500).json({ message: "Failed to delete task attachment" });
+    }
+  });
+
+  // Property notes routes
+  app.get("/api/properties/:propertyId/notes", isDemoAuthenticated, async (req, res) => {
+    try {
+      const propertyId = parseInt(req.params.propertyId);
+      const { noteType, isPinned, department } = req.query;
+      
+      const filters: any = {};
+      if (noteType) filters.noteType = noteType as string;
+      if (isPinned !== undefined) filters.isPinned = isPinned === 'true';
+      if (department) filters.department = department as string;
+      
+      const notes = await storage.getPropertyNotes(propertyId, filters);
+      res.json(notes);
+    } catch (error) {
+      console.error("Error fetching property notes:", error);
+      res.status(500).json({ message: "Failed to fetch property notes" });
+    }
+  });
+
+  app.post("/api/properties/:propertyId/notes", isDemoAuthenticated, async (req, res) => {
+    try {
+      const propertyId = parseInt(req.params.propertyId);
+      const user = req.user;
+      
+      const noteData = {
+        ...req.body,
+        propertyId,
+        organizationId: user.organizationId,
+        createdBy: user.id,
+        createdByName: user.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : user.email || 'Unknown User',
+      };
+      
+      const note = await storage.createPropertyNote(noteData);
+      res.json(note);
+    } catch (error) {
+      console.error("Error creating property note:", error);
+      res.status(500).json({ message: "Failed to create property note" });
+    }
+  });
+
+  app.put("/api/property-notes/:id", isDemoAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const user = req.user;
+      
+      const updateData = {
+        ...req.body,
+        lastModifiedBy: user.id,
+        lastModifiedByName: user.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : user.email || 'Unknown User',
+      };
+      
+      const note = await storage.updatePropertyNote(id, updateData);
+      res.json(note);
+    } catch (error) {
+      console.error("Error updating property note:", error);
+      res.status(500).json({ message: "Failed to update property note" });
+    }
+  });
+
+  app.delete("/api/property-notes/:id", isDemoAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const success = await storage.deletePropertyNote(id);
+      res.json({ success });
+    } catch (error) {
+      console.error("Error deleting property note:", error);
+      res.status(500).json({ message: "Failed to delete property note" });
+    }
+  });
+
+  // Property attachments routes
+  app.get("/api/properties/:propertyId/attachments", isDemoAuthenticated, async (req, res) => {
+    try {
+      const propertyId = parseInt(req.params.propertyId);
+      const { category, department } = req.query;
+      
+      const filters: any = {};
+      if (category) filters.category = category as string;
+      if (department) filters.department = department as string;
+      
+      const attachments = await storage.getPropertyAttachments(propertyId, filters);
+      res.json(attachments);
+    } catch (error) {
+      console.error("Error fetching property attachments:", error);
+      res.status(500).json({ message: "Failed to fetch property attachments" });
+    }
+  });
+
+  app.post("/api/properties/:propertyId/attachments", isDemoAuthenticated, async (req, res) => {
+    try {
+      const propertyId = parseInt(req.params.propertyId);
+      const user = req.user;
+      
+      const attachmentData = {
+        ...req.body,
+        propertyId,
+        organizationId: user.organizationId,
+        uploadedBy: user.id,
+        uploadedByName: user.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : user.email || 'Unknown User',
+      };
+      
+      const attachment = await storage.createPropertyAttachment(attachmentData);
+      res.json(attachment);
+    } catch (error) {
+      console.error("Error creating property attachment:", error);
+      res.status(500).json({ message: "Failed to create property attachment" });
+    }
+  });
+
+  app.put("/api/property-attachments/:id", isDemoAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const attachment = await storage.updatePropertyAttachment(id, req.body);
+      res.json(attachment);
+    } catch (error) {
+      console.error("Error updating property attachment:", error);
+      res.status(500).json({ message: "Failed to update property attachment" });
+    }
+  });
+
+  app.delete("/api/property-attachments/:id", isDemoAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const success = await storage.deletePropertyAttachment(id);
+      res.json({ success });
+    } catch (error) {
+      console.error("Error deleting property attachment:", error);
+      res.status(500).json({ message: "Failed to delete property attachment" });
+    }
+  });
+
+  // Task guide templates routes
+  app.get("/api/task-guide-templates", isDemoAuthenticated, async (req, res) => {
+    try {
+      const user = req.user;
+      const { category, guideType } = req.query;
+      
+      const filters: any = {};
+      if (category) filters.category = category as string;
+      if (guideType) filters.guideType = guideType as string;
+      
+      const templates = await storage.getTaskGuideTemplates(user.organizationId, filters);
+      res.json(templates);
+    } catch (error) {
+      console.error("Error fetching task guide templates:", error);
+      res.status(500).json({ message: "Failed to fetch task guide templates" });
+    }
+  });
+
+  app.post("/api/task-guide-templates", isDemoAuthenticated, async (req, res) => {
+    try {
+      const user = req.user;
+      
+      const templateData = {
+        ...req.body,
+        organizationId: user.organizationId,
+        createdBy: user.id,
+        createdByName: user.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : user.email || 'Unknown User',
+      };
+      
+      const template = await storage.createTaskGuideTemplate(templateData);
+      res.json(template);
+    } catch (error) {
+      console.error("Error creating task guide template:", error);
+      res.status(500).json({ message: "Failed to create task guide template" });
+    }
+  });
+
+  app.put("/api/task-guide-templates/:id", isDemoAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const user = req.user;
+      
+      const updateData = {
+        ...req.body,
+        lastModifiedBy: user.id,
+        lastModifiedByName: user.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : user.email || 'Unknown User',
+      };
+      
+      const template = await storage.updateTaskGuideTemplate(id, updateData);
+      res.json(template);
+    } catch (error) {
+      console.error("Error updating task guide template:", error);
+      res.status(500).json({ message: "Failed to update task guide template" });
+    }
+  });
+
+  app.delete("/api/task-guide-templates/:id", isDemoAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const success = await storage.deleteTaskGuideTemplate(id);
+      res.json({ success });
+    } catch (error) {
+      console.error("Error deleting task guide template:", error);
+      res.status(500).json({ message: "Failed to delete task guide template" });
+    }
+  });
+
+  // Attachment access logging
+  app.post("/api/attachment-access-log", isDemoAuthenticated, async (req, res) => {
+    try {
+      const user = req.user;
+      
+      const logData = {
+        ...req.body,
+        organizationId: user.organizationId,
+        accessedBy: user.id,
+        accessedByName: user.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : user.email || 'Unknown User',
+      };
+      
+      const log = await storage.logAttachmentAccess(logData);
+      res.json(log);
+    } catch (error) {
+      console.error("Error logging attachment access:", error);
+      res.status(500).json({ message: "Failed to log attachment access" });
+    }
+  });
+
+  app.get("/api/attachment-access-logs", isDemoAuthenticated, async (req, res) => {
+    try {
+      const user = req.user;
+      const { attachmentId, attachmentType, accessedBy } = req.query;
+      
+      const filters: any = {};
+      if (attachmentId) filters.attachmentId = parseInt(attachmentId as string);
+      if (attachmentType) filters.attachmentType = attachmentType as string;
+      if (accessedBy) filters.accessedBy = accessedBy as string;
+      
+      const logs = await storage.getAttachmentAccessLogs(user.organizationId, filters);
+      res.json(logs);
+    } catch (error) {
+      console.error("Error fetching attachment access logs:", error);
+      res.status(500).json({ message: "Failed to fetch attachment access logs" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

@@ -49,6 +49,7 @@ import RetailAgentBookingEngine from "@/pages/RetailAgentBookingEngine";
 import GuestPortal from "@/pages/GuestPortal";
 import FinanceEngine from "@/pages/FinanceEngine";
 import MaintenanceTaskSystem from "@/pages/MaintenanceTaskSystem";
+import TaskAttachmentsNotes from "@/pages/TaskAttachmentsNotes";
 import TaskChecklistProofSystem from "@/pages/TaskChecklistProofSystem";
 import TaskCompletionPhotoProof from "@/pages/TaskCompletionPhotoProof";
 import AiTaskManager from "@/pages/AiTaskManager";
@@ -120,6 +121,7 @@ function Router() {
           <Route path="/staff-tasks" component={StaffTasks} />
           <Route path="/staff-overhours-tracker" component={StaffOverhoursTracker} />
           <Route path="/maintenance-task-system" component={MaintenanceTaskSystem} />
+          <Route path="/task-attachments-notes" component={TaskAttachmentsNotes} />
           <Route path="/ai-task-manager" component={AiTaskManager} />
           <Route path="/task-checklist-proof" component={TaskChecklistProofSystem} />
           <Route path="/task-completion-photo-proof" component={TaskCompletionPhotoProof} />

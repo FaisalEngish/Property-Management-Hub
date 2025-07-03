@@ -66,6 +66,11 @@ import {
   taskApprovals,
   taskPdfArchives,
   taskArchiveStatus,
+  taskAttachments,
+  propertyNotes,
+  propertyAttachments,
+  taskGuideTemplates,
+  attachmentAccessLogs,
   type User,
   type UpsertUser,
   type Property,
@@ -233,6 +238,16 @@ import {
   type InsertBookingPlatformRouting,
   type RoutingAuditLog,
   type InsertRoutingAuditLog,
+  type TaskAttachment,
+  type InsertTaskAttachment,
+  type PropertyNote,
+  type InsertPropertyNote,
+  type PropertyAttachment,
+  type InsertPropertyAttachment,
+  type TaskGuideTemplate,
+  type InsertTaskGuideTemplate,
+  type AttachmentAccessLog,
+  type InsertAttachmentAccessLog,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, asc, lt, gte, lte, isNull, sql, sum, count, avg, max } from "drizzle-orm";
@@ -503,8 +518,40 @@ export interface IStorage {
     totalRevenue: number;
     popularServices: Array<{ serviceName: string; bookingCount: number; revenue: number }>;
     billingRouteBreakdown: Record<string, number>;
-    monthlyStats: Array<{ month: string; bookings: number; revenue: number }>;
   }>;
+
+  // Task Attachments & Property Notes operations
+  // Task attachments
+  getTaskAttachments(taskId: number): Promise<TaskAttachment[]>;
+  getTaskAttachment(id: number): Promise<TaskAttachment | undefined>;
+  createTaskAttachment(attachment: InsertTaskAttachment): Promise<TaskAttachment>;
+  updateTaskAttachment(id: number, attachment: Partial<InsertTaskAttachment>): Promise<TaskAttachment | undefined>;
+  deleteTaskAttachment(id: number): Promise<boolean>;
+  
+  // Property notes
+  getPropertyNotes(propertyId: number, filters?: { noteType?: string; isPinned?: boolean; department?: string }): Promise<PropertyNote[]>;
+  getPropertyNote(id: number): Promise<PropertyNote | undefined>;
+  createPropertyNote(note: InsertPropertyNote): Promise<PropertyNote>;
+  updatePropertyNote(id: number, note: Partial<InsertPropertyNote>): Promise<PropertyNote | undefined>;
+  deletePropertyNote(id: number): Promise<boolean>;
+  
+  // Property attachments
+  getPropertyAttachments(propertyId: number, filters?: { category?: string; department?: string }): Promise<PropertyAttachment[]>;
+  getPropertyAttachment(id: number): Promise<PropertyAttachment | undefined>;
+  createPropertyAttachment(attachment: InsertPropertyAttachment): Promise<PropertyAttachment>;
+  updatePropertyAttachment(id: number, attachment: Partial<InsertPropertyAttachment>): Promise<PropertyAttachment | undefined>;
+  deletePropertyAttachment(id: number): Promise<boolean>;
+  
+  // Task guide templates
+  getTaskGuideTemplates(organizationId: string, filters?: { category?: string; guideType?: string }): Promise<TaskGuideTemplate[]>;
+  getTaskGuideTemplate(id: number): Promise<TaskGuideTemplate | undefined>;
+  createTaskGuideTemplate(template: InsertTaskGuideTemplate): Promise<TaskGuideTemplate>;
+  updateTaskGuideTemplate(id: number, template: Partial<InsertTaskGuideTemplate>): Promise<TaskGuideTemplate | undefined>;
+  deleteTaskGuideTemplate(id: number): Promise<boolean>;
+  
+  // Attachment access logs
+  logAttachmentAccess(log: InsertAttachmentAccessLog): Promise<AttachmentAccessLog>;
+  getAttachmentAccessLogs(organizationId: string, filters?: { attachmentId?: number; attachmentType?: string; accessedBy?: string }): Promise<AttachmentAccessLog[]>;
   
   // Balance reset operations (Admin only)
   getUsersForBalanceReset(organizationId: string, userType?: string): Promise<User[]>;
@@ -11361,6 +11408,231 @@ Plant Care:
     };
   }
 
+  // ===== TASK ATTACHMENTS & PROPERTY NOTES OPERATIONS =====
+
+  // Task attachments operations
+  async getTaskAttachments(taskId: number): Promise<TaskAttachment[]> {
+    return await db
+      .select()
+      .from(taskAttachments)
+      .where(and(
+        eq(taskAttachments.taskId, taskId),
+        eq(taskAttachments.isActive, true)
+      ))
+      .orderBy(asc(taskAttachments.sortOrder), asc(taskAttachments.fileName));
+  }
+
+  async getTaskAttachment(id: number): Promise<TaskAttachment | undefined> {
+    const [attachment] = await db
+      .select()
+      .from(taskAttachments)
+      .where(eq(taskAttachments.id, id));
+    return attachment;
+  }
+
+  async createTaskAttachment(attachment: InsertTaskAttachment): Promise<TaskAttachment> {
+    const [newAttachment] = await db.insert(taskAttachments).values(attachment).returning();
+    return newAttachment;
+  }
+
+  async updateTaskAttachment(id: number, attachment: Partial<InsertTaskAttachment>): Promise<TaskAttachment | undefined> {
+    const [updatedAttachment] = await db
+      .update(taskAttachments)
+      .set({ ...attachment, updatedAt: new Date() })
+      .where(eq(taskAttachments.id, id))
+      .returning();
+    return updatedAttachment;
+  }
+
+  async deleteTaskAttachment(id: number): Promise<boolean> {
+    const result = await db
+      .update(taskAttachments)
+      .set({ isActive: false, updatedAt: new Date() })
+      .where(eq(taskAttachments.id, id));
+    return (result.rowCount ?? 0) > 0;
+  }
+
+  // Property notes operations
+  async getPropertyNotes(propertyId: number, filters?: { noteType?: string; isPinned?: boolean; department?: string }): Promise<PropertyNote[]> {
+    let query = db
+      .select()
+      .from(propertyNotes)
+      .where(and(
+        eq(propertyNotes.propertyId, propertyId),
+        eq(propertyNotes.isActive, true)
+      ));
+
+    if (filters?.noteType) {
+      query = query.where(eq(propertyNotes.noteType, filters.noteType));
+    }
+    if (filters?.isPinned !== undefined) {
+      query = query.where(eq(propertyNotes.isPinned, filters.isPinned));
+    }
+    if (filters?.department) {
+      query = query.where(sql`${propertyNotes.applicableDepartments} && ARRAY[${filters.department}]`);
+    }
+
+    return await query.orderBy(
+      desc(propertyNotes.isPinned),
+      desc(propertyNotes.priority),
+      asc(propertyNotes.title)
+    );
+  }
+
+  async getPropertyNote(id: number): Promise<PropertyNote | undefined> {
+    const [note] = await db
+      .select()
+      .from(propertyNotes)
+      .where(eq(propertyNotes.id, id));
+    return note;
+  }
+
+  async createPropertyNote(note: InsertPropertyNote): Promise<PropertyNote> {
+    const [newNote] = await db.insert(propertyNotes).values(note).returning();
+    return newNote;
+  }
+
+  async updatePropertyNote(id: number, note: Partial<InsertPropertyNote>): Promise<PropertyNote | undefined> {
+    const [updatedNote] = await db
+      .update(propertyNotes)
+      .set({ ...note, updatedAt: new Date() })
+      .where(eq(propertyNotes.id, id))
+      .returning();
+    return updatedNote;
+  }
+
+  async deletePropertyNote(id: number): Promise<boolean> {
+    const result = await db
+      .update(propertyNotes)
+      .set({ isActive: false, updatedAt: new Date() })
+      .where(eq(propertyNotes.id, id));
+    return (result.rowCount ?? 0) > 0;
+  }
+
+  // Property attachments operations
+  async getPropertyAttachments(propertyId: number, filters?: { category?: string; department?: string }): Promise<PropertyAttachment[]> {
+    let query = db
+      .select()
+      .from(propertyAttachments)
+      .where(and(
+        eq(propertyAttachments.propertyId, propertyId),
+        eq(propertyAttachments.isActive, true)
+      ));
+
+    if (filters?.category) {
+      query = query.where(eq(propertyAttachments.category, filters.category));
+    }
+    if (filters?.department) {
+      query = query.where(sql`${propertyAttachments.applicableDepartments} && ARRAY[${filters.department}]`);
+    }
+
+    return await query.orderBy(asc(propertyAttachments.sortOrder), asc(propertyAttachments.title));
+  }
+
+  async getPropertyAttachment(id: number): Promise<PropertyAttachment | undefined> {
+    const [attachment] = await db
+      .select()
+      .from(propertyAttachments)
+      .where(eq(propertyAttachments.id, id));
+    return attachment;
+  }
+
+  async createPropertyAttachment(attachment: InsertPropertyAttachment): Promise<PropertyAttachment> {
+    const [newAttachment] = await db.insert(propertyAttachments).values(attachment).returning();
+    return newAttachment;
+  }
+
+  async updatePropertyAttachment(id: number, attachment: Partial<InsertPropertyAttachment>): Promise<PropertyAttachment | undefined> {
+    const [updatedAttachment] = await db
+      .update(propertyAttachments)
+      .set({ ...attachment, updatedAt: new Date() })
+      .where(eq(propertyAttachments.id, id))
+      .returning();
+    return updatedAttachment;
+  }
+
+  async deletePropertyAttachment(id: number): Promise<boolean> {
+    const result = await db
+      .update(propertyAttachments)
+      .set({ isActive: false, updatedAt: new Date() })
+      .where(eq(propertyAttachments.id, id));
+    return (result.rowCount ?? 0) > 0;
+  }
+
+  // Task guide templates operations
+  async getTaskGuideTemplates(organizationId: string, filters?: { category?: string; guideType?: string }): Promise<TaskGuideTemplate[]> {
+    let query = db
+      .select()
+      .from(taskGuideTemplates)
+      .where(and(
+        eq(taskGuideTemplates.organizationId, organizationId),
+        eq(taskGuideTemplates.isActive, true)
+      ));
+
+    if (filters?.category) {
+      query = query.where(eq(taskGuideTemplates.category, filters.category));
+    }
+    if (filters?.guideType) {
+      query = query.where(eq(taskGuideTemplates.guideType, filters.guideType));
+    }
+
+    return await query.orderBy(asc(taskGuideTemplates.templateName));
+  }
+
+  async getTaskGuideTemplate(id: number): Promise<TaskGuideTemplate | undefined> {
+    const [template] = await db
+      .select()
+      .from(taskGuideTemplates)
+      .where(eq(taskGuideTemplates.id, id));
+    return template;
+  }
+
+  async createTaskGuideTemplate(template: InsertTaskGuideTemplate): Promise<TaskGuideTemplate> {
+    const [newTemplate] = await db.insert(taskGuideTemplates).values(template).returning();
+    return newTemplate;
+  }
+
+  async updateTaskGuideTemplate(id: number, template: Partial<InsertTaskGuideTemplate>): Promise<TaskGuideTemplate | undefined> {
+    const [updatedTemplate] = await db
+      .update(taskGuideTemplates)
+      .set({ ...template, updatedAt: new Date() })
+      .where(eq(taskGuideTemplates.id, id))
+      .returning();
+    return updatedTemplate;
+  }
+
+  async deleteTaskGuideTemplate(id: number): Promise<boolean> {
+    const result = await db
+      .update(taskGuideTemplates)
+      .set({ isActive: false, updatedAt: new Date() })
+      .where(eq(taskGuideTemplates.id, id));
+    return (result.rowCount ?? 0) > 0;
+  }
+
+  // Attachment access logs operations
+  async logAttachmentAccess(log: InsertAttachmentAccessLog): Promise<AttachmentAccessLog> {
+    const [newLog] = await db.insert(attachmentAccessLogs).values(log).returning();
+    return newLog;
+  }
+
+  async getAttachmentAccessLogs(organizationId: string, filters?: { attachmentId?: number; attachmentType?: string; accessedBy?: string }): Promise<AttachmentAccessLog[]> {
+    let query = db
+      .select()
+      .from(attachmentAccessLogs)
+      .where(eq(attachmentAccessLogs.organizationId, organizationId));
+
+    if (filters?.attachmentId) {
+      query = query.where(eq(attachmentAccessLogs.attachmentId, filters.attachmentId));
+    }
+    if (filters?.attachmentType) {
+      query = query.where(eq(attachmentAccessLogs.attachmentType, filters.attachmentType));
+    }
+    if (filters?.accessedBy) {
+      query = query.where(eq(attachmentAccessLogs.accessedBy, filters.accessedBy));
+    }
+
+    return await query.orderBy(desc(attachmentAccessLogs.createdAt));
+  }
 }
 
 export const storage = new DatabaseStorage();

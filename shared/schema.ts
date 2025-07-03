@@ -5433,6 +5433,198 @@ export type InsertStaffCommissionBonus = z.infer<typeof insertStaffCommissionBon
 export type EmergencyTaskReason = typeof emergencyTaskReasons.$inferSelect;
 export type InsertEmergencyTaskReason = z.infer<typeof insertEmergencyTaskReasonSchema>;
 
+// ===== TASK ATTACHMENTS & PROPERTY NOTES =====
+
+// Task Attachments - visual guides, manuals, videos for tasks
+export const taskAttachments = pgTable("task_attachments", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").notNull(),
+  taskId: integer("task_id").references(() => tasks.id),
+  attachmentType: varchar("attachment_type").notNull(), // image, pdf, video_link, document
+  fileName: varchar("file_name").notNull(),
+  fileUrl: text("file_url").notNull(), // URL or cloud storage link
+  description: text("description"),
+  fileSize: integer("file_size"), // in bytes
+  mimeType: varchar("mime_type"),
+  thumbnailUrl: text("thumbnail_url"), // for images/videos
+  uploadedBy: varchar("uploaded_by").notNull(), // User ID
+  uploadedByName: varchar("uploaded_by_name").notNull(),
+  isActive: boolean("is_active").default(true),
+  sortOrder: integer("sort_order").default(0),
+  accessLevel: varchar("access_level").default("staff"), // staff, admin, all
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Property Specific Notes - general notes visible across all tasks for a property
+export const propertyNotes = pgTable("property_notes", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").notNull(),
+  propertyId: integer("property_id").references(() => properties.id).notNull(),
+  noteType: varchar("note_type").notNull(), // general, appliance_quirk, fragile_items, owner_preference, critical_alert
+  title: varchar("title").notNull(),
+  content: text("content").notNull(),
+  priority: varchar("priority").default("normal"), // critical, high, normal, low
+  isActive: boolean("is_active").default(true),
+  isPinned: boolean("is_pinned").default(false), // critical alerts pinned to top
+  applicableDepartments: varchar("applicable_departments").array(), // cleaning, maintenance, pool, garden, all
+  visibleToStaff: boolean("visible_to_staff").default(true),
+  visibleToAdmins: boolean("visible_to_admins").default(true),
+  backgroundColor: varchar("background_color").default("#F3F4F6"), // for visual distinction
+  iconType: varchar("icon_type").default("info"), // warning, info, alert, star
+  createdBy: varchar("created_by").notNull(),
+  createdByName: varchar("created_by_name").notNull(),
+  lastModifiedBy: varchar("last_modified_by"),
+  lastModifiedByName: varchar("last_modified_by_name"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Property Attachment Library - manuals, guides, photos for property-level reference
+export const propertyAttachments = pgTable("property_attachments", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").notNull(),
+  propertyId: integer("property_id").references(() => properties.id).notNull(),
+  attachmentType: varchar("attachment_type").notNull(), // manual, guide, photo, video_link, document
+  category: varchar("category").notNull(), // appliance_manual, property_guide, emergency_contact, wifi_info
+  title: varchar("title").notNull(),
+  description: text("description"),
+  fileName: varchar("file_name"),
+  fileUrl: text("file_url").notNull(),
+  fileSize: integer("file_size"),
+  mimeType: varchar("mime_type"),
+  thumbnailUrl: text("thumbnail_url"),
+  tags: varchar("tags").array(), // searchable tags
+  applicableDepartments: varchar("applicable_departments").array(), // cleaning, maintenance, pool, garden, all
+  accessLevel: varchar("access_level").default("staff"), // staff, admin, all
+  downloadCount: integer("download_count").default(0),
+  lastAccessedAt: timestamp("last_accessed_at"),
+  uploadedBy: varchar("uploaded_by").notNull(),
+  uploadedByName: varchar("uploaded_by_name").notNull(),
+  isActive: boolean("is_active").default(true),
+  sortOrder: integer("sort_order").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Task Guide Templates - reusable guides that can be attached to multiple tasks
+export const taskGuideTemplates = pgTable("task_guide_templates", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").notNull(),
+  templateName: varchar("template_name").notNull(),
+  description: text("description"),
+  category: varchar("category").notNull(), // cleaning, maintenance, pool, garden, emergency
+  guideType: varchar("guide_type").notNull(), // step_by_step, safety_checklist, troubleshooting, video_tutorial
+  content: text("content"), // structured guide content (JSON or markdown)
+  attachmentUrls: text("attachment_urls").array(), // associated files
+  estimatedDuration: integer("estimated_duration_minutes"),
+  difficulty: varchar("difficulty").default("medium"), // easy, medium, hard
+  requiredTools: text("required_tools").array(),
+  safetyNotes: text("safety_notes").array(),
+  isActive: boolean("is_active").default(true),
+  useCount: integer("use_count").default(0), // how many tasks use this template
+  createdBy: varchar("created_by").notNull(),
+  createdByName: varchar("created_by_name").notNull(),
+  lastModifiedBy: varchar("last_modified_by"),
+  lastModifiedByName: varchar("last_modified_by_name"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Attachment Access Logs - track when staff access attachments for analytics
+export const attachmentAccessLogs = pgTable("attachment_access_logs", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").notNull(),
+  attachmentId: integer("attachment_id"), // can reference taskAttachments, propertyAttachments, or taskGuideTemplates
+  attachmentType: varchar("attachment_type").notNull(), // task_attachment, property_attachment, guide_template
+  accessedBy: varchar("accessed_by").notNull(),
+  accessedByName: varchar("accessed_by_name").notNull(),
+  accessType: varchar("access_type").notNull(), // view, download, share
+  taskId: integer("task_id").references(() => tasks.id), // context if accessed during task
+  propertyId: integer("property_id").references(() => properties.id),
+  deviceType: varchar("device_type"), // mobile, tablet, desktop
+  accessDuration: integer("access_duration_seconds"), // how long viewed
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// ===== TASK ATTACHMENTS & PROPERTY NOTES RELATIONS =====
+
+export const taskAttachmentsRelations = relations(taskAttachments, ({ one }) => ({
+  task: one(tasks, {
+    fields: [taskAttachments.taskId],
+    references: [tasks.id],
+  }),
+}));
+
+export const propertyNotesRelations = relations(propertyNotes, ({ one }) => ({
+  property: one(properties, {
+    fields: [propertyNotes.propertyId],
+    references: [properties.id],
+  }),
+}));
+
+export const propertyAttachmentsRelations = relations(propertyAttachments, ({ one }) => ({
+  property: one(properties, {
+    fields: [propertyAttachments.propertyId],
+    references: [properties.id],
+  }),
+}));
+
+export const attachmentAccessLogsRelations = relations(attachmentAccessLogs, ({ one }) => ({
+  task: one(tasks, {
+    fields: [attachmentAccessLogs.taskId],
+    references: [tasks.id],
+  }),
+  property: one(properties, {
+    fields: [attachmentAccessLogs.propertyId],
+    references: [properties.id],
+  }),
+}));
+
+// ===== TASK ATTACHMENTS & PROPERTY NOTES SCHEMAS =====
+
+export const insertTaskAttachmentSchema = createInsertSchema(taskAttachments).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertPropertyNoteSchema = createInsertSchema(propertyNotes).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertPropertyAttachmentSchema = createInsertSchema(propertyAttachments).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertTaskGuideTemplateSchema = createInsertSchema(taskGuideTemplates).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertAttachmentAccessLogSchema = createInsertSchema(attachmentAccessLogs).omit({
+  id: true,
+  createdAt: true,
+});
+
+// ===== TASK ATTACHMENTS & PROPERTY NOTES TYPES =====
+
+export type TaskAttachment = typeof taskAttachments.$inferSelect;
+export type InsertTaskAttachment = z.infer<typeof insertTaskAttachmentSchema>;
+export type PropertyNote = typeof propertyNotes.$inferSelect;
+export type InsertPropertyNote = z.infer<typeof insertPropertyNoteSchema>;
+export type PropertyAttachment = typeof propertyAttachments.$inferSelect;
+export type InsertPropertyAttachment = z.infer<typeof insertPropertyAttachmentSchema>;
+export type TaskGuideTemplate = typeof taskGuideTemplates.$inferSelect;
+export type InsertTaskGuideTemplate = z.infer<typeof insertTaskGuideTemplateSchema>;
+export type AttachmentAccessLog = typeof attachmentAccessLogs.$inferSelect;
+export type InsertAttachmentAccessLog = z.infer<typeof insertAttachmentAccessLogSchema>;
+
 // ===== STAFF DASHBOARD TYPES =====
 
 
