@@ -165,13 +165,13 @@ export default function EnhancedGuestDashboard() {
   });
 
   const { data: electricityBilling, isLoading: loadingElectricityBilling } = useQuery({
-    queryKey: ["/api/guest-dashboard/electricity-billing", guestBooking?.id],
+    queryKey: [`/api/guest-dashboard/electricity-billing/${guestBooking?.id}`],
     enabled: !!guestBooking?.id,
     retry: 2,
   });
 
   const { data: depositOverview, isLoading: loadingDepositOverview } = useQuery({
-    queryKey: ["/api/guest-dashboard/deposit-overview", guestBooking?.id],
+    queryKey: [`/api/guest-dashboard/deposit-overview/${guestBooking?.id}`],
     enabled: !!guestBooking?.id,
     retry: 2,
   });
@@ -536,7 +536,6 @@ export default function EnhancedGuestDashboard() {
 
           {/* Electricity Billing Tab */}
           <TabsContent value="electricity-billing" className="space-y-6">
-            {console.log("ElectricityBilling data:", electricityBilling)}
             {loadingElectricityBilling ? (
               <Card>
                 <CardContent className="p-6">
