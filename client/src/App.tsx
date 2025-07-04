@@ -96,6 +96,7 @@ import ServiceMarketplaceDashboard from "@/pages/ServiceMarketplaceDashboard";
 import OwnerOnboardingSystem from "@/pages/OwnerOnboardingSystem";
 import EnhancedGuestDashboard from "@/pages/EnhancedGuestDashboard";
 import GuestCheckoutSurvey from "@/pages/GuestCheckoutSurvey";
+import OwnerOnboardingUtilitySettings from "@/pages/OwnerOnboardingUtilitySettings";
 
 function Router() {
   const { isAuthenticated, isLoading, user } = useAuth();
@@ -181,6 +182,7 @@ function Router() {
         <Route path="/smart-inventory-dashboard" component={SmartInventoryDashboard} />
         <Route path="/service-marketplace-dashboard" component={ServiceMarketplaceDashboard} />
         <Route path="/owner-onboarding-system" component={OwnerOnboardingSystem} />
+        <Route path="/owner-onboarding-utility-settings" component={OwnerOnboardingUtilitySettings} />
         <Route path="/task-attachments-notes" component={TaskAttachmentsNotes} />
         <Route path="/ai-task-manager" component={AiTaskManager} />
         <Route path="/task-checklist-proof" component={TaskChecklistProofSystem} />

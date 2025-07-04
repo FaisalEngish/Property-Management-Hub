@@ -21023,6 +21023,339 @@ async function processGuestIssueForAI(issueReport: any) {
     }
   });
 
+  // ===== OWNER ONBOARDING & UTILITY SETTINGS MODULE API ROUTES =====
+
+  // Owner Onboarding Steps routes
+  app.get("/api/owner-onboarding/steps", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId } = getTenantContext(req);
+      const { ownerId = req.user?.id } = req.query;
+      
+      // Role-based access control
+      if (req.user?.role !== 'admin' && req.user?.role !== 'portfolio-manager' && req.user?.id !== ownerId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const steps = await storage.getOwnerOnboardingSteps(organizationId, ownerId);
+      res.json(steps);
+    } catch (error) {
+      console.error("Error fetching onboarding steps:", error);
+      res.status(500).json({ message: "Failed to fetch onboarding steps" });
+    }
+  });
+
+  app.get("/api/owner-onboarding/steps/:id", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const stepId = parseInt(req.params.id);
+      const step = await storage.getOwnerOnboardingStep(stepId);
+      
+      if (!step) {
+        return res.status(404).json({ message: "Onboarding step not found" });
+      }
+
+      // Role-based access control
+      if (req.user?.role !== 'admin' && req.user?.role !== 'portfolio-manager' && req.user?.id !== step.ownerId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      res.json(step);
+    } catch (error) {
+      console.error("Error fetching onboarding step:", error);
+      res.status(500).json({ message: "Failed to fetch onboarding step" });
+    }
+  });
+
+  app.put("/api/owner-onboarding/steps/:id", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const stepId = parseInt(req.params.id);
+      const updateData = req.body;
+
+      // Role-based access control for updating steps
+      if (req.user?.role !== 'admin' && req.user?.role !== 'portfolio-manager') {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const updatedStep = await storage.updateOwnerOnboardingStep(stepId, updateData);
+      if (!updatedStep) {
+        return res.status(404).json({ message: "Onboarding step not found" });
+      }
+
+      res.json(updatedStep);
+    } catch (error) {
+      console.error("Error updating onboarding step:", error);
+      res.status(500).json({ message: "Failed to update onboarding step" });
+    }
+  });
+
+  app.post("/api/owner-onboarding/steps/:id/complete", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const stepId = parseInt(req.params.id);
+      const completedBy = req.user?.id;
+
+      const completedStep = await storage.completeOnboardingStep(stepId, completedBy);
+      if (!completedStep) {
+        return res.status(404).json({ message: "Onboarding step not found" });
+      }
+
+      res.json(completedStep);
+    } catch (error) {
+      console.error("Error completing onboarding step:", error);
+      res.status(500).json({ message: "Failed to complete onboarding step" });
+    }
+  });
+
+  // Property Utility Settings routes
+  app.get("/api/properties/:propertyId/utility-settings", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId } = getTenantContext(req);
+      const propertyId = parseInt(req.params.propertyId);
+
+      // Role-based access control
+      if (req.user?.role === 'owner') {
+        const ownedProperties = await storage.getPropertiesByOwner(req.user.id);
+        const propertyIds = ownedProperties.map((p: any) => p.id);
+        if (!propertyIds.includes(propertyId)) {
+          return res.status(403).json({ message: "Access denied to this property" });
+        }
+      } else if (!['admin', 'portfolio-manager', 'staff'].includes(req.user?.role)) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const settings = await storage.getOwnerPropertyUtilitySettings(organizationId, propertyId);
+      res.json(settings);
+    } catch (error) {
+      console.error("Error fetching utility settings:", error);
+      res.status(500).json({ message: "Failed to fetch utility settings" });
+    }
+  });
+
+  app.post("/api/properties/:propertyId/utility-settings", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId } = getTenantContext(req);
+      const propertyId = parseInt(req.params.propertyId);
+      const settingsData = { ...req.body, organizationId, propertyId };
+
+      // Role-based access control
+      if (req.user?.role !== 'admin' && req.user?.role !== 'portfolio-manager') {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const newSettings = await storage.createOwnerPropertyUtilitySettings(settingsData);
+      res.status(201).json(newSettings);
+    } catch (error) {
+      console.error("Error creating utility settings:", error);
+      res.status(500).json({ message: "Failed to create utility settings" });
+    }
+  });
+
+  app.put("/api/properties/:propertyId/utility-settings/:id", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const settingsId = parseInt(req.params.id);
+      const updateData = req.body;
+
+      // Role-based access control
+      if (req.user?.role !== 'admin' && req.user?.role !== 'portfolio-manager') {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const updatedSettings = await storage.updateOwnerPropertyUtilitySettings(settingsId, updateData);
+      if (!updatedSettings) {
+        return res.status(404).json({ message: "Utility settings not found" });
+      }
+
+      res.json(updatedSettings);
+    } catch (error) {
+      console.error("Error updating utility settings:", error);
+      res.status(500).json({ message: "Failed to update utility settings" });
+    }
+  });
+
+  // Property Maintenance History routes
+  app.get("/api/properties/:propertyId/maintenance-history", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId } = getTenantContext(req);
+      const propertyId = parseInt(req.params.propertyId);
+
+      // Role-based access control
+      if (req.user?.role === 'owner') {
+        const ownedProperties = await storage.getPropertiesByOwner(req.user.id);
+        const propertyIds = ownedProperties.map((p: any) => p.id);
+        if (!propertyIds.includes(propertyId)) {
+          return res.status(403).json({ message: "Access denied to this property" });
+        }
+      } else if (!['admin', 'portfolio-manager', 'staff'].includes(req.user?.role)) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const history = await storage.getOwnerPropertyMaintenanceHistory(organizationId, propertyId);
+      res.json(history);
+    } catch (error) {
+      console.error("Error fetching maintenance history:", error);
+      res.status(500).json({ message: "Failed to fetch maintenance history" });
+    }
+  });
+
+  app.post("/api/properties/:propertyId/maintenance-history", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId } = getTenantContext(req);
+      const propertyId = parseInt(req.params.propertyId);
+      const historyData = { ...req.body, organizationId, propertyId };
+
+      // Role-based access control
+      if (req.user?.role !== 'admin' && req.user?.role !== 'portfolio-manager') {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const newHistory = await storage.createOwnerPropertyMaintenanceHistory(historyData);
+      res.status(201).json(newHistory);
+    } catch (error) {
+      console.error("Error creating maintenance history:", error);
+      res.status(500).json({ message: "Failed to create maintenance history" });
+    }
+  });
+
+  // Property Billing Logs routes
+  app.get("/api/properties/:propertyId/billing-logs", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId } = getTenantContext(req);
+      const propertyId = parseInt(req.params.propertyId);
+
+      // Role-based access control
+      if (req.user?.role === 'owner') {
+        const ownedProperties = await storage.getPropertiesByOwner(req.user.id);
+        const propertyIds = ownedProperties.map((p: any) => p.id);
+        if (!propertyIds.includes(propertyId)) {
+          return res.status(403).json({ message: "Access denied to this property" });
+        }
+      } else if (!['admin', 'portfolio-manager', 'staff'].includes(req.user?.role)) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const logs = await storage.getPropertyBillingLogs(organizationId, propertyId);
+      res.json(logs);
+    } catch (error) {
+      console.error("Error fetching billing logs:", error);
+      res.status(500).json({ message: "Failed to fetch billing logs" });
+    }
+  });
+
+  app.post("/api/properties/:propertyId/billing-logs", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId } = getTenantContext(req);
+      const propertyId = parseInt(req.params.propertyId);
+      const logData = { ...req.body, organizationId, propertyId };
+
+      // Role-based access control
+      if (req.user?.role !== 'admin' && req.user?.role !== 'portfolio-manager') {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const newLog = await storage.createPropertyBillingLog(logData);
+      res.status(201).json(newLog);
+    } catch (error) {
+      console.error("Error creating billing log:", error);
+      res.status(500).json({ message: "Failed to create billing log" });
+    }
+  });
+
+  // Owner Onboarding Documents routes
+  app.get("/api/owner-onboarding/documents", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId } = getTenantContext(req);
+      const { ownerId = req.user?.id } = req.query;
+
+      // Role-based access control
+      if (req.user?.role !== 'admin' && req.user?.role !== 'portfolio-manager' && req.user?.id !== ownerId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const documents = await storage.getOwnerOnboardingDocuments(organizationId, ownerId);
+      res.json(documents);
+    } catch (error) {
+      console.error("Error fetching onboarding documents:", error);
+      res.status(500).json({ message: "Failed to fetch onboarding documents" });
+    }
+  });
+
+  app.post("/api/owner-onboarding/documents", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId } = getTenantContext(req);
+      const documentData = { ...req.body, organizationId };
+
+      const newDocument = await storage.createOwnerOnboardingDocument(documentData);
+      res.status(201).json(newDocument);
+    } catch (error) {
+      console.error("Error creating onboarding document:", error);
+      res.status(500).json({ message: "Failed to create onboarding document" });
+    }
+  });
+
+  app.put("/api/owner-onboarding/documents/:id", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const documentId = parseInt(req.params.id);
+      const updateData = req.body;
+
+      const updatedDocument = await storage.updateOwnerOnboardingDocument(documentId, updateData);
+      if (!updatedDocument) {
+        return res.status(404).json({ message: "Document not found" });
+      }
+
+      res.json(updatedDocument);
+    } catch (error) {
+      console.error("Error updating onboarding document:", error);
+      res.status(500).json({ message: "Failed to update onboarding document" });
+    }
+  });
+
+  // Owner Service Selections routes
+  app.get("/api/owner-onboarding/services", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId } = getTenantContext(req);
+      const { ownerId = req.user?.id } = req.query;
+
+      // Role-based access control
+      if (req.user?.role !== 'admin' && req.user?.role !== 'portfolio-manager' && req.user?.id !== ownerId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const services = await storage.getOwnerServiceSelections(organizationId, ownerId);
+      res.json(services);
+    } catch (error) {
+      console.error("Error fetching service selections:", error);
+      res.status(500).json({ message: "Failed to fetch service selections" });
+    }
+  });
+
+  app.post("/api/owner-onboarding/services", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId } = getTenantContext(req);
+      const serviceData = { ...req.body, organizationId };
+
+      const newService = await storage.createOwnerServiceSelection(serviceData);
+      res.status(201).json(newService);
+    } catch (error) {
+      console.error("Error creating service selection:", error);
+      res.status(500).json({ message: "Failed to create service selection" });
+    }
+  });
+
+  app.put("/api/owner-onboarding/services/:id", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const serviceId = parseInt(req.params.id);
+      const updateData = req.body;
+
+      const updatedService = await storage.updateOwnerServiceSelection(serviceId, updateData);
+      if (!updatedService) {
+        return res.status(404).json({ message: "Service selection not found" });
+      }
+
+      res.json(updatedService);
+    } catch (error) {
+      console.error("Error updating service selection:", error);
+      res.status(500).json({ message: "Failed to update service selection" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

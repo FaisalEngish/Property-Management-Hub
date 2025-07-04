@@ -476,6 +476,25 @@ import {
   type InsertAddonServiceAvailability,
   type AddonBillingRule,
   type InsertAddonBillingRule,
+  // Owner Onboarding & Utility Settings Module types
+  ownerOnboardingSteps,
+  ownerPropertyUtilitySettings,
+  ownerPropertyMaintenanceHistory,
+  propertyBillingLogs,
+  ownerOnboardingDocuments,
+  ownerServiceSelections,
+  type OwnerOnboardingStep,
+  type InsertOwnerOnboardingStep,
+  type OwnerPropertyUtilitySettings,
+  type InsertOwnerPropertyUtilitySettings,
+  type OwnerPropertyMaintenanceHistory,
+  type InsertOwnerPropertyMaintenanceHistory,
+  type PropertyBillingLog,
+  type InsertPropertyBillingLog,
+  type OwnerOnboardingDocument,
+  type InsertOwnerOnboardingDocument,
+  type OwnerServiceSelection,
+  type InsertOwnerServiceSelection,
   type StaffProfile,
   type InsertStaffProfile,
   type MonthlyPayrollRecord,
@@ -1722,6 +1741,38 @@ export interface IStorage {
     aiRecommendations: AiMaintenanceRecommendation[];
     overdueSchedules: PredictiveMaintenanceSchedule[];
   }>;
+
+  // ===== OWNER ONBOARDING & UTILITY SETTINGS MODULE =====
+  
+  // Owner Onboarding Step operations
+  getOwnerOnboardingSteps(organizationId: string, ownerId: string): Promise<OwnerOnboardingStep[]>;
+  getOwnerOnboardingStep(id: number): Promise<OwnerOnboardingStep | undefined>;
+  createOwnerOnboardingStep(step: InsertOwnerOnboardingStep): Promise<OwnerOnboardingStep>;
+  updateOwnerOnboardingStep(id: number, step: Partial<InsertOwnerOnboardingStep>): Promise<OwnerOnboardingStep | undefined>;
+  completeOnboardingStep(stepId: number, completedBy: string): Promise<OwnerOnboardingStep | undefined>;
+  
+  // Property Utility Settings operations
+  getOwnerPropertyUtilitySettings(organizationId: string, propertyId: number): Promise<OwnerPropertyUtilitySettings | undefined>;
+  createOwnerPropertyUtilitySettings(settings: InsertOwnerPropertyUtilitySettings): Promise<OwnerPropertyUtilitySettings>;
+  updateOwnerPropertyUtilitySettings(id: number, settings: Partial<InsertOwnerPropertyUtilitySettings>): Promise<OwnerPropertyUtilitySettings | undefined>;
+  
+  // Property Maintenance History operations
+  getOwnerPropertyMaintenanceHistory(organizationId: string, propertyId: number): Promise<OwnerPropertyMaintenanceHistory[]>;
+  createOwnerPropertyMaintenanceHistory(history: InsertOwnerPropertyMaintenanceHistory): Promise<OwnerPropertyMaintenanceHistory>;
+  
+  // Property Billing Logs operations
+  getPropertyBillingLogs(organizationId: string, propertyId: number): Promise<PropertyBillingLog[]>;
+  createPropertyBillingLog(log: InsertPropertyBillingLog): Promise<PropertyBillingLog>;
+  
+  // Owner Onboarding Documents operations
+  getOwnerOnboardingDocuments(organizationId: string, ownerId: string): Promise<OwnerOnboardingDocument[]>;
+  createOwnerOnboardingDocument(document: InsertOwnerOnboardingDocument): Promise<OwnerOnboardingDocument>;
+  updateOwnerOnboardingDocument(id: number, document: Partial<InsertOwnerOnboardingDocument>): Promise<OwnerOnboardingDocument | undefined>;
+  
+  // Owner Service Selections operations
+  getOwnerServiceSelections(organizationId: string, ownerId: string): Promise<OwnerServiceSelection[]>;
+  createOwnerServiceSelection(selection: InsertOwnerServiceSelection): Promise<OwnerServiceSelection>;
+  updateOwnerServiceSelection(id: number, selection: Partial<InsertOwnerServiceSelection>): Promise<OwnerServiceSelection | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -28206,6 +28257,559 @@ Plant Care:
       aiRecommendations: recommendations,
       overdueSchedules,
     };
+  }
+
+  // ===== OWNER ONBOARDING & UTILITY SETTINGS MODULE IMPLEMENTATION =====
+  
+  // Owner Onboarding Step operations
+  async getOwnerOnboardingSteps(organizationId: string, ownerId: string): Promise<OwnerOnboardingStep[]> {
+    // Mock data for demonstration - replace with real database queries when DB is ready
+    return [
+      {
+        id: 1,
+        organizationId,
+        ownerId,
+        stepNumber: 1,
+        stepTitle: "Contact Information",
+        stepDescription: "Complete your personal and business contact information",
+        stepType: "contact_info",
+        isRequired: true,
+        status: "completed",
+        completedAt: new Date("2025-01-02T10:00:00Z"),
+        completedBy: ownerId,
+        data: JSON.stringify({
+          fullName: "John Smith",
+          email: "john.smith@email.com",
+          phone: "+1-555-0123",
+          businessName: "Smith Properties LLC"
+        }),
+        createdAt: new Date("2025-01-01T08:00:00Z"),
+        updatedAt: new Date("2025-01-02T10:00:00Z")
+      },
+      {
+        id: 2,
+        organizationId,
+        ownerId,
+        stepNumber: 2,
+        stepTitle: "Ownership Verification",
+        stepDescription: "Upload property ownership documents and legal certificates",
+        stepType: "ownership_proof",
+        isRequired: true,
+        status: "in_progress",
+        completedAt: null,
+        completedBy: null,
+        data: JSON.stringify({
+          documentsUploaded: ["property_deed_2024.pdf"],
+          verificationStatus: "pending_review"
+        }),
+        createdAt: new Date("2025-01-01T08:00:00Z"),
+        updatedAt: new Date("2025-01-03T09:00:00Z")
+      },
+      {
+        id: 3,
+        organizationId,
+        ownerId,
+        stepNumber: 3,
+        stepTitle: "Property Linking",
+        stepDescription: "Link your properties to your owner account",
+        stepType: "property_linking",
+        isRequired: true,
+        status: "pending",
+        completedAt: null,
+        completedBy: null,
+        data: null,
+        createdAt: new Date("2025-01-01T08:00:00Z"),
+        updatedAt: new Date("2025-01-01T08:00:00Z")
+      },
+      {
+        id: 4,
+        organizationId,
+        ownerId,
+        stepNumber: 4,
+        stepTitle: "Document Upload Center",
+        stepDescription: "Upload additional property documents and certificates",
+        stepType: "document_upload",
+        isRequired: false,
+        status: "pending",
+        completedAt: null,
+        completedBy: null,
+        data: null,
+        createdAt: new Date("2025-01-01T08:00:00Z"),
+        updatedAt: new Date("2025-01-01T08:00:00Z")
+      },
+      {
+        id: 5,
+        organizationId,
+        ownerId,
+        stepNumber: 5,
+        stepTitle: "Payout Setup",
+        stepDescription: "Configure your payment preferences and banking details",
+        stepType: "payout_setup",
+        isRequired: true,
+        status: "pending",
+        completedAt: null,
+        completedBy: null,
+        data: null,
+        createdAt: new Date("2025-01-01T08:00:00Z"),
+        updatedAt: new Date("2025-01-01T08:00:00Z")
+      },
+      {
+        id: 6,
+        organizationId,
+        ownerId,
+        stepNumber: 6,
+        stepTitle: "Service Selection",
+        stepDescription: "Choose your property management services and packages",
+        stepType: "service_selection",
+        isRequired: false,
+        status: "pending",
+        completedAt: null,
+        completedBy: null,
+        data: null,
+        createdAt: new Date("2025-01-01T08:00:00Z"),
+        updatedAt: new Date("2025-01-01T08:00:00Z")
+      },
+      {
+        id: 7,
+        organizationId,
+        ownerId,
+        stepNumber: 7,
+        stepTitle: "Onboarding Call",
+        stepDescription: "Schedule an optional onboarding call with our team",
+        stepType: "onboarding_call",
+        isRequired: false,
+        status: "pending",
+        completedAt: null,
+        completedBy: null,
+        data: null,
+        createdAt: new Date("2025-01-01T08:00:00Z"),
+        updatedAt: new Date("2025-01-01T08:00:00Z")
+      }
+    ];
+  }
+
+  async getOwnerOnboardingStep(id: number): Promise<OwnerOnboardingStep | undefined> {
+    // Mock implementation
+    const mockSteps = await this.getOwnerOnboardingSteps("demo-org", "demo-owner");
+    return mockSteps.find(step => step.id === id);
+  }
+
+  async createOwnerOnboardingStep(step: InsertOwnerOnboardingStep): Promise<OwnerOnboardingStep> {
+    // Mock implementation - in real scenario, use db.insert(ownerOnboardingSteps)
+    const newStep: OwnerOnboardingStep = {
+      id: Math.floor(Math.random() * 10000),
+      ...step,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    return newStep;
+  }
+
+  async updateOwnerOnboardingStep(id: number, step: Partial<InsertOwnerOnboardingStep>): Promise<OwnerOnboardingStep | undefined> {
+    // Mock implementation - in real scenario, use db.update(ownerOnboardingSteps)
+    const existing = await this.getOwnerOnboardingStep(id);
+    if (existing) {
+      return {
+        ...existing,
+        ...step,
+        updatedAt: new Date()
+      };
+    }
+    return undefined;
+  }
+
+  async completeOnboardingStep(stepId: number, completedBy: string): Promise<OwnerOnboardingStep | undefined> {
+    return this.updateOwnerOnboardingStep(stepId, {
+      status: "completed",
+      completedAt: new Date(),
+      completedBy
+    });
+  }
+
+  // Property Utility Settings operations
+  async getOwnerPropertyUtilitySettings(organizationId: string, propertyId: number): Promise<OwnerPropertyUtilitySettings | undefined> {
+    // Mock data for demonstration
+    return {
+      id: 1,
+      organizationId,
+      propertyId,
+      electricityProvider: "PEA (Provincial Electricity Authority)",
+      electricityAccountNumber: "1234567890",
+      electricityRatePerKwh: 7.00,
+      waterProvider: "Local Municipality",
+      waterAccountNumber: "WTR-9876543",
+      waterRatePerUnit: 18.50,
+      internetProvider: "AIS Fiber",
+      internetAccountNumber: "AIS-INT-5555",
+      internetMonthlyCost: 990.00,
+      otherUtilities: JSON.stringify({
+        gas: {
+          provider: "PTT Gas",
+          accountNumber: "GAS-1111",
+          monthlyCost: 450
+        },
+        hoaFees: {
+          provider: "Villa Community Management",
+          accountNumber: "HOA-7777",
+          monthlyCost: 2500
+        }
+      }),
+      settingsNotes: "Electricity meter reading required on 1st of each month. Water bills arrive quarterly.",
+      createdAt: new Date("2025-01-01T08:00:00Z"),
+      updatedAt: new Date("2025-01-03T10:00:00Z")
+    };
+  }
+
+  async createOwnerPropertyUtilitySettings(settings: InsertOwnerPropertyUtilitySettings): Promise<OwnerPropertyUtilitySettings> {
+    // Mock implementation
+    const newSettings: OwnerPropertyUtilitySettings = {
+      id: Math.floor(Math.random() * 10000),
+      ...settings,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    return newSettings;
+  }
+
+  async updateOwnerPropertyUtilitySettings(id: number, settings: Partial<InsertOwnerPropertyUtilitySettings>): Promise<OwnerPropertyUtilitySettings | undefined> {
+    // Mock implementation
+    const existing = await this.getOwnerPropertyUtilitySettings(settings.organizationId || "demo-org", settings.propertyId || 1);
+    if (existing) {
+      return {
+        ...existing,
+        ...settings,
+        updatedAt: new Date()
+      };
+    }
+    return undefined;
+  }
+
+  // Property Maintenance History operations
+  async getOwnerPropertyMaintenanceHistory(organizationId: string, propertyId: number): Promise<OwnerPropertyMaintenanceHistory[]> {
+    // Mock maintenance history data
+    return [
+      {
+        id: 1,
+        organizationId,
+        propertyId,
+        serviceType: "Pool Maintenance",
+        serviceProvider: "Samui Pool Care",
+        serviceDate: new Date("2024-12-15T08:00:00Z"),
+        serviceCost: 2500.00,
+        serviceCurrency: "THB",
+        serviceDescription: "Weekly pool cleaning, chemical balancing, and equipment check",
+        nextServiceDue: new Date("2024-12-22T08:00:00Z"),
+        serviceStatus: "completed",
+        warrantyExpiresAt: new Date("2025-06-15T08:00:00Z"),
+        invoiceNumber: "POOL-2024-145",
+        notes: "Pool equipment functioning properly. Recommended monthly deep cleaning.",
+        createdAt: new Date("2024-12-15T08:00:00Z"),
+        updatedAt: new Date("2024-12-15T09:30:00Z")
+      },
+      {
+        id: 2,
+        organizationId,
+        propertyId,
+        serviceType: "Air Conditioning Service",
+        serviceProvider: "Cool Air Thailand",
+        serviceDate: new Date("2024-12-10T10:00:00Z"),
+        serviceCost: 4200.00,
+        serviceCurrency: "THB",
+        serviceDescription: "Complete AC system maintenance, filter replacement, and gas top-up",
+        nextServiceDue: new Date("2025-03-10T10:00:00Z"),
+        serviceStatus: "completed",
+        warrantyExpiresAt: new Date("2025-12-10T10:00:00Z"),
+        invoiceNumber: "AC-2024-089",
+        notes: "All AC units serviced. Replaced filters in master bedroom and living room.",
+        createdAt: new Date("2024-12-10T10:00:00Z"),
+        updatedAt: new Date("2024-12-10T11:45:00Z")
+      },
+      {
+        id: 3,
+        organizationId,
+        propertyId,
+        serviceType: "Garden Maintenance",
+        serviceProvider: "Green Thumb Landscaping",
+        serviceDate: new Date("2024-12-08T07:00:00Z"),
+        serviceCost: 1800.00,
+        serviceCurrency: "THB",
+        serviceDescription: "Bi-weekly garden maintenance, lawn mowing, and plant care",
+        nextServiceDue: new Date("2024-12-22T07:00:00Z"),
+        serviceStatus: "completed",
+        warrantyExpiresAt: null,
+        invoiceNumber: "GARDEN-2024-078",
+        notes: "Added new flowering plants near entrance. Recommended fertilizer application.",
+        createdAt: new Date("2024-12-08T07:00:00Z"),
+        updatedAt: new Date("2024-12-08T08:20:00Z")
+      }
+    ];
+  }
+
+  async createOwnerPropertyMaintenanceHistory(history: InsertOwnerPropertyMaintenanceHistory): Promise<OwnerPropertyMaintenanceHistory> {
+    // Mock implementation
+    const newHistory: OwnerPropertyMaintenanceHistory = {
+      id: Math.floor(Math.random() * 10000),
+      ...history,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    return newHistory;
+  }
+
+  // Property Billing Logs operations
+  async getPropertyBillingLogs(organizationId: string, propertyId: number): Promise<PropertyBillingLog[]> {
+    // Mock billing logs
+    return [
+      {
+        id: 1,
+        organizationId,
+        propertyId,
+        billType: "electricity",
+        billingPeriod: "December 2024",
+        billAmount: 3200.00,
+        billCurrency: "THB",
+        billDueDate: new Date("2025-01-15T23:59:59Z"),
+        billStatus: "paid",
+        paidDate: new Date("2025-01-10T14:20:00Z"),
+        paymentMethod: "bank_transfer",
+        billProvider: "PEA (Provincial Electricity Authority)",
+        unitsConsumed: 457,
+        ratePerUnit: 7.00,
+        previousReading: 12340,
+        currentReading: 12797,
+        notes: "On-time payment. Usage increased due to holiday season guests.",
+        createdAt: new Date("2025-01-01T08:00:00Z"),
+        updatedAt: new Date("2025-01-10T14:20:00Z")
+      },
+      {
+        id: 2,
+        organizationId,
+        propertyId,
+        billType: "water",
+        billingPeriod: "Q4 2024",
+        billAmount: 890.00,
+        billCurrency: "THB",
+        billDueDate: new Date("2025-01-20T23:59:59Z"),
+        billStatus: "pending",
+        paidDate: null,
+        paymentMethod: null,
+        billProvider: "Local Municipality",
+        unitsConsumed: 48,
+        ratePerUnit: 18.50,
+        previousReading: 8450,
+        currentReading: 8498,
+        notes: "Quarterly water bill. Auto-payment scheduled for January 18th.",
+        createdAt: new Date("2025-01-02T09:00:00Z"),
+        updatedAt: new Date("2025-01-02T09:00:00Z")
+      },
+      {
+        id: 3,
+        organizationId,
+        propertyId,
+        billType: "internet",
+        billingPeriod: "December 2024",
+        billAmount: 990.00,
+        billCurrency: "THB",
+        billDueDate: new Date("2025-01-05T23:59:59Z"),
+        billStatus: "paid",
+        paidDate: new Date("2025-01-03T16:45:00Z"),
+        paymentMethod: "auto_debit",
+        billProvider: "AIS Fiber",
+        unitsConsumed: null,
+        ratePerUnit: null,
+        previousReading: null,
+        currentReading: null,
+        notes: "Monthly internet service fee. Auto-debit from company account.",
+        createdAt: new Date("2024-12-28T08:00:00Z"),
+        updatedAt: new Date("2025-01-03T16:45:00Z")
+      }
+    ];
+  }
+
+  async createPropertyBillingLog(log: InsertPropertyBillingLog): Promise<PropertyBillingLog> {
+    // Mock implementation
+    const newLog: PropertyBillingLog = {
+      id: Math.floor(Math.random() * 10000),
+      ...log,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    return newLog;
+  }
+
+  // Owner Onboarding Documents operations
+  async getOwnerOnboardingDocuments(organizationId: string, ownerId: string): Promise<OwnerOnboardingDocument[]> {
+    // Mock documents data
+    return [
+      {
+        id: 1,
+        organizationId,
+        ownerId,
+        documentType: "ownership_proof",
+        documentTitle: "Property Deed Certificate",
+        documentDescription: "Official property ownership deed from Land Department",
+        fileName: "property_deed_villa_samui_2024.pdf",
+        fileSize: 2048576, // 2MB
+        filePath: "/uploads/owner-docs/deed_2024.pdf",
+        uploadStatus: "approved",
+        uploadedAt: new Date("2025-01-02T10:00:00Z"),
+        approvedAt: new Date("2025-01-02T14:30:00Z"),
+        approvedBy: "admin",
+        expirationDate: null,
+        documentNotes: "Valid ownership certificate. No issues found.",
+        createdAt: new Date("2025-01-02T10:00:00Z"),
+        updatedAt: new Date("2025-01-02T14:30:00Z")
+      },
+      {
+        id: 2,
+        organizationId,
+        ownerId,
+        documentType: "identification",
+        documentTitle: "Passport Copy",
+        documentDescription: "Owner passport identification document",
+        fileName: "passport_john_smith.jpg",
+        fileSize: 1536000, // 1.5MB
+        filePath: "/uploads/owner-docs/passport_2024.jpg",
+        uploadStatus: "pending_review",
+        uploadedAt: new Date("2025-01-02T10:15:00Z"),
+        approvedAt: null,
+        approvedBy: null,
+        expirationDate: new Date("2030-05-15T00:00:00Z"),
+        documentNotes: "Awaiting verification. Passport expires May 2030.",
+        createdAt: new Date("2025-01-02T10:15:00Z"),
+        updatedAt: new Date("2025-01-02T10:15:00Z")
+      },
+      {
+        id: 3,
+        organizationId,
+        ownerId,
+        documentType: "tax_documents",
+        documentTitle: "Property Tax Certificate",
+        documentDescription: "Annual property tax payment certificate",
+        fileName: "property_tax_2024.pdf",
+        fileSize: 512000, // 512KB
+        filePath: "/uploads/owner-docs/tax_2024.pdf",
+        uploadStatus: "pending_upload",
+        uploadedAt: null,
+        approvedAt: null,
+        approvedBy: null,
+        expirationDate: new Date("2025-12-31T23:59:59Z"),
+        documentNotes: "Required for 2024 tax year. Upload deadline: January 31st.",
+        createdAt: new Date("2025-01-01T08:00:00Z"),
+        updatedAt: new Date("2025-01-01T08:00:00Z")
+      }
+    ];
+  }
+
+  async createOwnerOnboardingDocument(document: InsertOwnerOnboardingDocument): Promise<OwnerOnboardingDocument> {
+    // Mock implementation
+    const newDocument: OwnerOnboardingDocument = {
+      id: Math.floor(Math.random() * 10000),
+      ...document,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    return newDocument;
+  }
+
+  async updateOwnerOnboardingDocument(id: number, document: Partial<InsertOwnerOnboardingDocument>): Promise<OwnerOnboardingDocument | undefined> {
+    // Mock implementation
+    const mockDocuments = await this.getOwnerOnboardingDocuments("demo-org", "demo-owner");
+    const existing = mockDocuments.find(doc => doc.id === id);
+    if (existing) {
+      return {
+        ...existing,
+        ...document,
+        updatedAt: new Date()
+      };
+    }
+    return undefined;
+  }
+
+  // Owner Service Selections operations
+  async getOwnerServiceSelections(organizationId: string, ownerId: string): Promise<OwnerServiceSelection[]> {
+    // Mock service selections
+    return [
+      {
+        id: 1,
+        organizationId,
+        ownerId,
+        serviceCategory: "cleaning",
+        serviceName: "Weekly Housekeeping",
+        serviceProvider: "Koh Samui Cleaning Services",
+        serviceFrequency: "weekly",
+        serviceCost: 2500.00,
+        serviceCurrency: "THB",
+        serviceStatus: "active",
+        startDate: new Date("2025-01-01T08:00:00Z"),
+        endDate: null,
+        autoRenewal: true,
+        serviceNotes: "Professional cleaning every Wednesday. Includes laundry and pool area.",
+        createdAt: new Date("2025-01-01T08:00:00Z"),
+        updatedAt: new Date("2025-01-01T08:00:00Z")
+      },
+      {
+        id: 2,
+        organizationId,
+        ownerId,
+        serviceCategory: "maintenance",
+        serviceName: "Pool Maintenance Package",
+        serviceProvider: "Samui Pool Care",
+        serviceFrequency: "weekly",
+        serviceCost: 2500.00,
+        serviceCurrency: "THB",
+        serviceStatus: "active",
+        startDate: new Date("2025-01-01T08:00:00Z"),
+        endDate: null,
+        autoRenewal: true,
+        serviceNotes: "Complete pool maintenance including chemical balancing and equipment checks.",
+        createdAt: new Date("2025-01-01T08:00:00Z"),
+        updatedAt: new Date("2025-01-01T08:00:00Z")
+      },
+      {
+        id: 3,
+        organizationId,
+        ownerId,
+        serviceCategory: "landscaping",
+        serviceName: "Garden Maintenance",
+        serviceProvider: "Green Thumb Landscaping",
+        serviceFrequency: "bi_weekly",
+        serviceCost: 1800.00,
+        serviceCurrency: "THB",
+        serviceStatus: "pending",
+        startDate: new Date("2025-01-15T08:00:00Z"),
+        endDate: null,
+        autoRenewal: false,
+        serviceNotes: "Bi-weekly garden maintenance. Service starts January 15th.",
+        createdAt: new Date("2025-01-01T08:00:00Z"),
+        updatedAt: new Date("2025-01-03T10:00:00Z")
+      }
+    ];
+  }
+
+  async createOwnerServiceSelection(selection: InsertOwnerServiceSelection): Promise<OwnerServiceSelection> {
+    // Mock implementation
+    const newSelection: OwnerServiceSelection = {
+      id: Math.floor(Math.random() * 10000),
+      ...selection,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    return newSelection;
+  }
+
+  async updateOwnerServiceSelection(id: number, selection: Partial<InsertOwnerServiceSelection>): Promise<OwnerServiceSelection | undefined> {
+    // Mock implementation
+    const mockSelections = await this.getOwnerServiceSelections("demo-org", "demo-owner");
+    const existing = mockSelections.find(sel => sel.id === id);
+    if (existing) {
+      return {
+        ...existing,
+        ...selection,
+        updatedAt: new Date()
+      };
+    }
+    return undefined;
   }
 }
 

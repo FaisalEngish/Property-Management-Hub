@@ -153,6 +153,7 @@ const getRoleBasedMenus = (role: string): MenuSection[] => {
           { label: "Document Center", icon: FolderOpen, href: "/document-center" },
           { label: "Property Access", icon: Key, href: "/property-access" },
           { label: "Owner Onboarding", icon: UserPlus, href: "/owner-onboarding-system", badge: "New" },
+          { label: "Owner Onboarding & Utility Settings", icon: Settings, href: "/owner-onboarding-utility-settings", badge: "New" },
         ]
       },
       {

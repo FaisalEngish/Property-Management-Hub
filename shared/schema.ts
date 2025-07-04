@@ -11045,3 +11045,257 @@ export type InsertMaintenanceTimelineEvent = z.infer<typeof insertMaintenanceTim
 
 export type MaintenanceAnalytics = typeof maintenanceAnalytics.$inferSelect;
 export type InsertMaintenanceAnalytics = z.infer<typeof insertMaintenanceAnalyticsSchema>;
+
+// ===== OWNER ONBOARDING & UTILITY SETTINGS MODULE =====
+
+// Owner onboarding process tracking
+export const ownerOnboardingSteps = pgTable("owner_onboarding_steps", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").notNull(),
+  ownerId: varchar("owner_id").notNull(),
+  stepName: varchar("step_name").notNull(), // contact_info, ownership_proof, property_link, documents, payout_method, services, onboarding_call
+  stepStatus: varchar("step_status").default("pending"), // pending, in_progress, completed, skipped
+  stepData: jsonb("step_data"), // Store step-specific data
+  completedAt: timestamp("completed_at"),
+  completedBy: varchar("completed_by"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Property utility settings and configuration
+export const ownerPropertyUtilitySettings = pgTable("owner_property_utility_settings", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").notNull(),
+  propertyId: integer("property_id").notNull(),
+  ownerId: varchar("owner_id").notNull(),
+  
+  // Basic property settings
+  propertyName: varchar("property_name"),
+  address: text("address"),
+  maxOccupancy: integer("max_occupancy"),
+  
+  // Electricity settings
+  electricityIncluded: varchar("electricity_included").default("compensated"), // true, false, compensated
+  depositRule: varchar("deposit_rule").default("digital"), // none, cash, digital
+  meterTracking: boolean("meter_tracking").default(true),
+  
+  // Utility providers
+  electricityProvider: varchar("electricity_provider").default("PEA"), // PEA, Local Transformer, Other
+  waterProvider: varchar("water_provider").default("Government"), // Government, Private, Other
+  internetProvider: varchar("internet_provider").default("AIS"), // AIS, 3BB, Other
+  
+  // AI and automation settings
+  billReminderAI: boolean("bill_reminder_ai").default(true),
+  aiSuggestNextService: boolean("ai_suggest_next_service").default(true),
+  
+  // Warning and notification settings
+  warningIfMissing: boolean("warning_if_missing").default(true),
+  uploadBillAndReceipt: boolean("upload_bill_and_receipt").default(true),
+  showHistory: boolean("show_history").default(true),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Property maintenance history log
+export const ownerPropertyMaintenanceHistory = pgTable("owner_property_maintenance_history", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").notNull(),
+  propertyId: integer("property_id").notNull(),
+  ownerId: varchar("owner_id").notNull(),
+  
+  // Major maintenance dates
+  lastRenovationMajor: timestamp("last_renovation_major"),
+  lastRenovationMinor: timestamp("last_renovation_minor"),
+  renovationNotes: text("renovation_notes"),
+  
+  // Service maintenance dates
+  lastPestControl: timestamp("last_pest_control"),
+  lastACClean: timestamp("last_ac_clean"),
+  lastPoolClean: timestamp("last_pool_clean"),
+  lastSepticClean: timestamp("last_septic_clean"),
+  
+  // Next service suggestions (AI generated)
+  nextPestControlSuggested: timestamp("next_pest_control_suggested"),
+  nextACCleanSuggested: timestamp("next_ac_clean_suggested"),
+  nextPoolCleanSuggested: timestamp("next_pool_clean_suggested"),
+  nextSepticCleanSuggested: timestamp("next_septic_clean_suggested"),
+  
+  // Maintenance cycle preferences
+  pestControlCycle: integer("pest_control_cycle").default(90), // days
+  acCleanCycle: integer("ac_clean_cycle").default(180), // days
+  poolCleanCycle: integer("pool_clean_cycle").default(7), // days
+  septicCleanCycle: integer("septic_clean_cycle").default(365), // days
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Property billing and receipt logs
+export const propertyBillingLogs = pgTable("property_billing_logs", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").notNull(),
+  propertyId: integer("property_id").notNull(),
+  ownerId: varchar("owner_id").notNull(),
+  
+  // Bill information
+  billType: varchar("bill_type").notNull(), // electricity, water, internet, gas, maintenance, other
+  billingPeriod: varchar("billing_period").notNull(), // YYYY-MM format
+  billAmount: decimal("bill_amount", { precision: 10, scale: 2 }),
+  currency: varchar("currency").default("THB"),
+  
+  // Upload tracking
+  billUploaded: boolean("bill_uploaded").default(false),
+  receiptUploaded: boolean("receipt_uploaded").default(false),
+  billUploadUrl: varchar("bill_upload_url"),
+  receiptUploadUrl: varchar("receipt_upload_url"),
+  
+  // Payment tracking
+  paymentStatus: varchar("payment_status").default("pending"), // pending, paid, overdue
+  paidDate: timestamp("paid_date"),
+  paidAmount: decimal("paid_amount", { precision: 10, scale: 2 }),
+  paymentMethod: varchar("payment_method"), // cash, bank_transfer, credit_card, other
+  
+  // AI warnings and reminders
+  warningGenerated: boolean("warning_generated").default(false),
+  reminderSent: boolean("reminder_sent").default(false),
+  reminderDate: timestamp("reminder_date"),
+  
+  uploadedBy: varchar("uploaded_by"),
+  processedBy: varchar("processed_by"),
+  notes: text("notes"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Owner onboarding document tracking
+export const ownerOnboardingDocuments = pgTable("owner_onboarding_documents", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").notNull(),
+  ownerId: varchar("owner_id").notNull(),
+  propertyId: integer("property_id"),
+  
+  // Document types
+  documentType: varchar("document_type").notNull(), // ownership_proof, deed, rental_license, floor_plan, profile_photo, other
+  documentName: varchar("document_name").notNull(),
+  documentUrl: varchar("document_url").notNull(),
+  fileSize: integer("file_size"),
+  mimeType: varchar("mime_type"),
+  
+  // Approval workflow
+  uploadStatus: varchar("upload_status").default("pending"), // pending, approved, rejected, needs_revision
+  approvedBy: varchar("approved_by"),
+  approvedAt: timestamp("approved_at"),
+  rejectionReason: text("rejection_reason"),
+  
+  // Document metadata
+  expirationDate: timestamp("expiration_date"), // for licenses, etc.
+  reminderSent: boolean("reminder_sent").default(false),
+  isRequired: boolean("is_required").default(true),
+  displayOrder: integer("display_order").default(0),
+  
+  uploadedBy: varchar("uploaded_by"),
+  notes: text("notes"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Owner service selections (Mr Property Siam services)
+export const ownerServiceSelections = pgTable("owner_service_selections", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").notNull(),
+  ownerId: varchar("owner_id").notNull(),
+  propertyId: integer("property_id").notNull(),
+  
+  // Service categories
+  housekeepingSelected: boolean("housekeeping_selected").default(false),
+  poolMaintenanceSelected: boolean("pool_maintenance_selected").default(false),
+  gardenMaintenanceSelected: boolean("garden_maintenance_selected").default(false),
+  pestControlSelected: boolean("pest_control_selected").default(false),
+  acMaintenanceSelected: boolean("ac_maintenance_selected").default(false),
+  generalMaintenanceSelected: boolean("general_maintenance_selected").default(false),
+  
+  // Service frequency preferences
+  housekeepingFrequency: varchar("housekeeping_frequency").default("weekly"), // daily, weekly, bi_weekly, monthly
+  poolMaintenanceFrequency: varchar("pool_maintenance_frequency").default("weekly"),
+  gardenMaintenanceFrequency: varchar("garden_maintenance_frequency").default("weekly"),
+  pestControlFrequency: varchar("pest_control_frequency").default("quarterly"),
+  acMaintenanceFrequency: varchar("ac_maintenance_frequency").default("monthly"),
+  
+  // Special instructions
+  specialInstructions: text("special_instructions"),
+  contactPreferences: jsonb("contact_preferences"), // phone, email, line, whatsapp
+  emergencyContact: varchar("emergency_contact"),
+  
+  // Pricing and billing
+  monthlyBudget: decimal("monthly_budget", { precision: 10, scale: 2 }),
+  billingFrequency: varchar("billing_frequency").default("monthly"), // weekly, monthly, quarterly
+  autoApprove: boolean("auto_approve").default(false),
+  
+  selectedBy: varchar("selected_by"),
+  confirmedAt: timestamp("confirmed_at"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// ===== OWNER ONBOARDING & UTILITY SETTINGS SCHEMAS =====
+
+export const insertOwnerOnboardingStepSchema = createInsertSchema(ownerOnboardingSteps).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertOwnerPropertyUtilitySettingsSchema = createInsertSchema(ownerPropertyUtilitySettings).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertOwnerPropertyMaintenanceHistorySchema = createInsertSchema(ownerPropertyMaintenanceHistory).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertPropertyBillingLogSchema = createInsertSchema(propertyBillingLogs).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertOwnerOnboardingDocumentSchema = createInsertSchema(ownerOnboardingDocuments).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertOwnerServiceSelectionSchema = createInsertSchema(ownerServiceSelections).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+// ===== OWNER ONBOARDING & UTILITY SETTINGS TYPE DEFINITIONS =====
+
+export type OwnerOnboardingStep = typeof ownerOnboardingSteps.$inferSelect;
+export type InsertOwnerOnboardingStep = z.infer<typeof insertOwnerOnboardingStepSchema>;
+
+export type OwnerPropertyUtilitySettings = typeof ownerPropertyUtilitySettings.$inferSelect;
+export type InsertOwnerPropertyUtilitySettings = z.infer<typeof insertOwnerPropertyUtilitySettingsSchema>;
+
+export type OwnerPropertyMaintenanceHistory = typeof ownerPropertyMaintenanceHistory.$inferSelect;
+export type InsertOwnerPropertyMaintenanceHistory = z.infer<typeof insertOwnerPropertyMaintenanceHistorySchema>;
+
+export type PropertyBillingLog = typeof propertyBillingLogs.$inferSelect;
+export type InsertPropertyBillingLog = z.infer<typeof insertPropertyBillingLogSchema>;
+
+export type OwnerOnboardingDocument = typeof ownerOnboardingDocuments.$inferSelect;
+export type InsertOwnerOnboardingDocument = z.infer<typeof insertOwnerOnboardingDocumentSchema>;
+
+export type OwnerServiceSelection = typeof ownerServiceSelections.$inferSelect;
+export type InsertOwnerServiceSelection = z.infer<typeof insertOwnerServiceSelectionSchema>;
