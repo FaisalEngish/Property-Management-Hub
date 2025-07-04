@@ -2953,7 +2953,7 @@ export class DatabaseStorage implements IStorage {
 
   // Guest Booking Operations - John & Sarah Smith Complete Demo
   async getCurrentGuestBooking(organizationId: string, guestId: string): Promise<any> {
-    // Complete John & Sarah Smith booking data for demo
+    // Updated John & Sarah Smith booking data with specific demo requirements
     return {
       id: 1,
       guestName: "John & Sarah Smith",
@@ -2969,9 +2969,9 @@ export class DatabaseStorage implements IStorage {
       platformFee: 5000,
       finalIncome: 37000,
       currency: "THB",
-      depositPaid: 5000,
-      depositMethod: "digital",
-      depositStatus: "held",
+      depositPaid: 8000,
+      depositMethod: "cash",
+      depositStatus: "received",
       emergencyContact: "+66 87 123 4567 (24/7 Property Manager - Khun Somchai)",
       specialRequests: "Late check-in requested, vegetarian welcome basket preferred",
       wifiCode: "Villa2025!",
@@ -3177,61 +3177,50 @@ export class DatabaseStorage implements IStorage {
 
   // Service Timeline Operations
   async getGuestServiceTimeline(organizationId: string, propertyId: number): Promise<any[]> {
-    // Mock service timeline
+    // Updated service timeline matching demo specifications
     return [
       {
         id: 1,
-        serviceType: "cleaning",
-        serviceName: "Deep Cleaning Service",
-        scheduledDate: "2025-01-05T10:00:00Z",
-        estimatedTime: "2-3 hours",
-        serviceProvider: "Crystal Clean Co.",
+        serviceType: "pool",
+        serviceName: "Pool Cleaning",
+        scheduledDate: "2025-01-08T15:00:00Z",
+        estimatedTime: "1 hour",
+        serviceProvider: "Chai",
         status: "scheduled",
-        notes: "Full villa cleaning including pool area",
+        notes: "Regular pool cleaning and maintenance",
         guestVisible: true
       },
       {
         id: 2,
-        serviceType: "pool",
-        serviceName: "Pool Maintenance",
-        scheduledDate: "2025-01-04T14:00:00Z",
-        estimatedTime: "1 hour",
-        serviceProvider: "Aqua Tech Services",
+        serviceType: "cleaning",
+        serviceName: "Cleaning During Stay",
+        scheduledDate: "2025-01-09T10:00:00Z",
+        estimatedTime: "2 hours",
+        serviceProvider: "Dao",
         status: "scheduled",
-        notes: "Water testing and chemical balancing",
+        notes: "Mid-stay villa cleaning service",
         guestVisible: true
       },
       {
         id: 3,
-        serviceType: "garden",
-        serviceName: "Garden Maintenance",
-        scheduledDate: "2025-01-06T08:00:00Z",
-        estimatedTime: "1.5 hours",
-        serviceProvider: "Green Thumb Landscaping",
+        serviceType: "catering",
+        serviceName: "Private Chef Dinner",
+        scheduledDate: "2025-01-08T20:00:00Z",
+        estimatedTime: "3 hours",
+        serviceProvider: "Chef Phyo",
         status: "scheduled",
-        notes: "Lawn mowing and plant trimming",
+        notes: "Private chef dinner service for 2 guests",
         guestVisible: true
       },
       {
         id: 4,
-        serviceType: "pest_control",
-        serviceName: "Monthly Pest Control",
-        scheduledDate: "2025-01-08T16:00:00Z",
-        estimatedTime: "45 minutes",
-        serviceProvider: "Safe Guard Pest Control",
+        serviceType: "garden",
+        serviceName: "Garden Service",
+        scheduledDate: "2025-01-11T14:00:00Z",
+        estimatedTime: "1.5 hours",
+        serviceProvider: "Nye",
         status: "scheduled",
-        notes: "Routine pest prevention treatment",
-        guestVisible: true
-      },
-      {
-        id: 5,
-        serviceType: "maintenance",
-        serviceName: "AC System Check",
-        scheduledDate: "2025-01-07T11:00:00Z",
-        estimatedTime: "30 minutes",
-        serviceProvider: "Cool Air Services",
-        status: "scheduled",
-        notes: "Routine maintenance and filter replacement",
+        notes: "Garden maintenance and landscaping",
         guestVisible: true
       }
     ];
@@ -4447,46 +4436,48 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getGuestElectricityBilling(organizationId: string, bookingId: number): Promise<any> {
-    // Mock data for John & Sarah Smith booking demo
+    // Updated electricity billing data matching demo specifications
     return {
       checkIn: {
-        checkInReading: 1245,
-        checkInPhoto: "https://via.placeholder.com/300x200?text=Check-in+Meter+1245",
+        checkInReading: 10500,
+        checkInPhoto: "https://your-image-url.com/meter-photo.jpg",
         checkInMethod: "ocr_automatic",
         checkInDate: "2025-01-03",
-        checkInTime: "15:30"
+        checkInTime: "15:00"
       },
       checkOut: {
-        checkOutReading: 1312,
-        checkOutPhoto: "https://via.placeholder.com/300x200?text=Check-out+Meter+1312",
-        checkOutMethod: "manual_entry",
-        checkOutDate: "2025-01-10",
-        checkOutTime: "10:45",
-        electricityUsed: 67,
+        checkOutReading: null, // Will be set at checkout
+        checkOutPhoto: null,
+        checkOutMethod: null,
+        checkOutDate: null,
+        checkOutTime: null,
+        electricityUsed: null,
         ratePerKwh: 7.0,
-        totalCharge: 469.0,
-        paymentStatus: "guest_paid",
-        billingStatus: "Guest Paid"
+        totalCharge: null,
+        paymentStatus: "not_charged_yet",
+        billingStatus: "To be charged to guest"
       },
+      included: false,
+      chargedTo: "guest",
       hasData: true
     };
   }
 
   async getGuestDepositOverview(organizationId: string, bookingId: number): Promise<any> {
-    // Mock data for John & Sarah Smith booking demo
+    // Updated deposit data matching demo specifications
     return {
-      depositType: "digital",
-      depositAmount: 5000.00,
+      depositType: "cash",
+      depositAmount: 8000.00,
       depositCurrency: "THB",
-      depositReceiptPhoto: "https://via.placeholder.com/300x200?text=Digital+Deposit+Receipt+5000+THB",
-      refundAmount: 5000.00,
+      depositReceiptPhoto: "https://via.placeholder.com/300x200?text=Cash+Deposit+Receipt+8000+THB",
+      refundAmount: 8000.00,
       refundCurrency: "THB",
-      refundMethod: "digital",
-      refundStatus: "held",
+      refundMethod: "cash",
+      refundStatus: "received",
       refundReceiptPhoto: null,
       discountAmount: 0.00,
       discountReason: null,
-      notes: "Full deposit held until checkout completion and final inspection."
+      notes: "Cash deposit of 8,000 THB received and held until checkout completion and final inspection."
     };
   }
 
