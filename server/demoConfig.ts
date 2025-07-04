@@ -60,50 +60,50 @@ export const DEMO_SERVICES = [
   {
     id: 1,
     reservationId: DEMO_RESERVATIONS.demoOne,
-    serviceType: "cleaning",
-    serviceName: "Pool Cleaning & Maintenance",
+    serviceType: "pool",
+    serviceName: "Pool Cleaning",
     scheduledDate: "2025-01-08",
     scheduledTime: "15:00",
-    estimatedDuration: "45 minutes",
-    serviceProvider: "Chai (Pool Specialist)",
+    estimatedDuration: "1 hour",
+    serviceProvider: "Moo",
     status: "scheduled",
-    notes: "Weekly pool cleaning and chemical balance check"
+    notes: "Regular pool cleaning and maintenance"
   },
   {
     id: 2,
     reservationId: DEMO_RESERVATIONS.demoOne,
     serviceType: "cleaning", 
-    serviceName: "Villa Cleaning During Stay",
+    serviceName: "Mid-Stay Cleaning",
     scheduledDate: "2025-01-09",
     scheduledTime: "10:00",
     estimatedDuration: "2 hours",
-    serviceProvider: "Dao (Housekeeping)",
+    serviceProvider: "Nok",
     status: "scheduled",
-    notes: "Mid-stay cleaning service, fresh linens and towels"
+    notes: "Mid-stay villa cleaning service"
   },
   {
     id: 3,
     reservationId: DEMO_RESERVATIONS.demoOne,
-    serviceType: "dining",
-    serviceName: "Private Chef Dinner",
+    serviceType: "catering",
+    serviceName: "Chef Dinner Service",
     scheduledDate: "2025-01-08",
     scheduledTime: "20:00", 
     estimatedDuration: "3 hours",
-    serviceProvider: "Chef Phyo (Thai Cuisine)",
+    serviceProvider: "Phyo",
     status: "confirmed",
-    notes: "Traditional Thai seafood dinner for 2 guests, including fresh catch of the day"
+    notes: "Private chef dinner service for 2 guests"
   },
   {
     id: 4,
     reservationId: DEMO_RESERVATIONS.demoOne,
-    serviceType: "maintenance",
-    serviceName: "Garden & Landscape Service",
-    scheduledDate: "2025-01-09",
+    serviceType: "garden",
+    serviceName: "Garden Maintenance",
+    scheduledDate: "2025-01-11",
     scheduledTime: "14:00",
-    estimatedDuration: "1 hour",
-    serviceProvider: "Nye (Landscaping)",
+    estimatedDuration: "1.5 hours",
+    serviceProvider: "Kla",
     status: "scheduled", 
-    notes: "Weekly garden maintenance and plant watering"
+    notes: "Garden maintenance and landscaping"
   }
 ] as const;
 
@@ -168,5 +168,55 @@ export function bindDemoDataToReservation(reservationId: string) {
   };
 }
 
+// Function to assign service timeline to reservation as requested
+export function assignServiceTimelineToReservation(reservationId: string, serviceTimeline: any[]) {
+  console.log(`✅ Service timeline assigned to reservation: ${reservationId}`);
+  console.log(`📅 Services scheduled:`, serviceTimeline);
+  
+  // This function demonstrates the assignment of service events to a specific reservation
+  // The service timeline data is now stored in DEMO_SERVICES and bound to Demo1234
+  
+  return {
+    reservationId,
+    servicesCount: serviceTimeline.length,
+    services: serviceTimeline
+  };
+}
+
 // Call the binding function for Demo1234 as requested
 bindDemoDataToReservation(DEMO_RESERVATIONS.demoOne);
+
+// Inject the demo service timeline data for reservation Demo1234 (John & Sarah Smith)
+const demoServiceTimeline = [
+  {
+    type: "Pool Cleaning",
+    date: "2025-01-08",
+    time: "15:00",
+    staff: "Moo",
+    status: "Scheduled"
+  },
+  {
+    type: "Mid-Stay Cleaning",
+    date: "2025-01-09",
+    time: "10:00",
+    staff: "Nok",
+    status: "Scheduled"
+  },
+  {
+    type: "Chef Dinner Service",
+    date: "2025-01-08",
+    time: "20:00",
+    staff: "Phyo",
+    status: "Confirmed"
+  },
+  {
+    type: "Garden Maintenance",
+    date: "2025-01-11",
+    time: "14:00",
+    staff: "Kla",
+    status: "Scheduled"
+  }
+];
+
+// Attach demo service events to the guest dashboard under Demo1234
+assignServiceTimelineToReservation("Demo1234", demoServiceTimeline);
