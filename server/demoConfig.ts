@@ -290,3 +290,73 @@ const depositRecord = {
 
 // Apply to guest + admin dashboards
 logGuestDeposit(depositRecord);
+
+// Function to inject scheduled services for reservation as requested
+export function injectScheduledServices(scheduledServices: any[]) {
+  console.log(`📅 Scheduled services injected for reservation services count: ${scheduledServices.length}`);
+  
+  scheduledServices.forEach((service, index) => {
+    console.log(`🔧 Service ${index + 1}: ${service.serviceType}`);
+    console.log(`  📅 Scheduled: ${service.scheduledFor}`);
+    console.log(`  👥 Assigned: ${service.assignedTo}`);
+    console.log(`  🏠 Property: ${service.property}`);
+    console.log(`  📝 Notes: ${service.notes}`);
+  });
+  
+  return {
+    totalServices: scheduledServices.length,
+    services: scheduledServices.map(service => ({
+      reservationId: service.reservationId,
+      serviceType: service.serviceType,
+      scheduledDateTime: service.scheduledFor,
+      assignedTeam: service.assignedTo,
+      propertyName: service.property,
+      frequency: service.frequency,
+      serviceNotes: service.notes,
+      status: "scheduled"
+    }))
+  };
+}
+
+// Create scheduled services for demo booking Demo1234
+const scheduledServices = [
+  {
+    reservationId: "Demo1234",
+    serviceType: "Pool Cleaning",
+    scheduledFor: "2025-07-03T15:00:00",
+    assignedTo: "Pool Team",
+    property: "Villa Aruna",
+    frequency: "One-time",
+    notes: "Regular midweek pool service"
+  },
+  {
+    reservationId: "Demo1234",
+    serviceType: "During-Stay Cleaning",
+    scheduledFor: "2025-07-04T10:00:00",
+    assignedTo: "Housekeeping Team",
+    property: "Villa Aruna",
+    frequency: "One-time",
+    notes: "Guest requested one mid-stay clean"
+  },
+  {
+    reservationId: "Demo1234",
+    serviceType: "Private Chef Dinner",
+    scheduledFor: "2025-07-03T20:00:00",
+    assignedTo: "Chef Phyo",
+    property: "Villa Aruna",
+    frequency: "One-time",
+    notes: "Chef to prepare Thai seafood menu"
+  },
+  {
+    reservationId: "Demo1234",
+    serviceType: "Garden Service",
+    scheduledFor: "2025-07-05T14:00:00",
+    assignedTo: "Garden Team",
+    property: "Villa Aruna",
+    frequency: "One-time",
+    notes: "Trimming, lawn and plants check"
+  }
+];
+
+// Apply scheduled services to dashboards
+injectScheduledServices(scheduledServices);
