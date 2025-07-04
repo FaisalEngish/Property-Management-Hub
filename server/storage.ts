@@ -245,6 +245,22 @@ import {
   type InsertDocumentCategory,
   type FileUploadSession,
   type InsertFileUploadSession,
+  // Maintenance Log tables
+  maintenanceLog,
+  warrantyAlerts,
+  aiServiceCyclePredictions,
+  maintenanceCostAnalytics,
+  technicianPerformance,
+  type MaintenanceLog,
+  type InsertMaintenanceLog,
+  type WarrantyAlert,
+  type InsertWarrantyAlert,
+  type AiServiceCyclePrediction,
+  type InsertAiServiceCyclePrediction,
+  type MaintenanceCostAnalytics,
+  type InsertMaintenanceCostAnalytics,
+  type TechnicianPerformance,
+  type InsertTechnicianPerformance,
   type DocumentExpirationAlert,
   type InsertDocumentExpirationAlert,
   type DocumentExportHistory,
@@ -20496,6 +20512,361 @@ Plant Care:
         { category: "manuals", count: 15 },
         { category: "floorplans", count: 7 }
       ]
+    };
+  }
+
+  // ===== MAINTENANCE LOG, WARRANTY TRACKER & AI REPAIR CYCLE ALERTS =====
+
+  // Maintenance Log Operations
+  async getMaintenanceLogs(organizationId: string, filters?: {
+    propertyId?: number;
+    department?: string;
+    status?: string;
+    technicianAssigned?: string;
+    priority?: string;
+    startDate?: string;
+    endDate?: string;
+  }): Promise<MaintenanceLog[]> {
+    let query = db.select().from(maintenanceLog)
+      .where(eq(maintenanceLog.organizationId, organizationId));
+
+    if (filters) {
+      const conditions = [eq(maintenanceLog.organizationId, organizationId)];
+
+      if (filters.propertyId) {
+        conditions.push(eq(maintenanceLog.propertyId, filters.propertyId));
+      }
+      if (filters.department) {
+        conditions.push(eq(maintenanceLog.department, filters.department));
+      }
+      if (filters.status) {
+        conditions.push(eq(maintenanceLog.status, filters.status));
+      }
+      if (filters.technicianAssigned) {
+        conditions.push(eq(maintenanceLog.technicianAssigned, filters.technicianAssigned));
+      }
+      if (filters.priority) {
+        conditions.push(eq(maintenanceLog.priority, filters.priority));
+      }
+      if (filters.startDate) {
+        conditions.push(gte(maintenanceLog.repairDate, filters.startDate));
+      }
+      if (filters.endDate) {
+        conditions.push(lte(maintenanceLog.repairDate, filters.endDate));
+      }
+
+      query = db.select().from(maintenanceLog).where(and(...conditions));
+    }
+
+    return await query.orderBy(desc(maintenanceLog.createdAt));
+  }
+
+  async createMaintenanceLog(logData: InsertMaintenanceLog): Promise<MaintenanceLog> {
+    const [newLog] = await db.insert(maintenanceLog)
+      .values(logData)
+      .returning();
+    return newLog;
+  }
+
+  async updateMaintenanceLog(id: number, logData: Partial<InsertMaintenanceLog>): Promise<MaintenanceLog | undefined> {
+    const [updatedLog] = await db.update(maintenanceLog)
+      .set({ ...logData, updatedAt: new Date() })
+      .where(eq(maintenanceLog.id, id))
+      .returning();
+    return updatedLog;
+  }
+
+  async getMaintenanceLogById(id: number): Promise<MaintenanceLog | undefined> {
+    const [log] = await db.select().from(maintenanceLog)
+      .where(eq(maintenanceLog.id, id));
+    return log;
+  }
+
+  async deleteMaintenanceLog(id: number): Promise<void> {
+    await db.delete(maintenanceLog)
+      .where(eq(maintenanceLog.id, id));
+  }
+
+  // Warranty Alerts Operations
+  async getWarrantyAlerts(organizationId: string, filters?: {
+    propertyId?: number;
+    isActive?: boolean;
+    alertType?: string;
+  }): Promise<WarrantyAlert[]> {
+    let query = db.select().from(warrantyAlerts)
+      .where(eq(warrantyAlerts.organizationId, organizationId));
+
+    if (filters) {
+      const conditions = [eq(warrantyAlerts.organizationId, organizationId)];
+
+      if (filters.propertyId) {
+        conditions.push(eq(warrantyAlerts.propertyId, filters.propertyId));
+      }
+      if (filters.isActive !== undefined) {
+        conditions.push(eq(warrantyAlerts.isActive, filters.isActive));
+      }
+      if (filters.alertType) {
+        conditions.push(eq(warrantyAlerts.alertType, filters.alertType));
+      }
+
+      query = db.select().from(warrantyAlerts).where(and(...conditions));
+    }
+
+    return await query.orderBy(desc(warrantyAlerts.scheduledFor));
+  }
+
+  async createWarrantyAlert(alertData: InsertWarrantyAlert): Promise<WarrantyAlert> {
+    const [newAlert] = await db.insert(warrantyAlerts)
+      .values(alertData)
+      .returning();
+    return newAlert;
+  }
+
+  async updateWarrantyAlert(id: number, alertData: Partial<InsertWarrantyAlert>): Promise<WarrantyAlert | undefined> {
+    const [updatedAlert] = await db.update(warrantyAlerts)
+      .set(alertData)
+      .where(eq(warrantyAlerts.id, id))
+      .returning();
+    return updatedAlert;
+  }
+
+  async acknowledgeWarrantyAlert(id: number, acknowledgedBy: string): Promise<WarrantyAlert | undefined> {
+    const [updatedAlert] = await db.update(warrantyAlerts)
+      .set({ acknowledgedBy, acknowledgedAt: new Date() })
+      .where(eq(warrantyAlerts.id, id))
+      .returning();
+    return updatedAlert;
+  }
+
+  // AI Service Cycle Predictions Operations
+  async getAiServicePredictions(organizationId: string, filters?: {
+    propertyId?: number;
+    department?: string;
+    suggestionStatus?: string;
+  }): Promise<AiServiceCyclePrediction[]> {
+    let query = db.select().from(aiServiceCyclePredictions)
+      .where(eq(aiServiceCyclePredictions.organizationId, organizationId));
+
+    if (filters) {
+      const conditions = [eq(aiServiceCyclePredictions.organizationId, organizationId)];
+
+      if (filters.propertyId) {
+        conditions.push(eq(aiServiceCyclePredictions.propertyId, filters.propertyId));
+      }
+      if (filters.department) {
+        conditions.push(eq(aiServiceCyclePredictions.department, filters.department));
+      }
+      if (filters.suggestionStatus) {
+        conditions.push(eq(aiServiceCyclePredictions.suggestionStatus, filters.suggestionStatus));
+      }
+
+      query = db.select().from(aiServiceCyclePredictions).where(and(...conditions));
+    }
+
+    return await query.orderBy(desc(aiServiceCyclePredictions.predictedNextServiceDate));
+  }
+
+  async createAiServicePrediction(predictionData: InsertAiServiceCyclePrediction): Promise<AiServiceCyclePrediction> {
+    const [newPrediction] = await db.insert(aiServiceCyclePredictions)
+      .values(predictionData)
+      .returning();
+    return newPrediction;
+  }
+
+  async updateAiServicePrediction(id: number, predictionData: Partial<InsertAiServiceCyclePrediction>): Promise<AiServiceCyclePrediction | undefined> {
+    const [updatedPrediction] = await db.update(aiServiceCyclePredictions)
+      .set({ ...predictionData, updatedAt: new Date() })
+      .where(eq(aiServiceCyclePredictions.id, id))
+      .returning();
+    return updatedPrediction;
+  }
+
+  async reviewAiSuggestion(id: number, reviewedBy: string, suggestionStatus: string): Promise<AiServiceCyclePrediction | undefined> {
+    const [updatedPrediction] = await db.update(aiServiceCyclePredictions)
+      .set({ 
+        suggestionStatus, 
+        reviewedBy, 
+        reviewedAt: new Date(),
+        updatedAt: new Date()
+      })
+      .where(eq(aiServiceCyclePredictions.id, id))
+      .returning();
+    return updatedPrediction;
+  }
+
+  async convertAiSuggestionToTask(id: number, taskId: number): Promise<AiServiceCyclePrediction | undefined> {
+    const [updatedPrediction] = await db.update(aiServiceCyclePredictions)
+      .set({ 
+        suggestionStatus: 'converted_to_task',
+        convertedToTaskId: taskId,
+        updatedAt: new Date()
+      })
+      .where(eq(aiServiceCyclePredictions.id, id))
+      .returning();
+    return updatedPrediction;
+  }
+
+  // Maintenance Cost Analytics Operations
+  async getMaintenanceCostAnalytics(organizationId: string, filters?: {
+    propertyId?: number;
+    periodType?: string;
+    startDate?: string;
+    endDate?: string;
+  }): Promise<MaintenanceCostAnalytics[]> {
+    let query = db.select().from(maintenanceCostAnalytics)
+      .where(eq(maintenanceCostAnalytics.organizationId, organizationId));
+
+    if (filters) {
+      const conditions = [eq(maintenanceCostAnalytics.organizationId, organizationId)];
+
+      if (filters.propertyId) {
+        conditions.push(eq(maintenanceCostAnalytics.propertyId, filters.propertyId));
+      }
+      if (filters.periodType) {
+        conditions.push(eq(maintenanceCostAnalytics.periodType, filters.periodType));
+      }
+      if (filters.startDate) {
+        conditions.push(gte(maintenanceCostAnalytics.periodStart, filters.startDate));
+      }
+      if (filters.endDate) {
+        conditions.push(lte(maintenanceCostAnalytics.periodEnd, filters.endDate));
+      }
+
+      query = db.select().from(maintenanceCostAnalytics).where(and(...conditions));
+    }
+
+    return await query.orderBy(desc(maintenanceCostAnalytics.periodStart));
+  }
+
+  async createMaintenanceCostAnalytics(analyticsData: InsertMaintenanceCostAnalytics): Promise<MaintenanceCostAnalytics> {
+    const [newAnalytics] = await db.insert(maintenanceCostAnalytics)
+      .values(analyticsData)
+      .returning();
+    return newAnalytics;
+  }
+
+  async updateMaintenanceCostAnalytics(id: number, analyticsData: Partial<InsertMaintenanceCostAnalytics>): Promise<MaintenanceCostAnalytics | undefined> {
+    const [updatedAnalytics] = await db.update(maintenanceCostAnalytics)
+      .set({ ...analyticsData, updatedAt: new Date() })
+      .where(eq(maintenanceCostAnalytics.id, id))
+      .returning();
+    return updatedAnalytics;
+  }
+
+  // Technician Performance Operations
+  async getTechnicianPerformance(organizationId: string, filters?: {
+    technicianId?: string;
+    periodStart?: string;
+    periodEnd?: string;
+  }): Promise<TechnicianPerformance[]> {
+    let query = db.select().from(technicianPerformance)
+      .where(eq(technicianPerformance.organizationId, organizationId));
+
+    if (filters) {
+      const conditions = [eq(technicianPerformance.organizationId, organizationId)];
+
+      if (filters.technicianId) {
+        conditions.push(eq(technicianPerformance.technicianId, filters.technicianId));
+      }
+      if (filters.periodStart) {
+        conditions.push(gte(technicianPerformance.periodStart, filters.periodStart));
+      }
+      if (filters.periodEnd) {
+        conditions.push(lte(technicianPerformance.periodEnd, filters.periodEnd));
+      }
+
+      query = db.select().from(technicianPerformance).where(and(...conditions));
+    }
+
+    return await query.orderBy(desc(technicianPerformance.periodStart));
+  }
+
+  async createTechnicianPerformance(performanceData: InsertTechnicianPerformance): Promise<TechnicianPerformance> {
+    const [newPerformance] = await db.insert(technicianPerformance)
+      .values(performanceData)
+      .returning();
+    return newPerformance;
+  }
+
+  async updateTechnicianPerformance(id: number, performanceData: Partial<InsertTechnicianPerformance>): Promise<TechnicianPerformance | undefined> {
+    const [updatedPerformance] = await db.update(technicianPerformance)
+      .set({ ...performanceData, updatedAt: new Date() })
+      .where(eq(technicianPerformance.id, id))
+      .returning();
+    return updatedPerformance;
+  }
+
+  // Maintenance Dashboard Analytics
+  async getMaintenanceDashboardAnalytics(organizationId: string, propertyId?: number): Promise<{
+    totalMaintenanceLogs: number;
+    activeWarrantyAlerts: number;
+    pendingAiSuggestions: number;
+    thisMonthCost: number;
+    activeJobs: number;
+    completedJobs: number;
+    urgentJobs: number;
+    averageJobDuration: number;
+    topDepartmentCosts: Array<{ department: string; cost: number }>;
+    recentLogs: MaintenanceLog[];
+  }> {
+    // Get basic counts
+    const totalLogsQuery = db.select({ count: sql`count(*)::int` })
+      .from(maintenanceLog)
+      .where(propertyId 
+        ? and(eq(maintenanceLog.organizationId, organizationId), eq(maintenanceLog.propertyId, propertyId))
+        : eq(maintenanceLog.organizationId, organizationId)
+      );
+
+    const activeAlertsQuery = db.select({ count: sql`count(*)::int` })
+      .from(warrantyAlerts)
+      .where(propertyId
+        ? and(eq(warrantyAlerts.organizationId, organizationId), eq(warrantyAlerts.propertyId, propertyId), eq(warrantyAlerts.isActive, true))
+        : and(eq(warrantyAlerts.organizationId, organizationId), eq(warrantyAlerts.isActive, true))
+      );
+
+    const pendingSuggestionsQuery = db.select({ count: sql`count(*)::int` })
+      .from(aiServiceCyclePredictions)
+      .where(propertyId
+        ? and(eq(aiServiceCyclePredictions.organizationId, organizationId), eq(aiServiceCyclePredictions.propertyId, propertyId), eq(aiServiceCyclePredictions.suggestionStatus, 'pending'))
+        : and(eq(aiServiceCyclePredictions.organizationId, organizationId), eq(aiServiceCyclePredictions.suggestionStatus, 'pending'))
+      );
+
+    // Get recent logs
+    const recentLogsQuery = db.select().from(maintenanceLog)
+      .where(propertyId
+        ? and(eq(maintenanceLog.organizationId, organizationId), eq(maintenanceLog.propertyId, propertyId))
+        : eq(maintenanceLog.organizationId, organizationId)
+      )
+      .orderBy(desc(maintenanceLog.createdAt))
+      .limit(5);
+
+    // Execute queries
+    const [totalLogs] = await totalLogsQuery;
+    const [activeAlerts] = await activeAlertsQuery;
+    const [pendingSuggestions] = await pendingSuggestionsQuery;
+    const recentLogs = await recentLogsQuery;
+
+    // Calculate status-based counts
+    const activeJobs = recentLogs.filter(log => log.status === 'in_progress' || log.status === 'scheduled').length;
+    const completedJobs = recentLogs.filter(log => log.status === 'finished').length;
+    const urgentJobs = recentLogs.filter(log => log.priority === 'urgent' && log.status !== 'finished').length;
+
+    return {
+      totalMaintenanceLogs: totalLogs.count,
+      activeWarrantyAlerts: activeAlerts.count,
+      pendingAiSuggestions: pendingSuggestions.count,
+      thisMonthCost: 8500.00, // Mock data - would calculate from current month logs
+      activeJobs,
+      completedJobs,
+      urgentJobs,
+      averageJobDuration: 2.5, // Mock data - would calculate from completion times
+      topDepartmentCosts: [ // Mock data - would aggregate from logs
+        { department: 'pool', cost: 3200.00 },
+        { department: 'ac', cost: 2800.00 },
+        { department: 'electrical', cost: 1500.00 },
+        { department: 'plumbing', cost: 1000.00 }
+      ],
+      recentLogs
     };
   }
 

@@ -89,6 +89,7 @@ import VillaArunaDemoWorkflow from "@/pages/VillaArunaDemoWorkflow";
 import EnhancedFinancialControls from "@/pages/EnhancedFinancialControls";
 import GuestCheckInCheckOutTracker from "@/pages/GuestCheckInCheckOutTracker";
 import AutoSchedulingRecurringTaskGenerator from "@/pages/AutoSchedulingRecurringTaskGenerator";
+import MaintenanceLogWarrantyTracker from "@/pages/MaintenanceLogWarrantyTracker";
 
 function Router() {
   const { isAuthenticated, isLoading, user } = useAuth();
@@ -168,6 +169,7 @@ function Router() {
         <Route path="/maintenance-utilities-renovation-tracker" component={MaintenanceUtilitiesRenovationTracker} />
         <Route path="/guest-checkin-checkout-tracker" component={GuestCheckInCheckOutTracker} />
         <Route path="/auto-scheduling-recurring-task-generator" component={AutoSchedulingRecurringTaskGenerator} />
+        <Route path="/maintenance-log-warranty-tracker" component={MaintenanceLogWarrantyTracker} />
         <Route path="/task-attachments-notes" component={TaskAttachmentsNotes} />
         <Route path="/ai-task-manager" component={AiTaskManager} />
         <Route path="/task-checklist-proof" component={TaskChecklistProofSystem} />

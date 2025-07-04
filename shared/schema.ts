@@ -2753,11 +2753,248 @@ export type InsertDocumentCategory = z.infer<typeof insertDocumentCategorySchema
 export type FileUploadSession = typeof fileUploadSessions.$inferSelect;
 export type InsertFileUploadSession = z.infer<typeof insertFileUploadSessionSchema>;
 
-export type DocumentExpirationAlert = typeof documentExpirationAlerts.$inferSelect;
-export type InsertDocumentExpirationAlert = z.infer<typeof insertDocumentExpirationAlertSchema>;
+// ===== MAINTENANCE LOG, WARRANTY TRACKER & AI REPAIR CYCLE ALERTS =====
 
-export type DocumentExportHistory = typeof documentExportHistory.$inferSelect;
-export type InsertDocumentExportHistory = z.infer<typeof insertDocumentExportHistorySchema>;
+// Maintenance Log - comprehensive repair and service tracking
+export const maintenanceLog = pgTable("maintenance_log", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  propertyId: integer("property_id").references(() => properties.id).notNull(),
+  
+  // Task Details
+  taskTitle: varchar("task_title").notNull(),
+  repairDate: date("repair_date").notNull(),
+  department: varchar("department").notNull(), // maintenance, pool, garden, ac, pest, electrical, plumbing, hvac, landscaping
+  itemArea: varchar("item_area").notNull(), // specific item or area repaired
+  issueDescription: text("issue_description").notNull(),
+  actionTaken: text("action_taken").notNull(),
+  
+  // Assignment & Cost
+  technicianAssigned: varchar("technician_assigned").references(() => users.id),
+  technicianName: varchar("technician_name"), // For external technicians
+  cost: decimal("cost", { precision: 10, scale: 2 }).default("0.00"),
+  currency: varchar("currency").default("THB"),
+  invoiceUrl: text("invoice_url"), // Upload path for invoice
+  
+  // Status & Progress
+  status: varchar("status").default("in_progress"), // finished, in_progress, awaiting_approval, scheduled
+  priority: varchar("priority").default("normal"), // low, normal, high, urgent
+  
+  // Media & Documentation
+  linkedImages: text("linked_images").array().default([]), // Array of image URLs
+  notes: text("notes"),
+  
+  // Warranty Information
+  hasWarranty: boolean("has_warranty").default(false),
+  warrantyDuration: integer("warranty_duration"), // in months
+  warrantyExpirationDate: date("warranty_expiration_date"),
+  warrantyReceiptUrl: text("warranty_receipt_url"),
+  warrantyContactInfo: text("warranty_contact_info"),
+  warrantyClaimStatus: varchar("warranty_claim_status").default("none"), // none, pending, approved, denied
+  
+  // AI Service Cycle Tracking
+  isRecurringService: boolean("is_recurring_service").default(false),
+  serviceCycleMonths: integer("service_cycle_months"), // e.g., 4 for every 4 months
+  nextServiceDate: date("next_service_date"),
+  lastServiceDate: date("last_service_date"),
+  
+  // Audit Trail
+  createdBy: varchar("created_by").references(() => users.id).notNull(),
+  completedBy: varchar("completed_by").references(() => users.id),
+  approvedBy: varchar("approved_by").references(() => users.id),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+  completedAt: timestamp("completed_at"),
+  approvedAt: timestamp("approved_at"),
+}, (table) => [
+  index("IDX_maintenance_log_property").on(table.propertyId),
+  index("IDX_maintenance_log_department").on(table.department),
+  index("IDX_maintenance_log_status").on(table.status),
+  index("IDX_maintenance_log_technician").on(table.technicianAssigned),
+  index("IDX_maintenance_log_warranty_exp").on(table.warrantyExpirationDate),
+]);
+
+// Warranty Alerts - automated reminders for warranty expiration
+export const warrantyAlerts = pgTable("warranty_alerts", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  maintenanceLogId: integer("maintenance_log_id").references(() => maintenanceLog.id).notNull(),
+  propertyId: integer("property_id").references(() => properties.id).notNull(),
+  
+  // Alert Details
+  alertType: varchar("alert_type").notNull(), // warranty_expiring, warranty_expired, service_due
+  alertMessage: text("alert_message").notNull(),
+  daysUntilExpiration: integer("days_until_expiration"),
+  
+  // Alert Status
+  isActive: boolean("is_active").default(true),
+  isSent: boolean("is_sent").default(false),
+  sentAt: timestamp("sent_at"),
+  acknowledgedBy: varchar("acknowledged_by").references(() => users.id),
+  acknowledgedAt: timestamp("acknowledged_at"),
+  
+  // Scheduling
+  scheduledFor: timestamp("scheduled_for").notNull(),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("IDX_warranty_alerts_property").on(table.propertyId),
+  index("IDX_warranty_alerts_scheduled").on(table.scheduledFor),
+  index("IDX_warranty_alerts_active").on(table.isActive),
+]);
+
+// AI Service Cycle Predictions - learns patterns and suggests future maintenance
+export const aiServiceCyclePredictions = pgTable("ai_service_cycle_predictions", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  propertyId: integer("property_id").references(() => properties.id).notNull(),
+  
+  // Service Pattern Recognition
+  department: varchar("department").notNull(),
+  itemArea: varchar("item_area").notNull(),
+  averageCycleMonths: decimal("average_cycle_months", { precision: 5, scale: 2 }),
+  lastServiceDates: jsonb("last_service_dates"), // Array of last service dates for pattern analysis
+  
+  // AI Prediction
+  predictedNextServiceDate: date("predicted_next_service_date"),
+  confidenceScore: decimal("confidence_score", { precision: 5, scale: 2 }), // 0.0 to 1.0
+  basedOnHistoricalCount: integer("based_on_historical_count").default(0),
+  
+  // Suggestion Management
+  suggestionStatus: varchar("suggestion_status").default("pending"), // pending, accepted, dismissed, converted_to_task
+  suggestedBy: varchar("suggested_by").default("ai_system"),
+  reviewedBy: varchar("reviewed_by").references(() => users.id),
+  reviewedAt: timestamp("reviewed_at"),
+  
+  // Task Conversion
+  convertedToTaskId: integer("converted_to_task_id"), // Reference to created task
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_ai_predictions_property").on(table.propertyId),
+  index("IDX_ai_predictions_department").on(table.department),
+  index("IDX_ai_predictions_status").on(table.suggestionStatus),
+  index("IDX_ai_predictions_next_service").on(table.predictedNextServiceDate),
+]);
+
+// Maintenance Cost Analytics - track spending patterns
+export const maintenanceCostAnalytics = pgTable("maintenance_cost_analytics", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  propertyId: integer("property_id").references(() => properties.id).notNull(),
+  
+  // Time Period
+  periodType: varchar("period_type").notNull(), // monthly, quarterly, yearly
+  periodStart: date("period_start").notNull(),
+  periodEnd: date("period_end").notNull(),
+  
+  // Cost Breakdown by Department
+  maintenanceCost: decimal("maintenance_cost", { precision: 10, scale: 2 }).default("0.00"),
+  poolCost: decimal("pool_cost", { precision: 10, scale: 2 }).default("0.00"),
+  gardenCost: decimal("garden_cost", { precision: 10, scale: 2 }).default("0.00"),
+  acCost: decimal("ac_cost", { precision: 10, scale: 2 }).default("0.00"),
+  pestCost: decimal("pest_cost", { precision: 10, scale: 2 }).default("0.00"),
+  electricalCost: decimal("electrical_cost", { precision: 10, scale: 2 }).default("0.00"),
+  plumbingCost: decimal("plumbing_cost", { precision: 10, scale: 2 }).default("0.00"),
+  hvacCost: decimal("hvac_cost", { precision: 10, scale: 2 }).default("0.00"),
+  landscapingCost: decimal("landscaping_cost", { precision: 10, scale: 2 }).default("0.00"),
+  otherCost: decimal("other_cost", { precision: 10, scale: 2 }).default("0.00"),
+  
+  // Summary Analytics
+  totalCost: decimal("total_cost", { precision: 10, scale: 2 }).default("0.00"),
+  totalJobs: integer("total_jobs").default(0),
+  averageJobCost: decimal("average_job_cost", { precision: 10, scale: 2 }).default("0.00"),
+  
+  // Comparison Metrics
+  previousPeriodCost: decimal("previous_period_cost", { precision: 10, scale: 2 }).default("0.00"),
+  costChangePercentage: decimal("cost_change_percentage", { precision: 5, scale: 2 }).default("0.00"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_cost_analytics_property").on(table.propertyId),
+  index("IDX_cost_analytics_period").on(table.periodStart, table.periodEnd),
+]);
+
+// Technician Performance Tracking
+export const technicianPerformance = pgTable("technician_performance", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  technicianId: varchar("technician_id").references(() => users.id).notNull(),
+  
+  // Performance Metrics
+  totalJobsCompleted: integer("total_jobs_completed").default(0),
+  averageJobDuration: decimal("average_job_duration", { precision: 5, scale: 2 }).default("0.00"), // in days
+  averageCustomerRating: decimal("average_customer_rating", { precision: 3, scale: 2 }).default("0.00"), // 1-5 scale
+  onTimeCompletionRate: decimal("on_time_completion_rate", { precision: 5, scale: 2 }).default("0.00"), // percentage
+  
+  // Specialization Areas
+  specializations: text("specializations").array().default([]), // departments they work in
+  certifications: text("certifications").array().default([]),
+  
+  // Period Tracking
+  periodStart: date("period_start").notNull(),
+  periodEnd: date("period_end").notNull(),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_technician_performance_tech").on(table.technicianId),
+  index("IDX_technician_performance_period").on(table.periodStart, table.periodEnd),
+]);
+
+// Insert Schemas
+export const insertMaintenanceLogSchema = createInsertSchema(maintenanceLog).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  completedAt: true,
+  approvedAt: true,
+});
+
+export const insertWarrantyAlertSchema = createInsertSchema(warrantyAlerts).omit({
+  id: true,
+  createdAt: true,
+  sentAt: true,
+  acknowledgedAt: true,
+});
+
+export const insertAiServiceCyclePredictionSchema = createInsertSchema(aiServiceCyclePredictions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  reviewedAt: true,
+});
+
+export const insertMaintenanceCostAnalyticsSchema = createInsertSchema(maintenanceCostAnalytics).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertTechnicianPerformanceSchema = createInsertSchema(technicianPerformance).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+// Type Definitions
+export type MaintenanceLog = typeof maintenanceLog.$inferSelect;
+export type InsertMaintenanceLog = z.infer<typeof insertMaintenanceLogSchema>;
+
+export type WarrantyAlert = typeof warrantyAlerts.$inferSelect;
+export type InsertWarrantyAlert = z.infer<typeof insertWarrantyAlertSchema>;
+
+export type AiServiceCyclePrediction = typeof aiServiceCyclePredictions.$inferSelect;
+export type InsertAiServiceCyclePrediction = z.infer<typeof insertAiServiceCyclePredictionSchema>;
+
+export type MaintenanceCostAnalytics = typeof maintenanceCostAnalytics.$inferSelect;
+export type InsertMaintenanceCostAnalytics = z.infer<typeof insertMaintenanceCostAnalyticsSchema>;
+
+export type TechnicianPerformance = typeof technicianPerformance.$inferSelect;
+export type InsertTechnicianPerformance = z.infer<typeof insertTechnicianPerformanceSchema>;
 
 // ===== CHECK-IN/CHECK-OUT WORKFLOW SYSTEM =====
 

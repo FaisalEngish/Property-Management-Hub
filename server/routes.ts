@@ -19072,6 +19072,203 @@ async function processGuestIssueForAI(issueReport: any) {
     }
   });
 
+  // ===== MAINTENANCE LOG, WARRANTY TRACKER & AI REPAIR CYCLE ALERTS API ROUTES =====
+
+  // Maintenance Log Routes
+  app.get('/api/maintenance-logs', isAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = req.user?.organizationId || 'default-org';
+      const { propertyId, department, status, technicianAssigned, priority, startDate, endDate } = req.query;
+      
+      const filters: any = {};
+      if (propertyId) filters.propertyId = parseInt(propertyId as string);
+      if (department) filters.department = department as string;
+      if (status) filters.status = status as string;
+      if (technicianAssigned) filters.technicianAssigned = technicianAssigned as string;
+      if (priority) filters.priority = priority as string;
+      if (startDate) filters.startDate = startDate as string;
+      if (endDate) filters.endDate = endDate as string;
+
+      const logs = await storage.getMaintenanceLogs(organizationId, filters);
+      res.json(logs);
+    } catch (error) {
+      console.error('Error fetching maintenance logs:', error);
+      res.status(500).json({ message: 'Failed to fetch maintenance logs' });
+    }
+  });
+
+  app.post('/api/maintenance-logs', isAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = req.user?.organizationId || 'default-org';
+      const userId = req.user?.id || 'demo-user';
+      
+      const logData = {
+        ...req.body,
+        organizationId,
+        createdBy: userId
+      };
+
+      const newLog = await storage.createMaintenanceLog(logData);
+      res.status(201).json(newLog);
+    } catch (error) {
+      console.error('Error creating maintenance log:', error);
+      res.status(500).json({ message: 'Failed to create maintenance log' });
+    }
+  });
+
+  app.put('/api/maintenance-logs/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const updatedLog = await storage.updateMaintenanceLog(id, req.body);
+      
+      if (!updatedLog) {
+        return res.status(404).json({ message: 'Maintenance log not found' });
+      }
+      
+      res.json(updatedLog);
+    } catch (error) {
+      console.error('Error updating maintenance log:', error);
+      res.status(500).json({ message: 'Failed to update maintenance log' });
+    }
+  });
+
+  app.get('/api/maintenance-logs/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const log = await storage.getMaintenanceLogById(id);
+      
+      if (!log) {
+        return res.status(404).json({ message: 'Maintenance log not found' });
+      }
+      
+      res.json(log);
+    } catch (error) {
+      console.error('Error fetching maintenance log:', error);
+      res.status(500).json({ message: 'Failed to fetch maintenance log' });
+    }
+  });
+
+  app.delete('/api/maintenance-logs/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await storage.deleteMaintenanceLog(id);
+      res.status(204).send();
+    } catch (error) {
+      console.error('Error deleting maintenance log:', error);
+      res.status(500).json({ message: 'Failed to delete maintenance log' });
+    }
+  });
+
+  // Warranty Alerts Routes
+  app.get('/api/warranty-alerts', isAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = req.user?.organizationId || 'default-org';
+      const { propertyId, isActive, alertType } = req.query;
+      
+      const filters: any = {};
+      if (propertyId) filters.propertyId = parseInt(propertyId as string);
+      if (isActive !== undefined) filters.isActive = isActive === 'true';
+      if (alertType) filters.alertType = alertType as string;
+
+      const alerts = await storage.getWarrantyAlerts(organizationId, filters);
+      res.json(alerts);
+    } catch (error) {
+      console.error('Error fetching warranty alerts:', error);
+      res.status(500).json({ message: 'Failed to fetch warranty alerts' });
+    }
+  });
+
+  app.put('/api/warranty-alerts/:id/acknowledge', isAuthenticated, async (req: any, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const userId = req.user?.id || 'demo-user';
+      
+      const updatedAlert = await storage.acknowledgeWarrantyAlert(id, userId);
+      
+      if (!updatedAlert) {
+        return res.status(404).json({ message: 'Warranty alert not found' });
+      }
+      
+      res.json(updatedAlert);
+    } catch (error) {
+      console.error('Error acknowledging warranty alert:', error);
+      res.status(500).json({ message: 'Failed to acknowledge warranty alert' });
+    }
+  });
+
+  // AI Service Cycle Predictions Routes
+  app.get('/api/ai-service-predictions', isAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = req.user?.organizationId || 'default-org';
+      const { propertyId, department, suggestionStatus } = req.query;
+      
+      const filters: any = {};
+      if (propertyId) filters.propertyId = parseInt(propertyId as string);
+      if (department) filters.department = department as string;
+      if (suggestionStatus) filters.suggestionStatus = suggestionStatus as string;
+
+      const predictions = await storage.getAiServicePredictions(organizationId, filters);
+      res.json(predictions);
+    } catch (error) {
+      console.error('Error fetching AI service predictions:', error);
+      res.status(500).json({ message: 'Failed to fetch AI service predictions' });
+    }
+  });
+
+  app.put('/api/ai-service-predictions/:id/review', isAuthenticated, async (req: any, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const userId = req.user?.id || 'demo-user';
+      const { suggestionStatus } = req.body;
+      
+      const updatedPrediction = await storage.reviewAiSuggestion(id, userId, suggestionStatus);
+      
+      if (!updatedPrediction) {
+        return res.status(404).json({ message: 'AI service prediction not found' });
+      }
+      
+      res.json(updatedPrediction);
+    } catch (error) {
+      console.error('Error reviewing AI suggestion:', error);
+      res.status(500).json({ message: 'Failed to review AI suggestion' });
+    }
+  });
+
+  app.put('/api/ai-service-predictions/:id/convert-to-task', isAuthenticated, async (req: any, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { taskId } = req.body;
+      
+      const updatedPrediction = await storage.convertAiSuggestionToTask(id, taskId);
+      
+      if (!updatedPrediction) {
+        return res.status(404).json({ message: 'AI service prediction not found' });
+      }
+      
+      res.json(updatedPrediction);
+    } catch (error) {
+      console.error('Error converting AI suggestion to task:', error);
+      res.status(500).json({ message: 'Failed to convert AI suggestion to task' });
+    }
+  });
+
+  // Maintenance Dashboard Analytics
+  app.get('/api/maintenance-dashboard-analytics', isAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = req.user?.organizationId || 'default-org';
+      const { propertyId } = req.query;
+      
+      const analytics = await storage.getMaintenanceDashboardAnalytics(
+        organizationId, 
+        propertyId ? parseInt(propertyId as string) : undefined
+      );
+      res.json(analytics);
+    } catch (error) {
+      console.error('Error fetching maintenance dashboard analytics:', error);
+      res.status(500).json({ message: 'Failed to fetch maintenance dashboard analytics' });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
