@@ -475,3 +475,111 @@ const checkOutData = {
 
 // Process check-out and trigger owner billing update
 processGuestCheckOut(checkOutData);
+
+// Function to load Villa Aruna maintenance and utility history
+export function loadVillaMaintenanceAndUtilities(villaArunaHistory: any) {
+  console.log(`🏠 Loading maintenance & utilities for property: ${villaArunaHistory.propertyId}`);
+  console.log(`📋 Reference reservation: ${villaArunaHistory.reservationRef}`);
+  
+  // Log maintenance history
+  console.log(`🔧 Maintenance Log (${villaArunaHistory.maintenanceLog.length} entries):`);
+  villaArunaHistory.maintenanceLog.forEach((entry: any, index: number) => {
+    console.log(`   ${index + 1}. ${entry.type || entry.description}`);
+    if (entry.lastService) console.log(`      📅 Last Service: ${entry.lastService}`);
+    if (entry.nextDue) console.log(`      ⏰ Next Due: ${entry.nextDue}`);
+    if (entry.date) console.log(`      📅 Date: ${entry.date}`);
+    if (entry.technician) console.log(`      👨‍🔧 Technician: ${entry.technician}`);
+    if (entry.provider) console.log(`      🏢 Provider: ${entry.provider}`);
+    if (entry.resolvedBy) console.log(`      ✅ Resolved By: ${entry.resolvedBy}`);
+    if (entry.cost) console.log(`      💰 Cost: ${entry.cost} THB (${entry.coveredBy})`);
+    if (entry.notes) console.log(`      📝 Notes: ${entry.notes}`);
+  });
+  
+  // Log utility bills
+  console.log(`⚡ Utility Bills (${villaArunaHistory.utilityBills.length} accounts):`);
+  villaArunaHistory.utilityBills.forEach((bill: any, index: number) => {
+    console.log(`   ${index + 1}. ${bill.utility} (${bill.provider})`);
+    console.log(`      🏦 Account: ${bill.accountNumber}`);
+    console.log(`      📅 Period: ${bill.month}`);
+    console.log(`      💰 Amount: ${bill.amount} THB`);
+    console.log(`      📅 Due: ${bill.dueDate}`);
+    console.log(`      📊 Status: ${bill.status}`);
+    if (bill.receipt) console.log(`      📄 Receipt: ${bill.receipt}`);
+  });
+  
+  return {
+    propertyId: villaArunaHistory.propertyId,
+    reservationRef: villaArunaHistory.reservationRef,
+    maintenanceCount: villaArunaHistory.maintenanceLog.length,
+    utilityCount: villaArunaHistory.utilityBills.length,
+    totalUtilityCost: villaArunaHistory.utilityBills.reduce((sum: number, bill: any) => sum + bill.amount, 0),
+    maintenanceCost: villaArunaHistory.maintenanceLog
+      .filter((entry: any) => entry.cost)
+      .reduce((sum: number, entry: any) => sum + entry.cost, 0),
+    status: "loaded"
+  };
+}
+
+// Villa Aruna maintenance & utility log for Demo1234 context
+const villaArunaHistory = {
+  propertyId: "villa-aruna",
+  reservationRef: "Demo1234",
+  maintenanceLog: [
+    {
+      type: "AC Service",
+      lastService: "2025-06-01",
+      nextDue: "2025-12-01",
+      technician: "AC Team - Chai",
+      notes: "Standard 6-month servicing"
+    },
+    {
+      type: "Pest Control",
+      lastService: "2025-06-15",
+      nextDue: "2025-08-15",
+      provider: "Samui PestCare",
+      notes: "No cockroach activity detected"
+    },
+    {
+      type: "Pool Pump Replacement",
+      date: "2025-05-20",
+      description: "Emergency replacement due to malfunction during guest stay",
+      resolvedBy: "Technician - Nye",
+      cost: 4500,
+      coveredBy: "Owner"
+    }
+  ],
+  utilityBills: [
+    {
+      utility: "Electricity",
+      provider: "PEA",
+      accountNumber: "987654321",
+      month: "2025-06",
+      amount: 2100,
+      dueDate: "2025-07-17",
+      status: "Pending Upload"
+    },
+    {
+      utility: "Water",
+      provider: "Local Waterworks",
+      accountNumber: "123456789",
+      month: "2025-06",
+      amount: 380,
+      dueDate: "2025-07-14",
+      status: "Paid",
+      receipt: "receipt_water_2025_06.pdf"
+    },
+    {
+      utility: "Internet",
+      provider: "AIS",
+      accountNumber: "AIS-99288",
+      month: "2025-06",
+      amount: 699,
+      dueDate: "2025-07-05",
+      status: "Paid",
+      receipt: "receipt_ais_2025_06.pdf"
+    }
+  ]
+};
+
+// Inject simulated data
+loadVillaMaintenanceAndUtilities(villaArunaHistory);
