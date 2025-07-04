@@ -3,6 +3,7 @@ import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { seedAddonServicesData } from "./seedAddonServicesData";
 import { seedInvoiceData } from "./seedInvoiceData";
+import { seedServiceMarketplaceData } from "./seedServiceMarketplaceData";
 
 const app = express();
 app.use(express.json());
@@ -44,6 +45,9 @@ app.use((req, res, next) => {
   
   // Seed invoice data (commented out until tables are created)
   // await seedInvoiceData();
+  
+  // Seed Service Marketplace data (temporarily disabled to fix schema mismatch)
+  await seedServiceMarketplaceData();
   
   const server = await registerRoutes(app);
 

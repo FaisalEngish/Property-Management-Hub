@@ -7278,6 +7278,243 @@ export const maintenanceSuggestionSettings = pgTable("maintenance_suggestion_set
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// ========================================
+// SERVICE MARKETPLACE & VENDOR BOOKING SYSTEM
+// ========================================
+
+// Service Providers/Vendors
+export const serviceVendors = pgTable("service_vendors", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  
+  // Vendor Information
+  name: varchar("name").notNull(),
+  description: text("description"),
+  logo: varchar("logo"),
+  vendorType: varchar("vendor_type").notNull(), // internal, external, partner
+  
+  // Contact Information
+  contactPerson: varchar("contact_person"),
+  phone: varchar("phone"),
+  email: varchar("email"),
+  address: text("address"),
+  website: varchar("website"),
+  
+  // Business Details
+  businessLicense: varchar("business_license"),
+  taxId: varchar("tax_id"),
+  bankDetails: text("bank_details"),
+  
+  // Performance & Settings
+  rating: decimal("rating", { precision: 3, scale: 2 }).default("5.00"),
+  reviewCount: integer("review_count").default(0),
+  responseTime: integer("response_time_hours").default(24),
+  commissionRate: decimal("commission_rate", { precision: 5, scale: 2 }).default("0.00"), // percentage
+  
+  // Status & Availability
+  isActive: boolean("is_active").default(true),
+  isVerified: boolean("is_verified").default(false),
+  availableDays: text("available_days").array(), // ["monday", "tuesday", ...]
+  workingHours: jsonb("working_hours"), // {start: "09:00", end: "18:00"}
+  
+  // Financial Terms
+  paymentTerms: varchar("payment_terms").default("net_30"), // immediate, net_7, net_30
+  preferredPaymentMethod: varchar("preferred_payment_method").default("bank_transfer"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Service Categories
+export const serviceCategories = pgTable("service_categories", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  
+  name: varchar("name").notNull(),
+  description: text("description"),
+  icon: varchar("icon").default("service"),
+  color: varchar("color").default("#3B82F6"),
+  sortOrder: integer("sort_order").default(0),
+  isActive: boolean("is_active").default(true),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Available Services
+export const marketplaceServices = pgTable("marketplace_services", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  vendorId: integer("vendor_id").references(() => serviceVendors.id).notNull(),
+  categoryId: integer("category_id").references(() => serviceCategories.id).notNull(),
+  
+  // Service Details
+  name: varchar("name").notNull(),
+  description: text("description"),
+  shortDescription: text("short_description"),
+  photos: text("photos").array(),
+  
+  // Pricing
+  pricingType: varchar("pricing_type").notNull(), // flat_rate, hourly, quote_based
+  basePrice: decimal("base_price", { precision: 10, scale: 2 }),
+  currency: varchar("currency").default("THB"),
+  priceNotes: text("price_notes"),
+  
+  // Booking Rules
+  requiresApproval: boolean("requires_approval").default(false),
+  requiresPrePayment: boolean("requires_pre_payment").default(false),
+  cancellationFee: decimal("cancellation_fee", { precision: 10, scale: 2 }).default("0.00"),
+  cancellationHours: integer("cancellation_hours").default(24),
+  
+  // Duration & Scheduling
+  estimatedDuration: integer("estimated_duration_minutes"),
+  minimumNotice: integer("minimum_notice_hours").default(24),
+  maximumAdvance: integer("maximum_advance_days").default(30),
+  
+  // Commission & Billing
+  commissionTo: varchar("commission_to").default("company"), // company, portfolio_manager
+  commissionRate: decimal("commission_rate", { precision: 5, scale: 2 }).default("0.00"),
+  defaultBillingTo: varchar("default_billing_to").default("guest"), // guest, owner, company
+  
+  // Settings
+  isActive: boolean("is_active").default(true),
+  isPopular: boolean("is_popular").default(false),
+  tags: text("tags").array(),
+  requirements: text("requirements"),
+  
+  // Analytics
+  bookingCount: integer("booking_count").default(0),
+  totalRevenue: decimal("total_revenue", { precision: 12, scale: 2 }).default("0.00"),
+  averageRating: decimal("average_rating", { precision: 3, scale: 2 }).default("5.00"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Service Bookings
+export const serviceBookings = pgTable("service_bookings", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  serviceId: integer("service_id").references(() => marketplaceServices.id).notNull(),
+  propertyId: integer("property_id").references(() => properties.id).notNull(),
+  
+  // Booking Reference
+  bookingNumber: varchar("booking_number").notNull(),
+  
+  // Guest Information
+  guestName: varchar("guest_name").notNull(),
+  guestEmail: varchar("guest_email"),
+  guestPhone: varchar("guest_phone"),
+  guestNotes: text("guest_notes"),
+  
+  // Booking Details
+  requestedDate: date("requested_date"),
+  requestedTime: varchar("requested_time"), // stored as "HH:MM" format
+  estimatedDuration: integer("estimated_duration_minutes"),
+  
+  // Pricing & Billing
+  quotedPrice: decimal("quoted_price", { precision: 10, scale: 2 }),
+  finalPrice: decimal("final_price", { precision: 10, scale: 2 }),
+  currency: varchar("currency").default("THB"),
+  billingAssignment: varchar("billing_assignment").notNull(), // guest_billable, owner_expense, company_expense
+  
+  // Status Tracking
+  status: varchar("status").default("pending"), // pending, confirmed, in_progress, completed, cancelled
+  paymentStatus: varchar("payment_status").default("pending"), // pending, paid, refunded
+  
+  // Workflow
+  requestedBy: varchar("requested_by").references(() => users.id).notNull(),
+  requestedByRole: varchar("requested_by_role").notNull(),
+  approvedBy: varchar("approved_by").references(() => users.id),
+  approvedAt: timestamp("approved_at"),
+  
+  // Vendor Communication
+  vendorNotified: boolean("vendor_notified").default(false),
+  vendorNotifiedAt: timestamp("vendor_notified_at"),
+  vendorConfirmed: boolean("vendor_confirmed").default(false),
+  vendorConfirmedAt: timestamp("vendor_confirmed_at"),
+  vendorNotes: text("vendor_notes"),
+  
+  // Service Execution
+  startedAt: timestamp("started_at"),
+  completedAt: timestamp("completed_at"),
+  completedBy: varchar("completed_by").references(() => users.id),
+  completionNotes: text("completion_notes"),
+  completionPhotos: text("completion_photos").array(),
+  
+  // Quality & Feedback
+  guestRating: integer("guest_rating"), // 1-5 stars
+  guestFeedback: text("guest_feedback"),
+  internalNotes: text("internal_notes"),
+  
+  // Special Instructions
+  specialRequirements: text("special_requirements"),
+  accessInstructions: text("access_instructions"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Service Reviews & Ratings
+export const serviceReviews = pgTable("service_reviews", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  serviceId: integer("service_id").references(() => marketplaceServices.id).notNull(),
+  bookingId: integer("booking_id").references(() => serviceBookings.id).notNull(),
+  vendorId: integer("vendor_id").references(() => serviceVendors.id).notNull(),
+  
+  // Review Details
+  rating: integer("rating").notNull(), // 1-5 stars
+  title: varchar("title"),
+  review: text("review"),
+  
+  // Reviewer Information
+  reviewerType: varchar("reviewer_type").notNull(), // guest, staff, manager
+  reviewerName: varchar("reviewer_name"),
+  isAnonymous: boolean("is_anonymous").default(false),
+  
+  // Review Categories
+  qualityRating: integer("quality_rating"), // 1-5
+  timelinessRating: integer("timeliness_rating"), // 1-5
+  valueRating: integer("value_rating"), // 1-5
+  communicationRating: integer("communication_rating"), // 1-5
+  
+  // Review Status
+  isApproved: boolean("is_approved").default(true),
+  isPublic: boolean("is_public").default(true),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Service Performance Analytics
+export const serviceAnalytics = pgTable("service_analytics", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  
+  // Time Period
+  periodType: varchar("period_type").notNull(), // daily, weekly, monthly
+  periodStart: date("period_start").notNull(),
+  periodEnd: date("period_end").notNull(),
+  
+  // Service/Vendor Analytics
+  serviceId: integer("service_id").references(() => marketplaceServices.id),
+  vendorId: integer("vendor_id").references(() => serviceVendors.id),
+  categoryId: integer("category_id").references(() => serviceCategories.id),
+  
+  // Metrics
+  totalBookings: integer("total_bookings").default(0),
+  completedBookings: integer("completed_bookings").default(0),
+  cancelledBookings: integer("cancelled_bookings").default(0),
+  totalRevenue: decimal("total_revenue", { precision: 12, scale: 2 }).default("0.00"),
+  totalCommission: decimal("total_commission", { precision: 12, scale: 2 }).default("0.00"),
+  averageRating: decimal("average_rating", { precision: 3, scale: 2 }),
+  averageResponseTime: integer("average_response_time_hours"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // Timeline entries for maintenance suggestions (for property timeline integration)
 export const maintenanceTimelineEntries = pgTable("maintenance_timeline_entries", {
   id: serial("id").primaryKey(),
@@ -7341,7 +7578,63 @@ export type InsertMaintenanceSuggestionSettings = z.infer<typeof insertMaintenan
 export type MaintenanceTimelineEntry = typeof maintenanceTimelineEntries.$inferSelect;
 export type InsertMaintenanceTimelineEntry = z.infer<typeof insertMaintenanceTimelineEntrySchema>;
 
+// ===== SERVICE MARKETPLACE INSERT SCHEMAS =====
 
+export const insertServiceVendorSchema = createInsertSchema(serviceVendors).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertServiceCategorySchema = createInsertSchema(serviceCategories).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertMarketplaceServiceSchema = createInsertSchema(marketplaceServices).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertServiceBookingSchema = createInsertSchema(serviceBookings).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertServiceReviewSchema = createInsertSchema(serviceReviews).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertServiceAnalyticsSchema = createInsertSchema(serviceAnalytics).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+// ===== SERVICE MARKETPLACE TYPE DEFINITIONS =====
+
+export type ServiceVendor = typeof serviceVendors.$inferSelect;
+export type InsertServiceVendor = z.infer<typeof insertServiceVendorSchema>;
+
+export type ServiceCategory = typeof serviceCategories.$inferSelect;
+export type InsertServiceCategory = z.infer<typeof insertServiceCategorySchema>;
+
+export type MarketplaceService = typeof marketplaceServices.$inferSelect;
+export type InsertMarketplaceService = z.infer<typeof insertMarketplaceServiceSchema>;
+
+export type ServiceBooking = typeof serviceBookings.$inferSelect;
+export type InsertServiceBooking = z.infer<typeof insertServiceBookingSchema>;
+
+export type ServiceReview = typeof serviceReviews.$inferSelect;
+export type InsertServiceReview = z.infer<typeof insertServiceReviewSchema>;
+
+export type ServiceAnalytics = typeof serviceAnalytics.$inferSelect;
+export type InsertServiceAnalytics = z.infer<typeof insertServiceAnalyticsSchema>;
 
 // ===== PLATFORM ROUTING TYPES =====
 

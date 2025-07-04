@@ -520,6 +520,25 @@ import {
   taskGenerationLogs,
   recurringTaskAnalytics,
   taskSchedulingAlerts,
+  // Service Marketplace types
+  serviceVendors,
+  serviceCategories,
+  marketplaceServices,
+  serviceBookings,
+  serviceReviews,
+  serviceAnalytics,
+  type ServiceVendor,
+  type InsertServiceVendor,
+  type ServiceCategory,
+  type InsertServiceCategory,
+  type MarketplaceService,
+  type InsertMarketplaceService,
+  type ServiceBooking,
+  type InsertServiceBooking,
+  type ServiceReview,
+  type InsertServiceReview,
+  type ServiceAnalytics,
+  type InsertServiceAnalytics,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, or, desc, asc, lt, gte, lte, isNull, sql, sum, count, avg, max } from "drizzle-orm";
@@ -1233,6 +1252,56 @@ export interface IStorage {
     portfolioManagerEarnings: number;
     staffAdvanceRequests: number;
     systemHealth: string;
+  }>;
+
+  // ===== SERVICE MARKETPLACE & VENDOR BOOKING SYSTEM =====
+
+  // Service vendors operations
+  getServiceVendors(organizationId: string): Promise<ServiceVendor[]>;
+  getServiceVendor(id: number): Promise<ServiceVendor | undefined>;
+  createServiceVendor(vendor: InsertServiceVendor): Promise<ServiceVendor>;
+  updateServiceVendor(id: number, vendor: Partial<InsertServiceVendor>): Promise<ServiceVendor | undefined>;
+  deleteServiceVendor(id: number): Promise<boolean>;
+
+  // Service categories operations
+  getServiceCategories(organizationId: string): Promise<ServiceCategory[]>;
+  getServiceCategory(id: number): Promise<ServiceCategory | undefined>;
+  createServiceCategory(category: InsertServiceCategory): Promise<ServiceCategory>;
+  updateServiceCategory(id: number, category: Partial<InsertServiceCategory>): Promise<ServiceCategory | undefined>;
+  deleteServiceCategory(id: number): Promise<boolean>;
+
+  // Marketplace services operations
+  getMarketplaceServices(organizationId: string, categoryId?: number, vendorId?: number): Promise<MarketplaceService[]>;
+  getMarketplaceService(id: number): Promise<MarketplaceService | undefined>;
+  createMarketplaceService(service: InsertMarketplaceService): Promise<MarketplaceService>;
+  updateMarketplaceService(id: number, service: Partial<InsertMarketplaceService>): Promise<MarketplaceService | undefined>;
+  deleteMarketplaceService(id: number): Promise<boolean>;
+
+  // Service bookings operations
+  getServiceBookings(organizationId: string, propertyId?: number, status?: string): Promise<ServiceBooking[]>;
+  getServiceBooking(id: number): Promise<ServiceBooking | undefined>;
+  createServiceBooking(booking: InsertServiceBooking): Promise<ServiceBooking>;
+  updateServiceBooking(id: number, booking: Partial<InsertServiceBooking>): Promise<ServiceBooking | undefined>;
+  approveServiceBooking(id: number, approvedBy: string): Promise<ServiceBooking | undefined>;
+  confirmServiceBooking(id: number, confirmedBy: string): Promise<ServiceBooking | undefined>;
+  completeServiceBooking(id: number, completedBy: string, notes?: string, photos?: string[]): Promise<ServiceBooking | undefined>;
+  cancelServiceBooking(id: number, cancelledBy: string, reason?: string): Promise<ServiceBooking | undefined>;
+
+  // Service reviews operations
+  getServiceReviews(organizationId: string, serviceId?: number, vendorId?: number): Promise<ServiceReview[]>;
+  getServiceReview(id: number): Promise<ServiceReview | undefined>;
+  createServiceReview(review: InsertServiceReview): Promise<ServiceReview>;
+  updateServiceReview(id: number, review: Partial<InsertServiceReview>): Promise<ServiceReview | undefined>;
+
+  // Service analytics operations
+  getServiceAnalytics(organizationId: string, periodType: string, periodStart: string, periodEnd: string): Promise<ServiceAnalytics[]>;
+  createServiceAnalytics(analytics: InsertServiceAnalytics): Promise<ServiceAnalytics>;
+  getServiceDashboardStats(organizationId: string): Promise<{
+    totalBookings: number;
+    completedBookings: number;
+    totalRevenue: number;
+    topServices: Array<{ name: string; bookings: number; revenue: number }>;
+    topVendors: Array<{ name: string; rating: number; bookings: number }>;
   }>;
 
   // ===== PROPERTY UTILITIES & MAINTENANCE ENHANCED =====
@@ -25566,6 +25635,390 @@ Plant Care:
         historicalAccuracy: 94
       }
     ];
+  }
+
+  // ==================== SERVICE MARKETPLACE & VENDOR BOOKING SYSTEM ====================
+
+  // Service Vendors Operations
+  async getServiceVendors(organizationId: string): Promise<ServiceVendor[]> {
+    return db
+      .select()
+      .from(serviceVendors)
+      .where(eq(serviceVendors.organizationId, organizationId))
+      .orderBy(serviceVendors.businessName);
+  }
+
+  async getServiceVendor(id: number): Promise<ServiceVendor | undefined> {
+    const [vendor] = await db
+      .select()
+      .from(serviceVendors)
+      .where(eq(serviceVendors.id, id));
+    return vendor;
+  }
+
+  async createServiceVendor(vendor: InsertServiceVendor): Promise<ServiceVendor> {
+    const [newVendor] = await db
+      .insert(serviceVendors)
+      .values(vendor)
+      .returning();
+    return newVendor;
+  }
+
+  async updateServiceVendor(id: number, vendor: Partial<InsertServiceVendor>): Promise<ServiceVendor | undefined> {
+    const [updated] = await db
+      .update(serviceVendors)
+      .set({ ...vendor, updatedAt: new Date() })
+      .where(eq(serviceVendors.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteServiceVendor(id: number): Promise<boolean> {
+    const result = await db
+      .delete(serviceVendors)
+      .where(eq(serviceVendors.id, id));
+    return (result.rowCount || 0) > 0;
+  }
+
+  // Service Categories Operations
+  async getServiceCategories(organizationId: string): Promise<ServiceCategory[]> {
+    return db
+      .select()
+      .from(serviceCategories)
+      .where(eq(serviceCategories.organizationId, organizationId))
+      .orderBy(serviceCategories.categoryName);
+  }
+
+  async getServiceCategory(id: number): Promise<ServiceCategory | undefined> {
+    const [category] = await db
+      .select()
+      .from(serviceCategories)
+      .where(eq(serviceCategories.id, id));
+    return category;
+  }
+
+  async createServiceCategory(category: InsertServiceCategory): Promise<ServiceCategory> {
+    const [newCategory] = await db
+      .insert(serviceCategories)
+      .values(category)
+      .returning();
+    return newCategory;
+  }
+
+  async updateServiceCategory(id: number, category: Partial<InsertServiceCategory>): Promise<ServiceCategory | undefined> {
+    const [updated] = await db
+      .update(serviceCategories)
+      .set({ ...category, updatedAt: new Date() })
+      .where(eq(serviceCategories.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteServiceCategory(id: number): Promise<boolean> {
+    const result = await db
+      .delete(serviceCategories)
+      .where(eq(serviceCategories.id, id));
+    return (result.rowCount || 0) > 0;
+  }
+
+  // Marketplace Services Operations
+  async getMarketplaceServices(organizationId: string, categoryId?: number, vendorId?: number): Promise<MarketplaceService[]> {
+    let query = db
+      .select()
+      .from(marketplaceServices)
+      .where(eq(marketplaceServices.organizationId, organizationId));
+
+    if (categoryId) {
+      query = query.where(eq(marketplaceServices.categoryId, categoryId));
+    }
+
+    if (vendorId) {
+      query = query.where(eq(marketplaceServices.vendorId, vendorId));
+    }
+
+    return query.orderBy(marketplaceServices.serviceName);
+  }
+
+  async getMarketplaceService(id: number): Promise<MarketplaceService | undefined> {
+    const [service] = await db
+      .select()
+      .from(marketplaceServices)
+      .where(eq(marketplaceServices.id, id));
+    return service;
+  }
+
+  async createMarketplaceService(service: InsertMarketplaceService): Promise<MarketplaceService> {
+    const [newService] = await db
+      .insert(marketplaceServices)
+      .values(service)
+      .returning();
+    return newService;
+  }
+
+  async updateMarketplaceService(id: number, service: Partial<InsertMarketplaceService>): Promise<MarketplaceService | undefined> {
+    const [updated] = await db
+      .update(marketplaceServices)
+      .set({ ...service, updatedAt: new Date() })
+      .where(eq(marketplaceServices.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteMarketplaceService(id: number): Promise<boolean> {
+    const result = await db
+      .delete(marketplaceServices)
+      .where(eq(marketplaceServices.id, id));
+    return (result.rowCount || 0) > 0;
+  }
+
+  // Service Bookings Operations
+  async getServiceBookings(organizationId: string, propertyId?: number, status?: string): Promise<ServiceBooking[]> {
+    let query = db
+      .select()
+      .from(serviceBookings)
+      .where(eq(serviceBookings.organizationId, organizationId));
+
+    if (propertyId) {
+      query = query.where(eq(serviceBookings.propertyId, propertyId));
+    }
+
+    if (status) {
+      query = query.where(eq(serviceBookings.status, status));
+    }
+
+    return query.orderBy(desc(serviceBookings.createdAt));
+  }
+
+  async getServiceBooking(id: number): Promise<ServiceBooking | undefined> {
+    const [booking] = await db
+      .select()
+      .from(serviceBookings)
+      .where(eq(serviceBookings.id, id));
+    return booking;
+  }
+
+  async createServiceBooking(booking: InsertServiceBooking): Promise<ServiceBooking> {
+    const [newBooking] = await db
+      .insert(serviceBookings)
+      .values(booking)
+      .returning();
+    return newBooking;
+  }
+
+  async updateServiceBooking(id: number, booking: Partial<InsertServiceBooking>): Promise<ServiceBooking | undefined> {
+    const [updated] = await db
+      .update(serviceBookings)
+      .set({ ...booking, updatedAt: new Date() })
+      .where(eq(serviceBookings.id, id))
+      .returning();
+    return updated;
+  }
+
+  async approveServiceBooking(id: number, approvedBy: string): Promise<ServiceBooking | undefined> {
+    const [updated] = await db
+      .update(serviceBookings)
+      .set({
+        status: 'approved',
+        approvedBy,
+        approvedAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(eq(serviceBookings.id, id))
+      .returning();
+    return updated;
+  }
+
+  async confirmServiceBooking(id: number, confirmedBy: string): Promise<ServiceBooking | undefined> {
+    const [updated] = await db
+      .update(serviceBookings)
+      .set({
+        status: 'confirmed',
+        confirmedBy,
+        confirmedAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(eq(serviceBookings.id, id))
+      .returning();
+    return updated;
+  }
+
+  async completeServiceBooking(id: number, completedBy: string, notes?: string, photos?: string[]): Promise<ServiceBooking | undefined> {
+    const [updated] = await db
+      .update(serviceBookings)
+      .set({
+        status: 'completed',
+        completedBy,
+        completedAt: new Date(),
+        completionNotes: notes,
+        completionPhotos: photos,
+        updatedAt: new Date(),
+      })
+      .where(eq(serviceBookings.id, id))
+      .returning();
+    return updated;
+  }
+
+  async cancelServiceBooking(id: number, cancelledBy: string, reason?: string): Promise<ServiceBooking | undefined> {
+    const [updated] = await db
+      .update(serviceBookings)
+      .set({
+        status: 'cancelled',
+        cancelledBy,
+        cancelledAt: new Date(),
+        cancellationReason: reason,
+        updatedAt: new Date(),
+      })
+      .where(eq(serviceBookings.id, id))
+      .returning();
+    return updated;
+  }
+
+  // Service Reviews Operations
+  async getServiceReviews(organizationId: string, serviceId?: number, vendorId?: number): Promise<ServiceReview[]> {
+    let query = db
+      .select()
+      .from(serviceReviews)
+      .where(eq(serviceReviews.organizationId, organizationId));
+
+    if (serviceId) {
+      query = query.where(eq(serviceReviews.serviceId, serviceId));
+    }
+
+    if (vendorId) {
+      query = query.where(eq(serviceReviews.vendorId, vendorId));
+    }
+
+    return query.orderBy(desc(serviceReviews.createdAt));
+  }
+
+  async getServiceReview(id: number): Promise<ServiceReview | undefined> {
+    const [review] = await db
+      .select()
+      .from(serviceReviews)
+      .where(eq(serviceReviews.id, id));
+    return review;
+  }
+
+  async createServiceReview(review: InsertServiceReview): Promise<ServiceReview> {
+    const [newReview] = await db
+      .insert(serviceReviews)
+      .values(review)
+      .returning();
+    return newReview;
+  }
+
+  async updateServiceReview(id: number, review: Partial<InsertServiceReview>): Promise<ServiceReview | undefined> {
+    const [updated] = await db
+      .update(serviceReviews)
+      .set({ ...review, updatedAt: new Date() })
+      .where(eq(serviceReviews.id, id))
+      .returning();
+    return updated;
+  }
+
+  // Service Analytics Operations
+  async getServiceAnalytics(organizationId: string, periodType: string, periodStart: string, periodEnd: string): Promise<ServiceAnalytics[]> {
+    return db
+      .select()
+      .from(serviceAnalytics)
+      .where(
+        and(
+          eq(serviceAnalytics.organizationId, organizationId),
+          eq(serviceAnalytics.periodType, periodType),
+          gte(serviceAnalytics.periodStart, new Date(periodStart)),
+          lte(serviceAnalytics.periodEnd, new Date(periodEnd))
+        )
+      )
+      .orderBy(desc(serviceAnalytics.periodStart));
+  }
+
+  async createServiceAnalytics(analytics: InsertServiceAnalytics): Promise<ServiceAnalytics> {
+    const [newAnalytics] = await db
+      .insert(serviceAnalytics)
+      .values(analytics)
+      .returning();
+    return newAnalytics;
+  }
+
+  async getServiceDashboardStats(organizationId: string): Promise<{
+    totalBookings: number;
+    completedBookings: number;
+    totalRevenue: number;
+    topServices: Array<{ name: string; bookings: number; revenue: number }>;
+    topVendors: Array<{ name: string; rating: number; bookings: number }>;
+  }> {
+    // Get total bookings count
+    const totalBookingsResult = await db
+      .select({ count: count() })
+      .from(serviceBookings)
+      .where(eq(serviceBookings.organizationId, organizationId));
+
+    // Get completed bookings count
+    const completedBookingsResult = await db
+      .select({ count: count() })
+      .from(serviceBookings)
+      .where(
+        and(
+          eq(serviceBookings.organizationId, organizationId),
+          eq(serviceBookings.status, 'completed')
+        )
+      );
+
+    // Get total revenue from completed bookings
+    const totalRevenueResult = await db
+      .select({ total: sum(serviceBookings.totalAmount) })
+      .from(serviceBookings)
+      .where(
+        and(
+          eq(serviceBookings.organizationId, organizationId),
+          eq(serviceBookings.status, 'completed')
+        )
+      );
+
+    // Get top services by booking count
+    const topServicesResult = await db
+      .select({
+        name: marketplaceServices.serviceName,
+        bookings: count(serviceBookings.id),
+        revenue: sum(serviceBookings.totalAmount),
+      })
+      .from(serviceBookings)
+      .leftJoin(marketplaceServices, eq(serviceBookings.serviceId, marketplaceServices.id))
+      .where(eq(serviceBookings.organizationId, organizationId))
+      .groupBy(marketplaceServices.serviceName)
+      .orderBy(desc(count(serviceBookings.id)))
+      .limit(5);
+
+    // Get top vendors by rating and booking count
+    const topVendorsResult = await db
+      .select({
+        name: serviceVendors.businessName,
+        rating: avg(serviceReviews.rating),
+        bookings: count(serviceBookings.id),
+      })
+      .from(serviceVendors)
+      .leftJoin(serviceBookings, eq(serviceVendors.id, serviceBookings.vendorId))
+      .leftJoin(serviceReviews, eq(serviceVendors.id, serviceReviews.vendorId))
+      .where(eq(serviceVendors.organizationId, organizationId))
+      .groupBy(serviceVendors.businessName)
+      .orderBy(desc(avg(serviceReviews.rating)), desc(count(serviceBookings.id)))
+      .limit(5);
+
+    return {
+      totalBookings: totalBookingsResult[0]?.count || 0,
+      completedBookings: completedBookingsResult[0]?.count || 0,
+      totalRevenue: parseFloat(totalRevenueResult[0]?.total || "0"),
+      topServices: topServicesResult.map(service => ({
+        name: service.name || "Unknown",
+        bookings: service.bookings || 0,
+        revenue: parseFloat(service.revenue || "0"),
+      })),
+      topVendors: topVendorsResult.map(vendor => ({
+        name: vendor.name || "Unknown",
+        rating: parseFloat(vendor.rating || "0"),
+        bookings: vendor.bookings || 0,
+      })),
+    };
   }
 }
 

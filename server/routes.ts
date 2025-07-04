@@ -19563,6 +19563,343 @@ async function processGuestIssueForAI(issueReport: any) {
     }
   });
 
+  // ==================== SERVICE MARKETPLACE & VENDOR BOOKING SYSTEM ROUTES ====================
+
+  // Service Vendors Routes
+  app.get("/api/service-vendors", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role } = req.user;
+
+      if (!['admin', 'portfolio-manager', 'staff'].includes(role)) {
+        return res.status(403).json({ message: "Insufficient permissions" });
+      }
+
+      const vendors = await storage.getServiceVendors(organizationId);
+      res.json(vendors);
+    } catch (error) {
+      console.error("Error fetching service vendors:", error);
+      res.status(500).json({ message: "Failed to fetch service vendors" });
+    }
+  });
+
+  app.post("/api/service-vendors", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role, id: userId } = req.user;
+
+      if (!['admin', 'portfolio-manager'].includes(role)) {
+        return res.status(403).json({ message: "Admin or PM access required" });
+      }
+
+      const vendorData = {
+        ...req.body,
+        organizationId,
+        createdBy: userId,
+      };
+
+      const vendor = await storage.createServiceVendor(vendorData);
+      res.status(201).json(vendor);
+    } catch (error) {
+      console.error("Error creating service vendor:", error);
+      res.status(500).json({ message: "Failed to create service vendor" });
+    }
+  });
+
+  app.patch("/api/service-vendors/:id", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { role } = req.user;
+      const { id } = req.params;
+
+      if (!['admin', 'portfolio-manager'].includes(role)) {
+        return res.status(403).json({ message: "Admin or PM access required" });
+      }
+
+      const vendor = await storage.updateServiceVendor(parseInt(id), req.body);
+      if (!vendor) {
+        return res.status(404).json({ message: "Service vendor not found" });
+      }
+
+      res.json(vendor);
+    } catch (error) {
+      console.error("Error updating service vendor:", error);
+      res.status(500).json({ message: "Failed to update service vendor" });
+    }
+  });
+
+  app.delete("/api/service-vendors/:id", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { role } = req.user;
+      const { id } = req.params;
+
+      if (!['admin', 'portfolio-manager'].includes(role)) {
+        return res.status(403).json({ message: "Admin or PM access required" });
+      }
+
+      const success = await storage.deleteServiceVendor(parseInt(id));
+      if (!success) {
+        return res.status(404).json({ message: "Service vendor not found" });
+      }
+
+      res.json({ message: "Service vendor deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting service vendor:", error);
+      res.status(500).json({ message: "Failed to delete service vendor" });
+    }
+  });
+
+  // Service Categories Routes
+  app.get("/api/service-categories", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role } = req.user;
+
+      if (!['admin', 'portfolio-manager', 'staff'].includes(role)) {
+        return res.status(403).json({ message: "Insufficient permissions" });
+      }
+
+      const categories = await storage.getServiceCategories(organizationId);
+      res.json(categories);
+    } catch (error) {
+      console.error("Error fetching service categories:", error);
+      res.status(500).json({ message: "Failed to fetch service categories" });
+    }
+  });
+
+  app.post("/api/service-categories", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role, id: userId } = req.user;
+
+      if (!['admin', 'portfolio-manager'].includes(role)) {
+        return res.status(403).json({ message: "Admin or PM access required" });
+      }
+
+      const categoryData = {
+        ...req.body,
+        organizationId,
+        createdBy: userId,
+      };
+
+      const category = await storage.createServiceCategory(categoryData);
+      res.status(201).json(category);
+    } catch (error) {
+      console.error("Error creating service category:", error);
+      res.status(500).json({ message: "Failed to create service category" });
+    }
+  });
+
+  // Marketplace Services Routes
+  app.get("/api/marketplace-services", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role } = req.user;
+      const { categoryId, vendorId } = req.query;
+
+      if (!['admin', 'portfolio-manager', 'staff'].includes(role)) {
+        return res.status(403).json({ message: "Insufficient permissions" });
+      }
+
+      const services = await storage.getMarketplaceServices(
+        organizationId,
+        categoryId ? parseInt(categoryId as string) : undefined,
+        vendorId ? parseInt(vendorId as string) : undefined
+      );
+      res.json(services);
+    } catch (error) {
+      console.error("Error fetching marketplace services:", error);
+      res.status(500).json({ message: "Failed to fetch marketplace services" });
+    }
+  });
+
+  app.post("/api/marketplace-services", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role, id: userId } = req.user;
+
+      if (!['admin', 'portfolio-manager'].includes(role)) {
+        return res.status(403).json({ message: "Admin or PM access required" });
+      }
+
+      const serviceData = {
+        ...req.body,
+        organizationId,
+        createdBy: userId,
+      };
+
+      const service = await storage.createMarketplaceService(serviceData);
+      res.status(201).json(service);
+    } catch (error) {
+      console.error("Error creating marketplace service:", error);
+      res.status(500).json({ message: "Failed to create marketplace service" });
+    }
+  });
+
+  // Service Bookings Routes
+  app.get("/api/service-bookings", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role } = req.user;
+      const { propertyId, status } = req.query;
+
+      if (!['admin', 'portfolio-manager', 'staff'].includes(role)) {
+        return res.status(403).json({ message: "Insufficient permissions" });
+      }
+
+      const bookings = await storage.getServiceBookings(
+        organizationId,
+        propertyId ? parseInt(propertyId as string) : undefined,
+        status as string
+      );
+      res.json(bookings);
+    } catch (error) {
+      console.error("Error fetching service bookings:", error);
+      res.status(500).json({ message: "Failed to fetch service bookings" });
+    }
+  });
+
+  app.post("/api/service-bookings", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role, id: userId } = req.user;
+
+      if (!['admin', 'portfolio-manager', 'staff'].includes(role)) {
+        return res.status(403).json({ message: "Insufficient permissions" });
+      }
+
+      const bookingData = {
+        ...req.body,
+        organizationId,
+        bookedBy: userId,
+        status: 'pending',
+      };
+
+      const booking = await storage.createServiceBooking(bookingData);
+      res.status(201).json(booking);
+    } catch (error) {
+      console.error("Error creating service booking:", error);
+      res.status(500).json({ message: "Failed to create service booking" });
+    }
+  });
+
+  app.patch("/api/service-bookings/:id/approve", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { role, id: userId } = req.user;
+      const { id } = req.params;
+
+      if (!['admin', 'portfolio-manager'].includes(role)) {
+        return res.status(403).json({ message: "Admin or PM access required" });
+      }
+
+      const booking = await storage.approveServiceBooking(parseInt(id), userId);
+      if (!booking) {
+        return res.status(404).json({ message: "Service booking not found" });
+      }
+
+      res.json(booking);
+    } catch (error) {
+      console.error("Error approving service booking:", error);
+      res.status(500).json({ message: "Failed to approve service booking" });
+    }
+  });
+
+  app.patch("/api/service-bookings/:id/complete", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { role, id: userId } = req.user;
+      const { id } = req.params;
+      const { notes, photos } = req.body;
+
+      if (!['admin', 'portfolio-manager', 'staff'].includes(role)) {
+        return res.status(403).json({ message: "Insufficient permissions" });
+      }
+
+      const booking = await storage.completeServiceBooking(parseInt(id), userId, notes, photos);
+      if (!booking) {
+        return res.status(404).json({ message: "Service booking not found" });
+      }
+
+      res.json(booking);
+    } catch (error) {
+      console.error("Error completing service booking:", error);
+      res.status(500).json({ message: "Failed to complete service booking" });
+    }
+  });
+
+  // Service Reviews Routes
+  app.get("/api/service-reviews", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role } = req.user;
+      const { serviceId, vendorId } = req.query;
+
+      if (!['admin', 'portfolio-manager', 'staff'].includes(role)) {
+        return res.status(403).json({ message: "Insufficient permissions" });
+      }
+
+      const reviews = await storage.getServiceReviews(
+        organizationId,
+        serviceId ? parseInt(serviceId as string) : undefined,
+        vendorId ? parseInt(vendorId as string) : undefined
+      );
+      res.json(reviews);
+    } catch (error) {
+      console.error("Error fetching service reviews:", error);
+      res.status(500).json({ message: "Failed to fetch service reviews" });
+    }
+  });
+
+  app.post("/api/service-reviews", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role, id: userId } = req.user;
+
+      if (!['admin', 'portfolio-manager', 'staff'].includes(role)) {
+        return res.status(403).json({ message: "Insufficient permissions" });
+      }
+
+      const reviewData = {
+        ...req.body,
+        organizationId,
+        reviewedBy: userId,
+      };
+
+      const review = await storage.createServiceReview(reviewData);
+      res.status(201).json(review);
+    } catch (error) {
+      console.error("Error creating service review:", error);
+      res.status(500).json({ message: "Failed to create service review" });
+    }
+  });
+
+  // Service Analytics Routes
+  app.get("/api/service-analytics", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role } = req.user;
+      const { periodType, periodStart, periodEnd } = req.query;
+
+      if (!['admin', 'portfolio-manager'].includes(role)) {
+        return res.status(403).json({ message: "Admin or PM access required" });
+      }
+
+      const analytics = await storage.getServiceAnalytics(
+        organizationId,
+        periodType as string,
+        periodStart as string,
+        periodEnd as string
+      );
+      res.json(analytics);
+    } catch (error) {
+      console.error("Error fetching service analytics:", error);
+      res.status(500).json({ message: "Failed to fetch service analytics" });
+    }
+  });
+
+  app.get("/api/service-dashboard-stats", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role } = req.user;
+
+      if (!['admin', 'portfolio-manager'].includes(role)) {
+        return res.status(403).json({ message: "Admin or PM access required" });
+      }
+
+      const stats = await storage.getServiceDashboardStats(organizationId);
+      res.json(stats);
+    } catch (error) {
+      console.error("Error fetching service dashboard stats:", error);
+      res.status(500).json({ message: "Failed to fetch service dashboard stats" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
