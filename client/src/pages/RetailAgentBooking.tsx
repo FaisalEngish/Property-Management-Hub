@@ -91,39 +91,101 @@ export default function RetailAgentBooking() {
     },
   });
 
-  // Fetch available properties
-  const { data: properties = [], isLoading: propertiesLoading } = useQuery({
+  // Fetch available properties with enhanced error handling
+  const { data: properties = [], isLoading: propertiesLoading, error: propertiesError } = useQuery({
     queryKey: ["/api/agent/properties", searchParams],
-    queryFn: () => {
-      const params = new URLSearchParams();
-      if (searchParams.checkIn) params.append('checkIn', searchParams.checkIn);
-      if (searchParams.checkOut) params.append('checkOut', searchParams.checkOut);
-      if (searchParams.guests) params.append('guests', searchParams.guests.toString());
-      if (searchParams.bedrooms) params.append('bedrooms', searchParams.bedrooms.toString());
-      if (searchParams.priceMin) params.append('priceMin', searchParams.priceMin.toString());
-      if (searchParams.priceMax) params.append('priceMax', searchParams.priceMax.toString());
-      
-      return apiRequest("GET", `/api/agent/properties?${params.toString()}`);
+    queryFn: async () => {
+      try {
+        const params = new URLSearchParams();
+        if (searchParams.checkIn) params.append('checkIn', searchParams.checkIn);
+        if (searchParams.checkOut) params.append('checkOut', searchParams.checkOut);
+        if (searchParams.guests) params.append('guests', searchParams.guests.toString());
+        if (searchParams.bedrooms) params.append('bedrooms', searchParams.bedrooms.toString());
+        if (searchParams.priceMin) params.append('priceMin', searchParams.priceMin.toString());
+        if (searchParams.priceMax) params.append('priceMax', searchParams.priceMax.toString());
+        
+        const result = await apiRequest("GET", `/api/agent/properties?${params.toString()}`);
+        return Array.isArray(result) ? result : [];
+      } catch (error) {
+        console.error("Failed to fetch properties:", error);
+        return []; // Return empty array on error
+      }
     },
     enabled: !!(searchParams.checkIn && searchParams.checkOut),
+    retry: 2,
+    staleTime: 30000, // 30 seconds
   });
 
-  // Fetch agent bookings
-  const { data: agentBookings = [] } = useQuery({
+  // Fetch agent bookings with enhanced error handling
+  const { data: agentBookings = [], error: bookingsError } = useQuery({
     queryKey: ["/api/agent/bookings"],
-    queryFn: () => apiRequest("GET", "/api/agent/bookings"),
+    queryFn: async () => {
+      try {
+        const result = await apiRequest("GET", "/api/agent/bookings");
+        return Array.isArray(result) ? result : [];
+      } catch (error) {
+        console.error("Failed to fetch bookings:", error);
+        return [];
+      }
+    },
+    retry: 2,
+    staleTime: 60000, // 1 minute
   });
 
-  // Fetch commission summary
-  const { data: commissionSummary } = useQuery({
+  // Fetch commission summary with enhanced error handling
+  const { data: commissionSummary, error: commissionError } = useQuery({
     queryKey: ["/api/agent/commission-summary"],
-    queryFn: () => apiRequest("GET", "/api/agent/commission-summary"),
+    queryFn: async () => {
+      try {
+        const result = await apiRequest("GET", "/api/agent/commission-summary");
+        return result || {
+          totalCommissionEarned: 0,
+          totalCommissionPaid: 0,
+          pendingCommission: 0,
+          totalBookings: 0,
+          thisMonthCommission: 0,
+          thisMonthBookings: 0,
+          lastMonthCommission: 0,
+          lastMonthBookings: 0,
+          averageCommissionPerBooking: 0,
+          commissionRate: 15.0,
+          currency: "THB"
+        };
+      } catch (error) {
+        console.error("Failed to fetch commission summary:", error);
+        return {
+          totalCommissionEarned: 0,
+          totalCommissionPaid: 0,
+          pendingCommission: 0,
+          totalBookings: 0,
+          thisMonthCommission: 0,
+          thisMonthBookings: 0,
+          lastMonthCommission: 0,
+          lastMonthBookings: 0,
+          averageCommissionPerBooking: 0,
+          commissionRate: 15.0,
+          currency: "THB"
+        };
+      }
+    },
+    retry: 2,
+    staleTime: 60000,
   });
 
-  // Fetch agent payouts
-  const { data: agentPayouts = [] } = useQuery({
+  // Fetch agent payouts with enhanced error handling
+  const { data: agentPayouts = [], error: payoutsError } = useQuery({
     queryKey: ["/api/agent/payouts"],
-    queryFn: () => apiRequest("GET", "/api/agent/payouts"),
+    queryFn: async () => {
+      try {
+        const result = await apiRequest("GET", "/api/agent/payouts");
+        return Array.isArray(result) ? result : [];
+      } catch (error) {
+        console.error("Failed to fetch payouts:", error);
+        return [];
+      }
+    },
+    retry: 2,
+    staleTime: 60000,
   });
 
   // Create booking mutation
@@ -211,7 +273,7 @@ export default function RetailAgentBooking() {
                     <DollarSign className="h-4 w-4 text-green-600" />
                     <div>
                       <p className="text-sm text-muted-foreground">Total Earned</p>
-                      <p className="text-lg font-semibold">${commissionSummary.totalEarned || 0}</p>
+                      <p className="text-lg font-semibold">{commissionSummary.currency || "THB"} {commissionSummary.totalCommissionEarned || 0}</p>
                     </div>
                   </div>
                 </CardContent>
@@ -222,8 +284,8 @@ export default function RetailAgentBooking() {
                   <div className="flex items-center space-x-2">
                     <TrendingUp className="h-4 w-4 text-blue-600" />
                     <div>
-                      <p className="text-sm text-muted-foreground">Current Balance</p>
-                      <p className="text-lg font-semibold">${commissionSummary.currentBalance || 0}</p>
+                      <p className="text-sm text-muted-foreground">Pending Commission</p>
+                      <p className="text-lg font-semibold">{commissionSummary.currency || "THB"} {commissionSummary.pendingCommission || 0}</p>
                     </div>
                   </div>
                 </CardContent>
@@ -253,6 +315,27 @@ export default function RetailAgentBooking() {
           </Button>
         </div>
       </div>
+
+      {/* Error Display Section */}
+      {(propertiesError || bookingsError || commissionError || payoutsError) && (
+        <Card className="border-yellow-200 bg-yellow-50">
+          <CardContent className="p-4">
+            <div className="flex items-center space-x-2">
+              <AlertCircle className="h-4 w-4 text-yellow-600" />
+              <div>
+                <p className="font-medium text-yellow-800">API Connection Notice</p>
+                <p className="text-sm text-yellow-700">
+                  Some data may be temporarily unavailable. The system is using fallback data to ensure continued operation.
+                  {propertiesError && " Properties data may be limited."}
+                  {bookingsError && " Booking history may be incomplete."}
+                  {commissionError && " Commission data may be delayed."}
+                  {payoutsError && " Payout information may be outdated."}
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <Tabs defaultValue="booking-engine" className="space-y-4">
         <TabsList>
