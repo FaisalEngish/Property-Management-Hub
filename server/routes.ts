@@ -5579,6 +5579,216 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ===== ENHANCED SERVICE REQUEST CONFIRMATION API ENDPOINTS =====
+
+  // Create service request with enhanced confirmation workflow (Guest accessible)
+  app.post("/api/service-requests/create-with-confirmation", async (req, res) => {
+    try {
+      const organizationId = "default-org"; // Use default for demo
+      
+      const serviceRequestData = {
+        ...req.body,
+        organizationId,
+      };
+
+      const serviceRequest = await storage.createServiceRequestWithConfirmation(organizationId, serviceRequestData);
+      res.status(201).json({
+        serviceRequest,
+        message: "Service request submitted and pending confirmation",
+        confirmationRequired: serviceRequest.awaitingConfirmation
+      });
+    } catch (error) {
+      console.error("Error creating service request with confirmation:", error);
+      res.status(500).json({ message: "Failed to create service request" });
+    }
+  });
+
+  // Get pending service request notifications for admin/host review
+  app.get("/api/service-requests/notifications/pending", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role } = req.user;
+      
+      if (!['admin', 'portfolio-manager', 'staff'].includes(role)) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const notifications = await storage.getPendingServiceRequestNotifications(organizationId, role);
+      res.json(notifications);
+    } catch (error) {
+      console.error("Error fetching pending service request notifications:", error);
+      res.status(500).json({ message: "Failed to fetch notifications" });
+    }
+  });
+
+  // Get service request details for review
+  app.get("/api/service-requests/:serviceRequestId/details", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role } = req.user;
+      const { serviceRequestId } = req.params;
+      
+      if (!['admin', 'portfolio-manager', 'staff'].includes(role)) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const serviceRequest = await storage.getServiceRequestDetails(organizationId, parseInt(serviceRequestId));
+      res.json(serviceRequest);
+    } catch (error) {
+      console.error("Error fetching service request details:", error);
+      res.status(500).json({ message: "Failed to fetch service request details" });
+    }
+  });
+
+  // Confirm service request with pricing and assignment (Admin/PM only)
+  app.post("/api/service-requests/:serviceRequestId/confirm", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role, id: userId, firstName, lastName } = req.user;
+      const { serviceRequestId } = req.params;
+      
+      if (!['admin', 'portfolio-manager'].includes(role)) {
+        return res.status(403).json({ message: "Admin or PM access required" });
+      }
+
+      const confirmationData = {
+        ...req.body,
+        confirmedBy: userId,
+        confirmedByName: `${firstName} ${lastName}`,
+      };
+
+      const confirmation = await storage.confirmServiceRequest(organizationId, parseInt(serviceRequestId), confirmationData);
+      res.json({
+        confirmation,
+        message: "Service request confirmed successfully",
+        taskCreated: confirmation.autoCreateTask
+      });
+    } catch (error) {
+      console.error("Error confirming service request:", error);
+      res.status(500).json({ message: "Failed to confirm service request" });
+    }
+  });
+
+  // Decline service request with reason (Admin/PM only)
+  app.post("/api/service-requests/:serviceRequestId/decline", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role, id: userId, firstName, lastName } = req.user;
+      const { serviceRequestId } = req.params;
+      
+      if (!['admin', 'portfolio-manager'].includes(role)) {
+        return res.status(403).json({ message: "Admin or PM access required" });
+      }
+
+      const declineData = {
+        ...req.body,
+        declinedBy: userId,
+        declinedByName: `${firstName} ${lastName}`,
+      };
+
+      const decline = await storage.declineServiceRequest(organizationId, parseInt(serviceRequestId), declineData);
+      res.json({
+        decline,
+        message: "Service request declined"
+      });
+    } catch (error) {
+      console.error("Error declining service request:", error);
+      res.status(500).json({ message: "Failed to decline service request" });
+    }
+  });
+
+  // Mark notification as acknowledged (Admin/PM/Staff)
+  app.patch("/api/service-requests/notifications/:notificationId/acknowledge", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role, id: userId } = req.user;
+      
+      if (!['admin', 'portfolio-manager', 'staff'].includes(role)) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const { notificationId } = req.params;
+      const { notes } = req.body;
+
+      // Mock acknowledgment response
+      const acknowledgment = {
+        notificationId: parseInt(notificationId),
+        acknowledgedBy: userId,
+        acknowledgedAt: new Date(),
+        notes,
+        status: "acknowledged"
+      };
+
+      res.json({
+        acknowledgment,
+        message: "Notification acknowledged"
+      });
+    } catch (error) {
+      console.error("Error acknowledging notification:", error);
+      res.status(500).json({ message: "Failed to acknowledge notification" });
+    }
+  });
+
+  // Get all service requests with enhanced filtering (Admin/PM/Staff)
+  app.get("/api/service-requests", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role } = req.user;
+      
+      if (!['admin', 'portfolio-manager', 'staff'].includes(role)) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const { status, priority, serviceCategory, propertyId, awaitingConfirmation } = req.query;
+
+      // Mock service requests with filtering
+      let serviceRequests = [
+        {
+          id: 101,
+          reservationId: "Demo1234",
+          guestName: "Liam Andersen",
+          propertyName: "Villa Aruna",
+          title: "Private Spa Massage",
+          serviceCategory: "spa",
+          status: "pending",
+          priority: "normal",
+          awaitingConfirmation: true,
+          estimatedCost: 3500,
+          currency: "THB",
+          createdAt: new Date("2025-07-04T15:30:00Z"),
+        },
+        {
+          id: 102,
+          reservationId: "Demo1234",
+          guestName: "Liam Andersen",
+          propertyName: "Villa Aruna",
+          title: "Extra Pool Towels",
+          serviceCategory: "housekeeping",
+          status: "pending",
+          priority: "high",
+          awaitingConfirmation: true,
+          estimatedCost: 0,
+          currency: "THB",
+          createdAt: new Date("2025-07-04T14:45:00Z"),
+        }
+      ];
+
+      // Apply filters
+      if (status) {
+        serviceRequests = serviceRequests.filter(req => req.status === status);
+      }
+      if (priority) {
+        serviceRequests = serviceRequests.filter(req => req.priority === priority);
+      }
+      if (serviceCategory) {
+        serviceRequests = serviceRequests.filter(req => req.serviceCategory === serviceCategory);
+      }
+      if (awaitingConfirmation !== undefined) {
+        const needsConfirmation = awaitingConfirmation === 'true';
+        serviceRequests = serviceRequests.filter(req => req.awaitingConfirmation === needsConfirmation);
+      }
+
+      res.json(serviceRequests);
+    } catch (error) {
+      console.error("Error fetching service requests:", error);
+      res.status(500).json({ message: "Failed to fetch service requests" });
+    }
+  });
+
   app.post("/api/guest-portal/analytics/update", isDemoAuthenticated, async (req: any, res) => {
     try {
       const { organizationId, role } = req.user;

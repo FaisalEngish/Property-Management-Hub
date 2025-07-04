@@ -4547,6 +4547,337 @@ export class DatabaseStorage implements IStorage {
     return DEMO_DEPOSIT;
   }
 
+  // ==================== ENHANCED SERVICE REQUEST CONFIRMATION SYSTEM ====================
+  
+  // Service Request with Enhanced Confirmation Workflow
+  async createServiceRequestWithConfirmation(organizationId: string, serviceRequest: any): Promise<any> {
+    // Enhanced service request creation with confirmation workflow
+    const requestData = {
+      id: Date.now(), // Mock ID generation
+      organizationId,
+      reservationId: serviceRequest.reservationId || "Demo1234",
+      guestId: serviceRequest.guestId || "demo-guest",
+      propertyId: serviceRequest.propertyId || 1,
+      
+      // Request details
+      requestType: serviceRequest.requestType || "service_booking",
+      serviceCategory: serviceRequest.serviceCategory || "general",
+      title: serviceRequest.title,
+      description: serviceRequest.description,
+      
+      // Pricing and billing
+      estimatedCost: serviceRequest.estimatedCost || 0,
+      billingType: serviceRequest.billingType || "guest_billable",
+      awaitingConfirmation: serviceRequest.awaitingConfirmation !== undefined ? serviceRequest.awaitingConfirmation : true,
+      
+      // Status workflow
+      status: serviceRequest.status || "pending",
+      priority: serviceRequest.priority || "normal",
+      urgency: serviceRequest.urgency || "normal",
+      
+      // Timing
+      preferredDate: serviceRequest.preferredDate,
+      preferredTime: serviceRequest.preferredTime,
+      
+      // Assignment
+      assignedDepartment: serviceRequest.assignedDepartment,
+      assignedTo: serviceRequest.assignedTo,
+      
+      // Confirmation tokens
+      confirmationToken: serviceRequest.confirmationToken || `conf_${Date.now()}`,
+      
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    
+    // Auto-create notification for admin review
+    if (requestData.awaitingConfirmation) {
+      await this.createServiceRequestNotification(organizationId, {
+        serviceRequestId: requestData.id,
+        reservationId: requestData.reservationId,
+        propertyId: requestData.propertyId,
+        notificationType: "confirmation_needed",
+        title: `New Service Request: ${requestData.title}`,
+        message: `Guest has requested: ${requestData.description}. Review and confirm pricing.`,
+        priority: requestData.urgency === "urgent" ? "high" : "normal",
+        notifyRoles: ["admin", "portfolio-manager"],
+        actionUrl: `/service-requests/review/${requestData.id}`,
+        actionLabel: "Review & Confirm"
+      });
+    }
+    
+    return requestData;
+  }
+  
+  // Service Request Notifications Management
+  async createServiceRequestNotification(organizationId: string, notification: any): Promise<any> {
+    const notificationData = {
+      id: Date.now(),
+      organizationId,
+      serviceRequestId: notification.serviceRequestId,
+      reservationId: notification.reservationId,
+      propertyId: notification.propertyId,
+      
+      // Notification details
+      notificationType: notification.notificationType,
+      title: notification.title,
+      message: notification.message,
+      priority: notification.priority || "normal",
+      
+      // Recipients
+      notifyRoles: notification.notifyRoles || ["admin"],
+      notifySpecificUsers: notification.notifySpecificUsers || [],
+      
+      // Status
+      status: "unread",
+      readBy: [],
+      actionRequired: notification.actionRequired !== undefined ? notification.actionRequired : true,
+      actionUrl: notification.actionUrl,
+      actionLabel: notification.actionLabel || "Review",
+      
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    
+    return notificationData;
+  }
+  
+  // Get pending notifications for admin/host review
+  async getPendingServiceRequestNotifications(organizationId: string, userRole: string): Promise<any[]> {
+    // Mock pending notifications for demo
+    const notifications = [
+      {
+        id: 1,
+        serviceRequestId: 101,
+        reservationId: "Demo1234",
+        propertyId: 1,
+        propertyName: "Villa Aruna",
+        guestName: "Liam Andersen",
+        
+        notificationType: "confirmation_needed",
+        title: "New Service Request: Private Spa Massage",
+        message: "Guest has requested a couples massage for Thursday evening. Review and confirm pricing.",
+        priority: "normal",
+        
+        status: "unread",
+        actionRequired: true,
+        actionUrl: "/service-requests/review/101",
+        actionLabel: "Review & Confirm",
+        
+        // Service request details
+        serviceDetails: {
+          serviceCategory: "spa",
+          description: "Couples massage for 2 people, Thursday evening around 7 PM",
+          estimatedCost: 3500,
+          currency: "THB",
+          preferredDate: "2025-07-10",
+          preferredTime: "19:00",
+          guestCount: 2
+        },
+        
+        createdAt: new Date("2025-07-04T15:30:00Z"),
+      },
+      {
+        id: 2,
+        serviceRequestId: 102,
+        reservationId: "Demo1234",
+        propertyId: 1,
+        propertyName: "Villa Aruna",
+        guestName: "Liam Andersen",
+        
+        notificationType: "urgent",
+        title: "Urgent Request: Extra Pool Towels",
+        message: "Guest needs additional pool towels delivered today. Quick approval needed.",
+        priority: "high",
+        
+        status: "unread",
+        actionRequired: true,
+        actionUrl: "/service-requests/review/102",
+        actionLabel: "Approve Now",
+        
+        // Service request details
+        serviceDetails: {
+          serviceCategory: "housekeeping",
+          description: "Need 4 extra pool towels delivered to villa today",
+          estimatedCost: 0,
+          currency: "THB",
+          preferredDate: "2025-07-04",
+          preferredTime: "16:00",
+          billingType: "complimentary"
+        },
+        
+        createdAt: new Date("2025-07-04T14:45:00Z"),
+      }
+    ];
+    
+    // Filter notifications based on user role
+    const roleBasedNotifications = notifications.filter(notification => {
+      const allowedRoles = ["admin", "portfolio-manager"];
+      if (userRole === "staff") {
+        allowedRoles.push("staff");
+      }
+      return allowedRoles.includes(userRole);
+    });
+    
+    return roleBasedNotifications;
+  }
+  
+  // Confirm service request with pricing and assignment
+  async confirmServiceRequest(organizationId: string, serviceRequestId: number, confirmationData: any): Promise<any> {
+    const confirmation = {
+      serviceRequestId,
+      organizationId,
+      
+      // Confirmation details
+      confirmedBy: confirmationData.confirmedBy,
+      confirmedAt: new Date(),
+      
+      // Updated pricing and billing
+      finalCost: confirmationData.finalCost || confirmationData.estimatedCost,
+      billingType: confirmationData.billingType || "guest_billable",
+      
+      // Assignment
+      assignedDepartment: confirmationData.assignedDepartment,
+      assignedTo: confirmationData.assignedTo,
+      assignedAt: new Date(),
+      
+      // Scheduling
+      scheduledDate: confirmationData.scheduledDate,
+      scheduledTime: confirmationData.scheduledTime,
+      
+      // Admin notes
+      adminNotes: confirmationData.adminNotes,
+      specialInstructions: confirmationData.specialInstructions,
+      
+      // Updated status
+      status: "approved",
+      awaitingConfirmation: false,
+      
+      // Generate task if needed
+      autoCreateTask: confirmationData.autoCreateTask !== undefined ? confirmationData.autoCreateTask : true,
+      
+      updatedAt: new Date(),
+    };
+    
+    // Mark notification as resolved
+    await this.markNotificationAsResolved(organizationId, serviceRequestId, confirmationData.confirmedBy);
+    
+    // Auto-create task for service delivery
+    if (confirmation.autoCreateTask) {
+      await this.createTaskFromServiceRequest(organizationId, serviceRequestId, confirmation);
+    }
+    
+    return confirmation;
+  }
+  
+  // Mark notification as resolved
+  async markNotificationAsResolved(organizationId: string, serviceRequestId: number, resolvedBy: string): Promise<void> {
+    // Update notification status to resolved
+    console.log(`Notification for service request ${serviceRequestId} marked as resolved by ${resolvedBy}`);
+  }
+  
+  // Create task from confirmed service request
+  async createTaskFromServiceRequest(organizationId: string, serviceRequestId: number, confirmationData: any): Promise<any> {
+    const task = {
+      id: Date.now(),
+      organizationId,
+      serviceRequestId,
+      
+      // Task details
+      title: `Service Delivery: ${confirmationData.serviceCategory || "Guest Request"}`,
+      description: `Deliver confirmed service for guest. Reference: SR-${serviceRequestId}`,
+      
+      // Assignment
+      assignedTo: confirmationData.assignedTo,
+      department: confirmationData.assignedDepartment || "general",
+      
+      // Scheduling
+      dueDate: confirmationData.scheduledDate,
+      priority: "normal",
+      status: "pending",
+      
+      // Service reference
+      relatedServiceRequestId: serviceRequestId,
+      specialInstructions: confirmationData.specialInstructions,
+      
+      createdAt: new Date(),
+    };
+    
+    return task;
+  }
+  
+  // Decline service request with reason
+  async declineServiceRequest(organizationId: string, serviceRequestId: number, declineData: any): Promise<any> {
+    const decline = {
+      serviceRequestId,
+      organizationId,
+      
+      // Decline details
+      declinedBy: declineData.declinedBy,
+      declinedAt: new Date(),
+      declineReason: declineData.declineReason,
+      
+      // Alternative suggestions
+      alternativeSuggestions: declineData.alternativeSuggestions,
+      
+      // Updated status
+      status: "declined",
+      
+      updatedAt: new Date(),
+    };
+    
+    // Mark notification as resolved
+    await this.markNotificationAsResolved(organizationId, serviceRequestId, declineData.declinedBy);
+    
+    return decline;
+  }
+  
+  // Get service request by ID with full details
+  async getServiceRequestDetails(organizationId: string, serviceRequestId: number): Promise<any> {
+    // Mock detailed service request data
+    const requestDetails = {
+      id: serviceRequestId,
+      organizationId,
+      reservationId: "Demo1234",
+      guestId: "demo-guest",
+      propertyId: 1,
+      
+      // Request details
+      requestType: "service_booking",
+      serviceCategory: serviceRequestId === 101 ? "spa" : "housekeeping",
+      title: serviceRequestId === 101 ? "Private Spa Massage" : "Extra Pool Towels",
+      description: serviceRequestId === 101 
+        ? "Couples massage for 2 people, Thursday evening around 7 PM"
+        : "Need 4 extra pool towels delivered to villa today",
+      
+      // Pricing
+      estimatedCost: serviceRequestId === 101 ? 3500 : 0,
+      billingType: serviceRequestId === 101 ? "guest_billable" : "complimentary",
+      currency: "THB",
+      
+      // Timing
+      preferredDate: serviceRequestId === 101 ? "2025-07-10" : "2025-07-04",
+      preferredTime: serviceRequestId === 101 ? "19:00" : "16:00",
+      guestCount: serviceRequestId === 101 ? 2 : 1,
+      
+      // Status
+      status: "pending",
+      priority: serviceRequestId === 101 ? "normal" : "high",
+      awaitingConfirmation: true,
+      
+      // Guest info
+      guestName: "Liam Andersen",
+      guestEmail: "liam.andersen@example.com",
+      propertyName: "Villa Aruna",
+      
+      // History
+      createdAt: new Date("2025-07-04T15:30:00Z"),
+      updatedAt: new Date("2025-07-04T15:30:00Z"),
+    };
+    
+    return requestDetails;
+  }
+
   // Guest Add-On Service Booking Platform operations
   async getGuestAddonServices(organizationId: string, filters?: { category?: string; isActive?: boolean }): Promise<GuestAddonService[]> {
     let query = db.select().from(guestAddonServices).where(eq(guestAddonServices.organizationId, organizationId));

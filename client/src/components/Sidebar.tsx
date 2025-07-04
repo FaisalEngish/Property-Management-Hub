@@ -43,7 +43,8 @@ import {
   Coffee,
   FolderOpen,
   Key,
-  Luggage
+  Luggage,
+  CheckCircle
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
@@ -111,6 +112,7 @@ const getRoleBasedMenus = (role: string): MenuSection[] => {
         title: "Guest Services",
         items: [
           { label: "Guest Communication", icon: MessageSquare, href: "/guest-communication-center" },
+          { label: "Service Request Confirmation", icon: CheckCircle, href: "/service-request-confirmation", badge: "New" },
           { label: "Add-on Services", icon: Coffee, href: "/addon-services-booking" },
           { label: "Agent Media Library", icon: Camera, href: "/agent-media-library" },
           { label: "Loyalty Tracker", icon: Star, href: "/loyalty-tracker" },
@@ -171,6 +173,7 @@ const getRoleBasedMenus = (role: string): MenuSection[] => {
         items: [
           { label: "Staff Management", icon: Users, href: "/staff-tasks" },
           { label: "Guest Services", icon: MessageSquare, href: "/guest-communication-center" },
+          { label: "Service Request Confirmation", icon: CheckCircle, href: "/service-request-confirmation", badge: "New" },
           { label: "Media Library", icon: Camera, href: "/agent-media-library" },
         ]
       }

@@ -107,13 +107,53 @@ export const guestServiceRequests = pgTable("guest_service_requests", {
   // Costs and billing
   estimatedCost: decimal("estimated_cost", { precision: 10, scale: 2 }),
   finalCost: decimal("final_cost", { precision: 10, scale: 2 }),
+  billingType: varchar("billing_type").default("guest_billable"), // guest_billable, owner_billable, company_expense, complimentary, split_billing
   chargeToGuest: boolean("charge_to_guest").default(false),
+  
+  // Confirmation workflow
+  awaitingConfirmation: boolean("awaiting_confirmation").default(false),
+  guestConfirmedAt: timestamp("guest_confirmed_at"),
+  adminConfirmedAt: timestamp("admin_confirmed_at"),
+  confirmationToken: varchar("confirmation_token"), // For secure confirmations
   
   // Completion
   completedAt: timestamp("completed_at"),
   completionNotes: text("completion_notes"),
   guestSatisfaction: integer("guest_satisfaction"), // 1-5 rating
   guestFeedback: text("guest_feedback"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Service Request Notifications - Admin/Host notification system
+export const serviceRequestNotifications = pgTable("service_request_notifications", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  serviceRequestId: integer("service_request_id").references(() => guestServiceRequests.id).notNull(),
+  reservationId: varchar("reservation_id").notNull(),
+  propertyId: integer("property_id").notNull(),
+  
+  // Notification details
+  notificationType: varchar("notification_type").notNull(), // new_request, confirmation_needed, urgent, updated
+  title: varchar("title").notNull(),
+  message: text("message").notNull(),
+  priority: varchar("priority").default("normal"), // low, normal, high, urgent
+  
+  // Recipients
+  notifyRoles: jsonb("notify_roles"), // Array of roles to notify: ["admin", "portfolio-manager", "staff"]
+  notifySpecificUsers: jsonb("notify_specific_users"), // Array of specific user IDs
+  
+  // Status
+  status: varchar("status").default("unread"), // unread, read, acknowledged, resolved
+  readBy: jsonb("read_by"), // Array of users who have read this notification
+  acknowledgedBy: varchar("acknowledged_by"), // User who acknowledged/acted on notification
+  acknowledgedAt: timestamp("acknowledged_at"),
+  
+  // Actions
+  actionRequired: boolean("action_required").default(true),
+  actionUrl: varchar("action_url"), // Direct link to review/approve screen
+  actionLabel: varchar("action_label").default("Review & Confirm"),
   
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -284,6 +324,12 @@ export const insertAiChatIntentAnalysisSchema = createInsertSchema(aiChatIntentA
   createdAt: true,
 });
 
+export const insertServiceRequestNotificationSchema = createInsertSchema(serviceRequestNotifications).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 // ===== TYPES =====
 
 export type GuestChatConversation = typeof guestChatConversations.$inferSelect;
@@ -306,3 +352,6 @@ export type InsertReservationHistoryLog = z.infer<typeof insertReservationHistor
 
 export type AiChatIntentAnalysis = typeof aiChatIntentAnalysis.$inferSelect;
 export type InsertAiChatIntentAnalysis = z.infer<typeof insertAiChatIntentAnalysisSchema>;
+
+export type ServiceRequestNotification = typeof serviceRequestNotifications.$inferSelect;
+export type InsertServiceRequestNotification = z.infer<typeof insertServiceRequestNotificationSchema>;
