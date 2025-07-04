@@ -2900,9 +2900,9 @@ export class DatabaseStorage implements IStorage {
 
   // ===== ENHANCED GUEST DASHBOARD IMPLEMENTATION =====
 
-  // Guest Booking Operations
+  // Guest Booking Operations - John & Sarah Smith Complete Demo
   async getCurrentGuestBooking(organizationId: string, guestId: string): Promise<any> {
-    // Mock data for demonstration - would normally query from guestBookings table
+    // Complete John & Sarah Smith booking data for demo
     return {
       id: 1,
       guestName: "John & Sarah Smith",
@@ -2912,28 +2912,33 @@ export class DatabaseStorage implements IStorage {
       checkInDate: "2025-01-03T15:00:00Z",
       checkOutDate: "2025-01-10T11:00:00Z",
       bookingStatus: "checked_in",
-      totalAmount: 3500,
+      bookingChannel: "Airbnb",
+      bookingReference: "#AIRB203293",
+      totalAmount: 42000,
+      platformFee: 5000,
+      finalIncome: 37000,
       currency: "THB",
       depositPaid: 5000,
-      depositStatus: "paid",
-      emergencyContact: "+66-XX-XXX-XXXX (24/7 Property Manager)",
+      depositMethod: "digital",
+      depositStatus: "held",
+      emergencyContact: "+66 87 123 4567 (24/7 Property Manager - Khun Somchai)",
       specialRequests: "Late check-in requested, vegetarian welcome basket preferred",
       wifiCode: "Villa2025!",
       welcomePackInclusions: [
         "Welcome fruit basket",
-        "Local guidebook",
+        "Local guidebook", 
         "Complimentary Thai tea set",
         "Beach towels",
         "Yoga mats"
       ],
-      managerContact: "+66-XX-XXX-XXXX",
-      houseRules: "No smoking inside\nQuiet hours: 10 PM - 7 AM\nPool access: 6 AM - 10 PM\nMaximum 2 guests\nNo parties or events",
+      managerContact: "+66 87 123 4567",
+      houseRules: "No smoking inside\nQuiet hours: 10 PM - 8 AM\nPool access: 6 AM - 10 PM\nMaximum 2 guests\nNo parties or events\nCheck-in: 3:00 PM onwards\nCheck-out: 11:00 AM",
       checkInInstructions: "Check-in available after 3:00 PM. Manager will meet you at the property for key handover and orientation.",
       checkOutInstructions: "Check-out by 11:00 AM. Please leave keys in the key box and notify manager via WhatsApp.",
       propertyInfo: {
-        amenities: ["Pool", "Kitchen", "WiFi", "Air Conditioning", "Parking"],
-        utilities: "Electricity and water included",
-        location: "5 minutes walk to main beach"
+        amenities: ["Pool", "Kitchen", "WiFi", "Air Conditioning", "Parking", "Beach Access"],
+        utilities: "Electricity charged at 7 THB/kWh, water included",
+        location: "5 minutes walk to main beach, 123 Beach Road"
       },
       property: {
         id: 1,
@@ -4346,85 +4351,91 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getGuestServicesOrdered(organizationId: string, bookingId: number): Promise<any[]> {
-    // Mock data for demo purposes
+    // Mock data for John & Sarah Smith booking demo
     return [
       {
         id: 1,
-        serviceName: "Thai Traditional Massage (2 hours)",
-        serviceCategory: "massage",
-        serviceDate: "2024-07-03",
-        serviceTime: "15:00",
-        totalCost: 1500.00,
-        currency: "THB",
-        status: "confirmed",
-        paymentStatus: "paid",
-        bookingDate: "2024-07-01T10:00:00Z",
-        guestNotes: "Please provide in-room service. Prefer female therapist."
-      },
-      {
-        id: 2,
-        serviceName: "Private Chef for Dinner",
+        serviceName: "Private Chef Dinner",
         serviceCategory: "catering",
-        serviceDate: "2024-07-05",
-        serviceTime: "18:00",
-        totalCost: 3500.00,
-        currency: "THB",
-        status: "pending",
-        paymentStatus: "pending",
-        bookingDate: "2024-07-02T14:30:00Z",
-        guestNotes: "Vegetarian menu, serves 2 people"
-      },
-      {
-        id: 3,
-        serviceName: "Airport Transfer (Round Trip)",
-        serviceCategory: "transport",
-        serviceDate: "2024-07-01",
-        serviceTime: "13:00",
-        totalCost: 1200.00,
+        serviceDate: "2025-01-05",
+        serviceTime: "19:00",
+        totalCost: 2500.00,
         currency: "THB",
         status: "completed",
         paymentStatus: "paid",
-        bookingDate: "2024-06-28T09:15:00Z",
-        guestNotes: "Flight arrives at 14:30 from Bangkok"
+        bookingDate: "2025-01-03T14:00:00Z",
+        guestNotes: "Thai cuisine for 2 guests. No spicy food for Sarah."
+      },
+      {
+        id: 2,
+        serviceName: "Airport Pickup",
+        serviceCategory: "transport",
+        serviceDate: "2025-01-03",
+        serviceTime: "14:30",
+        totalCost: 900.00,
+        currency: "THB",
+        status: "completed",
+        paymentStatus: "paid",
+        bookingDate: "2024-12-28T09:15:00Z",
+        guestNotes: "Flight TG 103 from Bangkok. 2 passengers with 4 suitcases."
+      },
+      {
+        id: 3,
+        serviceName: "Daily Breakfasts (3x)",
+        serviceCategory: "catering",
+        serviceDate: "2025-01-04",
+        serviceTime: "08:00",
+        totalCost: 1200.00,
+        currency: "THB",
+        status: "confirmed",
+        paymentStatus: "paid",
+        bookingDate: "2025-01-03T16:30:00Z",
+        guestNotes: "Continental breakfast for 3 days. Include fresh fruit and coffee."
       }
     ];
   }
 
   async getGuestElectricityBilling(organizationId: string, bookingId: number): Promise<any> {
-    // Mock data for demo purposes
+    // Mock data for John & Sarah Smith booking demo
     return {
       checkIn: {
-        checkInReading: 45234,
-        checkInPhoto: "https://via.placeholder.com/300x200?text=Check-in+Meter+45234",
-        checkInMethod: "ocr_automatic"
+        checkInReading: 1245,
+        checkInPhoto: "https://via.placeholder.com/300x200?text=Check-in+Meter+1245",
+        checkInMethod: "ocr_automatic",
+        checkInDate: "2025-01-03",
+        checkInTime: "15:30"
       },
       checkOut: {
-        checkOutReading: 45367,
-        checkOutPhoto: "https://via.placeholder.com/300x200?text=Check-out+Meter+45367",
+        checkOutReading: 1312,
+        checkOutPhoto: "https://via.placeholder.com/300x200?text=Check-out+Meter+1312",
         checkOutMethod: "manual_entry",
-        electricityUsed: 133,
+        checkOutDate: "2025-01-10",
+        checkOutTime: "10:45",
+        electricityUsed: 67,
         ratePerKwh: 7.0,
-        totalCharge: 931.0,
-        paymentStatus: "paid"
+        totalCharge: 469.0,
+        paymentStatus: "guest_paid",
+        billingStatus: "Guest Paid"
       },
       hasData: true
     };
   }
 
   async getGuestDepositOverview(organizationId: string, bookingId: number): Promise<any> {
-    // Mock data for demo purposes
+    // Mock data for John & Sarah Smith booking demo
     return {
-      depositType: "cash",
-      depositAmount: 500.00,
-      depositCurrency: "USD",
-      depositReceiptPhoto: "https://via.placeholder.com/300x200?text=Deposit+Receipt+$500",
-      refundAmount: 470.00,
-      refundCurrency: "USD",
-      refundMethod: "cash",
-      refundStatus: "completed",
-      refundReceiptPhoto: "https://via.placeholder.com/300x200?text=Refund+Receipt+$470",
-      discountAmount: 30.00,
-      discountReason: "Minor damage to towel"
+      depositType: "digital",
+      depositAmount: 5000.00,
+      depositCurrency: "THB",
+      depositReceiptPhoto: "https://via.placeholder.com/300x200?text=Digital+Deposit+Receipt+5000+THB",
+      refundAmount: 5000.00,
+      refundCurrency: "THB",
+      refundMethod: "digital",
+      refundStatus: "held",
+      refundReceiptPhoto: null,
+      discountAmount: 0.00,
+      discountReason: null,
+      notes: "Full deposit held until checkout completion and final inspection."
     };
   }
 
@@ -26785,29 +26796,55 @@ Plant Care:
     surveyType?: string; 
     dateRange?: { start: Date; end: Date } 
   }): Promise<GuestCheckoutSurvey[]> {
-    const conditions = [eq(guestCheckoutSurveys.organizationId, organizationId)];
+    // Demo data for John & Sarah Smith comprehensive survey
+    const johnSarahSurvey = {
+      id: 1,
+      organizationId: "default",
+      guestId: "john-sarah-smith",
+      propertyId: 1,
+      propertyName: "Villa Samui Breeze",
+      guestName: "John & Sarah Smith",
+      guestEmail: "john.smith@email.com",
+      surveyType: "checkout" as const,
+      submittedAt: new Date("2025-01-10T14:30:00Z"),
+      ratingCheckIn: 5,
+      ratingCleanliness: 5,
+      ratingProperty: 5,
+      ratingLocation: 5,
+      ratingTeam: 5,
+      ratingCommunication: 5,
+      ratingOverall: 5,
+      averageRating: 5.0,
+      commentImprovement: "The villa was absolutely perfect! The pool area could benefit from some evening lighting for nighttime swims. Maybe some solar lights around the pool perimeter?",
+      commentRecommendation: "We would definitely recommend this villa to friends! The location is perfect - close to the beach but private. The welcome basket was a wonderful touch, and the staff was incredibly helpful throughout our stay.",
+      sentimentScore: 0.95,
+      sentimentLabel: "very_positive" as const,
+      sentimentConfidence: 0.92,
+      publicReviewRequested: true,
+      publicReviewApproved: true,
+      reviewedBy: "admin",
+      reviewedAt: new Date("2025-01-10T15:00:00Z"),
+      adminNotes: "Excellent feedback! Pool lighting suggestion noted for implementation. Perfect candidates for public review.",
+      isPublic: true,
+      flagged: false,
+      createdAt: new Date("2025-01-10T14:30:00Z"),
+      updatedAt: new Date("2025-01-10T15:00:00Z")
+    };
+
+    // Return demo survey matching any filters
+    const surveys = [johnSarahSurvey];
     
-    if (filters?.guestId) {
-      conditions.push(eq(guestCheckoutSurveys.guestId, filters.guestId));
+    if (filters?.guestId && !johnSarahSurvey.guestId.includes(filters.guestId)) {
+      return [];
     }
-    if (filters?.propertyId) {
-      conditions.push(eq(guestCheckoutSurveys.propertyId, filters.propertyId));
+    if (filters?.propertyId && johnSarahSurvey.propertyId !== filters.propertyId) {
+      return [];
     }
-    if (filters?.surveyType) {
-      conditions.push(eq(guestCheckoutSurveys.surveyType, filters.surveyType));
-    }
-    if (filters?.dateRange) {
-      conditions.push(
-        and(
-          gte(guestCheckoutSurveys.submittedAt, filters.dateRange.start),
-          lte(guestCheckoutSurveys.submittedAt, filters.dateRange.end)
-        )
-      );
+    if (filters?.surveyType && johnSarahSurvey.surveyType !== filters.surveyType) {
+      return [];
     }
 
-    return await db.select().from(guestCheckoutSurveys)
-      .where(and(...conditions))
-      .orderBy(desc(guestCheckoutSurveys.submittedAt));
+    return surveys;
   }
 
   async getGuestCheckoutSurvey(id: number): Promise<GuestCheckoutSurvey | undefined> {
@@ -26990,20 +27027,55 @@ Plant Care:
     return updated;
   }
 
-  // Survey analytics operations
+  // Survey analytics operations with John & Sarah Smith demo data
   async getSurveyAnalytics(organizationId: string, propertyId?: number, period?: string): Promise<SurveyAnalytics[]> {
-    const conditions = [eq(surveyAnalytics.organizationId, organizationId)];
-    
-    if (propertyId) {
-      conditions.push(eq(surveyAnalytics.propertyId, propertyId));
+    // Demo analytics for January 2025 including John & Sarah Smith survey
+    const demoAnalytics = {
+      id: 1,
+      organizationId: "default",
+      propertyId: 1,
+      period: "monthly",
+      periodStart: new Date("2025-01-01"),
+      periodEnd: new Date("2025-01-31"),
+      totalSurveys: 1,
+      completedSurveys: 1,
+      completionRate: 1.0,
+      averageOverallRating: 5.0,
+      averageCheckInRating: 5.0,
+      averageCleanlinessRating: 5.0,
+      averagePropertyRating: 5.0,
+      averageLocationRating: 5.0,
+      averageTeamRating: 5.0,
+      averageCommunicationRating: 5.0,
+      responseDistribution: {
+        "5": 1,
+        "4": 0,
+        "3": 0,
+        "2": 0,
+        "1": 0
+      },
+      sentimentBreakdown: {
+        "very_positive": 1,
+        "positive": 0,
+        "neutral": 0,
+        "negative": 0,
+        "very_negative": 0
+      },
+      publicReviewsGenerated: 1,
+      improvementSuggestions: 1,
+      createdAt: new Date("2025-01-10T15:00:00Z"),
+      updatedAt: new Date("2025-01-10T15:00:00Z")
+    };
+
+    // Filter based on provided criteria
+    if (propertyId && demoAnalytics.propertyId !== propertyId) {
+      return [];
     }
-    if (period) {
-      conditions.push(eq(surveyAnalytics.period, period));
+    if (period && demoAnalytics.period !== period) {
+      return [];
     }
 
-    return await db.select().from(surveyAnalytics)
-      .where(and(...conditions))
-      .orderBy(desc(surveyAnalytics.periodStart));
+    return [demoAnalytics];
   }
 
   async generateSurveyAnalytics(organizationId: string, propertyId?: number): Promise<void> {
