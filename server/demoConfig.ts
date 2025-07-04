@@ -149,6 +149,9 @@ export const DEMO_DEPOSIT = {
   refundReceiptPhoto: null,
   discountAmount: 0.00,
   discountReason: null,
+  receivedBy: "Host (Jane)",
+  receivedDate: "2025-07-01",
+  notes: "Guest paid cash deposit at check-in",
   notes: "Cash deposit of 8,000 THB received and held until checkout completion and final inspection."
 } as const;
 
@@ -252,3 +255,38 @@ const electricityDemo = {
 
 // Apply to guest dashboard
 attachElectricityReading(electricityDemo);
+
+// Function to log guest deposit for reservation as requested
+export function logGuestDeposit(depositRecord: any) {
+  console.log(`💰 Guest deposit logged for reservation: ${depositRecord.reservationId}`);
+  console.log(`💵 Amount: ${depositRecord.amount} ${depositRecord.currency}`);
+  console.log(`📋 Method: ${depositRecord.method}`);
+  console.log(`👤 Received by: ${depositRecord.receivedBy}`);
+  console.log(`📅 Date: ${depositRecord.receivedDate}`);
+  console.log(`📝 Notes: ${depositRecord.notes}`);
+  
+  return {
+    reservationId: depositRecord.reservationId,
+    amount: depositRecord.amount,
+    currency: depositRecord.currency,
+    paymentMethod: depositRecord.method,
+    receivedBy: depositRecord.receivedBy,
+    receivedDate: depositRecord.receivedDate,
+    status: "received",
+    notes: depositRecord.notes
+  };
+}
+
+// Add deposit record for Demo1234
+const depositRecord = {
+  reservationId: "Demo1234",
+  amount: 8000,
+  currency: "THB",
+  method: "Cash",
+  receivedBy: "Host (Jane)",
+  receivedDate: "2025-07-01",
+  notes: "Guest paid cash deposit at check-in"
+};
+
+// Apply to guest + admin dashboards
+logGuestDeposit(depositRecord);
