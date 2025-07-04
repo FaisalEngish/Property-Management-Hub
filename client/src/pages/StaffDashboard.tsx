@@ -81,6 +81,10 @@ export default function StaffDashboard() {
 
   // Get staff department from user profile
   const staffDepartment = user?.department || 'general';
+  
+  // Check if user has admin/HR privileges for full salary access
+  const hasFullSalaryAccess = user?.role === 'admin' || user?.role === 'hr';
+  const canViewOtherStaffData = hasFullSalaryAccess;
 
   // Dashboard Overview Query
   const { data: overview, isLoading: overviewLoading } = useQuery({
@@ -306,10 +310,15 @@ export default function StaffDashboard() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className={`grid w-full ${hasFullSalaryAccess ? 'grid-cols-5' : 'grid-cols-4'}`}>
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="tasks">Tasks</TabsTrigger>
-          <TabsTrigger value="salary">Salary</TabsTrigger>
+          {/* Only show salary tab for admin/HR or personal salary view for staff */}
+          {(hasFullSalaryAccess || user?.role === 'staff') && (
+            <TabsTrigger value="salary">
+              {hasFullSalaryAccess ? 'All Salaries' : 'My Salary'}
+            </TabsTrigger>
+          )}
           <TabsTrigger value="expenses">Expenses</TabsTrigger>
           <TabsTrigger value="performance">Performance</TabsTrigger>
         </TabsList>
@@ -484,75 +493,154 @@ export default function StaffDashboard() {
           </div>
         </TabsContent>
 
-        {/* Salary Tab */}
-        <TabsContent value="salary" className="space-y-6">
-          <div className="grid gap-4 md:grid-cols-3">
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Monthly Salary</CardTitle>
-                <DollarSign className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
-                  ฿{salary && salary.length > 0 ? parseFloat(salary[0].monthlySalary).toLocaleString() : "0"}
-                </div>
-                <p className="text-xs text-muted-foreground">Base monthly salary</p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Task Bonuses</CardTitle>
-                <Star className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
-                  ฿{salary && salary.length > 0 ? parseFloat(salary[0].taskBonusAmount || "0").toLocaleString() : "0"}
-                </div>
-                <p className="text-xs text-muted-foreground">Per task completed</p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Additional Income</CardTitle>
-                <TrendingUp className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
-                  ฿{salary && salary.length > 0 ? parseFloat(salary[0].additionalIncome || "0").toLocaleString() : "0"}
-                </div>
-                <p className="text-xs text-muted-foreground">Tips and extras</p>
-              </CardContent>
-            </Card>
-          </div>
-
-          {salary && salary.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Salary History</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {salary.map((record: any) => (
-                    <div key={record.id} className="flex items-center justify-between p-3 border rounded-lg">
-                      <div>
-                        <p className="font-medium">{record.salaryPeriod}</p>
-                        <p className="text-sm text-muted-foreground">{record.department} Department</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-semibold">฿{parseFloat(record.monthlySalary).toLocaleString()}</p>
-                        <Badge variant={record.status === 'paid' ? 'default' : 'secondary'}>
-                          {record.status}
-                        </Badge>
-                      </div>
+        {/* Salary Tab - Role-based access control */}
+        {(hasFullSalaryAccess || user?.role === 'staff') && (
+          <TabsContent value="salary" className="space-y-6">
+            {hasFullSalaryAccess ? (
+              // Admin/HR view - Show all staff salaries
+              <div className="space-y-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <UserCheck className="h-5 w-5" />
+                      All Staff Salary Management
+                    </CardTitle>
+                    <p className="text-sm text-muted-foreground">
+                      Full payroll dashboard with staff-wide salary reports and approval controls
+                    </p>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid gap-4 md:grid-cols-3">
+                      <Card>
+                        <CardHeader className="pb-2">
+                          <CardTitle className="text-sm">Total Monthly Payroll</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="text-2xl font-bold">฿{salary?.reduce((sum: number, s: any) => sum + parseFloat(s.monthlySalary || 0), 0).toLocaleString() || "0"}</div>
+                        </CardContent>
+                      </Card>
+                      <Card>
+                        <CardHeader className="pb-2">
+                          <CardTitle className="text-sm">Active Staff</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="text-2xl font-bold">{salary?.length || 0}</div>
+                        </CardContent>
+                      </Card>
+                      <Card>
+                        <CardHeader className="pb-2">
+                          <CardTitle className="text-sm">Pending Approvals</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="text-2xl font-bold text-orange-600">3</div>
+                        </CardContent>
+                      </Card>
                     </div>
-                  ))}
+                  </CardContent>
+                </Card>
+
+                {/* Staff Salary List for Admin/HR */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Staff Salary Records</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      {salary && salary.length > 0 ? salary.map((record: any) => (
+                        <div key={record.id} className="flex items-center justify-between p-4 border rounded-lg">
+                          <div>
+                            <p className="font-medium">{record.staffName || `Staff ${record.userId}`}</p>
+                            <p className="text-sm text-muted-foreground">{record.department} Department • {record.salaryPeriod}</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-semibold">฿{parseFloat(record.monthlySalary).toLocaleString()}</p>
+                            <Badge variant={record.status === 'paid' ? 'default' : 'secondary'}>
+                              {record.status}
+                            </Badge>
+                          </div>
+                        </div>
+                      )) : (
+                        <p className="text-center text-muted-foreground py-4">No salary records found</p>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            ) : (
+              // Staff personal view - Only their own salary
+              <div className="space-y-6">
+                <div className="grid gap-4 md:grid-cols-3">
+                  <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-sm font-medium">My Monthly Salary</CardTitle>
+                      <DollarSign className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold">
+                        ฿{salary && salary.length > 0 ? parseFloat(salary.find((s: any) => s.userId === user?.id)?.monthlySalary || "0").toLocaleString() : "0"}
+                      </div>
+                      <p className="text-xs text-muted-foreground">Base monthly salary</p>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-sm font-medium">My Task Bonuses</CardTitle>
+                      <Star className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold">
+                        ฿{salary && salary.length > 0 ? parseFloat(salary.find((s: any) => s.userId === user?.id)?.taskBonusAmount || "0").toLocaleString() : "0"}
+                      </div>
+                      <p className="text-xs text-muted-foreground">Per task completed</p>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-sm font-medium">Additional Income</CardTitle>
+                      <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold">
+                        ฿{salary && salary.length > 0 ? parseFloat(salary.find((s: any) => s.userId === user?.id)?.additionalIncome || "0").toLocaleString() : "0"}
+                      </div>
+                      <p className="text-xs text-muted-foreground">Tips and extras</p>
+                    </CardContent>
+                  </Card>
                 </div>
-              </CardContent>
-            </Card>
-          )}
-        </TabsContent>
+
+                {/* Personal Salary History */}
+                {salary && salary.length > 0 && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>My Salary History</CardTitle>
+                      <p className="text-sm text-muted-foreground">Personal salary records and payment status</p>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-3">
+                        {salary.filter((record: any) => record.userId === user?.id).map((record: any) => (
+                          <div key={record.id} className="flex items-center justify-between p-3 border rounded-lg">
+                            <div>
+                              <p className="font-medium">{record.salaryPeriod}</p>
+                              <p className="text-sm text-muted-foreground">{record.department} Department</p>
+                            </div>
+                            <div className="text-right">
+                              <p className="font-semibold">฿{parseFloat(record.monthlySalary).toLocaleString()}</p>
+                              <Badge variant={record.status === 'paid' ? 'default' : 'secondary'}>
+                                {record.status}
+                              </Badge>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+            )}
+          </TabsContent>
+        )}
 
         {/* Expenses Tab */}
         <TabsContent value="expenses" className="space-y-6">

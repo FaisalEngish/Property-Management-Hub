@@ -2370,11 +2370,62 @@ export class DatabaseStorage implements IStorage {
   // Financial & Invoice Toolkit operations
   
   // Staff salary operations
-  async getStaffSalary(userId: string): Promise<StaffSalary | undefined> {
-    const [salary] = await db.select().from(staffSalaries)
-      .where(and(eq(staffSalaries.userId, userId), eq(staffSalaries.isActive, true)))
-      .orderBy(desc(staffSalaries.effectiveFrom));
-    return salary;
+  async getStaffSalary(organizationId: string, userId: string, period?: string): Promise<any> {
+    // Mock implementation - return role-specific salary data
+    const mockSalary = {
+      userId,
+      baseSalary: 25000,
+      overtimeHours: 8,
+      overtimeRate: 150,
+      bonuses: 2000,
+      totalSalary: 28200,
+      period: period || 'current',
+      paymentStatus: 'paid'
+    };
+    return mockSalary;
+  }
+
+  async getAllStaffSalaries(organizationId: string, period?: string): Promise<any[]> {
+    // Mock implementation - return all staff salaries for admin/HR view
+    const mockSalaries = [
+      {
+        userId: 'demo-staff',
+        staffName: 'Maria Santos',
+        role: 'staff',
+        baseSalary: 25000,
+        overtimeHours: 8,
+        overtimeRate: 150,
+        bonuses: 2000,
+        totalSalary: 28200,
+        period: period || 'current',
+        paymentStatus: 'paid'
+      },
+      {
+        userId: 'demo-pool-staff',
+        staffName: 'John Pool Cleaner',
+        role: 'pool',
+        baseSalary: 22000,
+        overtimeHours: 4,
+        overtimeRate: 140,
+        bonuses: 1000,
+        totalSalary: 23560,
+        period: period || 'current',
+        paymentStatus: 'pending'
+      },
+      {
+        userId: 'demo-garden-staff',
+        staffName: 'Lisa Garden Keeper',
+        role: 'garden',
+        baseSalary: 20000,
+        overtimeHours: 6,
+        overtimeRate: 130,
+        bonuses: 500,
+        totalSalary: 21280,
+        period: period || 'current',
+        paymentStatus: 'paid'
+      }
+    ];
+    return mockSalaries;
   }
 
   async createStaffSalary(salary: InsertStaffSalary): Promise<StaffSalary> {

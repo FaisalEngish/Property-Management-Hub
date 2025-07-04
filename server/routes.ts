@@ -3918,7 +3918,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Staff Salary Information
+  // Staff Salary Information - Role-based access control
   app.get("/api/staff/salary", async (req: any, res) => {
     try {
       const user = req.user;
@@ -3927,11 +3927,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const organizationId = "demo-org-1";
-      const staffId = user.id;
-      const { period } = req.query;
-
-      const salary = await storage.getStaffSalary(organizationId, staffId, period as string);
-      res.json(salary);
+      const { period, userId } = req.query;
+      
+      // Role-based access control
+      const hasFullSalaryAccess = user.role === 'admin' || user.role === 'hr';
+      
+      if (hasFullSalaryAccess) {
+        // Admin/HR can view all staff salaries
+        const allSalaries = await storage.getAllStaffSalaries(organizationId, period as string);
+        res.json(allSalaries);
+      } else if (user.role === 'staff') {
+        // Staff can only view their own salary
+        const salary = await storage.getStaffSalary(organizationId, user.id, period as string);
+        res.json(salary);
+      } else {
+        // Other roles (pool, garden, maintenance, cleaning staff) can only view their own salary
+        const salary = await storage.getStaffSalary(organizationId, user.id, period as string);
+        res.json(salary);
+      }
     } catch (error) {
       console.error("Error fetching staff salary:", error);
       res.status(500).json({ message: "Failed to fetch salary information" });
@@ -4173,9 +4186,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get advance requests
+  // Get advance requests - Role-based access control
   app.get("/api/staff-salary/advance-requests", isDemoAuthenticated, async (req: any, res) => {
     try {
+      const user = req.user;
+      
+      // Role-based access control
+      const hasFullAccess = user.role === 'admin' || user.role === 'hr';
+      
       const mockAdvanceRequests = [
         {
           id: 1,
@@ -4191,8 +4209,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         },
         {
           id: 2,
-          staffId: "demo-staff",
-          staffName: "Maria Santos",
+          staffId: "demo-staff-2",
+          staffName: "John Pool Cleaner",
           amount: 300.00,
           reason: "Family celebration",
           requestedDate: "2024-11-20",
@@ -4200,9 +4218,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
           createdAt: "2024-11-10T14:30:00Z",
           approvedBy: "admin",
           approvedAt: "2024-11-11T09:15:00Z"
+        },
+        {
+          id: 3,
+          staffId: user.id,
+          staffName: user.firstName + " " + user.lastName,
+          amount: 400.00,
+          reason: "Personal emergency",
+          requestedDate: "2024-12-10",
+          status: "pending",
+          createdAt: "2024-12-05T08:00:00Z",
+          approvedBy: null,
+          approvedAt: null
         }
       ];
-      res.json(mockAdvanceRequests);
+      
+      if (hasFullAccess) {
+        // Admin/HR can view all advance requests
+        res.json(mockAdvanceRequests);
+      } else {
+        // Staff can only view their own advance requests
+        const userRequests = mockAdvanceRequests.filter(req => req.staffId === user.id);
+        res.json(userRequests);
+      }
     } catch (error) {
       console.error("Error fetching advance requests:", error);
       res.status(500).json({ message: "Failed to fetch advance requests" });
@@ -4300,11 +4338,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Approve/reject advance request
+  // Approve/reject advance request - Admin/HR only
   app.post("/api/staff-salary/approve-advance", isDemoAuthenticated, async (req: any, res) => {
     try {
       const user = req.user;
       const { requestId, action, notes } = req.body;
+      
+      // Role-based access control - Only admin/HR can approve advance requests
+      if (user.role !== 'admin' && user.role !== 'hr') {
+        return res.status(403).json({ 
+          message: "Access denied: Only admin and HR roles can approve advance requests" 
+        });
+      }
       
       const mockResponse = {
         id: requestId,
