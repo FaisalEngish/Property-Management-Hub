@@ -92,6 +92,7 @@ import AutoSchedulingRecurringTaskGenerator from "@/pages/AutoSchedulingRecurrin
 import MaintenanceLogWarrantyTracker from "@/pages/MaintenanceLogWarrantyTracker";
 import SmartInventoryDashboard from "@/pages/SmartInventoryDashboard";
 import ServiceMarketplaceDashboard from "@/pages/ServiceMarketplaceDashboard";
+import OwnerOnboardingSystem from "@/pages/OwnerOnboardingSystem";
 
 function Router() {
   const { isAuthenticated, isLoading, user } = useAuth();
@@ -174,6 +175,7 @@ function Router() {
         <Route path="/maintenance-log-warranty-tracker" component={MaintenanceLogWarrantyTracker} />
         <Route path="/smart-inventory-dashboard" component={SmartInventoryDashboard} />
         <Route path="/service-marketplace-dashboard" component={ServiceMarketplaceDashboard} />
+        <Route path="/owner-onboarding-system" component={OwnerOnboardingSystem} />
         <Route path="/task-attachments-notes" component={TaskAttachmentsNotes} />
         <Route path="/ai-task-manager" component={AiTaskManager} />
         <Route path="/task-checklist-proof" component={TaskChecklistProofSystem} />

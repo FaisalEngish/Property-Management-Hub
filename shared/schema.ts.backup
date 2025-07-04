@@ -2513,7 +2513,7 @@ export type InsertPropertyAlert = z.infer<typeof insertPropertyAlertSchema>;
 export const documentAccessLogs = pgTable("document_access_logs", {
   id: serial("id").primaryKey(),
   organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
-  documentId: integer("document_id").references(() => ownerDocuments.id).notNull(),
+  documentId: integer("document_id").references(() => propertyDocuments.id).notNull(),
   userId: varchar("user_id").references(() => users.id).notNull(),
   
   // Access Details
@@ -2652,7 +2652,51 @@ export const fileUploadSessions = pgTable("file_upload_sessions", {
   index("IDX_upload_sessions_status").on(table.status),
 ]);
 
-// Insert Schemas for Owner Onboarding System (already defined above)
+// Insert Schemas for Document Center
+export const insertPropertyDocumentSchema = createInsertSchema(propertyDocuments).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertDocumentAccessLogSchema = createInsertSchema(documentAccessLogs).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertOwnerOnboardingChecklistSchema = createInsertSchema(ownerOnboardingChecklists).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertDocumentCategorySchema = createInsertSchema(documentCategories).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertFileUploadSessionSchema = createInsertSchema(fileUploadSessions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+// Type exports for Document Center
+export type PropertyDocument = typeof propertyDocuments.$inferSelect;
+export type InsertPropertyDocument = z.infer<typeof insertPropertyDocumentSchema>;
+
+export type DocumentAccessLog = typeof documentAccessLogs.$inferSelect;
+export type InsertDocumentAccessLog = z.infer<typeof insertDocumentAccessLogSchema>;
+
+export type OwnerOnboardingChecklist = typeof ownerOnboardingChecklists.$inferSelect;
+export type InsertOwnerOnboardingChecklist = z.infer<typeof insertOwnerOnboardingChecklistSchema>;
+
+export type DocumentCategory = typeof documentCategories.$inferSelect;
+export type InsertDocumentCategory = z.infer<typeof insertDocumentCategorySchema>;
+
+export type FileUploadSession = typeof fileUploadSessions.$inferSelect;
+export type InsertFileUploadSession = z.infer<typeof insertFileUploadSessionSchema>;
 
 // ===== MAINTENANCE LOG, WARRANTY TRACKER & AI REPAIR CYCLE ALERTS =====
 
@@ -10322,3 +10366,404 @@ export type InsertOwnerDocument = z.infer<typeof insertOwnerDocumentSchema>;
 
 export type OnboardingStepDetail = typeof onboardingStepDetails.$inferSelect;
 export type InsertOnboardingStepDetail = z.infer<typeof insertOnboardingStepDetailSchema>;
+
+// Document Types within Categories
+export const documentTypes = pgTable("document_types", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  categoryId: integer("category_id").references(() => documentCategories.id).notNull(),
+  
+  name: varchar("name").notNull(), // Tabien Baan, Blue Book, Chanote, etc.
+  description: text("description"),
+  icon: varchar("icon").default("file"),
+  
+  // Requirements
+  isRequired: boolean("is_required").default(false),
+  requiredForOnboarding: boolean("required_for_onboarding").default(false),
+  hasExpirationDate: boolean("has_expiration_date").default(false),
+  expirationWarningDays: integer("expiration_warning_days").default(30),
+  
+  // File Specifications
+  maxFileSize: integer("max_file_size"),
+  allowedFileTypes: text("allowed_file_types").array(),
+  multipleFilesAllowed: boolean("multiple_files_allowed").default(false),
+  
+  // Instructions
+  uploadInstructions: text("upload_instructions"),
+  exampleDocumentUrl: varchar("example_document_url"),
+  
+  sortOrder: integer("sort_order").default(0),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Property Documents
+export const propertyDocuments = pgTable("property_documents", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  propertyId: integer("property_id").references(() => properties.id).notNull(),
+  categoryId: integer("category_id").references(() => documentCategories.id).notNull(),
+  documentTypeId: integer("document_type_id").references(() => documentTypes.id),
+  
+  // Document Information
+  fileName: varchar("file_name").notNull(),
+  originalFileName: varchar("original_file_name").notNull(),
+  fileSize: integer("file_size").notNull(),
+  fileType: varchar("file_type").notNull(),
+  filePath: varchar("file_path").notNull(),
+  fileUrl: varchar("file_url"),
+  
+  // Document Details
+  documentTitle: varchar("document_title"),
+  documentDescription: text("document_description"),
+  documentNumber: varchar("document_number"), // Tabien Baan number, etc.
+  issuedBy: varchar("issued_by"), // Government office, etc.
+  issuedDate: date("issued_date"),
+  expirationDate: date("expiration_date"),
+  
+  // Status and Verification
+  status: varchar("status").default("pending"), // pending, verified, rejected, expired
+  verificationStatus: varchar("verification_status").default("pending"), // pending, verified, rejected
+  verifiedBy: varchar("verified_by").references(() => users.id),
+  verifiedAt: timestamp("verified_at"),
+  rejectionReason: text("rejection_reason"),
+  
+  // Expiration Management
+  isExpired: boolean("is_expired").default(false),
+  daysUntilExpiration: integer("days_until_expiration"),
+  expirationAlertSent: boolean("expiration_alert_sent").default(false),
+  lastExpirationAlertSent: timestamp("last_expiration_alert_sent"),
+  
+  // Permissions and Visibility
+  visibleToOwner: boolean("visible_to_owner").default(true),
+  visibleToPM: boolean("visible_to_pm").default(true),
+  visibleToStaff: boolean("visible_to_staff").default(false),
+  isPublic: boolean("is_public").default(false),
+  
+  // Version Control
+  version: integer("version").default(1),
+  replacesDocumentId: integer("replaces_document_id").references(() => propertyDocuments.id),
+  isLatestVersion: boolean("is_latest_version").default(true),
+  
+  // Upload Information
+  uploadedBy: varchar("uploaded_by").references(() => users.id).notNull(),
+  uploadedByRole: varchar("uploaded_by_role").notNull(), // owner, pm, admin, staff
+  uploadSource: varchar("upload_source").default("web"), // web, mobile, email
+  
+  // Notes and Comments
+  adminNotes: text("admin_notes"),
+  ownerNotes: text("owner_notes"),
+  internalNotes: text("internal_notes"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Document Access Log
+export const documentAccessLogs = pgTable("document_access_logs", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  documentId: integer("document_id").references(() => propertyDocuments.id).notNull(),
+  propertyId: integer("property_id").references(() => properties.id).notNull(),
+  
+  // Access Information
+  accessedBy: varchar("accessed_by").references(() => users.id).notNull(),
+  accessedByRole: varchar("accessed_by_role").notNull(),
+  accessType: varchar("access_type").notNull(), // view, download, edit, delete
+  
+  // Technical Details
+  ipAddress: varchar("ip_address"),
+  userAgent: text("user_agent"),
+  referrer: varchar("referrer"),
+  
+  // Result
+  accessResult: varchar("access_result").default("success"), // success, denied, error
+  errorMessage: text("error_message"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Document Expiration Alerts
+export const documentExpirationAlerts = pgTable("document_expiration_alerts", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  documentId: integer("document_id").references(() => propertyDocuments.id).notNull(),
+  propertyId: integer("property_id").references(() => properties.id).notNull(),
+  
+  // Alert Details
+  alertType: varchar("alert_type").notNull(), // warning, urgent, expired
+  daysUntilExpiration: integer("days_until_expiration"),
+  expirationDate: date("expiration_date").notNull(),
+  
+  // Recipients
+  alertRecipients: text("alert_recipients").array(), // Array of user IDs
+  ownerNotified: boolean("owner_notified").default(false),
+  pmNotified: boolean("pm_notified").default(false),
+  adminNotified: boolean("admin_notified").default(false),
+  
+  // Status
+  alertSent: boolean("alert_sent").default(false),
+  sentAt: timestamp("sent_at"),
+  acknowledged: boolean("acknowledged").default(false),
+  acknowledgedBy: varchar("acknowledged_by").references(() => users.id),
+  acknowledgedAt: timestamp("acknowledged_at"),
+  
+  // Follow-up
+  followUpRequired: boolean("follow_up_required").default(false),
+  followUpScheduled: timestamp("follow_up_scheduled"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Onboarding Step Details (Extended Information)
+export const onboardingStepDetails = pgTable("onboarding_step_details", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  progressId: integer("progress_id").references(() => ownerOnboardingProgress.id).notNull(),
+  
+  // Step Information
+  stepNumber: integer("step_number").notNull(),
+  stepName: varchar("step_name").notNull(),
+  stepDescription: text("step_description"),
+  
+  // Data Collection (JSON format for flexibility)
+  stepData: jsonb("step_data"), // Flexible JSON to store any step-specific data
+  
+  // Status and Timing
+  status: varchar("status").default("pending"), // pending, in_progress, completed, skipped
+  startedAt: timestamp("started_at"),
+  completedAt: timestamp("completed_at"),
+  
+  // Validation and Review
+  requiresReview: boolean("requires_review").default(false),
+  reviewedBy: varchar("reviewed_by").references(() => users.id),
+  reviewedAt: timestamp("reviewed_at"),
+  reviewNotes: text("review_notes"),
+  
+  // Help and Support
+  helpRequested: boolean("help_requested").default(false),
+  helpProvidedBy: varchar("help_provided_by").references(() => users.id),
+  helpNotes: text("help_notes"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Property Setup Configuration (Step-by-step data storage)
+export const propertySetupConfig = pgTable("property_setup_config", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  propertyId: integer("property_id").references(() => properties.id).notNull(),
+  
+  // Location Data (Step 3)
+  mapCoordinates: jsonb("map_coordinates"), // {lat, lng, zoom}
+  addressComponents: jsonb("address_components"), // Detailed address breakdown
+  nearbyLandmarks: text("nearby_landmarks").array(),
+  accessInstructions: text("access_instructions"),
+  
+  // Photo Management (Step 4)
+  interiorPhotos: text("interior_photos").array(),
+  exteriorPhotos: text("exterior_photos").array(),
+  poolPhotos: text("pool_photos").array(),
+  amenityPhotos: text("amenity_photos").array(),
+  photoUploadComplete: boolean("photo_upload_complete").default(false),
+  
+  // Utility Information (Step 6)
+  electricityProvider: varchar("electricity_provider"),
+  electricityAccountNumber: varchar("electricity_account_number"),
+  electricityBillingDay: integer("electricity_billing_day"),
+  waterProvider: varchar("water_provider"),
+  waterAccountNumber: varchar("water_account_number"),
+  waterBillingDay: integer("water_billing_day"),
+  internetProvider: varchar("internet_provider"),
+  internetAccountNumber: varchar("internet_account_number"),
+  internetBillingDay: integer("internet_billing_day"),
+  
+  // Security & Access (Step 8)
+  accessMethod: varchar("access_method"), // smart_lock, key_code, physical_key, lockbox
+  keyCode: varchar("key_code"), // Encrypted
+  smartLockDetails: jsonb("smart_lock_details"),
+  backupKeyLocation: text("backup_key_location"),
+  emergencyContactName: varchar("emergency_contact_name"),
+  emergencyContactPhone: varchar("emergency_contact_phone"),
+  emergencyContactRelation: varchar("emergency_contact_relation"),
+  
+  // Services Setup (Step 9)
+  cleaningFrequency: varchar("cleaning_frequency"), // weekly, bi_weekly, monthly
+  preferredCleaningDay: varchar("preferred_cleaning_day"),
+  poolMaintenanceSchedule: varchar("pool_maintenance_schedule"),
+  gardenMaintenanceSchedule: varchar("garden_maintenance_schedule"),
+  pestControlCompany: varchar("pest_control_company"),
+  pestControlSchedule: varchar("pest_control_schedule"),
+  
+  // Configuration Status
+  configurationComplete: boolean("configuration_complete").default(false),
+  lastConfiguredStep: integer("last_configured_step").default(0),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Onboarding Task Automation
+export const onboardingTasks = pgTable("onboarding_tasks", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  progressId: integer("progress_id").references(() => ownerOnboardingProgress.id).notNull(),
+  propertyId: integer("property_id").references(() => properties.id),
+  
+  // Task Details
+  taskType: varchar("task_type").notNull(), // reminder, document_follow_up, deadline_warning, completion_verification
+  taskTitle: varchar("task_title").notNull(),
+  taskDescription: text("task_description"),
+  priority: varchar("priority").default("medium"), // low, medium, high, urgent
+  
+  // Assignment
+  assignedTo: varchar("assigned_to").references(() => users.id),
+  assignedBy: varchar("assigned_by").references(() => users.id).notNull(),
+  assignedRole: varchar("assigned_role"), // admin, pm, staff
+  
+  // Timing
+  dueDate: timestamp("due_date"),
+  reminderDate: timestamp("reminder_date"),
+  
+  // Status
+  status: varchar("status").default("pending"), // pending, in_progress, completed, cancelled
+  completedAt: timestamp("completed_at"),
+  completedBy: varchar("completed_by").references(() => users.id),
+  completionNotes: text("completion_notes"),
+  
+  // Automation
+  isAutomated: boolean("is_automated").default(true),
+  triggerCondition: varchar("trigger_condition"), // step_incomplete, deadline_approaching, document_missing
+  autoCompleted: boolean("auto_completed").default(false),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Document Template System
+export const documentTemplates = pgTable("document_templates", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  
+  // Template Information
+  templateName: varchar("template_name").notNull(),
+  templateDescription: text("template_description"),
+  templateCategory: varchar("template_category").notNull(), // legal, utility, service, custom
+  
+  // Template Structure
+  requiredFields: jsonb("required_fields"), // Dynamic field definitions
+  optionalFields: jsonb("optional_fields"),
+  validationRules: jsonb("validation_rules"),
+  
+  // Template Settings
+  isDefault: boolean("is_default").default(false),
+  isActive: boolean("is_active").default(true),
+  usageCount: integer("usage_count").default(0),
+  
+  // Permissions
+  accessLevel: varchar("access_level").default("organization"), // organization, admin_only, custom
+  allowedRoles: text("allowed_roles").array(),
+  
+  createdBy: varchar("created_by").references(() => users.id).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// ===== OWNER ONBOARDING INSERT SCHEMAS =====
+
+export const insertOwnerOnboardingProgressSchema = createInsertSchema(ownerOnboardingProgress).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertDocumentCategorySchema = createInsertSchema(documentCategories).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertDocumentTypeSchema = createInsertSchema(documentTypes).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertPropertyDocumentSchema = createInsertSchema(propertyDocuments).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertDocumentAccessLogSchema = createInsertSchema(documentAccessLogs).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertDocumentExpirationAlertSchema = createInsertSchema(documentExpirationAlerts).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertOnboardingStepDetailSchema = createInsertSchema(onboardingStepDetails).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertPropertySetupConfigSchema = createInsertSchema(propertySetupConfig).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertOnboardingTaskSchema = createInsertSchema(onboardingTasks).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertDocumentTemplateSchema = createInsertSchema(documentTemplates).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+// ===== OWNER ONBOARDING TYPE DEFINITIONS =====
+
+export type OwnerOnboardingProgress = typeof ownerOnboardingProgress.$inferSelect;
+export type InsertOwnerOnboardingProgress = z.infer<typeof insertOwnerOnboardingProgressSchema>;
+
+export type DocumentCategory = typeof documentCategories.$inferSelect;
+export type InsertDocumentCategory = z.infer<typeof insertDocumentCategorySchema>;
+
+export type DocumentType = typeof documentTypes.$inferSelect;
+export type InsertDocumentType = z.infer<typeof insertDocumentTypeSchema>;
+
+export type PropertyDocument = typeof propertyDocuments.$inferSelect;
+export type InsertPropertyDocument = z.infer<typeof insertPropertyDocumentSchema>;
+
+export type DocumentAccessLog = typeof documentAccessLogs.$inferSelect;
+export type InsertDocumentAccessLog = z.infer<typeof insertDocumentAccessLogSchema>;
+
+export type DocumentExpirationAlert = typeof documentExpirationAlerts.$inferSelect;
+export type InsertDocumentExpirationAlert = z.infer<typeof insertDocumentExpirationAlertSchema>;
+
+export type OnboardingStepDetail = typeof onboardingStepDetails.$inferSelect;
+export type InsertOnboardingStepDetail = z.infer<typeof insertOnboardingStepDetailSchema>;
+
+export type PropertySetupConfig = typeof propertySetupConfig.$inferSelect;
+export type InsertPropertySetupConfig = z.infer<typeof insertPropertySetupConfigSchema>;
+
+export type OnboardingTask = typeof onboardingTasks.$inferSelect;
+export type InsertOnboardingTask = z.infer<typeof insertOnboardingTaskSchema>;
+
+export type DocumentTemplate = typeof documentTemplates.$inferSelect;
+export type InsertDocumentTemplate = z.infer<typeof insertDocumentTemplateSchema>;
+
+
+

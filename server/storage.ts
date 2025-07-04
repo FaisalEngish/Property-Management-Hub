@@ -229,22 +229,18 @@ import {
   portfolioManagerAssignments,
   type OwnerStatementExport,
   type InsertOwnerStatementExport,
-  // Document Center tables
-  propertyDocuments,
-  documentAccessLogs,
-  ownerOnboardingChecklists,
-  documentCategories,
-  fileUploadSessions,
-  type PropertyDocument,
-  type InsertPropertyDocument,
-  type DocumentAccessLog,
-  type InsertDocumentAccessLog,
-  type OwnerOnboardingChecklist,
-  type InsertOwnerOnboardingChecklist,
-  type DocumentCategory,
-  type InsertDocumentCategory,
-  type FileUploadSession,
-  type InsertFileUploadSession,
+  // Owner Onboarding System tables  
+  ownerOnboardingProcesses,
+  ownerDocuments,
+  onboardingStepDetails,
+  onboardingDocumentCategories,
+  type OwnerOnboardingProcess,
+  type InsertOwnerOnboardingProcess,
+  type OwnerDocument,
+  type InsertOwnerDocument,
+  type OnboardingStepDetail,
+  type InsertOnboardingStepDetail,
+
   // Maintenance Log tables
   maintenanceLog,
   warrantyAlerts,
@@ -1447,33 +1443,32 @@ export interface IStorage {
     templateId?: number;
   }): Promise<{ fileUrl: string; fileName: string; fileSize: number; recordCount: number }>;
 
-  // ===== DOCUMENT CENTER OPERATIONS =====
+  // ===== OWNER ONBOARDING OPERATIONS =====
   
-  // Property documents operations
-  getPropertyDocuments(organizationId: string, filters?: { propertyId?: number; category?: string; visibility?: string; hasExpiration?: boolean }): Promise<PropertyDocument[]>;
-  getPropertyDocument(id: number): Promise<PropertyDocument | undefined>;
-  createPropertyDocument(document: InsertPropertyDocument): Promise<PropertyDocument>;
-  updatePropertyDocument(id: number, document: Partial<InsertPropertyDocument>): Promise<PropertyDocument | undefined>;
-  deletePropertyDocument(id: number): Promise<boolean>;
+  // Owner onboarding process operations
+  getOwnerOnboardingProcesses(organizationId: string, filters?: { ownerId?: string; status?: string; propertyId?: number }): Promise<OwnerOnboardingProcess[]>;
+  getOwnerOnboardingProcess(id: number): Promise<OwnerOnboardingProcess | undefined>;
+  createOwnerOnboardingProcess(process: InsertOwnerOnboardingProcess): Promise<OwnerOnboardingProcess>;
+  updateOwnerOnboardingProcess(id: number, process: Partial<InsertOwnerOnboardingProcess>): Promise<OwnerOnboardingProcess | undefined>;
+  deleteOwnerOnboardingProcess(id: number): Promise<boolean>;
   
-  // Document access control
-  getDocumentsByProperty(propertyId: number, userRole?: string): Promise<PropertyDocument[]>;
-  getDocumentsByCategory(organizationId: string, category: string): Promise<PropertyDocument[]>;
-  getExpiringDocuments(organizationId: string, daysAhead?: number): Promise<PropertyDocument[]>;
+  // Owner documents operations
+  getOwnerDocuments(organizationId: string, filters?: { ownerId?: string; category?: string; processId?: number }): Promise<OwnerDocument[]>;
+  getOwnerDocument(id: number): Promise<OwnerDocument | undefined>;
+  createOwnerDocument(document: InsertOwnerDocument): Promise<OwnerDocument>;
+  updateOwnerDocument(id: number, document: Partial<InsertOwnerDocument>): Promise<OwnerDocument | undefined>;
+  deleteOwnerDocument(id: number): Promise<boolean>;
   
-  // Document access logging
-  getDocumentAccessLogs(organizationId: string, filters?: { documentId?: number; accessedBy?: string; actionType?: string }): Promise<DocumentAccessLog[]>;
-  createDocumentAccessLog(log: InsertDocumentAccessLog): Promise<DocumentAccessLog>;
+  // Onboarding step details operations
+  getOnboardingStepDetails(organizationId: string, filters?: { processId?: number; stepNumber?: number; status?: string }): Promise<OnboardingStepDetail[]>;
+  getOnboardingStepDetail(id: number): Promise<OnboardingStepDetail | undefined>;
+  createOnboardingStepDetail(detail: InsertOnboardingStepDetail): Promise<OnboardingStepDetail>;
+  updateOnboardingStepDetail(id: number, detail: Partial<InsertOnboardingStepDetail>): Promise<OnboardingStepDetail | undefined>;
   
-  // Document expiration alerts
-  getDocumentExpirationAlerts(organizationId: string, filters?: { documentId?: number; isProcessed?: boolean }): Promise<DocumentExpirationAlert[]>;
-  createDocumentExpirationAlert(alert: InsertDocumentExpirationAlert): Promise<DocumentExpirationAlert>;
-  updateDocumentExpirationAlert(id: number, alert: Partial<InsertDocumentExpirationAlert>): Promise<DocumentExpirationAlert | undefined>;
-  
-  // Document export history
-  getDocumentExportHistory(organizationId: string, filters?: { propertyId?: number; exportedBy?: string; status?: string }): Promise<DocumentExportHistory[]>;
-  createDocumentExportHistory(exportRecord: InsertDocumentExportHistory): Promise<DocumentExportHistory>;
-  updateDocumentExportHistory(id: number, exportRecord: Partial<InsertDocumentExportHistory>): Promise<DocumentExportHistory | undefined>;
+  // Onboarding progress tracking
+  getOnboardingProgress(processId: number): Promise<{ completedSteps: number; totalSteps: number; nextStep: string | null; overallProgress: number }>;
+  advanceOnboardingStep(processId: number, stepNumber: number, completionData?: any): Promise<OnboardingStepDetail>;
+  getOverdueOnboardingProcesses(organizationId: string): Promise<OwnerOnboardingProcess[]>;
   
   // Document analytics and summary
   getDocumentSummary(organizationId: string, propertyId?: number): Promise<{
@@ -2723,37 +2718,229 @@ export class DatabaseStorage implements IStorage {
     return session;
   }
 
-  // Document Summary and Analytics
-  async getDocumentSummary(organizationId: string, propertyId?: number): Promise<any> {
-    const conditions = [eq(propertyDocuments.organizationId, organizationId)];
-    if (propertyId) {
-      conditions.push(eq(propertyDocuments.propertyId, propertyId));
+  // ===== OWNER ONBOARDING SYSTEM IMPLEMENTATION =====
+
+  // Owner onboarding process operations
+  async getOwnerOnboardingProcesses(organizationId: string, filters?: { ownerId?: string; status?: string; propertyId?: number }): Promise<OwnerOnboardingProcess[]> {
+    const conditions = [eq(ownerOnboardingProcesses.organizationId, organizationId)];
+    
+    if (filters?.ownerId) {
+      conditions.push(eq(ownerOnboardingProcesses.ownerId, filters.ownerId));
+    }
+    if (filters?.status) {
+      conditions.push(eq(ownerOnboardingProcesses.status, filters.status));
+    }
+    if (filters?.propertyId) {
+      conditions.push(eq(ownerOnboardingProcesses.propertyId, filters.propertyId));
     }
 
-    const documents = await db.select().from(propertyDocuments)
-      .where(and(...conditions));
+    return await db.select().from(ownerOnboardingProcesses)
+      .where(and(...conditions))
+      .orderBy(desc(ownerOnboardingProcesses.createdAt));
+  }
 
-    const summary = {
-      totalDocuments: documents.length,
-      documentsByCategory: this.groupBy(documents, 'category').map(([category, docs]) => ({
-        category,
-        count: docs.length
-      })),
-      expiringCount: documents.filter(doc => 
-        doc.hasExpiration && doc.expirationDate && 
-        new Date(doc.expirationDate) <= new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
-      ).length,
-      recentUploads: documents.filter(doc => 
-        new Date(doc.createdAt) >= new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
-      ).length,
-      pendingApproval: documents.filter(doc => doc.status === 'pending_approval').length,
-      byVisibility: this.groupBy(documents, 'visibility').map(([visibility, docs]) => ({
-        visibility,
-        count: docs.length
-      }))
+  async getOwnerOnboardingProcess(id: number): Promise<OwnerOnboardingProcess | undefined> {
+    const [process] = await db.select().from(ownerOnboardingProcesses)
+      .where(eq(ownerOnboardingProcesses.id, id));
+    return process;
+  }
+
+  async createOwnerOnboardingProcess(process: InsertOwnerOnboardingProcess): Promise<OwnerOnboardingProcess> {
+    const [newProcess] = await db.insert(ownerOnboardingProcesses).values(process).returning();
+    
+    // Create default steps for the onboarding process
+    const defaultSteps = [
+      { stepNumber: 1, stepName: 'Owner Contact Info', status: 'pending' as const },
+      { stepNumber: 2, stepName: 'Property Details', status: 'pending' as const },
+      { stepNumber: 3, stepName: 'Location Setup', status: 'pending' as const },
+      { stepNumber: 4, stepName: 'Photos Upload', status: 'pending' as const },
+      { stepNumber: 5, stepName: 'Description & Features', status: 'pending' as const },
+      { stepNumber: 6, stepName: 'Utilities Setup', status: 'pending' as const },
+      { stepNumber: 7, stepName: 'Legal Documents', status: 'pending' as const },
+      { stepNumber: 8, stepName: 'Security & Access', status: 'pending' as const },
+      { stepNumber: 9, stepName: 'Services Setup', status: 'pending' as const }
+    ];
+
+    for (const step of defaultSteps) {
+      await db.insert(onboardingStepDetails).values({
+        organizationId: process.organizationId,
+        processId: newProcess.id,
+        stepNumber: step.stepNumber,
+        stepName: step.stepName,
+        status: step.status,
+        completionData: {}
+      });
+    }
+
+    return newProcess;
+  }
+
+  async updateOwnerOnboardingProcess(id: number, process: Partial<InsertOwnerOnboardingProcess>): Promise<OwnerOnboardingProcess | undefined> {
+    const [updated] = await db.update(ownerOnboardingProcesses)
+      .set({ ...process, updatedAt: new Date() })
+      .where(eq(ownerOnboardingProcesses.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteOwnerOnboardingProcess(id: number): Promise<boolean> {
+    const result = await db.delete(ownerOnboardingProcesses)
+      .where(eq(ownerOnboardingProcesses.id, id));
+    return result.rowCount > 0;
+  }
+
+  // Owner documents operations
+  async getOwnerDocuments(organizationId: string, filters?: { ownerId?: string; category?: string; processId?: number }): Promise<OwnerDocument[]> {
+    const conditions = [eq(ownerDocuments.organizationId, organizationId)];
+    
+    if (filters?.ownerId) {
+      conditions.push(eq(ownerDocuments.ownerId, filters.ownerId));
+    }
+    if (filters?.category) {
+      conditions.push(eq(ownerDocuments.category, filters.category));
+    }
+    if (filters?.processId) {
+      conditions.push(eq(ownerDocuments.processId, filters.processId));
+    }
+
+    return await db.select().from(ownerDocuments)
+      .where(and(...conditions))
+      .orderBy(desc(ownerDocuments.createdAt));
+  }
+
+  async getOwnerDocument(id: number): Promise<OwnerDocument | undefined> {
+    const [document] = await db.select().from(ownerDocuments)
+      .where(eq(ownerDocuments.id, id));
+    return document;
+  }
+
+  async createOwnerDocument(document: InsertOwnerDocument): Promise<OwnerDocument> {
+    const [newDocument] = await db.insert(ownerDocuments).values(document).returning();
+    return newDocument;
+  }
+
+  async updateOwnerDocument(id: number, document: Partial<InsertOwnerDocument>): Promise<OwnerDocument | undefined> {
+    const [updated] = await db.update(ownerDocuments)
+      .set({ ...document, updatedAt: new Date() })
+      .where(eq(ownerDocuments.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteOwnerDocument(id: number): Promise<boolean> {
+    const result = await db.delete(ownerDocuments)
+      .where(eq(ownerDocuments.id, id));
+    return result.rowCount > 0;
+  }
+
+  // Onboarding step details operations
+  async getOnboardingStepDetails(organizationId: string, filters?: { processId?: number; stepNumber?: number; status?: string }): Promise<OnboardingStepDetail[]> {
+    const conditions = [eq(onboardingStepDetails.organizationId, organizationId)];
+    
+    if (filters?.processId) {
+      conditions.push(eq(onboardingStepDetails.processId, filters.processId));
+    }
+    if (filters?.stepNumber) {
+      conditions.push(eq(onboardingStepDetails.stepNumber, filters.stepNumber));
+    }
+    if (filters?.status) {
+      conditions.push(eq(onboardingStepDetails.status, filters.status));
+    }
+
+    return await db.select().from(onboardingStepDetails)
+      .where(and(...conditions))
+      .orderBy(onboardingStepDetails.stepNumber);
+  }
+
+  async getOnboardingStepDetail(id: number): Promise<OnboardingStepDetail | undefined> {
+    const [step] = await db.select().from(onboardingStepDetails)
+      .where(eq(onboardingStepDetails.id, id));
+    return step;
+  }
+
+  async createOnboardingStepDetail(detail: InsertOnboardingStepDetail): Promise<OnboardingStepDetail> {
+    const [newStep] = await db.insert(onboardingStepDetails).values(detail).returning();
+    return newStep;
+  }
+
+  async updateOnboardingStepDetail(id: number, detail: Partial<InsertOnboardingStepDetail>): Promise<OnboardingStepDetail | undefined> {
+    const [updated] = await db.update(onboardingStepDetails)
+      .set({ ...detail, updatedAt: new Date() })
+      .where(eq(onboardingStepDetails.id, id))
+      .returning();
+    return updated;
+  }
+
+  // Onboarding progress tracking
+  async getOnboardingProgress(processId: number): Promise<{ completedSteps: number; totalSteps: number; nextStep: string | null; overallProgress: number }> {
+    const steps = await db.select().from(onboardingStepDetails)
+      .where(eq(onboardingStepDetails.processId, processId))
+      .orderBy(onboardingStepDetails.stepNumber);
+
+    const totalSteps = steps.length;
+    const completedSteps = steps.filter(step => step.status === 'completed').length;
+    const nextStep = steps.find(step => step.status === 'pending')?.stepName || null;
+    const overallProgress = totalSteps > 0 ? Math.round((completedSteps / totalSteps) * 100) : 0;
+
+    return {
+      completedSteps,
+      totalSteps,
+      nextStep,
+      overallProgress
     };
+  }
 
-    return summary;
+  async advanceOnboardingStep(processId: number, stepNumber: number, completionData?: any): Promise<OnboardingStepDetail> {
+    const [updatedStep] = await db.update(onboardingStepDetails)
+      .set({ 
+        status: 'completed',
+        completionData: completionData || {},
+        completedAt: new Date(),
+        updatedAt: new Date()
+      })
+      .where(
+        and(
+          eq(onboardingStepDetails.processId, processId),
+          eq(onboardingStepDetails.stepNumber, stepNumber)
+        )
+      )
+      .returning();
+
+    // Update process overall status based on completion
+    const progress = await this.getOnboardingProgress(processId);
+    let processStatus = 'in_progress';
+    
+    if (progress.overallProgress === 100) {
+      processStatus = 'completed';
+    } else if (progress.completedSteps > 0) {
+      processStatus = 'in_progress';
+    }
+
+    await db.update(ownerOnboardingProcesses)
+      .set({ 
+        status: processStatus,
+        currentStep: progress.nextStep,
+        overallProgress: progress.overallProgress,
+        updatedAt: new Date()
+      })
+      .where(eq(ownerOnboardingProcesses.id, processId));
+
+    return updatedStep;
+  }
+
+  async getOverdueOnboardingProcesses(organizationId: string): Promise<OwnerOnboardingProcess[]> {
+    const overdueDate = new Date();
+    overdueDate.setDate(overdueDate.getDate() - 7); // 7 days overdue
+
+    return await db.select().from(ownerOnboardingProcesses)
+      .where(
+        and(
+          eq(ownerOnboardingProcesses.organizationId, organizationId),
+          inArray(ownerOnboardingProcesses.status, ['pending', 'in_progress']),
+          lt(ownerOnboardingProcesses.createdAt, overdueDate)
+        )
+      )
+      .orderBy(ownerOnboardingProcesses.createdAt);
   }
 
   private groupBy<T>(array: T[], key: keyof T): [string, T[]][] {

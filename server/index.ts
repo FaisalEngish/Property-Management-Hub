@@ -4,6 +4,7 @@ import { setupVite, serveStatic, log } from "./vite";
 import { seedAddonServicesData } from "./seedAddonServicesData";
 import { seedInvoiceData } from "./seedInvoiceData";
 import { seedServiceMarketplaceData } from "./seedServiceMarketplaceData";
+import { seedOwnerOnboardingData } from "./seedOwnerOnboardingData";
 
 const app = express();
 app.use(express.json());
@@ -48,6 +49,9 @@ app.use((req, res, next) => {
   
   // Seed Service Marketplace data (temporarily disabled to fix schema mismatch)
   await seedServiceMarketplaceData();
+  
+  // Seed Owner Onboarding data (temporarily disabled due to schema mismatch)
+  // await seedOwnerOnboardingData();
   
   const server = await registerRoutes(app);
 

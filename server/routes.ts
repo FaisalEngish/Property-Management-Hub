@@ -348,6 +348,208 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ==================== OWNER ONBOARDING SYSTEM ROUTES ====================
+
+  // Get owner onboarding processes
+  app.get("/api/owner-onboarding/processes", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      const organizationId = "demo-org";
+      
+      // Admin/PM can see all processes, owners only see their own
+      let processes;
+      if (user?.role === 'admin' || user?.role === 'portfolio-manager') {
+        processes = await storage.getOwnerOnboardingProcesses(organizationId);
+      } else if (user?.role === 'owner') {
+        processes = await storage.getOwnerOnboardingProcesses(organizationId, { ownerId: user.id });
+      } else {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      res.json(processes);
+    } catch (error) {
+      console.error("Error fetching onboarding processes:", error);
+      res.status(500).json({ message: "Failed to fetch onboarding processes" });
+    }
+  });
+
+  // Get specific onboarding process
+  app.get("/api/owner-onboarding/processes/:id", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const user = req.user;
+      
+      const process = await storage.getOwnerOnboardingProcess(parseInt(id));
+      if (!process) {
+        return res.status(404).json({ message: "Onboarding process not found" });
+      }
+      
+      // Check access permissions
+      if (user?.role !== 'admin' && user?.role !== 'portfolio-manager' && process.ownerId !== user.id) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      res.json(process);
+    } catch (error) {
+      console.error("Error fetching onboarding process:", error);
+      res.status(500).json({ message: "Failed to fetch onboarding process" });
+    }
+  });
+
+  // Create new onboarding process
+  app.post("/api/owner-onboarding/processes", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      
+      // Only admin/PM can create new onboarding processes
+      if (user?.role !== 'admin' && user?.role !== 'portfolio-manager') {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      const processData = {
+        ...req.body,
+        organizationId: "demo-org",
+        createdBy: user.id,
+        currentStep: 1,
+        status: 'in_progress' as const
+      };
+      
+      const process = await storage.createOwnerOnboardingProcess(processData);
+      res.status(201).json(process);
+    } catch (error) {
+      console.error("Error creating onboarding process:", error);
+      res.status(500).json({ message: "Failed to create onboarding process" });
+    }
+  });
+
+  // Update onboarding process
+  app.put("/api/owner-onboarding/processes/:id", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const user = req.user;
+      
+      const process = await storage.getOwnerOnboardingProcess(parseInt(id));
+      if (!process) {
+        return res.status(404).json({ message: "Onboarding process not found" });
+      }
+      
+      // Check access permissions
+      if (user?.role !== 'admin' && user?.role !== 'portfolio-manager' && process.ownerId !== user.id) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      const updatedProcess = await storage.updateOwnerOnboardingProcess(parseInt(id), req.body);
+      res.json(updatedProcess);
+    } catch (error) {
+      console.error("Error updating onboarding process:", error);
+      res.status(500).json({ message: "Failed to update onboarding process" });
+    }
+  });
+
+  // Get onboarding step details
+  app.get("/api/owner-onboarding/processes/:processId/steps", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { processId } = req.params;
+      const user = req.user;
+      const organizationId = "demo-org";
+      
+      const process = await storage.getOwnerOnboardingProcess(parseInt(processId));
+      if (!process) {
+        return res.status(404).json({ message: "Onboarding process not found" });
+      }
+      
+      // Check access permissions
+      if (user?.role !== 'admin' && user?.role !== 'portfolio-manager' && process.ownerId !== user.id) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      const steps = await storage.getOnboardingStepDetails(organizationId, { processId: parseInt(processId) });
+      res.json(steps);
+    } catch (error) {
+      console.error("Error fetching onboarding steps:", error);
+      res.status(500).json({ message: "Failed to fetch onboarding steps" });
+    }
+  });
+
+  // Update onboarding step
+  app.put("/api/owner-onboarding/steps/:stepId", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { stepId } = req.params;
+      const user = req.user;
+      
+      const step = await storage.getOnboardingStepDetail(parseInt(stepId));
+      if (!step) {
+        return res.status(404).json({ message: "Onboarding step not found" });
+      }
+      
+      const process = await storage.getOwnerOnboardingProcess(step.processId);
+      if (!process) {
+        return res.status(404).json({ message: "Associated onboarding process not found" });
+      }
+      
+      // Check access permissions
+      if (user?.role !== 'admin' && user?.role !== 'portfolio-manager' && process.ownerId !== user.id) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      const updatedStep = await storage.updateOnboardingStepDetail(parseInt(stepId), {
+        ...req.body,
+        updatedBy: user.id,
+        updatedAt: new Date()
+      });
+      
+      res.json(updatedStep);
+    } catch (error) {
+      console.error("Error updating onboarding step:", error);
+      res.status(500).json({ message: "Failed to update onboarding step" });
+    }
+  });
+
+  // Get owner documents
+  app.get("/api/owner-onboarding/documents", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      const organizationId = "demo-org";
+      const { ownerId, category, processId } = req.query;
+      
+      const filters: any = {};
+      if (ownerId) filters.ownerId = ownerId as string;
+      if (category) filters.category = category as string;
+      if (processId) filters.processId = parseInt(processId as string);
+      
+      // Owners can only see their own documents
+      if (user?.role === 'owner') {
+        filters.ownerId = user.id;
+      }
+      
+      const documents = await storage.getOwnerDocuments(organizationId, filters);
+      res.json(documents);
+    } catch (error) {
+      console.error("Error fetching owner documents:", error);
+      res.status(500).json({ message: "Failed to fetch owner documents" });
+    }
+  });
+
+  // Upload owner document
+  app.post("/api/owner-onboarding/documents", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      
+      const documentData = {
+        ...req.body,
+        organizationId: "demo-org",
+        uploadedBy: user.id,
+        status: 'pending' as const
+      };
+      
+      const document = await storage.createOwnerDocument(documentData);
+      res.status(201).json(document);
+    } catch (error) {
+      console.error("Error uploading owner document:", error);
+      res.status(500).json({ message: "Failed to upload owner document" });
+    }
+  });
+
   // Dashboard stats
   app.get("/api/dashboard/stats", isDemoAuthenticated, async (req, res) => {
     try {
@@ -19897,6 +20099,182 @@ async function processGuestIssueForAI(issueReport: any) {
     } catch (error) {
       console.error("Error fetching service dashboard stats:", error);
       res.status(500).json({ message: "Failed to fetch service dashboard stats" });
+    }
+  });
+
+  // ===== OWNER ONBOARDING SYSTEM API ENDPOINTS =====
+
+  // Get all onboarding processes (admin/PM only)
+  app.get("/api/owner-onboarding-processes", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role } = req.user;
+      const { ownerId, status, propertyId } = req.query;
+
+      if (!['admin', 'portfolio-manager'].includes(role)) {
+        return res.status(403).json({ message: "Admin or PM access required" });
+      }
+
+      const filters = {
+        ownerId: ownerId as string,
+        status: status as string,
+        propertyId: propertyId ? parseInt(propertyId as string) : undefined
+      };
+
+      const processes = await storage.getOwnerOnboardingProcesses(organizationId, filters);
+      res.json(processes);
+    } catch (error) {
+      console.error("Error fetching onboarding processes:", error);
+      res.status(500).json({ message: "Failed to fetch onboarding processes" });
+    }
+  });
+
+  // Get owner's onboarding process (owner access)
+  app.get("/api/owner-onboarding-process", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role, id: userId } = req.user;
+
+      const filters = role === 'owner' ? { ownerId: userId } : {};
+      const processes = await storage.getOwnerOnboardingProcesses(organizationId, filters);
+      
+      if (processes.length === 0) {
+        return res.status(404).json({ message: "No onboarding process found" });
+      }
+
+      // Get the most recent process for the owner
+      const process = processes[0];
+      
+      // Get step details
+      const steps = await storage.getOnboardingStepDetails(organizationId, { processId: process.id });
+      
+      // Get progress
+      const progress = await storage.getOnboardingProgress(process.id);
+
+      res.json({
+        process,
+        steps,
+        progress
+      });
+    } catch (error) {
+      console.error("Error fetching onboarding process:", error);
+      res.status(500).json({ message: "Failed to fetch onboarding process" });
+    }
+  });
+
+  // Create new onboarding process
+  app.post("/api/owner-onboarding-processes", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role } = req.user;
+
+      if (!['admin', 'portfolio-manager'].includes(role)) {
+        return res.status(403).json({ message: "Admin or PM access required" });
+      }
+
+      const processData = {
+        ...req.body,
+        organizationId,
+        status: 'pending' as const,
+        currentStep: 'Owner Contact Info',
+        overallProgress: 0
+      };
+
+      const process = await storage.createOwnerOnboardingProcess(processData);
+      res.status(201).json(process);
+    } catch (error) {
+      console.error("Error creating onboarding process:", error);
+      res.status(500).json({ message: "Failed to create onboarding process" });
+    }
+  });
+
+  // Complete an onboarding step
+  app.post("/api/onboarding-step/:processId/:stepNumber/complete", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { processId, stepNumber } = req.params;
+      const { organizationId, role, id: userId } = req.user;
+      const { completionData } = req.body;
+
+      // Check access permissions
+      const process = await storage.getOwnerOnboardingProcess(parseInt(processId));
+      if (!process) {
+        return res.status(404).json({ message: "Onboarding process not found" });
+      }
+
+      // Owner can only complete their own steps, admin/PM can complete any
+      if (role === 'owner' && process.ownerId !== userId) {
+        return res.status(403).json({ message: "Access denied" });
+      } else if (!['admin', 'portfolio-manager', 'owner'].includes(role)) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const completedStep = await storage.advanceOnboardingStep(
+        parseInt(processId), 
+        parseInt(stepNumber), 
+        completionData
+      );
+
+      // Get updated progress
+      const progress = await storage.getOnboardingProgress(parseInt(processId));
+
+      res.json({
+        step: completedStep,
+        progress
+      });
+    } catch (error) {
+      console.error("Error completing onboarding step:", error);
+      res.status(500).json({ message: "Failed to complete onboarding step" });
+    }
+  });
+
+  // Get owner documents
+  app.get("/api/owner-documents", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role, id: userId } = req.user;
+      const { ownerId, category, processId } = req.query;
+
+      const filters: any = {};
+      
+      // Set filters based on role
+      if (role === 'owner') {
+        filters.ownerId = userId;
+      } else if (['admin', 'portfolio-manager'].includes(role)) {
+        if (ownerId) filters.ownerId = ownerId as string;
+      } else {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      if (category) filters.category = category as string;
+      if (processId) filters.processId = parseInt(processId as string);
+
+      const documents = await storage.getOwnerDocuments(organizationId, filters);
+      res.json(documents);
+    } catch (error) {
+      console.error("Error fetching owner documents:", error);
+      res.status(500).json({ message: "Failed to fetch owner documents" });
+    }
+  });
+
+  // Upload owner document
+  app.post("/api/owner-documents", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role, id: userId } = req.user;
+
+      const documentData = {
+        ...req.body,
+        organizationId,
+        uploadedBy: userId
+      };
+
+      // Owners can only upload to their own process
+      if (role === 'owner') {
+        documentData.ownerId = userId;
+      } else if (!['admin', 'portfolio-manager'].includes(role)) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const document = await storage.createOwnerDocument(documentData);
+      res.status(201).json(document);
+    } catch (error) {
+      console.error("Error uploading owner document:", error);
+      res.status(500).json({ message: "Failed to upload document" });
     }
   });
 

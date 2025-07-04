@@ -92,6 +92,7 @@ const getRoleBasedMenus = (role: string): MenuSection[] => {
         items: [
           { label: "Check-in/Check-out", icon: LogOut, href: "/checkin-checkout-workflow" },
           { label: "Guest Check-In Tracker", icon: Luggage, href: "/guest-checkin-checkout-tracker", badge: "New" },
+          { label: "Owner Onboarding", icon: UserPlus, href: "/owner-onboarding-system", badge: "New" },
           { label: "Maintenance System", icon: Wrench, href: "/maintenance-task-system" },
           { label: "Auto-Scheduling Rules", icon: Clock, href: "/auto-scheduling-recurring-task-generator", badge: "New" },
           { label: "Maintenance Log & Warranty", icon: Wrench, href: "/maintenance-log-warranty-tracker", badge: "New" },
@@ -149,6 +150,7 @@ const getRoleBasedMenus = (role: string): MenuSection[] => {
           { label: "Maintenance", icon: Wrench, href: "/maintenance-task-system" },
           { label: "Document Center", icon: FolderOpen, href: "/document-center" },
           { label: "Property Access", icon: Key, href: "/property-access" },
+          { label: "Owner Onboarding", icon: UserPlus, href: "/owner-onboarding-system", badge: "New" },
         ]
       },
       {
