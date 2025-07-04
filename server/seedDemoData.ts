@@ -16,6 +16,7 @@ import {
 import { seedAiDemoData } from "./seedAiDemoData";
 import { syncHostawayData } from "./hostaway";
 import { seedGuestAddonServices } from "./seedGuestAddonServices";
+import { storage } from "./storage";
 import type { Request } from "express";
 
 const DEMO_ORG_ID = 'demo';
@@ -427,6 +428,9 @@ export async function seedDemoData(): Promise<void> {
     
     // Seed Guest Add-On Services
     await seedGuestAddonServices(DEMO_ORG_ID);
+    
+    // Seed Local Emergency Contacts for Villa Aruna
+    await storage.seedDemoLocalContacts(DEMO_ORG_ID);
     
     console.log("Demo data seeding completed successfully!");
     

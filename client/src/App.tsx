@@ -101,6 +101,7 @@ import GuestCheckoutSurvey from "@/pages/GuestCheckoutSurvey";
 import OwnerOnboardingUtilitySettings from "@/pages/OwnerOnboardingUtilitySettings";
 import EnhancedAgentBookingDemo from "@/pages/EnhancedAgentBookingDemo";
 import SandboxTestingDashboard from "@/pages/SandboxTestingDashboard";
+import LocalContactsManagement from "@/pages/LocalContactsManagement";
 
 function Router() {
   const { isAuthenticated, isLoading, user } = useAuth();
@@ -236,6 +237,7 @@ function Router() {
         <Route path="/property-document-center" component={PropertyDocumentCenter} />
         <Route path="/property-settings-module" component={PropertySettingsModule} />
         <Route path="/property-task-history-timeline" component={PropertyTaskHistoryTimeline} />
+        <Route path="/local-contacts-management" component={LocalContactsManagement} />
         <Route path="/villa-aruna-demo" component={VillaArunaDemoWorkflow} />
         <Route path="/pm/dashboard" component={PortfolioManagerDashboard} />
         <Route path="/admin/finance-reset" component={FinanceResetControl} />

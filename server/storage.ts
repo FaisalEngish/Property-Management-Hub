@@ -30506,6 +30506,262 @@ Plant Care:
     // For demo purposes, return the default contacts for the property
     return this.getPropertyLocalContacts(propertyId);
   }
+
+  // Demo data for property local contacts
+  async seedDemoLocalContacts(organizationId: string = "default-org"): Promise<void> {
+    const demoContacts = [
+      // Emergency & Health
+      {
+        organizationId,
+        propertyId: 1, // Villa Aruna
+        category: "emergency_health",
+        contactName: "Bangkok Hospital Samui",
+        contactType: "hospital",
+        phoneNumber: "+66 77 429 500",
+        whatsappNumber: "+66 77 429 500",
+        email: "info@bangkokhospital.com",
+        address: "90/2 Moo 3, Chaweng Beach Road, Koh Samui, Surat Thani 84320",
+        googleMapsLink: "https://maps.google.com/?q=Bangkok+Hospital+Samui",
+        websiteUrl: "https://www.bangkokhospital.com/samui",
+        servicesOffered: "24-hour emergency care, international standards, English-speaking doctors",
+        availabilityHours: "24/7",
+        specialNotes: "Major credit cards accepted. Travel insurance direct billing available.",
+        requiresManagerConfirmation: false,
+        isActive: true,
+        displayOrder: 1,
+        createdBy: "demo-admin"
+      },
+      {
+        organizationId,
+        propertyId: 1,
+        category: "emergency_health",
+        contactName: "Police Station Koh Samui",
+        contactType: "police",
+        phoneNumber: "191",
+        address: "Nathon District, Koh Samui, Surat Thani",
+        servicesOffered: "Emergency police services, tourist assistance",
+        availabilityHours: "24/7",
+        specialNotes: "Emergency hotline 191. For tourist police call +66 1155.",
+        requiresManagerConfirmation: false,
+        isActive: true,
+        displayOrder: 2,
+        createdBy: "demo-admin"
+      },
+      {
+        organizationId,
+        propertyId: 1,
+        category: "emergency_health",
+        contactName: "Samui Pharmacy Plus",
+        contactType: "pharmacy",
+        phoneNumber: "+66 77 413 999",
+        whatsappNumber: "+66 81 234 5678",
+        address: "Central Festival Samui, Chaweng Beach Road",
+        googleMapsLink: "https://maps.google.com/?q=Samui+Pharmacy+Plus",
+        servicesOffered: "Prescription medications, international brands, consultation",
+        availabilityHours: "8:00 AM - 10:00 PM",
+        specialNotes: "English-speaking pharmacist available. Delivery service to villa.",
+        requiresManagerConfirmation: false,
+        isActive: true,
+        displayOrder: 3,
+        createdBy: "demo-admin"
+      },
+      // On-Site & Assigned Staff
+      {
+        organizationId,
+        propertyId: 1,
+        category: "on_site_staff",
+        contactName: "Khun Somchai (Villa Manager)",
+        contactType: "host",
+        phoneNumber: "+66 89 123 4567",
+        whatsappNumber: "+66 89 123 4567",
+        email: "somchai@villaaruna.com",
+        servicesOffered: "Property management, guest assistance, maintenance coordination",
+        availabilityHours: "8:00 AM - 8:00 PM",
+        specialNotes: "Primary contact for villa-related matters. Speaks English and Thai.",
+        requiresManagerConfirmation: false,
+        isActive: true,
+        displayOrder: 1,
+        createdBy: "demo-admin"
+      },
+      {
+        organizationId,
+        propertyId: 1,
+        category: "on_site_staff",
+        contactName: "Niran (Housekeeper)",
+        contactType: "housekeeper",
+        phoneNumber: "+66 87 654 3210",
+        whatsappNumber: "+66 87 654 3210",
+        servicesOffered: "Daily housekeeping, laundry service, room amenities restocking",
+        availabilityHours: "9:00 AM - 5:00 PM",
+        specialNotes: "Available for additional cleaning services. Very detail-oriented.",
+        requiresManagerConfirmation: true,
+        isActive: true,
+        displayOrder: 2,
+        createdBy: "demo-admin"
+      },
+      {
+        organizationId,
+        propertyId: 1,
+        category: "on_site_staff",
+        contactName: "Jane Thompson (Portfolio Manager)",
+        contactType: "host",
+        phoneNumber: "+66 95 678 9012",
+        whatsappNumber: "+66 95 678 9012",
+        email: "jane@hostpilotpro.com",
+        servicesOffered: "Property oversight, guest relations, special request coordination",
+        availabilityHours: "9:00 AM - 6:00 PM (Mon-Sat)",
+        specialNotes: "Contact for complex requests or escalations. Bilingual support.",
+        requiresManagerConfirmation: false,
+        isActive: true,
+        displayOrder: 3,
+        createdBy: "demo-admin"
+      },
+      // Transportation
+      {
+        organizationId,
+        propertyId: 1,
+        category: "transportation",
+        contactName: "Samui Taxi Service",
+        contactType: "taxi",
+        phoneNumber: "+66 77 422 111",
+        whatsappNumber: "+66 89 555 7777",
+        bookingUrl: "https://samuitaxi.com/book",
+        servicesOffered: "Airport transfers, island tours, hourly rentals",
+        availabilityHours: "24/7",
+        specialNotes: "Fixed rates to major destinations. English-speaking drivers available.",
+        requiresManagerConfirmation: false,
+        isActive: true,
+        displayOrder: 1,
+        createdBy: "demo-admin"
+      },
+      {
+        organizationId,
+        propertyId: 1,
+        category: "transportation",
+        contactName: "Samui Car Rental Pro",
+        contactType: "car_rental",
+        phoneNumber: "+66 77 445 888",
+        whatsappNumber: "+66 91 888 9999",
+        email: "booking@samuicarrental.com",
+        websiteUrl: "https://samuicarrental.com",
+        bookingUrl: "https://samuicarrental.com/book",
+        address: "Chaweng Beach Road, near Big Buddha",
+        servicesOffered: "Daily/weekly car rentals, motorcycles, delivery to villa",
+        availabilityHours: "8:00 AM - 8:00 PM",
+        specialNotes: "International driving license required. Free delivery/pickup.",
+        requiresManagerConfirmation: false,
+        isActive: true,
+        displayOrder: 2,
+        createdBy: "demo-admin"
+      },
+      // Wellness & In-Villa Spa
+      {
+        organizationId,
+        propertyId: 1,
+        category: "wellness_spa",
+        contactName: "Lotus Spa Samui (Mobile)",
+        contactType: "spa_therapist",
+        phoneNumber: "+66 88 123 4567",
+        whatsappNumber: "+66 88 123 4567",
+        email: "booking@lotusspasamui.com",
+        websiteUrl: "https://lotusspasamui.com",
+        bookingUrl: "https://lotusspasamui.com/mobile-spa",
+        servicesOffered: "Thai massage, aromatherapy, couples massage, spa packages",
+        availabilityHours: "10:00 AM - 10:00 PM",
+        specialNotes: "In-villa service available. Book 2 hours in advance. Tip not included.",
+        requiresManagerConfirmation: true,
+        isActive: true,
+        displayOrder: 1,
+        createdBy: "demo-admin"
+      },
+      // Culinary Services
+      {
+        organizationId,
+        propertyId: 1,
+        category: "culinary_services",
+        contactName: "Chef Malee (Private Dining)",
+        contactType: "chef",
+        phoneNumber: "+66 92 345 6789",
+        whatsappNumber: "+66 92 345 6789",
+        email: "chef.malee@samuidining.com",
+        servicesOffered: "Thai cuisine, international dishes, BBQ, special dietary requirements",
+        availabilityHours: "11:00 AM - 9:00 PM",
+        menuUrl: "https://samuidining.com/villa-menu",
+        specialNotes: "24-hour advance booking required. Grocery shopping included in service.",
+        requiresManagerConfirmation: true,
+        isActive: true,
+        displayOrder: 1,
+        createdBy: "demo-admin"
+      },
+      // Tours & Experiences
+      {
+        organizationId,
+        propertyId: 1,
+        category: "tours_experiences",
+        contactName: "Island Paradise Tours",
+        contactType: "tour_operator",
+        phoneNumber: "+66 77 456 789",
+        whatsappNumber: "+66 89 111 2222",
+        email: "info@islandparadisetours.com",
+        websiteUrl: "https://islandparadisetours.com",
+        bookingUrl: "https://islandparadisetours.com/book",
+        servicesOffered: "Boat trips, snorkeling, fishing, sunset cruises, Angthong National Park",
+        availabilityHours: "7:00 AM - 7:00 PM",
+        specialNotes: "Hotel pickup included. Weather-dependent activities. Insurance included.",
+        requiresManagerConfirmation: false,
+        isActive: true,
+        displayOrder: 1,
+        createdBy: "demo-admin"
+      },
+      // Convenience & Delivery
+      {
+        organizationId,
+        propertyId: 1,
+        category: "convenience_delivery",
+        contactName: "FoodPanda Samui",
+        contactType: "delivery_app",
+        appStoreLink: "https://apps.apple.com/app/foodpanda/id758103884",
+        playStoreLink: "https://play.google.com/store/apps/details?id=com.foodpanda.android",
+        servicesOffered: "Food delivery, grocery delivery, pharmacy delivery",
+        availabilityHours: "10:00 AM - 11:00 PM",
+        specialNotes: "Download app for fastest service. Cash and card payment accepted.",
+        requiresManagerConfirmation: false,
+        isActive: true,
+        displayOrder: 1,
+        createdBy: "demo-admin"
+      },
+      {
+        organizationId,
+        propertyId: 1,
+        category: "convenience_delivery",
+        contactName: "Grab Samui",
+        contactType: "delivery_app",
+        appStoreLink: "https://apps.apple.com/app/grab/id647268330",
+        playStoreLink: "https://play.google.com/store/apps/details?id=com.grabtaxi.passenger",
+        servicesOffered: "Food delivery, grocery delivery, transportation",
+        availabilityHours: "24/7",
+        specialNotes: "Most popular delivery app in Thailand. English interface available.",
+        requiresManagerConfirmation: false,
+        isActive: true,
+        displayOrder: 2,
+        createdBy: "demo-admin"
+      }
+    ];
+
+    // Check if demo contacts already exist
+    const existingContacts = await this.getPropertyLocalContacts(1);
+    if (existingContacts.length > 0) {
+      console.log("Demo local contacts already exist, skipping seed.");
+      return;
+    }
+
+    // Insert demo contacts
+    console.log("Seeding demo local contacts...");
+    for (const contact of demoContacts) {
+      await this.createPropertyLocalContact(contact);
+    }
+    console.log("Demo local contacts seeded successfully!");
+  }
 }
 
 export const storage = new DatabaseStorage();

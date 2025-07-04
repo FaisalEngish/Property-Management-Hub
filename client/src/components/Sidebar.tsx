@@ -44,7 +44,8 @@ import {
   FolderOpen,
   Key,
   Luggage,
-  CheckCircle
+  CheckCircle,
+  Phone
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
@@ -101,6 +102,7 @@ const getRoleBasedMenus = (role: string): MenuSection[] => {
           { label: "Utilities & Maintenance", icon: Settings, href: "/maintenance-utilities-renovation-tracker" },
           { label: "Task Attachments", icon: FileText, href: "/task-attachments-notes" },
           { label: "Document Center", icon: FolderOpen, href: "/document-center" },
+          { label: "Local Contacts Management", icon: Phone, href: "/local-contacts-management", badge: "New" },
           { label: "Property Access", icon: Key, href: "/property-access" },
           { label: "AI Task Manager", icon: Activity, href: "/ai-task-manager" },
           { label: "Welcome Packs", icon: Package, href: "/welcome-packs" },
