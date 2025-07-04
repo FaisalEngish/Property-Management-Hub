@@ -2951,30 +2951,34 @@ export class DatabaseStorage implements IStorage {
 
   // ===== ENHANCED GUEST DASHBOARD IMPLEMENTATION =====
 
-  // Guest Booking Operations - John & Sarah Smith Complete Demo
+  // Guest Booking Operations - Using Centralized Demo Configuration
   async getCurrentGuestBooking(organizationId: string, guestId: string): Promise<any> {
-    // Updated John & Sarah Smith booking data with specific demo requirements
+    const { DEMO_GUESTS, DEMO_PROPERTY_DETAILS } = await import("./demoConfig");
+    const guest = DEMO_GUESTS.johnSarah;
+    const property = DEMO_PROPERTY_DETAILS.villaSamuiBreeze;
+    
     return {
       id: 1,
-      guestName: "John & Sarah Smith",
-      guestEmail: "john.smith@email.com",
-      guestPhone: "+1-555-0123",
-      numberOfGuests: 2,
-      checkInDate: "2025-01-03T15:00:00Z",
-      checkOutDate: "2025-01-10T11:00:00Z",
+      reservationId: guest.reservationId, // Demo1234
+      guestName: guest.guestName,
+      guestEmail: guest.guestEmail,
+      guestPhone: guest.guestPhone,
+      numberOfGuests: guest.numberOfGuests,
+      checkInDate: `${guest.checkInDate}T${property.checkInTime}:00Z`,
+      checkOutDate: `${guest.checkOutDate}T${property.checkOutTime}:00Z`,
       bookingStatus: "checked_in",
       bookingChannel: "Airbnb",
-      bookingReference: "#AIRB203293",
+      bookingReference: `#AIRB${guest.reservationId}`,
       totalAmount: 42000,
       platformFee: 5000,
       finalIncome: 37000,
-      currency: "THB",
-      depositPaid: 8000,
+      currency: guest.depositCurrency,
+      depositPaid: guest.depositAmount,
       depositMethod: "cash",
       depositStatus: "received",
-      emergencyContact: "+66 87 123 4567 (24/7 Property Manager - Khun Somchai)",
+      emergencyContact: property.emergencyContact,
       specialRequests: "Late check-in requested, vegetarian welcome basket preferred",
-      wifiCode: "Villa2025!",
+      wifiCode: property.wifiCode,
       welcomePackInclusions: [
         "Welcome fruit basket",
         "Local guidebook", 
@@ -2982,70 +2986,39 @@ export class DatabaseStorage implements IStorage {
         "Beach towels",
         "Yoga mats"
       ],
-      managerContact: "+66 87 123 4567",
-      houseRules: "No smoking inside\nQuiet hours: 10 PM - 8 AM\nPool access: 6 AM - 10 PM\nMaximum 2 guests\nNo parties or events\nCheck-in: 3:00 PM onwards\nCheck-out: 11:00 AM",
-      checkInInstructions: "Check-in available after 3:00 PM. Manager will meet you at the property for key handover and orientation.",
-      checkOutInstructions: "Check-out by 11:00 AM. Please leave keys in the key box and notify manager via WhatsApp.",
+      managerContact: property.emergencyContact.split(":")[1].trim(),
+      houseRules: property.houseRules.join("\n"),
+      checkInInstructions: `Check-in available after ${property.checkInTime}. Manager will meet you at the property for key handover and orientation.`,
+      checkOutInstructions: `Check-out by ${property.checkOutTime}. Please leave keys in the key box and notify manager via WhatsApp.`,
       propertyInfo: {
-        amenities: ["Pool", "Kitchen", "WiFi", "Air Conditioning", "Parking", "Beach Access"],
-        utilities: "Electricity charged at 7 THB/kWh, water included",
-        location: "5 minutes walk to main beach, 123 Beach Road"
+        amenities: property.amenities.map(a => a.name),
+        utilities: `Electricity charged at ${guest.electricityRate} THB/kWh, water included`,
+        location: property.address
       },
       property: {
-        id: 1,
-        name: "Villa Samui Breeze",
-        address: "123 Beach Road, Koh Samui, Thailand",
-        imageUrl: "https://images.unsplash.com/photo-1582268611958-ebfd161ef9cf?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80"
+        id: property.id,
+        name: property.name,
+        address: property.address,
+        imageUrl: property.imageUrl
       }
     };
   }
 
   // Property Amenities Operations
   async getPropertyAmenities(organizationId: string, propertyId: number): Promise<any[]> {
-    // Mock data for demonstration
-    return [
-      {
-        id: 1,
-        amenityName: "High-Speed WiFi",
-        amenityType: "wifi",
-        description: "Fiber optic internet connection throughout the property",
-        instructions: "Connect to 'Villa_WiFi' network and use the provided password",
-        wifiCode: "Villa2025!",
-        isAvailable: true
-      },
-      {
-        id: 2,
-        amenityName: "Private Swimming Pool",
-        amenityType: "pool",
-        description: "Private saltwater pool with pool lighting",
-        instructions: "Pool hours: 6 AM - 10 PM. Please shower before entering.",
-        isAvailable: true
-      },
-      {
-        id: 3,
-        amenityName: "Full Kitchen",
-        amenityType: "kitchen",
-        description: "Fully equipped kitchen with all cooking essentials",
-        instructions: "Dishwasher and washing machine available. Please clean after use.",
-        isAvailable: true
-      },
-      {
-        id: 4,
-        amenityName: "Air Conditioning",
-        amenityType: "ac",
-        description: "Central air conditioning in all rooms",
-        instructions: "Remote controls in each room. Optimal temperature: 24-26°C",
-        isAvailable: true
-      },
-      {
-        id: 5,
-        amenityName: "Private Parking",
-        amenityType: "parking",
-        description: "Covered parking space for one vehicle",
-        instructions: "Parking spot #12 - key provided at check-in",
-        isAvailable: true
-      }
-    ];
+    // Using centralized demo configuration with reservation ID Demo1234
+    const { DEMO_PROPERTY_DETAILS } = await import("./demoConfig");
+    const property = DEMO_PROPERTY_DETAILS.villaSamuiBreeze;
+    
+    return property.amenities.map((amenity, index) => ({
+      id: index + 1,
+      amenityName: amenity.name,
+      amenityType: amenity.type,
+      description: `Enjoy ${amenity.name.toLowerCase()} throughout your stay`,
+      instructions: amenity.name === "WiFi" ? `Connect using password: ${amenity.wifiCode}` : `Please enjoy responsibly`,
+      wifiCode: amenity.wifiCode,
+      isAvailable: true
+    }));
   }
 
   // AI Recommendations Operations
@@ -3175,55 +3148,22 @@ export class DatabaseStorage implements IStorage {
     ];
   }
 
-  // Service Timeline Operations
+  // Service Timeline Operations - Using Centralized Demo Configuration
   async getGuestServiceTimeline(organizationId: string, propertyId: number): Promise<any[]> {
-    // Updated service timeline matching demo specifications with dates within stay period
-    return [
-      {
-        id: 1,
-        serviceType: "pool",
-        serviceName: "Pool Cleaning",
-        scheduledDate: "2025-01-08T15:00:00Z",
-        estimatedTime: "1 hour",
-        serviceProvider: "Chai",
-        status: "scheduled",
-        notes: "Regular pool cleaning and maintenance",
-        guestVisible: true
-      },
-      {
-        id: 2,
-        serviceType: "cleaning",
-        serviceName: "Cleaning During Stay",
-        scheduledDate: "2025-01-09T10:00:00Z",
-        estimatedTime: "2 hours",
-        serviceProvider: "Dao",
-        status: "scheduled",
-        notes: "Mid-stay villa cleaning service",
-        guestVisible: true
-      },
-      {
-        id: 3,
-        serviceType: "catering",
-        serviceName: "Private Chef Dinner",
-        scheduledDate: "2025-01-08T20:00:00Z",
-        estimatedTime: "3 hours",
-        serviceProvider: "Chef Phyo",
-        status: "scheduled",
-        notes: "Private chef dinner service for 2 guests",
-        guestVisible: true
-      },
-      {
-        id: 4,
-        serviceType: "garden",
-        serviceName: "Garden Service",
-        scheduledDate: "2025-01-09T14:00:00Z",
-        estimatedTime: "1.5 hours",
-        serviceProvider: "Nye",
-        status: "scheduled",
-        notes: "Garden maintenance and landscaping",
-        guestVisible: true
-      }
-    ];
+    const { DEMO_SERVICES } = await import("./demoConfig");
+    
+    // Map the centralized demo services to match existing API structure
+    return DEMO_SERVICES.map(service => ({
+      id: service.id,
+      serviceType: service.serviceType,
+      serviceName: service.serviceName,
+      scheduledDate: `${service.scheduledDate}T${service.scheduledTime}:00Z`,
+      estimatedTime: service.estimatedDuration,
+      serviceProvider: service.serviceProvider,
+      status: service.status,
+      notes: service.notes,
+      guestVisible: true
+    }));
   }
 
   // ===== OWNER ONBOARDING SYSTEM IMPLEMENTATION =====
@@ -4436,49 +4376,15 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getGuestElectricityBilling(organizationId: string, bookingId: number): Promise<any> {
-    // Updated electricity billing data matching demo specifications
-    return {
-      checkIn: {
-        checkInReading: 10500,
-        checkInPhoto: "https://your-image-url.com/meter-photo.jpg",
-        checkInMethod: "ocr_automatic",
-        checkInDate: "2025-01-03",
-        checkInTime: "15:00"
-      },
-      checkOut: {
-        checkOutReading: null, // Will be set at checkout
-        checkOutPhoto: null,
-        checkOutMethod: null,
-        checkOutDate: null,
-        checkOutTime: null,
-        electricityUsed: null,
-        ratePerKwh: 7.0,
-        totalCharge: null,
-        paymentStatus: "not_charged_yet",
-        billingStatus: "To be charged to guest"
-      },
-      included: false,
-      chargedTo: "guest",
-      hasData: true
-    };
+    // Using centralized demo configuration with reservation ID Demo1234
+    const { DEMO_ELECTRICITY } = await import("./demoConfig");
+    return DEMO_ELECTRICITY;
   }
 
   async getGuestDepositOverview(organizationId: string, bookingId: number): Promise<any> {
-    // Updated deposit data matching demo specifications
-    return {
-      depositType: "cash",
-      depositAmount: 8000.00,
-      depositCurrency: "THB",
-      depositReceiptPhoto: "https://via.placeholder.com/300x200?text=Cash+Deposit+Receipt+8000+THB",
-      refundAmount: 8000.00,
-      refundCurrency: "THB",
-      refundMethod: "cash",
-      refundStatus: "received",
-      refundReceiptPhoto: null,
-      discountAmount: 0.00,
-      discountReason: null,
-      notes: "Cash deposit of 8,000 THB received and held until checkout completion and final inspection."
-    };
+    // Using centralized demo configuration with reservation ID Demo1234
+    const { DEMO_DEPOSIT } = await import("./demoConfig");
+    return DEMO_DEPOSIT;
   }
 
   // Guest Add-On Service Booking Platform operations
