@@ -52,6 +52,7 @@ import LiveBookingCalendar from "@/pages/LiveBookingCalendar";
 import RetailAgentBookingEngine from "@/pages/RetailAgentBookingEngine";
 import GuestPortal from "@/pages/GuestPortal";
 import GuestPortalMessaging from "@/pages/GuestPortalMessaging";
+import GuestPortalSmartRequests from "@/pages/GuestPortalSmartRequests";
 import FinanceEngine from "@/pages/FinanceEngine";
 import MaintenanceTaskSystem from "@/pages/MaintenanceTaskSystem";
 import MaintenanceUtilitiesRenovationTracker from "@/pages/MaintenanceUtilitiesRenovationTracker";
@@ -206,6 +207,7 @@ function Router() {
         <Route path="/guest-portal-messaging" component={GuestPortalMessaging} />
         <Route path="/guest-communication-center" component={GuestCommunicationCenter} />
         <Route path="/guest-portal-ai-feedback" component={GuestPortalAiFeedbackDashboard} />
+        <Route path="/guest-portal-smart-requests" component={GuestPortalSmartRequests} />
         <Route path="/guest-addon-services" component={GuestAddonServices} />
         <Route path="/enhanced-guest-dashboard" component={EnhancedGuestDashboard} />
         <Route path="/guest-checkout-survey" component={GuestCheckoutSurvey} />

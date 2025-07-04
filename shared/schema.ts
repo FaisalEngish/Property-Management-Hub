@@ -15,6 +15,9 @@ import {
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
+
+// Import Guest Portal schemas from separate file to avoid conflicts
+export * from "./guestPortalSchema";
 import { relations, gte, lte, and, isNotNull, isNull } from "drizzle-orm";
 
 // ===== MULTI-TENANT ARCHITECTURE =====
@@ -6368,37 +6371,7 @@ export const guestActivityTimeline = pgTable("guest_activity_timeline", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
-// Guest Chat Messages - AI chat and manual messages with staff
-export const guestChatMessages = pgTable("guest_chat_messages", {
-  id: serial("id").primaryKey(),
-  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
-  guestSessionId: integer("guest_session_id").references(() => guestPortalSessions.id).notNull(),
-  bookingId: integer("booking_id").references(() => bookings.id).notNull(),
-  messageType: varchar("message_type").notNull(), // guest_message, ai_response, staff_response
-  senderType: varchar("sender_type").notNull(), // guest, ai, staff
-  senderId: varchar("sender_id"), // References users.id if staff
-  messageContent: text("message_content").notNull(),
-  
-  // AI Processing
-  aiProcessed: boolean("ai_processed").default(false),
-  detectedIssue: varchar("detected_issue"), // complaint, maintenance, request
-  issueSeverity: varchar("issue_severity"), // low, medium, high, urgent
-  autoCreatedTaskId: integer("auto_created_task_id").references(() => tasks.id),
-  
-  // Staff Assignment and Alerts  
-  requiresStaffResponse: boolean("requires_staff_response").default(false),
-  staffAlerted: boolean("staff_alerted").default(false),
-  alertedStaffIds: jsonb("alerted_staff_ids"), // Array of staff member IDs
-  responseDeadline: timestamp("response_deadline"),
-  
-  // Message Metadata
-  readByGuest: boolean("read_by_guest").default(false),
-  readByStaff: boolean("read_by_staff").default(false),
-  messageThreadId: varchar("message_thread_id"), // Group related messages
-  
-  sentAt: timestamp("sent_at").defaultNow(),
-  createdAt: timestamp("created_at").defaultNow(),
-});
+// (Guest Chat Messages schema will be defined later in the file to avoid duplicates)
 
 // Guest AI FAQ Knowledge Base - Pre-configured responses for common questions
 export const guestAiFaqKnowledge = pgTable("guest_ai_faq_knowledge", {
@@ -6567,10 +6540,7 @@ export const insertGuestActivityTimelineSchema = createInsertSchema(guestActivit
   updatedAt: true,
 });
 
-export const insertGuestChatMessageSchema = createInsertSchema(guestChatMessages).omit({
-  id: true,
-  createdAt: true,
-});
+
 
 export const insertGuestAiFaqKnowledgeSchema = createInsertSchema(guestAiFaqKnowledge).omit({
   id: true,
@@ -6602,8 +6572,7 @@ export type GuestPortalSession = typeof guestPortalSessions.$inferSelect;
 export type InsertGuestPortalSession = z.infer<typeof insertGuestPortalSessionSchema>;
 export type GuestActivityTimeline = typeof guestActivityTimeline.$inferSelect;
 export type InsertGuestActivityTimeline = z.infer<typeof insertGuestActivityTimelineSchema>;
-export type GuestChatMessage = typeof guestChatMessages.$inferSelect;
-export type InsertGuestChatMessage = z.infer<typeof insertGuestChatMessageSchema>;
+
 export type GuestAiFaqKnowledge = typeof guestAiFaqKnowledge.$inferSelect;
 export type InsertGuestAiFaqKnowledge = z.infer<typeof insertGuestAiFaqKnowledgeSchema>;
 export type GuestAddonServiceRequest = typeof guestAddonServiceRequests.$inferSelect;
@@ -7927,32 +7896,7 @@ export const aiGeneratedTasks = pgTable("ai_generated_tasks", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
-// Guest Service Requests
-export const guestServiceRequests = pgTable("guest_service_requests", {
-  id: serial("id").primaryKey(),
-  organizationId: varchar("organization_id").notNull(),
-  guestId: varchar("guest_id").notNull(),
-  guestName: varchar("guest_name").notNull(),
-  bookingId: integer("booking_id"),
-  propertyId: integer("property_id").notNull(),
-  serviceType: varchar("service_type").notNull(), // massage, taxi, chef, cleaning, amenities
-  serviceName: varchar("service_name").notNull(),
-  requestedDate: timestamp("requested_date"),
-  requestedTime: varchar("requested_time"),
-  numberOfGuests: integer("number_of_guests").default(1),
-  specialRequests: text("special_requests"),
-  estimatedCost: decimal("estimated_cost", { precision: 10, scale: 2 }),
-  currency: varchar("currency").default("AUD"),
-  paymentMethod: varchar("payment_method"), // guest_charge, owner_sponsored, company_sponsored
-  status: varchar("status").default("pending"), // pending, confirmed, in_progress, completed, cancelled
-  confirmedBy: varchar("confirmed_by"),
-  confirmedAt: timestamp("confirmed_at"),
-  completedAt: timestamp("completed_at"),
-  guestRating: integer("guest_rating"), // 1-5 stars
-  guestFeedback: text("guest_feedback"),
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
-});
+
 
 // Guest Dashboard Analytics
 export const guestDashboardAnalytics = pgTable("guest_dashboard_analytics", {
@@ -8120,7 +8064,7 @@ export const guestCommunicationNotifications = pgTable("guest_communication_noti
   id: serial("id").primaryKey(),
   organizationId: varchar("organization_id").notNull(),
   messageId: integer("message_id").references(() => guestMessages.id),
-  serviceRequestId: integer("service_request_id").references(() => guestServiceRequests.id),
+  serviceRequestId: integer("service_request_id").references(() => guestAddonServiceRequests.id),
   taskId: integer("task_id").references(() => aiGeneratedTasks.id),
   recipientId: varchar("recipient_id").notNull(),
   recipientRole: varchar("recipient_role").notNull(), // staff, manager, admin
@@ -8185,17 +8129,7 @@ export const aiGeneratedTasksRelations = relations(aiGeneratedTasks, ({ one }) =
   }),
 }));
 
-export const guestServiceRequestsRelations = relations(guestServiceRequests, ({ one, many }) => ({
-  organization: one(organizations, {
-    fields: [guestServiceRequests.organizationId],
-    references: [organizations.id],
-  }),
-  property: one(properties, {
-    fields: [guestServiceRequests.propertyId],
-    references: [properties.id],
-  }),
-  notifications: many(guestCommunicationNotifications),
-}));
+
 
 export const aiSmartSuggestionsRelations = relations(aiSmartSuggestions, ({ one }) => ({
   organization: one(organizations, {
@@ -8217,9 +8151,9 @@ export const guestCommunicationNotificationsRelations = relations(guestCommunica
     fields: [guestCommunicationNotifications.messageId],
     references: [guestMessages.id],
   }),
-  serviceRequest: one(guestServiceRequests, {
+  serviceRequest: one(guestAddonServiceRequests, {
     fields: [guestCommunicationNotifications.serviceRequestId],
-    references: [guestServiceRequests.id],
+    references: [guestAddonServiceRequests.id],
   }),
   aiTask: one(aiGeneratedTasks, {
     fields: [guestCommunicationNotifications.taskId],

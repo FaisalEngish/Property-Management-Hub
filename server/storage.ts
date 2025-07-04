@@ -495,6 +495,7 @@ import {
   type InsertOwnerOnboardingDocument,
   type OwnerServiceSelection,
   type InsertOwnerServiceSelection,
+
   type StaffProfile,
   type InsertStaffProfile,
   type MonthlyPayrollRecord,
@@ -574,6 +575,32 @@ import {
   type ServiceAnalytics,
   type InsertServiceAnalytics,
 } from "@shared/schema";
+
+// Guest Portal Smart Requests & AI Chat imports
+import {
+  guestChatConversations,
+  guestChatMessages,
+  guestServiceRequests,
+  guestPreArrivalInfo,
+  guestConfirmedExtras,
+  reservationHistoryLog,
+  aiChatIntentAnalysis,
+  type GuestChatConversation,
+  type InsertGuestChatConversation,
+  type GuestChatMessage,
+  type InsertGuestChatMessage,
+  type GuestServiceRequest,
+  type InsertGuestServiceRequest,
+  type GuestPreArrivalInfo,
+  type InsertGuestPreArrivalInfo,
+  type GuestConfirmedExtras,
+  type InsertGuestConfirmedExtras,
+  type ReservationHistoryLog,
+  type InsertReservationHistoryLog,
+  type AiChatIntentAnalysis,
+  type InsertAiChatIntentAnalysis,
+} from "@shared/guestPortalSchema";
+
 import { db } from "./db";
 import { eq, and, or, desc, asc, lt, gte, lte, isNull, sql, sum, count, avg, max } from "drizzle-orm";
 
@@ -915,6 +942,64 @@ export interface IStorage {
     aiResponse: string | null;
   }>;
   getGuestAiFaqResponses(organizationId: string, propertyId?: number): Promise<GuestAiFaqKnowledge[]>;
+
+  // ===== GUEST PORTAL SMART REQUESTS & AI CHAT OPERATIONS =====
+
+  // Chat conversation operations
+  getGuestChatConversations(organizationId: string, filters?: { reservationId?: string; guestId?: string; propertyId?: number; status?: string }): Promise<GuestChatConversation[]>;
+  getGuestChatConversation(id: number): Promise<GuestChatConversation | undefined>;
+  createGuestChatConversation(conversation: InsertGuestChatConversation): Promise<GuestChatConversation>;
+  updateGuestChatConversation(id: number, conversation: Partial<InsertGuestChatConversation>): Promise<GuestChatConversation | undefined>;
+  getOrCreateGuestConversation(reservationId: string, guestId: string, propertyId: number): Promise<GuestChatConversation>;
+
+  // Chat message operations (enhanced for Smart Requests)
+  getGuestChatMessages(organizationId: string, conversationId: number, limit?: number): Promise<GuestChatMessage[]>;
+  getGuestChatMessage(id: number): Promise<GuestChatMessage | undefined>;
+  createGuestChatMessage(message: InsertGuestChatMessage): Promise<GuestChatMessage>;
+  markGuestChatMessageRead(id: number, readBy: string): Promise<GuestChatMessage | undefined>;
+
+  // Service request operations
+  getGuestServiceRequests(organizationId: string, filters?: { reservationId?: string; guestId?: string; status?: string; category?: string; propertyId?: number }): Promise<GuestServiceRequest[]>;
+  getGuestServiceRequest(id: number): Promise<GuestServiceRequest | undefined>;
+  createGuestServiceRequest(request: InsertGuestServiceRequest): Promise<GuestServiceRequest>;
+  updateGuestServiceRequest(id: number, request: Partial<InsertGuestServiceRequest>): Promise<GuestServiceRequest | undefined>;
+  approveGuestServiceRequest(id: number, approvedBy: string, estimatedCost?: number, assignedDepartment?: string): Promise<GuestServiceRequest | undefined>;
+  declineGuestServiceRequest(id: number, declinedBy: string, reason: string): Promise<GuestServiceRequest | undefined>;
+
+  // Pre-arrival info operations
+  getGuestPreArrivalInfo(organizationId: string, filters?: { reservationId?: string; guestId?: string; propertyId?: number }): Promise<GuestPreArrivalInfo[]>;
+  getGuestPreArrivalInfoByReservation(reservationId: string): Promise<GuestPreArrivalInfo | undefined>;
+  createGuestPreArrivalInfo(info: InsertGuestPreArrivalInfo): Promise<GuestPreArrivalInfo>;
+  updateGuestPreArrivalInfo(id: number, info: Partial<InsertGuestPreArrivalInfo>): Promise<GuestPreArrivalInfo | undefined>;
+
+  // Confirmed extras operations
+  getGuestConfirmedExtras(organizationId: string, filters?: { reservationId?: string; guestId?: string; scheduledDate?: string; status?: string }): Promise<GuestConfirmedExtras[]>;
+  getGuestConfirmedExtra(id: number): Promise<GuestConfirmedExtras | undefined>;
+  createGuestConfirmedExtra(extra: InsertGuestConfirmedExtras): Promise<GuestConfirmedExtras>;
+  updateGuestConfirmedExtra(id: number, extra: Partial<InsertGuestConfirmedExtras>): Promise<GuestConfirmedExtras | undefined>;
+
+  // Reservation history operations
+  getReservationHistoryLog(organizationId: string, reservationId: string, filters?: { actionType?: string; visibleToGuest?: boolean; limit?: number }): Promise<ReservationHistoryLog[]>;
+  createReservationHistoryLog(log: InsertReservationHistoryLog): Promise<ReservationHistoryLog>;
+
+  // AI intent analysis operations
+  getAiChatIntentAnalysis(organizationId: string, messageId: number): Promise<AiChatIntentAnalysis | undefined>;
+  createAiChatIntentAnalysis(analysis: InsertAiChatIntentAnalysis): Promise<AiChatIntentAnalysis>;
+  updateAiChatIntentAnalysis(id: number, analysis: Partial<InsertAiChatIntentAnalysis>): Promise<AiChatIntentAnalysis | undefined>;
+
+  // AI processing methods
+  analyzeMessageForServiceIntent(messageText: string, conversationId: number): Promise<{
+    intent: string;
+    confidence: number;
+    serviceCategory?: string;
+    extractedEntities: any;
+    suggestedActions: any[];
+  }>;
+  
+  // Automation and utilities
+  unlockPreArrivalAccess(reservationId: string, checkInDate: Date): Promise<boolean>;
+  generateServiceRequestFromMessage(messageId: number, intent: string, category: string): Promise<GuestServiceRequest | undefined>;
+  createTaskFromServiceRequest(serviceRequestId: number): Promise<Task | undefined>;
   
   // Guest Add-On Service Requests
   getAvailableAddonServices(organizationId: string, propertyId: number): Promise<GuestAddonService[]>;
@@ -1773,6 +1858,64 @@ export interface IStorage {
   getOwnerServiceSelections(organizationId: string, ownerId: string): Promise<OwnerServiceSelection[]>;
   createOwnerServiceSelection(selection: InsertOwnerServiceSelection): Promise<OwnerServiceSelection>;
   updateOwnerServiceSelection(id: number, selection: Partial<InsertOwnerServiceSelection>): Promise<OwnerServiceSelection | undefined>;
+
+  // ===== GUEST PORTAL SMART REQUESTS & AI CHAT =====
+
+  // Chat conversation operations
+  getGuestChatConversations(organizationId: string, filters?: { reservationId?: string; guestId?: string; propertyId?: number; status?: string }): Promise<GuestChatConversation[]>;
+  getGuestChatConversation(id: number): Promise<GuestChatConversation | undefined>;
+  createGuestChatConversation(conversation: InsertGuestChatConversation): Promise<GuestChatConversation>;
+  updateGuestChatConversation(id: number, conversation: Partial<InsertGuestChatConversation>): Promise<GuestChatConversation | undefined>;
+  getOrCreateGuestConversation(reservationId: string, guestId: string, propertyId: number): Promise<GuestChatConversation>;
+
+  // Chat message operations
+  getGuestChatMessages(organizationId: string, conversationId: number, limit?: number): Promise<GuestChatMessage[]>;
+  getGuestChatMessage(id: number): Promise<GuestChatMessage | undefined>;
+  createGuestChatMessage(message: InsertGuestChatMessage): Promise<GuestChatMessage>;
+  markGuestChatMessageRead(id: number, readBy: string): Promise<GuestChatMessage | undefined>;
+
+  // Service request operations
+  getGuestServiceRequests(organizationId: string, filters?: { reservationId?: string; guestId?: string; status?: string; category?: string; propertyId?: number }): Promise<GuestServiceRequest[]>;
+  getGuestServiceRequest(id: number): Promise<GuestServiceRequest | undefined>;
+  createGuestServiceRequest(request: InsertGuestServiceRequest): Promise<GuestServiceRequest>;
+  updateGuestServiceRequest(id: number, request: Partial<InsertGuestServiceRequest>): Promise<GuestServiceRequest | undefined>;
+  approveGuestServiceRequest(id: number, approvedBy: string, estimatedCost?: number, assignedDepartment?: string): Promise<GuestServiceRequest | undefined>;
+  declineGuestServiceRequest(id: number, declinedBy: string, reason: string): Promise<GuestServiceRequest | undefined>;
+
+  // Pre-arrival info operations
+  getGuestPreArrivalInfo(organizationId: string, filters?: { reservationId?: string; guestId?: string; propertyId?: number }): Promise<GuestPreArrivalInfo[]>;
+  getGuestPreArrivalInfoByReservation(reservationId: string): Promise<GuestPreArrivalInfo | undefined>;
+  createGuestPreArrivalInfo(info: InsertGuestPreArrivalInfo): Promise<GuestPreArrivalInfo>;
+  updateGuestPreArrivalInfo(id: number, info: Partial<InsertGuestPreArrivalInfo>): Promise<GuestPreArrivalInfo | undefined>;
+
+  // Confirmed extras operations
+  getGuestConfirmedExtras(organizationId: string, filters?: { reservationId?: string; guestId?: string; scheduledDate?: string; status?: string }): Promise<GuestConfirmedExtras[]>;
+  getGuestConfirmedExtra(id: number): Promise<GuestConfirmedExtras | undefined>;
+  createGuestConfirmedExtra(extra: InsertGuestConfirmedExtras): Promise<GuestConfirmedExtras>;
+  updateGuestConfirmedExtra(id: number, extra: Partial<InsertGuestConfirmedExtras>): Promise<GuestConfirmedExtras | undefined>;
+
+  // Reservation history operations
+  getReservationHistoryLog(organizationId: string, reservationId: string, filters?: { actionType?: string; visibleToGuest?: boolean; limit?: number }): Promise<ReservationHistoryLog[]>;
+  createReservationHistoryLog(log: InsertReservationHistoryLog): Promise<ReservationHistoryLog>;
+
+  // AI intent analysis operations
+  getAiChatIntentAnalysis(organizationId: string, messageId: number): Promise<AiChatIntentAnalysis | undefined>;
+  createAiChatIntentAnalysis(analysis: InsertAiChatIntentAnalysis): Promise<AiChatIntentAnalysis>;
+  updateAiChatIntentAnalysis(id: number, analysis: Partial<InsertAiChatIntentAnalysis>): Promise<AiChatIntentAnalysis | undefined>;
+
+  // AI processing methods
+  analyzeMessageForServiceIntent(messageText: string, conversationId: number): Promise<{
+    intent: string;
+    confidence: number;
+    serviceCategory?: string;
+    extractedEntities: any;
+    suggestedActions: any[];
+  }>;
+  
+  // Automation and utilities
+  unlockPreArrivalAccess(reservationId: string, checkInDate: Date): Promise<boolean>;
+  generateServiceRequestFromMessage(messageId: number, intent: string, category: string): Promise<GuestServiceRequest | undefined>;
+  createTaskFromServiceRequest(serviceRequestId: number): Promise<Task | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -28707,6 +28850,936 @@ Plant Care:
       };
     }
     return undefined;
+  }
+
+  // ===== GUEST PORTAL SMART REQUESTS & AI CHAT IMPLEMENTATION =====
+
+  // Chat conversation operations
+  async getGuestChatConversations(organizationId: string, filters?: { reservationId?: string; guestId?: string; propertyId?: number; status?: string }): Promise<GuestChatConversation[]> {
+    // Mock implementation for demo
+    const mockConversations = [
+      {
+        id: 1,
+        organizationId,
+        reservationId: filters?.reservationId || "Demo1234",
+        guestId: filters?.guestId || "guest-liam-andersen",
+        propertyId: filters?.propertyId || 1,
+        conversationTitle: "Liam's Stay at Villa Aruna",
+        status: "active",
+        priority: "normal",
+        aiEnabled: true,
+        aiLanguage: "en",
+        lastMessageAt: new Date("2025-07-04T14:30:00Z"),
+        unreadGuestMessages: 0,
+        unreadStaffMessages: 2,
+        createdAt: new Date("2025-07-05T08:00:00Z"),
+        updatedAt: new Date("2025-07-04T14:30:00Z"),
+      }
+    ];
+
+    return mockConversations.filter(conv => 
+      (!filters?.reservationId || conv.reservationId === filters.reservationId) &&
+      (!filters?.guestId || conv.guestId === filters.guestId) &&
+      (!filters?.propertyId || conv.propertyId === filters.propertyId) &&
+      (!filters?.status || conv.status === filters.status)
+    );
+  }
+
+  async getGuestChatConversation(id: number): Promise<GuestChatConversation | undefined> {
+    const conversations = await this.getGuestChatConversations("demo-org");
+    return conversations.find(conv => conv.id === id);
+  }
+
+  async createGuestChatConversation(conversation: InsertGuestChatConversation): Promise<GuestChatConversation> {
+    const newConversation: GuestChatConversation = {
+      id: Math.floor(Math.random() * 1000) + 100,
+      ...conversation,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    return newConversation;
+  }
+
+  async updateGuestChatConversation(id: number, conversation: Partial<InsertGuestChatConversation>): Promise<GuestChatConversation | undefined> {
+    const existing = await this.getGuestChatConversation(id);
+    if (existing) {
+      return {
+        ...existing,
+        ...conversation,
+        updatedAt: new Date(),
+      };
+    }
+    return undefined;
+  }
+
+  async getOrCreateGuestConversation(reservationId: string, guestId: string, propertyId: number): Promise<GuestChatConversation> {
+    const existing = await this.getGuestChatConversations("demo-org", { reservationId, guestId, propertyId });
+    if (existing.length > 0) {
+      return existing[0];
+    }
+    
+    return this.createGuestChatConversation({
+      organizationId: "demo-org",
+      reservationId,
+      guestId,
+      propertyId,
+      conversationTitle: `Guest Chat - ${reservationId}`,
+      status: "active",
+      priority: "normal",
+      aiEnabled: true,
+      aiLanguage: "en",
+      unreadGuestMessages: 0,
+      unreadStaffMessages: 0,
+    });
+  }
+
+  // Chat message operations
+  async getGuestChatMessages(organizationId: string, conversationId: number, limit?: number): Promise<GuestChatMessage[]> {
+    const mockMessages = [
+      {
+        id: 1,
+        organizationId,
+        conversationId,
+        messageType: "guest_message",
+        senderType: "guest",
+        senderId: null,
+        messageContent: "Hi! I'm checking in tomorrow and wondering about the pool heating. Is it possible to have it warmed up before we arrive?",
+        isRead: true,
+        readBy: "admin-123",
+        readAt: new Date("2025-07-04T14:31:00Z"),
+        aiProcessed: true,
+        intentDetected: "service_request",
+        confidenceScore: 85.5,
+        sentAt: new Date("2025-07-04T14:30:00Z"),
+        createdAt: new Date("2025-07-04T14:30:00Z"),
+      },
+      {
+        id: 2,
+        organizationId,
+        conversationId,
+        messageType: "ai_response",
+        senderType: "ai",
+        senderId: null,
+        messageContent: "Hello Liam! I've detected that you'd like the pool heated before your arrival. I've automatically created a service request for our pool team. They typically need 24 hours to bring the pool to the perfect temperature (28-30°C). I'll have someone confirm this for you shortly!",
+        isRead: false,
+        readBy: null,
+        readAt: null,
+        aiProcessed: false,
+        intentDetected: null,
+        confidenceScore: null,
+        sentAt: new Date("2025-07-04T14:31:00Z"),
+        createdAt: new Date("2025-07-04T14:31:00Z"),
+      },
+      {
+        id: 3,
+        organizationId,
+        conversationId,
+        messageType: "guest_message",
+        senderType: "guest",
+        senderId: null,
+        messageContent: "Perfect! Also, is there any way to get some groceries stocked? We're arriving late and won't be able to shop.",
+        isRead: false,
+        readBy: null,
+        readAt: null,
+        aiProcessed: true,
+        intentDetected: "service_request",
+        confidenceScore: 92.3,
+        sentAt: new Date("2025-07-04T14:32:00Z"),
+        createdAt: new Date("2025-07-04T14:32:00Z"),
+      }
+    ];
+
+    const filteredMessages = mockMessages.filter(msg => msg.conversationId === conversationId);
+    return limit ? filteredMessages.slice(0, limit) : filteredMessages;
+  }
+
+  async getGuestChatMessage(id: number): Promise<GuestChatMessage | undefined> {
+    const messages = await this.getGuestChatMessages("demo-org", 1);
+    return messages.find(msg => msg.id === id);
+  }
+
+  async createGuestChatMessage(message: InsertGuestChatMessage): Promise<GuestChatMessage> {
+    const newMessage: GuestChatMessage = {
+      id: Math.floor(Math.random() * 1000) + 100,
+      ...message,
+      isRead: false,
+      createdAt: new Date(),
+    };
+    return newMessage;
+  }
+
+  async markGuestChatMessageRead(id: number, readBy: string): Promise<GuestChatMessage | undefined> {
+    const message = await this.getGuestChatMessage(id);
+    if (message) {
+      return {
+        ...message,
+        isRead: true,
+        readBy,
+        readAt: new Date(),
+      };
+    }
+    return undefined;
+  }
+
+  // Service request operations
+  async getGuestServiceRequests(organizationId: string, filters?: { reservationId?: string; guestId?: string; status?: string; category?: string; propertyId?: number }): Promise<GuestServiceRequest[]> {
+    const mockRequests = [
+      {
+        id: 1,
+        organizationId,
+        conversationId: 1,
+        messageId: 1,
+        reservationId: filters?.reservationId || "Demo1234",
+        guestId: filters?.guestId || "guest-liam-andersen",
+        propertyId: filters?.propertyId || 1,
+        requestType: "amenity",
+        category: "heating",
+        title: "Pool Heating Request",
+        description: "Guest requested pool heating before arrival tomorrow. Needs 24 hours notice for optimal temperature.",
+        priority: "normal",
+        preferredDate: new Date("2025-07-05"),
+        preferredTime: "Before check-in",
+        estimatedDuration: 60,
+        guestCount: 4,
+        status: "approved",
+        approvedBy: "admin-123",
+        approvedAt: new Date("2025-07-04T14:35:00Z"),
+        declinedBy: null,
+        declinedAt: null,
+        declineReason: null,
+        assignedDepartment: "pool",
+        assignedTo: "pool-team-moo",
+        assignedAt: new Date("2025-07-04T14:36:00Z"),
+        estimatedCost: 500.00,
+        finalCost: null,
+        chargeToGuest: false,
+        completedAt: null,
+        completionNotes: null,
+        guestSatisfaction: null,
+        guestFeedback: null,
+        createdAt: new Date("2025-07-04T14:31:00Z"),
+        updatedAt: new Date("2025-07-04T14:36:00Z"),
+      },
+      {
+        id: 2,
+        organizationId,
+        conversationId: 1,
+        messageId: 3,
+        reservationId: filters?.reservationId || "Demo1234",
+        guestId: filters?.guestId || "guest-liam-andersen",
+        propertyId: filters?.propertyId || 1,
+        requestType: "food",
+        category: "delivery",
+        title: "Grocery Stocking Service",
+        description: "Guest arriving late and needs basic groceries stocked. Standard welcome pack + extras for 4 people.",
+        priority: "normal",
+        preferredDate: new Date("2025-07-05"),
+        preferredTime: "Before 4 PM check-in",
+        estimatedDuration: 120,
+        guestCount: 4,
+        status: "pending",
+        approvedBy: null,
+        approvedAt: null,
+        declinedBy: null,
+        declinedAt: null,
+        declineReason: null,
+        assignedDepartment: "concierge",
+        assignedTo: null,
+        assignedAt: null,
+        estimatedCost: 2500.00,
+        finalCost: null,
+        chargeToGuest: true,
+        completedAt: null,
+        completionNotes: null,
+        guestSatisfaction: null,
+        guestFeedback: null,
+        createdAt: new Date("2025-07-04T14:32:00Z"),
+        updatedAt: new Date("2025-07-04T14:32:00Z"),
+      }
+    ];
+
+    return mockRequests.filter(req => 
+      (!filters?.reservationId || req.reservationId === filters.reservationId) &&
+      (!filters?.guestId || req.guestId === filters.guestId) &&
+      (!filters?.status || req.status === filters.status) &&
+      (!filters?.category || req.category === filters.category) &&
+      (!filters?.propertyId || req.propertyId === filters.propertyId)
+    );
+  }
+
+  async getGuestServiceRequest(id: number): Promise<GuestServiceRequest | undefined> {
+    const requests = await this.getGuestServiceRequests("demo-org");
+    return requests.find(req => req.id === id);
+  }
+
+  async createGuestServiceRequest(request: InsertGuestServiceRequest): Promise<GuestServiceRequest> {
+    const newRequest: GuestServiceRequest = {
+      id: Math.floor(Math.random() * 1000) + 100,
+      ...request,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    return newRequest;
+  }
+
+  async updateGuestServiceRequest(id: number, request: Partial<InsertGuestServiceRequest>): Promise<GuestServiceRequest | undefined> {
+    const existing = await this.getGuestServiceRequest(id);
+    if (existing) {
+      return {
+        ...existing,
+        ...request,
+        updatedAt: new Date(),
+      };
+    }
+    return undefined;
+  }
+
+  async approveGuestServiceRequest(id: number, approvedBy: string, estimatedCost?: number, assignedDepartment?: string): Promise<GuestServiceRequest | undefined> {
+    const existing = await this.getGuestServiceRequest(id);
+    if (existing) {
+      return {
+        ...existing,
+        status: "approved",
+        approvedBy,
+        approvedAt: new Date(),
+        estimatedCost: estimatedCost || existing.estimatedCost,
+        assignedDepartment: assignedDepartment || existing.assignedDepartment,
+        updatedAt: new Date(),
+      };
+    }
+    return undefined;
+  }
+
+  async declineGuestServiceRequest(id: number, declinedBy: string, reason: string): Promise<GuestServiceRequest | undefined> {
+    const existing = await this.getGuestServiceRequest(id);
+    if (existing) {
+      return {
+        ...existing,
+        status: "declined",
+        declinedBy,
+        declinedAt: new Date(),
+        declineReason: reason,
+        updatedAt: new Date(),
+      };
+    }
+    return undefined;
+  }
+
+  // Pre-arrival info operations
+  async getGuestPreArrivalInfo(organizationId: string, filters?: { reservationId?: string; guestId?: string; propertyId?: number }): Promise<GuestPreArrivalInfo[]> {
+    const mockInfo = [
+      {
+        id: 1,
+        organizationId,
+        reservationId: filters?.reservationId || "Demo1234",
+        guestId: filters?.guestId || "guest-liam-andersen",
+        propertyId: filters?.propertyId || 1,
+        arrivalDate: new Date("2025-07-05"),
+        estimatedArrivalTime: "4:00 PM",
+        flightNumber: "TG116",
+        transportMethod: "taxi",
+        dietaryRestrictions: ["vegetarian", "no_nuts"],
+        allergies: ["shellfish"],
+        specialRequests: "Pool heating and grocery stocking requested via chat",
+        accessibilityNeeds: null,
+        emergencyContact: "Sarah Andersen",
+        emergencyPhone: "+47-9876-5432",
+        localContactNumber: "+66-88-123-4567",
+        airportTransferRequested: false,
+        groceryStockingRequested: true,
+        additionalCleaning: false,
+        infoCompleted: true,
+        completedAt: new Date("2025-07-04T15:00:00Z"),
+        unlocked48hBefore: true,
+        createdAt: new Date("2025-07-03T10:00:00Z"),
+        updatedAt: new Date("2025-07-04T15:00:00Z"),
+      }
+    ];
+
+    return mockInfo.filter(info => 
+      (!filters?.reservationId || info.reservationId === filters.reservationId) &&
+      (!filters?.guestId || info.guestId === filters.guestId) &&
+      (!filters?.propertyId || info.propertyId === filters.propertyId)
+    );
+  }
+
+  async getGuestPreArrivalInfoByReservation(reservationId: string): Promise<GuestPreArrivalInfo | undefined> {
+    const infoList = await this.getGuestPreArrivalInfo("demo-org", { reservationId });
+    return infoList[0];
+  }
+
+  async createGuestPreArrivalInfo(info: InsertGuestPreArrivalInfo): Promise<GuestPreArrivalInfo> {
+    const newInfo: GuestPreArrivalInfo = {
+      id: Math.floor(Math.random() * 1000) + 100,
+      ...info,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    return newInfo;
+  }
+
+  async updateGuestPreArrivalInfo(id: number, info: Partial<InsertGuestPreArrivalInfo>): Promise<GuestPreArrivalInfo | undefined> {
+    const existing = await this.getGuestPreArrivalInfoByReservation("Demo1234");
+    if (existing && existing.id === id) {
+      return {
+        ...existing,
+        ...info,
+        updatedAt: new Date(),
+      };
+    }
+    return undefined;
+  }
+
+  // Confirmed extras operations
+  async getGuestConfirmedExtras(organizationId: string, filters?: { reservationId?: string; guestId?: string; scheduledDate?: string; status?: string }): Promise<GuestConfirmedExtras[]> {
+    const mockExtras = [
+      {
+        id: 1,
+        organizationId,
+        reservationId: filters?.reservationId || "Demo1234",
+        guestId: filters?.guestId || "guest-liam-andersen",
+        serviceRequestId: 2,
+        serviceName: "Grocery Stocking - Welcome Pack Plus",
+        serviceCategory: "grocery",
+        serviceProvider: "Villa Concierge Service",
+        scheduledDate: new Date("2025-07-05"),
+        scheduledTime: "2:00 PM",
+        duration: 120,
+        unitPrice: 2500.00,
+        quantity: 1,
+        totalCost: 2500.00,
+        status: "confirmed",
+        paymentStatus: "pending",
+        specialInstructions: "Include fresh fruits, bread, milk, coffee, and basic Thai ingredients. Guest prefers organic where possible.",
+        guestNotes: "We're vegetarian family with nut allergies",
+        providerNotes: "Confirmed organic selection available. Will exclude all nuts.",
+        createdAt: new Date("2025-07-04T15:30:00Z"),
+        updatedAt: new Date("2025-07-04T15:30:00Z"),
+      }
+    ];
+
+    return mockExtras.filter(extra => 
+      (!filters?.reservationId || extra.reservationId === filters.reservationId) &&
+      (!filters?.guestId || extra.guestId === filters.guestId) &&
+      (!filters?.scheduledDate || extra.scheduledDate.toISOString().startsWith(filters.scheduledDate)) &&
+      (!filters?.status || extra.status === filters.status)
+    );
+  }
+
+  async getGuestConfirmedExtra(id: number): Promise<GuestConfirmedExtras | undefined> {
+    const extras = await this.getGuestConfirmedExtras("demo-org");
+    return extras.find(extra => extra.id === id);
+  }
+
+  async createGuestConfirmedExtra(extra: InsertGuestConfirmedExtras): Promise<GuestConfirmedExtras> {
+    const newExtra: GuestConfirmedExtras = {
+      id: Math.floor(Math.random() * 1000) + 100,
+      ...extra,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    return newExtra;
+  }
+
+  async updateGuestConfirmedExtra(id: number, extra: Partial<InsertGuestConfirmedExtras>): Promise<GuestConfirmedExtras | undefined> {
+    const existing = await this.getGuestConfirmedExtra(id);
+    if (existing) {
+      return {
+        ...existing,
+        ...extra,
+        updatedAt: new Date(),
+      };
+    }
+    return undefined;
+  }
+
+  // Reservation history operations
+  async getReservationHistoryLog(organizationId: string, reservationId: string, filters?: { actionType?: string; visibleToGuest?: boolean; limit?: number }): Promise<ReservationHistoryLog[]> {
+    const mockHistory = [
+      {
+        id: 1,
+        organizationId,
+        reservationId,
+        actionType: "check_in",
+        actionTitle: "Guest Check-in Scheduled",
+        actionDescription: "Liam Andersen family check-in scheduled for July 5th at 4:00 PM",
+        performedBy: "guest-liam-andersen",
+        performedByType: "guest",
+        visibleToGuest: true,
+        relatedEntityType: "booking",
+        relatedEntityId: 1,
+        createdAt: new Date("2025-07-03T10:00:00Z"),
+      },
+      {
+        id: 2,
+        organizationId,
+        reservationId,
+        actionType: "service_request",
+        actionTitle: "Pool Heating Requested",
+        actionDescription: "AI detected pool heating request from guest chat and automatically created service request",
+        performedBy: "ai-system",
+        performedByType: "system",
+        visibleToGuest: true,
+        relatedEntityType: "service_request",
+        relatedEntityId: 1,
+        createdAt: new Date("2025-07-04T14:31:00Z"),
+      },
+      {
+        id: 3,
+        organizationId,
+        reservationId,
+        actionType: "service_request",
+        actionTitle: "Pool Heating Approved",
+        actionDescription: "Pool heating request approved and assigned to pool team (Moo)",
+        performedBy: "admin-123",
+        performedByType: "staff",
+        visibleToGuest: true,
+        relatedEntityType: "service_request",
+        relatedEntityId: 1,
+        createdAt: new Date("2025-07-04T14:35:00Z"),
+      },
+      {
+        id: 4,
+        organizationId,
+        reservationId,
+        actionType: "service_request",
+        actionTitle: "Grocery Stocking Requested",
+        actionDescription: "AI detected grocery stocking request from guest chat",
+        performedBy: "ai-system",
+        performedByType: "system",
+        visibleToGuest: true,
+        relatedEntityType: "service_request",
+        relatedEntityId: 2,
+        createdAt: new Date("2025-07-04T14:32:00Z"),
+      }
+    ];
+
+    let filteredHistory = mockHistory.filter(entry => 
+      entry.reservationId === reservationId &&
+      (!filters?.actionType || entry.actionType === filters.actionType) &&
+      (filters?.visibleToGuest === undefined || entry.visibleToGuest === filters.visibleToGuest)
+    );
+
+    if (filters?.limit) {
+      filteredHistory = filteredHistory.slice(0, filters.limit);
+    }
+
+    return filteredHistory;
+  }
+
+  async createReservationHistoryLog(log: InsertReservationHistoryLog): Promise<ReservationHistoryLog> {
+    const newLog: ReservationHistoryLog = {
+      id: Math.floor(Math.random() * 1000) + 100,
+      ...log,
+      createdAt: new Date(),
+    };
+    return newLog;
+  }
+
+  // AI intent analysis operations
+  async getAiChatIntentAnalysis(organizationId: string, messageId: number): Promise<AiChatIntentAnalysis | undefined> {
+    const mockAnalysis = [
+      {
+        id: 1,
+        organizationId,
+        messageId: 1,
+        detectedIntent: "service_request",
+        confidenceScore: 85.5,
+        serviceCategory: "amenity",
+        urgency: "normal",
+        sentiment: "positive",
+        extractedEntities: {
+          service_type: "pool_heating",
+          timing: "before_arrival",
+          guest_count: 4,
+          property_area: "pool"
+        },
+        suggestedActions: [
+          {
+            action: "create_service_request",
+            confidence: 90,
+            parameters: {
+              category: "heating",
+              department: "pool",
+              estimated_cost: 500
+            }
+          },
+          {
+            action: "notify_staff",
+            confidence: 85,
+            parameters: {
+              urgency: "normal",
+              departments: ["pool", "operations"]
+            }
+          }
+        ],
+        aiModel: "gpt-4o",
+        processingTime: 1250,
+        createdAt: new Date("2025-07-04T14:30:30Z"),
+      },
+      {
+        id: 2,
+        organizationId,
+        messageId: 3,
+        detectedIntent: "service_request",
+        confidenceScore: 92.3,
+        serviceCategory: "food",
+        urgency: "normal",
+        sentiment: "positive",
+        extractedEntities: {
+          service_type: "grocery_stocking",
+          timing: "before_arrival",
+          guest_count: 4,
+          special_requirements: ["late_arrival", "no_shopping_possible"]
+        },
+        suggestedActions: [
+          {
+            action: "create_service_request",
+            confidence: 95,
+            parameters: {
+              category: "delivery",
+              department: "concierge",
+              estimated_cost: 2500,
+              charge_to_guest: true
+            }
+          },
+          {
+            action: "check_dietary_preferences",
+            confidence: 80,
+            parameters: {
+              check_pre_arrival_info: true
+            }
+          }
+        ],
+        aiModel: "gpt-4o",
+        processingTime: 980,
+        createdAt: new Date("2025-07-04T14:32:15Z"),
+      }
+    ];
+
+    return mockAnalysis.find(analysis => analysis.messageId === messageId);
+  }
+
+  async createAiChatIntentAnalysis(analysis: InsertAiChatIntentAnalysis): Promise<AiChatIntentAnalysis> {
+    const newAnalysis: AiChatIntentAnalysis = {
+      id: Math.floor(Math.random() * 1000) + 100,
+      ...analysis,
+      createdAt: new Date(),
+    };
+    return newAnalysis;
+  }
+
+  async updateAiChatIntentAnalysis(id: number, analysis: Partial<InsertAiChatIntentAnalysis>): Promise<AiChatIntentAnalysis | undefined> {
+    const existing = await this.getAiChatIntentAnalysis("demo-org", 1);
+    if (existing && existing.id === id) {
+      return {
+        ...existing,
+        ...analysis,
+      };
+    }
+    return undefined;
+  }
+
+  // AI processing methods
+  async analyzeMessageForServiceIntent(messageText: string, conversationId: number): Promise<{
+    intent: string;
+    confidence: number;
+    serviceCategory?: string;
+    extractedEntities: any;
+    suggestedActions: any[];
+  }> {
+    // Mock AI analysis implementation
+    const lowerMessage = messageText.toLowerCase();
+    
+    if (lowerMessage.includes('pool') && lowerMessage.includes('heat')) {
+      return {
+        intent: "service_request",
+        confidence: 85.5,
+        serviceCategory: "amenity",
+        extractedEntities: {
+          service_type: "pool_heating",
+          timing: "before_arrival",
+          property_area: "pool"
+        },
+        suggestedActions: [
+          {
+            action: "create_service_request",
+            confidence: 90,
+            parameters: { category: "heating", department: "pool" }
+          }
+        ]
+      };
+    }
+    
+    if (lowerMessage.includes('grocery') || lowerMessage.includes('food') || lowerMessage.includes('shopping')) {
+      return {
+        intent: "service_request",
+        confidence: 92.3,
+        serviceCategory: "food",
+        extractedEntities: {
+          service_type: "grocery_stocking",
+          timing: "before_arrival"
+        },
+        suggestedActions: [
+          {
+            action: "create_service_request",
+            confidence: 95,
+            parameters: { category: "delivery", department: "concierge" }
+          }
+        ]
+      };
+    }
+
+    return {
+      intent: "question",
+      confidence: 70.0,
+      extractedEntities: {},
+      suggestedActions: []
+    };
+  }
+  
+  // Automation and utilities
+  async unlockPreArrivalAccess(reservationId: string, checkInDate: Date): Promise<boolean> {
+    // Mock implementation for unlocking pre-arrival portal access
+    const twoDaysBeforeCheckIn = new Date(checkInDate);
+    twoDaysBeforeCheckIn.setDate(twoDaysBeforeCheckIn.getDate() - 2);
+    
+    const now = new Date();
+    return now >= twoDaysBeforeCheckIn;
+  }
+
+  async generateServiceRequestFromMessage(messageId: number, intent: string, category: string): Promise<GuestServiceRequest | undefined> {
+    const message = await this.getGuestChatMessage(messageId);
+    if (!message) return undefined;
+
+    const conversation = await this.getGuestChatConversation(message.conversationId);
+    if (!conversation) return undefined;
+
+    const serviceRequest = await this.createGuestServiceRequest({
+      organizationId: message.organizationId,
+      conversationId: message.conversationId,
+      messageId,
+      reservationId: conversation.reservationId,
+      guestId: conversation.guestId,
+      propertyId: conversation.propertyId,
+      requestType: category,
+      category,
+      title: `Auto-generated from chat: ${intent}`,
+      description: `Service request automatically created from guest message: "${message.messageContent}"`,
+      priority: "normal",
+      status: "pending",
+      chargeToGuest: false,
+    });
+
+    return serviceRequest;
+  }
+
+  async createTaskFromServiceRequest(serviceRequestId: number): Promise<Task | undefined> {
+    const serviceRequest = await this.getGuestServiceRequest(serviceRequestId);
+    if (!serviceRequest) return undefined;
+
+    // Create a corresponding task for staff
+    const task = await this.createTask({
+      organizationId: serviceRequest.organizationId,
+      title: `Guest Service: ${serviceRequest.title}`,
+      description: `${serviceRequest.description}\n\nGuest: ${serviceRequest.guestId}\nReservation: ${serviceRequest.reservationId}`,
+      priority: serviceRequest.priority === "urgent" ? "high" : serviceRequest.priority === "high" ? "medium" : "low",
+      status: "pending",
+      propertyId: serviceRequest.propertyId,
+      assignedTo: serviceRequest.assignedTo,
+      dueDate: serviceRequest.preferredDate,
+      department: serviceRequest.assignedDepartment || "general",
+      taskType: "guest_service",
+      estimatedDuration: serviceRequest.estimatedDuration || 60,
+    });
+
+    return task;
+  }
+
+  // ===== GUEST PORTAL SMART REQUESTS DEMO METHODS =====
+
+  async getGuestChatMessages(reservationId: string): Promise<any[]> {
+    // Demo chat messages for Demo1234 reservation
+    const demoMessages = [
+      {
+        id: 1,
+        organizationId: "Demo1234",
+        conversationId: 1,
+        senderType: "staff",
+        senderId: "demo-staff",
+        messageText: "Welcome to Villa Aruna! I'm here to help with any requests or questions during your stay.",
+        isSystemGenerated: false,
+        createdAt: new Date("2025-07-05T09:00:00Z"),
+      },
+      {
+        id: 2,
+        organizationId: "Demo1234", 
+        conversationId: 1,
+        senderType: "guest",
+        senderId: "demo-guest",
+        messageText: "Thank you! We'd love to book a massage for tomorrow evening. Is that possible?",
+        isSystemGenerated: false,
+        createdAt: new Date("2025-07-05T10:30:00Z"),
+      },
+      {
+        id: 3,
+        organizationId: "Demo1234",
+        conversationId: 1,
+        senderType: "staff",
+        senderId: "demo-ai",
+        messageText: "I've automatically created a spa service request for you. Our team will review and confirm availability shortly.",
+        isSystemGenerated: true,
+        createdAt: new Date("2025-07-05T10:31:00Z"),
+      },
+      {
+        id: 4,
+        organizationId: "Demo1234",
+        conversationId: 1,
+        senderType: "guest",
+        senderId: "demo-guest",
+        messageText: "Great! Also, could we get some extra towels for the pool area?",
+        isSystemGenerated: false,
+        createdAt: new Date("2025-07-05T11:15:00Z"),
+      },
+      {
+        id: 5,
+        organizationId: "Demo1234",
+        conversationId: 1,
+        senderType: "staff",
+        senderId: "demo-staff",
+        messageText: "Absolutely! I'll have housekeeping bring extra pool towels within the hour.",
+        isSystemGenerated: false,
+        createdAt: new Date("2025-07-05T11:20:00Z"),
+      }
+    ];
+
+    return demoMessages.filter(msg => msg.organizationId === reservationId);
+  }
+
+  async createGuestChatMessage(messageData: any): Promise<any> {
+    // Simulate creating a message and return with ID
+    const newMessage = {
+      id: Date.now(), // Simple ID generation
+      ...messageData,
+      createdAt: new Date(),
+    };
+    
+    return newMessage;
+  }
+
+  async analyzeMessageIntent(messageId: number, messageText: string): Promise<any> {
+    // AI intent analysis simulation
+    const text = messageText.toLowerCase();
+    
+    // Simple keyword-based intent detection
+    let intent = "general_inquiry";
+    let category = "general";
+    let requiresAction = false;
+    let confidence = 0.5;
+
+    if (text.includes("massage") || text.includes("spa") || text.includes("wellness")) {
+      intent = "spa_service_request";
+      category = "spa";
+      requiresAction = true;
+      confidence = 0.9;
+    } else if (text.includes("cleaning") || text.includes("towels") || text.includes("housekeeping")) {
+      intent = "housekeeping_request";
+      category = "housekeeping";
+      requiresAction = true;
+      confidence = 0.85;
+    } else if (text.includes("food") || text.includes("chef") || text.includes("dinner") || text.includes("meal")) {
+      intent = "dining_request";
+      category = "dining";
+      requiresAction = true;
+      confidence = 0.8;
+    } else if (text.includes("taxi") || text.includes("transport") || text.includes("airport") || text.includes("car")) {
+      intent = "transport_request";
+      category = "transport";
+      requiresAction = true;
+      confidence = 0.85;
+    }
+
+    return {
+      id: Date.now(),
+      messageId,
+      intent,
+      category,
+      confidence,
+      requiresAction,
+      extractedEntities: {},
+      createdAt: new Date(),
+    };
+  }
+
+  async getGuestServiceRequestsByReservation(reservationId: string): Promise<any[]> {
+    // Demo service requests for Demo1234
+    const demoRequests = [
+      {
+        id: 1,
+        organizationId: "Demo1234",
+        reservationId: "Demo1234",
+        guestName: "Liam Andersen",
+        propertyName: "Villa Aruna",
+        serviceType: "Spa Service",
+        description: "Couple's massage for tomorrow evening",
+        category: "spa",
+        status: "pending",
+        billingType: "guest_billable",
+        estimatedCost: 2800,
+        priority: "normal",
+        createdAt: new Date("2025-07-05T10:31:00Z"),
+        scheduledDate: new Date("2025-07-06T19:00:00Z"),
+      },
+      {
+        id: 2,
+        organizationId: "Demo1234",
+        reservationId: "Demo1234",
+        guestName: "Liam Andersen",
+        propertyName: "Villa Aruna",
+        serviceType: "Extra Pool Towels",
+        description: "Additional towels for pool area",
+        category: "housekeeping",
+        status: "accepted",
+        billingType: "included",
+        estimatedCost: 0,
+        priority: "low",
+        createdAt: new Date("2025-07-05T11:20:00Z"),
+        processedAt: new Date("2025-07-05T11:22:00Z"),
+      }
+    ];
+
+    return demoRequests.filter(req => req.reservationId === reservationId);
+  }
+
+  async updateGuestServiceRequest(id: number, updates: any): Promise<any> {
+    // Simulate updating a service request
+    const demoRequests = await this.getGuestServiceRequestsByReservation("Demo1234");
+    const request = demoRequests.find(req => req.id === id);
+    
+    if (request) {
+      return { ...request, ...updates, updatedAt: new Date() };
+    }
+    
+    return null;
+  }
+
+  async getPendingServiceRequestNotifications(): Promise<any[]> {
+    // Demo pending notifications for staff
+    const pendingRequests = [
+      {
+        id: 1,
+        guestName: "Liam Andersen",
+        propertyName: "Villa Aruna",
+        serviceType: "Spa Service",
+        description: "Couple's massage for tomorrow evening at 7 PM",
+        category: "spa",
+        estimatedCost: 2800,
+        priority: "normal",
+        createdAt: new Date("2025-07-05T10:31:00Z"),
+      }
+    ];
+
+    return pendingRequests;
   }
 }
 

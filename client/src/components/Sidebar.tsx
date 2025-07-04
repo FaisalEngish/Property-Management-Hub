@@ -237,6 +237,7 @@ const getRoleBasedMenus = (role: string): MenuSection[] => {
         items: [
           { label: "Chat Support", icon: MessageSquare, href: "/guest-communication-center" },
           { label: "Guest Portal", icon: Home, href: "/guest-portal" },
+          { label: "Smart Requests & AI Chat", icon: MessageSquare, href: "/guest-portal-smart-requests" },
         ]
       }
     ],

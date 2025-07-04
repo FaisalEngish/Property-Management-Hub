@@ -6008,6 +6008,124 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ===== GUEST PORTAL SMART REQUESTS & AI CHAT API ENDPOINTS =====
+
+  // Get chat messages for a reservation
+  app.get("/api/guest-portal/chat-messages/:reservationId", async (req, res) => {
+    try {
+      const { reservationId } = req.params;
+      const messages = await storage.getGuestChatMessages(reservationId);
+      res.json(messages);
+    } catch (error) {
+      console.error("Error fetching chat messages:", error);
+      res.status(500).json({ message: "Failed to fetch chat messages" });
+    }
+  });
+
+  // Send a new message
+  app.post("/api/guest-portal/send-message", async (req, res) => {
+    try {
+      const { reservationId, messageText, senderType, senderId } = req.body;
+      
+      // Create the message
+      const messageData = {
+        organizationId: "Demo1234", // Demo organization
+        conversationId: 1, // Demo conversation
+        senderType,
+        senderId,
+        messageText,
+        isSystemGenerated: false,
+      };
+
+      const message = await storage.createGuestChatMessage(messageData);
+      
+      // AI intent analysis for guest messages
+      if (senderType === "guest") {
+        const aiAnalysis = await storage.analyzeMessageIntent(message.id, messageText);
+        
+        if (aiAnalysis && aiAnalysis.requiresAction) {
+          // Generate service request automatically
+          await storage.generateServiceRequestFromMessage(message.id, aiAnalysis.intent, aiAnalysis.category);
+        }
+      }
+
+      res.json(message);
+    } catch (error) {
+      console.error("Error sending message:", error);
+      res.status(500).json({ message: "Failed to send message" });
+    }
+  });
+
+  // Get service requests for a reservation
+  app.get("/api/guest-portal/service-requests/:reservationId", async (req, res) => {
+    try {
+      const { reservationId } = req.params;
+      const requests = await storage.getGuestServiceRequestsByReservation(reservationId);
+      res.json(requests);
+    } catch (error) {
+      console.error("Error fetching service requests:", error);
+      res.status(500).json({ message: "Failed to fetch service requests" });
+    }
+  });
+
+  // Handle service request actions (accept/decline/edit)
+  app.post("/api/guest-portal/service-requests/:requestId/action", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { requestId } = req.params;
+      const { action, notes } = req.body;
+      const { role } = req.user;
+
+      if (!["admin", "portfolio-manager", "staff"].includes(role)) {
+        return res.status(403).json({ message: "Insufficient permissions" });
+      }
+
+      let status;
+      switch (action) {
+        case "accept":
+          status = "accepted";
+          break;
+        case "decline":
+          status = "declined";
+          break;
+        default:
+          return res.status(400).json({ message: "Invalid action" });
+      }
+
+      const updatedRequest = await storage.updateGuestServiceRequest(parseInt(requestId), {
+        status,
+        staffNotes: notes,
+        processedAt: new Date(),
+      });
+
+      // If accepted, create task automatically
+      if (status === "accepted" && updatedRequest) {
+        await storage.createTaskFromServiceRequest(updatedRequest.id);
+      }
+
+      res.json(updatedRequest);
+    } catch (error) {
+      console.error("Error processing service request action:", error);
+      res.status(500).json({ message: "Failed to process service request action" });
+    }
+  });
+
+  // Get pending notifications for staff
+  app.get("/api/guest-portal/notifications", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { role } = req.user;
+
+      if (!["admin", "portfolio-manager", "staff"].includes(role)) {
+        return res.status(403).json({ message: "Insufficient permissions" });
+      }
+
+      const notifications = await storage.getPendingServiceRequestNotifications();
+      res.json(notifications);
+    } catch (error) {
+      console.error("Error fetching notifications:", error);
+      res.status(500).json({ message: "Failed to fetch notifications" });
+    }
+  });
+
   // ===== STAFF SALARY, OVERTIME & INVOICE GENERATOR API ENDPOINTS =====
 
   // Staff Salary Profile Management
@@ -21353,6 +21471,286 @@ async function processGuestIssueForAI(issueReport: any) {
     } catch (error) {
       console.error("Error updating service selection:", error);
       res.status(500).json({ message: "Failed to update service selection" });
+    }
+  });
+
+  // ===== GUEST PORTAL SMART REQUESTS & AI CHAT API ROUTES =====
+
+  // Guest Chat Conversations
+  app.get("/api/guest-chat/conversations", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { reservationId, guestId, propertyId, status } = req.query;
+      const conversations = await storage.getGuestChatConversations("demo-org", {
+        reservationId, guestId, propertyId: propertyId ? parseInt(propertyId) : undefined, status
+      });
+      res.json(conversations);
+    } catch (error) {
+      console.error("Error fetching chat conversations:", error);
+      res.status(500).json({ message: "Failed to fetch chat conversations" });
+    }
+  });
+
+  app.get("/api/guest-chat/conversations/:id", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const conversationId = parseInt(req.params.id);
+      const conversation = await storage.getGuestChatConversation(conversationId);
+      
+      if (!conversation) {
+        return res.status(404).json({ message: "Conversation not found" });
+      }
+      
+      res.json(conversation);
+    } catch (error) {
+      console.error("Error fetching conversation:", error);
+      res.status(500).json({ message: "Failed to fetch conversation" });
+    }
+  });
+
+  app.post("/api/guest-chat/conversations", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const conversationData = {
+        ...req.body,
+        organizationId: "demo-org"
+      };
+      
+      const conversation = await storage.createGuestChatConversation(conversationData);
+      res.status(201).json(conversation);
+    } catch (error) {
+      console.error("Error creating conversation:", error);
+      res.status(500).json({ message: "Failed to create conversation" });
+    }
+  });
+
+  // Get or create conversation for a reservation
+  app.post("/api/guest-chat/conversations/get-or-create", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { reservationId, guestId, propertyId } = req.body;
+      const conversation = await storage.getOrCreateGuestConversation(reservationId, guestId, propertyId);
+      res.json(conversation);
+    } catch (error) {
+      console.error("Error getting or creating conversation:", error);
+      res.status(500).json({ message: "Failed to get or create conversation" });
+    }
+  });
+
+  // Guest Chat Messages
+  app.get("/api/guest-chat/conversations/:id/messages", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const conversationId = parseInt(req.params.id);
+      const { limit } = req.query;
+      
+      const messages = await storage.getGuestChatMessages("demo-org", conversationId, limit ? parseInt(limit) : undefined);
+      res.json(messages);
+    } catch (error) {
+      console.error("Error fetching chat messages:", error);
+      res.status(500).json({ message: "Failed to fetch chat messages" });
+    }
+  });
+
+  app.post("/api/guest-chat/messages", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const messageData = {
+        ...req.body,
+        organizationId: "demo-org"
+      };
+      
+      const message = await storage.createGuestChatMessage(messageData);
+      
+      // Process message with AI if it's a guest message
+      if (message.senderType === "guest") {
+        const aiAnalysis = await storage.analyzeMessageForServiceIntent(message.messageContent, message.conversationId);
+        
+        // Create AI intent analysis record
+        await storage.createAiChatIntentAnalysis({
+          organizationId: "demo-org",
+          messageId: message.id,
+          detectedIntent: aiAnalysis.intent,
+          confidenceScore: aiAnalysis.confidence,
+          serviceCategory: aiAnalysis.serviceCategory,
+          urgency: "normal",
+          sentiment: "positive",
+          extractedEntities: aiAnalysis.extractedEntities,
+          suggestedActions: aiAnalysis.suggestedActions,
+          aiModel: "gpt-4o",
+          processingTime: 1000,
+        });
+
+        // Auto-generate service request if confidence is high enough
+        if (aiAnalysis.confidence > 80 && aiAnalysis.intent === "service_request") {
+          await storage.generateServiceRequestFromMessage(message.id, aiAnalysis.intent, aiAnalysis.serviceCategory || "general");
+        }
+
+        // Generate AI response
+        const aiResponse = await storage.createGuestChatMessage({
+          organizationId: "demo-org",
+          conversationId: message.conversationId,
+          messageType: "ai_response",
+          senderType: "ai",
+          senderId: null,
+          messageContent: `I've received your request and ${aiAnalysis.confidence > 80 ? 'automatically created a service request' : 'forwarded it to our team'}. Someone will assist you shortly!`,
+          aiProcessed: false,
+          intentDetected: null,
+          confidenceScore: null,
+        });
+
+        res.status(201).json({ message, aiResponse, analysis: aiAnalysis });
+      } else {
+        res.status(201).json(message);
+      }
+    } catch (error) {
+      console.error("Error creating chat message:", error);
+      res.status(500).json({ message: "Failed to create chat message" });
+    }
+  });
+
+  app.put("/api/guest-chat/messages/:id/read", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const messageId = parseInt(req.params.id);
+      const { readBy } = req.body;
+      
+      const message = await storage.markGuestChatMessageRead(messageId, readBy);
+      if (!message) {
+        return res.status(404).json({ message: "Message not found" });
+      }
+      
+      res.json(message);
+    } catch (error) {
+      console.error("Error marking message as read:", error);
+      res.status(500).json({ message: "Failed to mark message as read" });
+    }
+  });
+
+  // Guest Service Requests
+  app.get("/api/guest-service-requests", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { reservationId, guestId, status, category, propertyId } = req.query;
+      const requests = await storage.getGuestServiceRequests("demo-org", {
+        reservationId, guestId, status, category, propertyId: propertyId ? parseInt(propertyId) : undefined
+      });
+      res.json(requests);
+    } catch (error) {
+      console.error("Error fetching service requests:", error);
+      res.status(500).json({ message: "Failed to fetch service requests" });
+    }
+  });
+
+  app.get("/api/guest-service-requests/:id", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const requestId = parseInt(req.params.id);
+      const request = await storage.getGuestServiceRequest(requestId);
+      
+      if (!request) {
+        return res.status(404).json({ message: "Service request not found" });
+      }
+      
+      res.json(request);
+    } catch (error) {
+      console.error("Error fetching service request:", error);
+      res.status(500).json({ message: "Failed to fetch service request" });
+    }
+  });
+
+  app.post("/api/guest-service-requests", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const requestData = {
+        ...req.body,
+        organizationId: "demo-org"
+      };
+      
+      const request = await storage.createGuestServiceRequest(requestData);
+      res.status(201).json(request);
+    } catch (error) {
+      console.error("Error creating service request:", error);
+      res.status(500).json({ message: "Failed to create service request" });
+    }
+  });
+
+  app.put("/api/guest-service-requests/:id/approve", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const requestId = parseInt(req.params.id);
+      const { approvedBy, estimatedCost, assignedDepartment } = req.body;
+      
+      const request = await storage.approveGuestServiceRequest(requestId, approvedBy, estimatedCost, assignedDepartment);
+      if (!request) {
+        return res.status(404).json({ message: "Service request not found" });
+      }
+      
+      // Create corresponding task
+      await storage.createTaskFromServiceRequest(requestId);
+      
+      res.json(request);
+    } catch (error) {
+      console.error("Error approving service request:", error);
+      res.status(500).json({ message: "Failed to approve service request" });
+    }
+  });
+
+  app.put("/api/guest-service-requests/:id/decline", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const requestId = parseInt(req.params.id);
+      const { declinedBy, reason } = req.body;
+      
+      const request = await storage.declineGuestServiceRequest(requestId, declinedBy, reason);
+      if (!request) {
+        return res.status(404).json({ message: "Service request not found" });
+      }
+      
+      res.json(request);
+    } catch (error) {
+      console.error("Error declining service request:", error);
+      res.status(500).json({ message: "Failed to decline service request" });
+    }
+  });
+
+  // Pre-arrival Information
+  app.get("/api/guest-pre-arrival", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { reservationId, guestId, propertyId } = req.query;
+      const info = await storage.getGuestPreArrivalInfo("demo-org", {
+        reservationId, guestId, propertyId: propertyId ? parseInt(propertyId) : undefined
+      });
+      res.json(info);
+    } catch (error) {
+      console.error("Error fetching pre-arrival info:", error);
+      res.status(500).json({ message: "Failed to fetch pre-arrival info" });
+    }
+  });
+
+  app.get("/api/guest-pre-arrival/reservation/:reservationId", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { reservationId } = req.params;
+      const info = await storage.getGuestPreArrivalInfoByReservation(reservationId);
+      res.json(info);
+    } catch (error) {
+      console.error("Error fetching pre-arrival info by reservation:", error);
+      res.status(500).json({ message: "Failed to fetch pre-arrival info" });
+    }
+  });
+
+  app.post("/api/guest-pre-arrival", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const infoData = {
+        ...req.body,
+        organizationId: "demo-org"
+      };
+      
+      const info = await storage.createGuestPreArrivalInfo(infoData);
+      res.status(201).json(info);
+    } catch (error) {
+      console.error("Error creating pre-arrival info:", error);
+      res.status(500).json({ message: "Failed to create pre-arrival info" });
+    }
+  });
+
+  // Test AI message analysis endpoint
+  app.post("/api/ai-analyze-message", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { messageText, conversationId } = req.body;
+      const analysis = await storage.analyzeMessageForServiceIntent(messageText, conversationId);
+      res.json(analysis);
+    } catch (error) {
+      console.error("Error analyzing message:", error);
+      res.status(500).json({ message: "Failed to analyze message" });
     }
   });
 

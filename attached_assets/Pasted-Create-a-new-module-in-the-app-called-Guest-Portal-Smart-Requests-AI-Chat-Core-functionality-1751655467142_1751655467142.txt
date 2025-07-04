@@ -1,0 +1,43 @@
+Create a new module in the app called “Guest Portal Smart Requests & AI Chat”.
+
+Core functionality:
+
+1. Add an AI-powered chat interface to the Guest Dashboard. It should feel like a messaging box with a clean UI (like Messenger or Airbnb chat). This interface must be linked to the guest’s reservation (use Hostaway ID or for demo use “Demo1234”).
+
+2. Any message typed by the guest is scanned by AI for intent. If the message relates to a service (e.g. “We want a massage,” “Can we have early check-in?”), it should automatically generate a request ticket linked to their reservation.
+
+3. Admin/Host/Manager sees this request in a notification center with buttons: Accept / Edit / Decline.
+
+4. Once accepted:
+  - The service request is visible in the guest dashboard under a new tab: “Confirmed Extras & Requests.”
+  - A task is auto-created and assigned to the correct department (e.g. massage → therapist, extra bed → housekeeping).
+  - On the internal team side, this is stored inside the guest’s reservation record.
+
+5. Every service request has a field to tag it as:
+   - Guest-Billable
+   - Owner-Billable
+   - Included
+   - Complimentary
+
+6. Included and Complimentary are still logged for internal tracking and reporting purposes.
+
+7. From 7 days before check-in, unlock access to:
+   - Arrival details form (airport, flight, time)
+   - Book services
+   - House manual
+   - Area recommendations
+   - Cleaning and service schedules
+   - Optional add-ons
+
+8. Internal team can also manually add requests or services to the reservation, which will then show in the guest’s dashboard too.
+
+9. All service-related actions are timestamped and stored in the reservation history log. These are viewable by Admin, Host, or assigned Portfolio Manager.
+
+10. Bonus: If possible, allow a guest comment to trigger this logic even if typed freely. If not, provide a dropdown with common requests to simplify processing.
+
+Ensure this whole module is modular so it can be upgraded later with:
+  - Survey on check-out
+  - Review AI suggestions
+  - Hostaway chat/API integration if allowed
+
+Start with demo reservation Demo1234 and build out fake tasks, chat history, and responses.
