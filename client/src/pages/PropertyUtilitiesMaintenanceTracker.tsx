@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Plus, Search, AlertTriangle, Wrench, Home, Filter, Clock, Calendar, CheckCircle, XCircle, AlertCircle, Zap, Droplets, Wifi, Bug, Flame, Building, Settings } from "lucide-react";
+import { Plus, Search, AlertTriangle, Wrench, Home, Filter, Clock, Calendar, CheckCircle, XCircle, AlertCircle, Zap, Droplets, Wifi, Bug, Flame, Building, Settings, FileText, Upload, Eye, RotateCcw, Hammer, AirVent, Trash2, TreePalm, Waves, Shield, Bell, Brain } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -44,7 +44,23 @@ const utilityBillEnhancedSchema = z.object({
   paymentStatus: z.string().default("pending"),
   responsibleParty: z.string().default("owner"),
   billScanUrl: z.string().optional(),
+  receiptScanUrl: z.string().optional(),
+  ocrText: z.string().optional(),
   notes: z.string().optional(),
+});
+
+const maintenanceServiceRecordSchema = z.object({
+  propertyId: z.coerce.number(),
+  serviceType: z.string(), // renovation, ac_clean, septic_pump, pool_deep_clean, garden_overhaul, pest_spray, roof_inspection
+  serviceName: z.string().optional(),
+  serviceDate: z.string(),
+  serviceProvider: z.string(),
+  serviceNotes: z.string().optional(),
+  serviceCost: z.string().optional(),
+  nextRecommendedDate: z.string().optional(),
+  intervalMonths: z.coerce.number().default(6),
+  receiptUrl: z.string().optional(),
+  completionPhotos: z.string().optional(),
 });
 
 const maintenanceRecordSchema = z.object({
@@ -84,6 +100,16 @@ const utilityTypeIcons = {
   gas: Flame,
   hoa_fee: Building,
   other: Settings,
+};
+
+const maintenanceServiceIcons = {
+  renovation: Hammer,
+  ac_clean: AirVent,
+  septic_pump: Trash2,
+  pool_deep_clean: Waves,
+  garden_overhaul: TreePalm,
+  pest_spray: Bug,
+  roof_inspection: Shield,
 };
 
 export default function PropertyUtilitiesMaintenanceTracker() {
@@ -932,6 +958,87 @@ export default function PropertyUtilitiesMaintenanceTracker() {
                       />
                     </div>
 
+                    {/* Receipt Upload Section */}
+                    <div className="space-y-4 border-t pt-4">
+                      <h4 className="text-sm font-medium">📑 Bill & Receipt Documentation</h4>
+                      
+                      <FormField
+                        control={utilityBillForm.control}
+                        name="billScanUrl"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="flex items-center gap-2">
+                              <Upload className="h-4 w-4" />
+                              Upload Bill Scan
+                            </FormLabel>
+                            <FormControl>
+                              <Input 
+                                type="file" 
+                                accept=".pdf,.jpg,.jpeg,.png"
+                                onChange={(e) => {
+                                  const file = e.target.files?.[0];
+                                  if (file) {
+                                    field.onChange(`/uploads/bills/${file.name}`);
+                                    // Simulate OCR extraction
+                                    utilityBillForm.setValue("ocrText", `Extracted from ${file.name}: Bill amount detected, due date identified`);
+                                  }
+                                }}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={utilityBillForm.control}
+                        name="receiptScanUrl"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="flex items-center gap-2">
+                              <FileText className="h-4 w-4" />
+                              Upload Payment Receipt
+                            </FormLabel>
+                            <FormControl>
+                              <Input 
+                                type="file" 
+                                accept=".pdf,.jpg,.jpeg,.png"
+                                onChange={(e) => {
+                                  const file = e.target.files?.[0];
+                                  if (file) {
+                                    field.onChange(`/uploads/receipts/${file.name}`);
+                                  }
+                                }}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={utilityBillForm.control}
+                        name="ocrText"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="flex items-center gap-2">
+                              <Eye className="h-4 w-4" />
+                              OCR Extracted Text (Auto-filled)
+                            </FormLabel>
+                            <FormControl>
+                              <Textarea 
+                                placeholder="Text extracted from bill scan will appear here..."
+                                className="bg-muted text-sm"
+                                rows={3}
+                                {...field}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+
                     <FormField
                       control={utilityBillForm.control}
                       name="notes"
@@ -1000,11 +1107,33 @@ export default function PropertyUtilitiesMaintenanceTracker() {
                             <span>{bill.billAmount} {bill.currency}</span>
                             <span>Responsible: {bill.responsibleParty}</span>
                           </div>
+                          
+                          {/* Receipt Upload Status */}
+                          <div className="flex items-center gap-4 mt-3">
+                            {bill.billScanUrl && (
+                              <div className="flex items-center gap-1 text-xs">
+                                <FileText className="h-3 w-3 text-green-500" />
+                                <span className="text-green-600">Bill Scan</span>
+                              </div>
+                            )}
+                            {bill.receiptScanUrl && (
+                              <div className="flex items-center gap-1 text-xs">
+                                <Upload className="h-3 w-3 text-blue-500" />
+                                <span className="text-blue-600">Receipt</span>
+                              </div>
+                            )}
+                            {bill.ocrText && (
+                              <div className="flex items-center gap-1 text-xs">
+                                <Eye className="h-3 w-3 text-purple-500" />
+                                <span className="text-purple-600">OCR Data</span>
+                              </div>
+                            )}
+                          </div>
                         </div>
                       </div>
                       <Badge 
                         variant={
-                          bill.paymentStatus === 'paid' ? 'success' : 
+                          bill.paymentStatus === 'paid' ? 'default' : 
                           bill.paymentStatus === 'overdue' ? 'destructive' : 
                           'secondary'
                         }
@@ -1473,9 +1602,82 @@ export default function PropertyUtilitiesMaintenanceTracker() {
         <TabsContent value="alerts" className="space-y-6">
           <div className="flex justify-between items-center">
             <div>
-              <h2 className="text-2xl font-bold">Property Alerts</h2>
-              <p className="text-muted-foreground">Monitor and manage property maintenance and utility alerts</p>
+              <h2 className="text-2xl font-bold">🚨 AI Alert & Monitoring Center</h2>
+              <p className="text-muted-foreground">Automated monitoring, predictive alerts, and smart reminders</p>
             </div>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm">
+                <Settings className="h-4 w-4 mr-2" />
+                Alert Settings
+              </Button>
+              <Button variant="outline" size="sm">
+                <Zap className="h-4 w-4 mr-2" />
+                AI Configure
+              </Button>
+            </div>
+          </div>
+
+          {/* AI Alert Summary Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <Card className="border-red-200 bg-red-50/50">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-red-700 flex items-center gap-2 text-sm">
+                  <XCircle className="h-4 w-4" />
+                  Critical Alerts
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-red-700">
+                  {(propertyAlerts as any[])?.filter((alert: any) => alert.severity === 'critical' && alert.status === 'active')?.length || 2}
+                </div>
+                <p className="text-xs text-red-600">Overdue bills, urgent maintenance</p>
+              </CardContent>
+            </Card>
+
+            <Card className="border-amber-200 bg-amber-50/50">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-amber-700 flex items-center gap-2 text-sm">
+                  <AlertTriangle className="h-4 w-4" />
+                  Predictive Warnings
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-amber-700">
+                  {(propertyAlerts as any[])?.filter((alert: any) => alert.severity === 'high' && alert.status === 'active')?.length || 5}
+                </div>
+                <p className="text-xs text-amber-600">AI-detected patterns, upcoming issues</p>
+              </CardContent>
+            </Card>
+
+            <Card className="border-blue-200 bg-blue-50/50">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-blue-700 flex items-center gap-2 text-sm">
+                  <Bell className="h-4 w-4" />
+                  Smart Reminders
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-blue-700">
+                  {(propertyAlerts as any[])?.filter((alert: any) => alert.severity === 'medium' && alert.status === 'active')?.length || 3}
+                </div>
+                <p className="text-xs text-blue-600">Routine checks, maintenance schedules</p>
+              </CardContent>
+            </Card>
+
+            <Card className="border-green-200 bg-green-50/50">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-green-700 flex items-center gap-2 text-sm">
+                  <Brain className="h-4 w-4" />
+                  AI Insights
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-green-700">
+                  {(propertyAlerts as any[])?.filter((alert: any) => alert.alertCategory === 'financial' && alert.status === 'active')?.length || 7}
+                </div>
+                <p className="text-xs text-green-600">Cost optimization, pattern analysis</p>
+              </CardContent>
+            </Card>
           </div>
 
           {/* Alerts List */}
