@@ -717,3 +717,150 @@ enableTimelineTracking({
     "Deposit & Compensation Notes"
   ]
 });
+
+// Function to setup check-out wizard for host/manager roles
+export function setupCheckOutWizard(config: any) {
+  console.log(`🧙‍♂️ Setting up check-out wizard for property: ${config.propertyId}`);
+  console.log(`📋 Booking ID: ${config.bookingId}`);
+  console.log(`👥 Enabled for Roles: ${config.enabledForRoles.join(", ")}`);
+  
+  console.log(`📝 Wizard Steps (${config.steps.length}):`);
+  config.steps.forEach((step: any, index: number) => {
+    console.log(`   ${index + 1}. ${step.name}`);
+    
+    if (step.actions) {
+      console.log(`      📋 Actions:`);
+      step.actions.forEach((action: string, actionIndex: number) => {
+        console.log(`         ${actionIndex + 1}. ${action}`);
+      });
+    }
+    
+    if (step.fields) {
+      console.log(`      📊 Fields:`);
+      step.fields.forEach((field: any, fieldIndex: number) => {
+        console.log(`         ${fieldIndex + 1}. ${field.label}`);
+        if (field.valueFrom) console.log(`            📍 Source: ${field.valueFrom}`);
+        if (field.readonly) console.log(`            🔒 Read-only: ${field.readonly}`);
+        if (field.required) console.log(`            ⚠️ Required: ${field.required}`);
+        if (field.validation) console.log(`            ✅ Validation: ${field.validation}`);
+      });
+    }
+    
+    if (step.calculations) {
+      console.log(`      🧮 Calculations:`);
+      step.calculations.forEach((calc: any, calcIndex: number) => {
+        console.log(`         ${calcIndex + 1}. ${calc.field}: ${calc.formula}`);
+        if (calc.displayAs) console.log(`            💰 Display: ${calc.displayAs}`);
+      });
+    }
+    
+    if (step.confirmations) {
+      console.log(`      ✅ Confirmations:`);
+      step.confirmations.forEach((confirmation: string, confIndex: number) => {
+        console.log(`         ${confIndex + 1}. ${confirmation}`);
+      });
+    }
+  });
+  
+  return {
+    propertyId: config.propertyId,
+    bookingId: config.bookingId,
+    stepsCount: config.steps.length,
+    enabledRoles: config.enabledForRoles,
+    status: "configured"
+  };
+}
+
+// Check-Out Wizard for Scheduled Tasks (Used by Host/Manager)
+setupCheckOutWizard({
+  enabledForRoles: ["Host", "Manager", "Admin"],
+  propertyId: "villa-aruna",
+  bookingId: "Demo1234",
+  steps: [
+    {
+      name: "Confirm Guest Departure",
+      actions: [
+        "Confirm all guests have vacated the villa",
+        "Take a photo of passport page again (for legal compliance)"
+      ]
+    },
+    {
+      name: "Electricity Meter Capture",
+      fields: [
+        {
+          label: "Check-In Meter (Auto Synced)",
+          valueFrom: "GuestProfile.electricity.startReading", // 1000 kWh
+          readonly: true
+        },
+        {
+          label: "Check-Out Meter Reading",
+          required: true,
+          validation: "Must be >= check-in reading"
+        },
+        {
+          label: "Meter Photo Evidence",
+          required: true,
+          type: "file_upload"
+        }
+      ],
+      calculations: [
+        {
+          field: "Total Usage (kWh)",
+          formula: "checkOutReading - checkInReading",
+          displayAs: "100 kWh"
+        },
+        {
+          field: "Electricity Cost",
+          formula: "usage * ratePerKwh",
+          displayAs: "700 THB (100 kWh × 7 THB/kWh)"
+        }
+      ]
+    },
+    {
+      name: "Deposit Settlement",
+      fields: [
+        {
+          label: "Original Deposit",
+          valueFrom: "GuestProfile.deposit.amount", // 8000 THB
+          readonly: true
+        },
+        {
+          label: "Electricity Deduction",
+          valueFrom: "calculated.electricityCost", // 700 THB
+          readonly: true
+        },
+        {
+          label: "Additional Damages/Costs",
+          required: false,
+          defaultValue: 0
+        },
+        {
+          label: "Cleaning Fee Override",
+          required: false,
+          defaultValue: 0
+        }
+      ],
+      calculations: [
+        {
+          field: "Total Deductions",
+          formula: "electricityCost + damages + cleaningFee",
+          displayAs: "700 THB"
+        },
+        {
+          field: "Refund Amount",
+          formula: "originalDeposit - totalDeductions",
+          displayAs: "7,300 THB"
+        }
+      ]
+    },
+    {
+      name: "Final Confirmations",
+      confirmations: [
+        "Guest has received deposit refund (if applicable)",
+        "All villa keys have been returned",
+        "Property condition documented with photos",
+        "Guest departure logged in system timeline"
+      ]
+    }
+  ]
+});
