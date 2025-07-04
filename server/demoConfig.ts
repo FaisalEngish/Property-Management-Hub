@@ -119,16 +119,17 @@ export const DEMO_ELECTRICITY = {
     recordedBy: "Host Thura"
   },
   checkOut: {
-    checkOutReading: null, // Will be set at checkout
-    checkOutPhoto: null,
-    checkOutMethod: null,
-    checkOutDate: null,
-    checkOutTime: null,
-    electricityUsed: null,
+    checkOutReading: 1100,
+    checkOutPhoto: "https://example.com/uploads/demo-meter-checkout.jpg",
+    checkOutMethod: "manual_entry",
+    checkOutDate: "2025-07-05",
+    checkOutTime: "11:00",
+    electricityUsed: 100, // 1100 - 1000 = 100 kWh
     ratePerKwh: 7.0,
-    totalCharge: null,
-    paymentStatus: "not_charged_yet",
-    billingStatus: "To be charged to guest"
+    totalCharge: 700, // 100 kWh x 7 THB = 700 THB
+    paymentStatus: "deducted_from_deposit",
+    billingStatus: "Charged to guest via deposit deduction",
+    recordedBy: "Host Thura"
   },
   included: false,
   chargedTo: "guest",
@@ -143,16 +144,19 @@ export const DEMO_DEPOSIT = {
   depositAmount: 8000.00,
   depositCurrency: "THB", 
   depositReceiptPhoto: "https://via.placeholder.com/300x200?text=Cash+Deposit+Receipt+8000+THB",
-  refundAmount: 8000.00,
+  refundAmount: 7300.00,
   refundCurrency: "THB",
   refundMethod: "cash",
-  refundStatus: "received",
-  refundReceiptPhoto: null,
+  refundStatus: "refunded",
+  refundReceiptPhoto: "https://via.placeholder.com/300x200?text=Deposit+Refund+7300+THB",
+  electricityDeduction: 700.00,
   discountAmount: 0.00,
   discountReason: null,
   receivedBy: "Host (Jane)",
   receivedDate: "2025-07-01",
-  notes: "Guest paid cash deposit at check-in"
+  refundedBy: "Host Thura",
+  refundDate: "2025-07-05",
+  notes: "Guest paid cash deposit at check-in. 700 THB deducted for electricity usage (100 kWh × 7 THB/kWh)."
 } as const;
 
 // Helper function to bind all demo data to reservation
@@ -414,3 +418,60 @@ const checkInMeterData = {
 
 // Log into guest profile + dashboard
 logCheckInElectricityData(checkInMeterData);
+
+// Function to process guest check-out with electricity billing and deposit refund
+export function processGuestCheckOut(checkOutData: any) {
+  console.log(`🏃 Guest check-out processed for reservation: ${checkOutData.reservationId}`);
+  console.log(`📅 Check-out Date: ${checkOutData.checkOutDate}`);
+  console.log(`📊 Final Meter Reading: ${checkOutData.meterEndReading} kWh`);
+  console.log(`⚡ Electricity Usage: ${checkOutData.meterEndReading - 1000} kWh`);
+  console.log(`💰 Electricity Rate: ${checkOutData.electricityRate} THB per kWh`);
+  console.log(`💵 Total Electricity Charge: ${checkOutData.electricityCharge} THB`);
+  console.log(`🏦 Deposit Held: ${checkOutData.depositHeld} THB`);
+  console.log(`💳 Deposit Refund: ${checkOutData.depositRefund} THB`);
+  console.log(`📝 Refund Reason: ${checkOutData.refundReason}`);
+  console.log(`📸 Final Meter Photo: ${checkOutData.visualMeterProofUrl}`);
+  console.log(`👤 Recorded by: ${checkOutData.recordedBy}`);
+  console.log(`📋 Notes: ${checkOutData.notes}`);
+  
+  return {
+    reservationId: checkOutData.reservationId,
+    checkOutDate: checkOutData.checkOutDate,
+    finalMeterReading: checkOutData.meterEndReading,
+    electricityUsage: checkOutData.meterEndReading - 1000,
+    electricityRate: checkOutData.electricityRate,
+    electricityCharge: checkOutData.electricityCharge,
+    depositHeld: checkOutData.depositHeld,
+    depositRefund: checkOutData.depositRefund,
+    refundCurrency: checkOutData.depositRefundCurrency,
+    refundReason: checkOutData.refundReason,
+    finalMeterPhoto: checkOutData.visualMeterProofUrl,
+    processedBy: checkOutData.recordedBy,
+    checkOutNotes: checkOutData.notes,
+    status: "completed",
+    billingStatus: checkOutData.electricityIncluded ? "included" : "charged"
+  };
+}
+
+// Simulate check-out for Demo1234 with electricity usage and deposit refund
+const checkOutData = {
+  reservationId: "Demo1234",
+  checkOutDate: "2025-07-05",
+  meterEndReading: 1100,
+  electricityRate: 7,
+  electricityIncluded: false,
+  electricityWaived: false,
+  waivedReason: null,
+  depositHeld: 8000,
+  electricityCharge: 100 * 7, // 100 kWh used x 7 THB = 700
+  additionalCharges: 0,
+  depositRefund: 7300,
+  depositRefundCurrency: "THB",
+  refundReason: "Electricity usage of 100 kWh deducted from deposit",
+  visualMeterProofUrl: "https://example.com/uploads/demo-meter-checkout.jpg",
+  recordedBy: "Host Thura",
+  notes: "Guest left property in good condition. Electricity usage was above included limit."
+};
+
+// Process check-out and trigger owner billing update
+processGuestCheckOut(checkOutData);
