@@ -355,3 +355,184 @@ export type InsertAiChatIntentAnalysis = z.infer<typeof insertAiChatIntentAnalys
 
 export type ServiceRequestNotification = typeof serviceRequestNotifications.$inferSelect;
 export type InsertServiceRequestNotification = z.infer<typeof insertServiceRequestNotificationSchema>;
+
+// ===== GUEST ACTIVITY TRACKER & RECOMMENDATIONS AI SCHEMAS =====
+
+// Property Activity Recommendations - Admin-managed recommendations per property
+export const propertyActivityRecommendations = pgTable("property_activity_recommendations", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  propertyId: integer("property_id").notNull(),
+  
+  // Recommendation details
+  category: varchar("category").notNull(), // restaurant, beach, tour, spa, market, viewpoint, activity
+  title: varchar("title").notNull(),
+  description: text("description").notNull(),
+  shortDescription: varchar("short_description", { length: 150 }),
+  
+  // Location and contact info
+  address: text("address"),
+  googleMapsLink: text("google_maps_link"),
+  websiteUrl: text("website_url"),
+  phoneNumber: varchar("phone_number"),
+  whatsappNumber: varchar("whatsapp_number"),
+  
+  // Booking and pricing
+  bookingUrl: text("booking_url"),
+  estimatedPrice: varchar("estimated_price"), // e.g., "500-1000 THB per person"
+  priceCategory: varchar("price_category"), // budget, moderate, luxury
+  
+  // Timing and availability
+  operatingHours: varchar("operating_hours"),
+  bestTimeToVisit: varchar("best_time_to_visit"), // morning, afternoon, evening, sunset
+  durationNeeded: varchar("duration_needed"), // e.g., "2-3 hours", "Full day"
+  
+  // Target audience
+  suitableFor: jsonb("suitable_for"), // ["couples", "families", "solo", "groups"]
+  ageGroup: varchar("age_group"), // all_ages, adults_only, family_friendly
+  activityLevel: varchar("activity_level"), // relaxing, moderate, active, adventure
+  
+  // Admin settings
+  displayOrder: integer("display_order").default(1),
+  isActive: boolean("is_active").default(true),
+  isFeatured: boolean("is_featured").default(false),
+  requiresAdvanceBooking: boolean("requires_advance_booking").default(false),
+  
+  // Metadata
+  tags: jsonb("tags"), // ["romantic", "sunset", "authentic", "hidden_gem"]
+  imageUrl: text("image_url"),
+  adminNotes: text("admin_notes"),
+  createdBy: varchar("created_by").notNull(),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Guest Activity Preferences - Track guest interests and interactions
+export const guestActivityPreferences = pgTable("guest_activity_preferences", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  reservationId: varchar("reservation_id").notNull(),
+  guestId: varchar("guest_id").notNull(),
+  propertyId: integer("property_id").notNull(),
+  
+  // Preference categories
+  preferredCategories: jsonb("preferred_categories"), // ["restaurant", "beach", "spa"]
+  travelStyle: varchar("travel_style"), // romantic, family, adventure, relaxation, cultural
+  budgetPreference: varchar("budget_preference"), // budget, moderate, luxury, no_preference
+  
+  // Activity preferences
+  activityLevel: varchar("activity_level"), // relaxing, moderate, active, mixed
+  groupSize: integer("group_size").default(2),
+  hasChildren: boolean("has_children").default(false),
+  mobilityRequirements: varchar("mobility_requirements"), // none, wheelchair_accessible, limited_walking
+  
+  // Dietary and special needs
+  dietaryRestrictions: jsonb("dietary_restrictions"), // ["vegetarian", "gluten_free", "halal"]
+  specialInterests: jsonb("special_interests"), // ["photography", "history", "nature", "shopping"]
+  
+  // Interaction tracking
+  viewedRecommendations: jsonb("viewed_recommendations"), // Array of recommendation IDs
+  clickedRecommendations: jsonb("clicked_recommendations"),
+  bookedActivities: jsonb("booked_activities"),
+  
+  // Feedback
+  lastUpdated: timestamp("last_updated").defaultNow(),
+  preferencesSetBy: varchar("preferences_set_by"), // guest, staff, ai_inferred
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Guest Recommendation Interactions - Track clicks, views, bookings
+export const guestRecommendationInteractions = pgTable("guest_recommendation_interactions", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  reservationId: varchar("reservation_id").notNull(),
+  guestId: varchar("guest_id").notNull(),
+  recommendationId: integer("recommendation_id").references(() => propertyActivityRecommendations.id).notNull(),
+  
+  // Interaction details
+  interactionType: varchar("interaction_type").notNull(), // view, click, bookmark, book, rate
+  sessionId: varchar("session_id"),
+  deviceType: varchar("device_type"), // mobile, tablet, desktop
+  
+  // Context
+  viewDuration: integer("view_duration"), // seconds spent viewing
+  clickedElement: varchar("clicked_element"), // website, booking, maps, phone
+  bookingStatus: varchar("booking_status"), // attempted, completed, cancelled
+  
+  // Feedback
+  rating: integer("rating"), // 1-5 stars
+  feedback: text("feedback"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// AI Recommendation Analytics - Track AI suggestion performance
+export const aiRecommendationAnalytics = pgTable("ai_recommendation_analytics", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  propertyId: integer("property_id").notNull(),
+  
+  // Analytics period
+  analysisDate: date("analysis_date").notNull(),
+  periodType: varchar("period_type").default("daily"), // daily, weekly, monthly
+  
+  // Performance metrics
+  totalRecommendationsShown: integer("total_recommendations_shown").default(0),
+  totalInteractions: integer("total_interactions").default(0),
+  totalBookings: integer("total_bookings").default(0),
+  clickThroughRate: decimal("click_through_rate", { precision: 5, scale: 4 }),
+  conversionRate: decimal("conversion_rate", { precision: 5, scale: 4 }),
+  
+  // Category performance
+  topPerformingCategory: varchar("top_performing_category"),
+  categoryMetrics: jsonb("category_metrics"), // {"restaurant": {"views": 50, "clicks": 10}}
+  
+  // Guest segmentation
+  guestTypeMetrics: jsonb("guest_type_metrics"), // {"couples": {...}, "families": {...}}
+  preferenceAccuracy: decimal("preference_accuracy", { precision: 5, scale: 4 }),
+  
+  // AI model performance
+  modelVersion: varchar("model_version").default("v1.0"),
+  algorithmUsed: varchar("algorithm_used").default("collaborative_filtering"),
+  confidenceScore: decimal("confidence_score", { precision: 5, scale: 4 }),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Insert schemas and types for Guest Activity & Recommendations
+export const insertPropertyActivityRecommendationSchema = createInsertSchema(propertyActivityRecommendations).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertGuestActivityPreferencesSchema = createInsertSchema(guestActivityPreferences).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertGuestRecommendationInteractionSchema = createInsertSchema(guestRecommendationInteractions).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertAiRecommendationAnalyticsSchema = createInsertSchema(aiRecommendationAnalytics).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type PropertyActivityRecommendation = typeof propertyActivityRecommendations.$inferSelect;
+export type InsertPropertyActivityRecommendation = z.infer<typeof insertPropertyActivityRecommendationSchema>;
+
+export type GuestActivityPreferences = typeof guestActivityPreferences.$inferSelect;
+export type InsertGuestActivityPreferences = z.infer<typeof insertGuestActivityPreferencesSchema>;
+
+export type GuestRecommendationInteraction = typeof guestRecommendationInteractions.$inferSelect;
+export type InsertGuestRecommendationInteraction = z.infer<typeof insertGuestRecommendationInteractionSchema>;
+
+export type AiRecommendationAnalytics = typeof aiRecommendationAnalytics.$inferSelect;
+export type InsertAiRecommendationAnalytics = z.infer<typeof insertAiRecommendationAnalyticsSchema>;

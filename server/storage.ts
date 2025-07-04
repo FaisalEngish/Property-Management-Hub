@@ -30762,6 +30762,819 @@ Plant Care:
     }
     console.log("Demo local contacts seeded successfully!");
   }
+
+  // ===== GUEST ACTIVITY TRACKER & RECOMMENDATIONS AI METHODS =====
+
+  // Property Activity Recommendations CRUD
+  async getPropertyActivityRecommendations(organizationId: string, propertyId?: number, filters?: {
+    category?: string;
+    isActive?: boolean;
+    isFeatured?: boolean;
+    suitableFor?: string[];
+  }): Promise<any[]> {
+    // Demo data for Property Activity Recommendations
+    const demoRecommendations = [
+      {
+        id: 1,
+        organizationId,
+        propertyId: 1,
+        category: "restaurant",
+        title: "Zazen Restaurant",
+        description: "Exquisite Thai and international cuisine in a stunning beachfront setting. Known for its romantic atmosphere and exceptional sunset views. Perfect for special occasions with sophisticated dishes and an extensive wine selection.",
+        shortDescription: "Romantic beachfront dining with Thai and international cuisine",
+        address: "124/24 Moo 3, Bo Phut Beach, Koh Samui",
+        googleMapsLink: "https://maps.google.com/?q=Zazen+Restaurant+Samui",
+        websiteUrl: "https://zazenrestaurant.com",
+        phoneNumber: "+66 77 425 085",
+        whatsappNumber: "+66 77 425 085",
+        bookingUrl: "https://zazenrestaurant.com/reservations",
+        estimatedPrice: "2,000-4,000 THB per person",
+        priceCategory: "luxury",
+        operatingHours: "6:00 PM - 11:00 PM",
+        bestTimeToVisit: "sunset",
+        durationNeeded: "2-3 hours",
+        suitableFor: ["couples", "adults"],
+        ageGroup: "adults_only",
+        activityLevel: "relaxing",
+        displayOrder: 1,
+        isActive: true,
+        isFeatured: true,
+        requiresAdvanceBooking: true,
+        tags: ["romantic", "sunset", "fine_dining", "beachfront"],
+        imageUrl: "https://example.com/zazen.jpg",
+        adminNotes: "Recommended for special occasions",
+        createdBy: "admin",
+        createdAt: new Date(),
+        updatedAt: new Date()
+      },
+      {
+        id: 2,
+        organizationId,
+        propertyId: 1,
+        category: "beach",
+        title: "Chaweng Beach",
+        description: "Koh Samui's most famous beach offering 6 kilometers of white sand and crystal-clear waters. Perfect for swimming, sunbathing, and water sports. The beach comes alive at night with numerous bars and restaurants.",
+        shortDescription: "Famous white sand beach with vibrant nightlife",
+        address: "Chaweng Beach Road, Bophut, Koh Samui",
+        googleMapsLink: "https://maps.google.com/?q=Chaweng+Beach+Samui",
+        phoneNumber: null,
+        whatsappNumber: null,
+        bookingUrl: null,
+        estimatedPrice: "Free (activities extra)",
+        priceCategory: "budget",
+        operatingHours: "24/7",
+        bestTimeToVisit: "morning",
+        durationNeeded: "Half day",
+        suitableFor: ["couples", "families", "solo", "groups"],
+        ageGroup: "all_ages",
+        activityLevel: "moderate",
+        displayOrder: 2,
+        isActive: true,
+        isFeatured: true,
+        requiresAdvanceBooking: false,
+        tags: ["swimming", "sunbathing", "nightlife", "water_sports"],
+        imageUrl: "https://example.com/chaweng.jpg",
+        adminNotes: "Most popular beach on the island",
+        createdBy: "admin",
+        createdAt: new Date(),
+        updatedAt: new Date()
+      },
+      {
+        id: 3,
+        organizationId,
+        propertyId: 1,
+        category: "tour",
+        title: "Ang Thong Marine Park",
+        description: "A pristine archipelago of 42 islands featuring limestone mountains, thick jungle, white-sand beaches, and crystal-clear waters. Full-day tour includes snorkeling, kayaking, and hiking to the famous Emerald Lake viewpoint.",
+        shortDescription: "42-island archipelago with snorkeling and kayaking",
+        address: "Ang Thong National Marine Park",
+        googleMapsLink: "https://maps.google.com/?q=Ang+Thong+Marine+Park",
+        websiteUrl: "https://angthongpark.com",
+        phoneNumber: "+66 77 286 025",
+        whatsappNumber: "+66 77 286 025",
+        bookingUrl: "https://angthongpark.com/booking",
+        estimatedPrice: "1,800-2,500 THB per person",
+        priceCategory: "moderate",
+        operatingHours: "8:00 AM - 5:00 PM",
+        bestTimeToVisit: "morning",
+        durationNeeded: "Full day",
+        suitableFor: ["couples", "families", "groups"],
+        ageGroup: "all_ages",
+        activityLevel: "active",
+        displayOrder: 3,
+        isActive: true,
+        isFeatured: true,
+        requiresAdvanceBooking: true,
+        tags: ["snorkeling", "kayaking", "nature", "adventure"],
+        imageUrl: "https://example.com/angthong.jpg",
+        adminNotes: "Must-do activity for nature lovers",
+        createdBy: "admin",
+        createdAt: new Date(),
+        updatedAt: new Date()
+      },
+      {
+        id: 4,
+        organizationId,
+        propertyId: 1,
+        category: "spa",
+        title: "Kamalaya Wellness Sanctuary",
+        description: "Award-winning wellness sanctuary offering holistic spa treatments, detox programs, and wellness retreats. Set in a tropical hillside location with stunning ocean views and natural cave-like treatment rooms.",
+        shortDescription: "Award-winning wellness sanctuary with holistic treatments",
+        address: "102/9 Moo 3, Laem Set Road, Na Muang, Koh Samui",
+        googleMapsLink: "https://maps.google.com/?q=Kamalaya+Wellness+Samui",
+        websiteUrl: "https://kamalaya.com",
+        phoneNumber: "+66 77 429 800",
+        whatsappNumber: "+66 77 429 800",
+        bookingUrl: "https://kamalaya.com/spa-treatments",
+        estimatedPrice: "3,000-8,000 THB per treatment",
+        priceCategory: "luxury",
+        operatingHours: "8:00 AM - 9:00 PM",
+        bestTimeToVisit: "afternoon",
+        durationNeeded: "2-4 hours",
+        suitableFor: ["couples", "solo", "adults"],
+        ageGroup: "adults_only",
+        activityLevel: "relaxing",
+        displayOrder: 4,
+        isActive: true,
+        isFeatured: true,
+        requiresAdvanceBooking: true,
+        tags: ["wellness", "spa", "luxury", "relaxation"],
+        imageUrl: "https://example.com/kamalaya.jpg",
+        adminNotes: "World-renowned wellness destination",
+        createdBy: "admin",
+        createdAt: new Date(),
+        updatedAt: new Date()
+      },
+      {
+        id: 5,
+        organizationId,
+        propertyId: 1,
+        category: "viewpoint",
+        title: "Big Buddha Temple (Wat Phra Yai)",
+        description: "Iconic 12-meter golden Buddha statue sitting atop a small rocky island connected to Samui by a causeway. Offers panoramic views of the surrounding area and is one of the island's most recognizable landmarks.",
+        shortDescription: "Iconic 12-meter golden Buddha with panoramic views",
+        address: "Bang Rak, Koh Samui",
+        googleMapsLink: "https://maps.google.com/?q=Big+Buddha+Temple+Samui",
+        phoneNumber: null,
+        whatsappNumber: null,
+        bookingUrl: null,
+        estimatedPrice: "Free (donations welcome)",
+        priceCategory: "budget",
+        operatingHours: "6:00 AM - 7:00 PM",
+        bestTimeToVisit: "morning",
+        durationNeeded: "1-2 hours",
+        suitableFor: ["couples", "families", "solo", "groups"],
+        ageGroup: "all_ages",
+        activityLevel: "moderate",
+        displayOrder: 5,
+        isActive: true,
+        isFeatured: true,
+        requiresAdvanceBooking: false,
+        tags: ["cultural", "temple", "views", "landmark"],
+        imageUrl: "https://example.com/bigbuddha.jpg",
+        adminNotes: "Must-visit cultural landmark",
+        createdBy: "admin",
+        createdAt: new Date(),
+        updatedAt: new Date()
+      },
+      {
+        id: 6,
+        organizationId,
+        propertyId: 1,
+        category: "market",
+        title: "Fisherman's Village Walking Street",
+        description: "Charming Friday night market in Bophut featuring local crafts, street food, live music, and traditional performances. The historic Chinese shophouses create a unique atmosphere with authentic Thai culture.",
+        shortDescription: "Friday night market with crafts, food, and entertainment",
+        address: "Fisherman's Village, Bophut, Koh Samui",
+        googleMapsLink: "https://maps.google.com/?q=Fishermans+Village+Bophut",
+        phoneNumber: null,
+        whatsappNumber: null,
+        bookingUrl: null,
+        estimatedPrice: "200-800 THB per person",
+        priceCategory: "budget",
+        operatingHours: "Friday 5:00 PM - 11:00 PM",
+        bestTimeToVisit: "evening",
+        durationNeeded: "2-3 hours",
+        suitableFor: ["couples", "families", "solo", "groups"],
+        ageGroup: "all_ages",
+        activityLevel: "moderate",
+        displayOrder: 6,
+        isActive: true,
+        isFeatured: true,
+        requiresAdvanceBooking: false,
+        tags: ["market", "food", "culture", "shopping"],
+        imageUrl: "https://example.com/fishermans.jpg",
+        adminNotes: "Only available on Friday evenings",
+        createdBy: "admin",
+        createdAt: new Date(),
+        updatedAt: new Date()
+      }
+    ];
+
+    let filtered = demoRecommendations;
+
+    if (propertyId) {
+      filtered = filtered.filter(rec => rec.propertyId === propertyId);
+    }
+    if (filters?.category) {
+      filtered = filtered.filter(rec => rec.category === filters.category);
+    }
+    if (filters?.isActive !== undefined) {
+      filtered = filtered.filter(rec => rec.isActive === filters.isActive);
+    }
+    if (filters?.isFeatured !== undefined) {
+      filtered = filtered.filter(rec => rec.isFeatured === filters.isFeatured);
+    }
+    if (filters?.suitableFor && filters.suitableFor.length > 0) {
+      filtered = filtered.filter(rec => 
+        filters.suitableFor.some(target => rec.suitableFor.includes(target))
+      );
+    }
+
+    return filtered;
+  }
+
+  async createPropertyActivityRecommendation(recommendation: any): Promise<any> {
+    // In a real implementation, this would insert into the database
+    return {
+      id: Date.now(),
+      ...recommendation,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+  }
+
+  async updatePropertyActivityRecommendation(id: number, updates: any): Promise<any | undefined> {
+    // In a real implementation, this would update the database
+    return {
+      id,
+      ...updates,
+      updatedAt: new Date()
+    };
+  }
+
+  async deletePropertyActivityRecommendation(id: number): Promise<boolean> {
+    // In a real implementation, this would delete from the database
+    return true;
+  }
+
+  // Guest Activity Preferences
+  async getGuestActivityPreferences(reservationId: string): Promise<any | undefined> {
+    // Demo data for guest preferences
+    if (reservationId === "Demo1234") {
+      return {
+        id: 1,
+        organizationId: "default-org",
+        reservationId,
+        guestId: "guest-liam-andersen",
+        propertyId: 1,
+        preferredCategories: ["restaurant", "spa", "beach"],
+        travelStyle: "romantic",
+        budgetPreference: "luxury",
+        activityLevel: "relaxing",
+        groupSize: 2,
+        hasChildren: false,
+        mobilityRequirements: "none",
+        dietaryRestrictions: [],
+        specialInterests: ["photography", "wellness", "fine_dining"],
+        viewedRecommendations: [1, 2, 4],
+        clickedRecommendations: [1, 4],
+        bookedActivities: [],
+        lastUpdated: new Date(),
+        preferencesSetBy: "guest",
+        createdAt: new Date(),
+        updatedAt: new Date()
+      };
+    }
+    return undefined;
+  }
+
+  async createGuestActivityPreferences(preferences: any): Promise<any> {
+    return {
+      id: Date.now(),
+      ...preferences,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+  }
+
+  async updateGuestActivityPreferences(reservationId: string, updates: any): Promise<any | undefined> {
+    return {
+      reservationId,
+      ...updates,
+      lastUpdated: new Date(),
+      updatedAt: new Date()
+    };
+  }
+
+  // Guest Recommendation Interactions
+  async createRecommendationInteraction(interaction: any): Promise<any> {
+    return {
+      id: Date.now(),
+      ...interaction,
+      createdAt: new Date()
+    };
+  }
+
+  async getRecommendationInteractions(reservationId: string, filters?: {
+    recommendationId?: number;
+    interactionType?: string;
+  }): Promise<any[]> {
+    // Demo data for recommendation interactions
+    if (reservationId === "Demo1234") {
+      return [
+        {
+          id: 1,
+          organizationId: "default-org",
+          reservationId,
+          guestId: "guest-liam-andersen",
+          recommendationId: 1,
+          interactionType: "view",
+          sessionId: "session-123",
+          deviceType: "mobile",
+          viewDuration: 45,
+          clickedElement: null,
+          bookingStatus: null,
+          rating: null,
+          feedback: null,
+          createdAt: new Date()
+        },
+        {
+          id: 2,
+          organizationId: "default-org",
+          reservationId,
+          guestId: "guest-liam-andersen",
+          recommendationId: 1,
+          interactionType: "click",
+          sessionId: "session-123",
+          deviceType: "mobile",
+          viewDuration: 120,
+          clickedElement: "website",
+          bookingStatus: "attempted",
+          rating: null,
+          feedback: null,
+          createdAt: new Date()
+        }
+      ];
+    }
+    return [];
+  }
+
+  // AI Recommendation Analytics
+  async getRecommendationAnalytics(organizationId: string, propertyId?: number, filters?: {
+    fromDate?: Date;
+    toDate?: Date;
+    category?: string;
+  }): Promise<any> {
+    return {
+      totalRecommendationsShown: 156,
+      totalInteractions: 89,
+      totalBookings: 12,
+      clickThroughRate: 0.5705,
+      conversionRate: 0.1348,
+      topPerformingCategory: "restaurant",
+      categoryMetrics: {
+        restaurant: { views: 45, clicks: 28, bookings: 5 },
+        spa: { views: 38, clicks: 22, bookings: 4 },
+        tour: { views: 35, clicks: 18, bookings: 2 },
+        beach: { views: 25, clicks: 15, bookings: 1 },
+        viewpoint: { views: 13, clicks: 6, bookings: 0 }
+      },
+      guestTypeMetrics: {
+        couples: { totalInteractions: 52, conversionRate: 0.18 },
+        families: { totalInteractions: 25, conversionRate: 0.12 },
+        solo: { totalInteractions: 12, conversionRate: 0.08 }
+      },
+      preferenceAccuracy: 0.7234,
+      modelVersion: "v1.0",
+      algorithmUsed: "collaborative_filtering",
+      confidenceScore: 0.8156
+    };
+  }
+
+  // Get personalized recommendations for a guest
+  async getPersonalizedRecommendations(reservationId: string, guestId: string, propertyId: number): Promise<any[]> {
+    const preferences = await this.getGuestActivityPreferences(reservationId);
+    const allRecommendations = await this.getPropertyActivityRecommendations("default-org", propertyId);
+    
+    if (!preferences) {
+      // Return featured recommendations if no preferences set
+      return allRecommendations.filter(rec => rec.isFeatured).slice(0, 6);
+    }
+
+    // Filter recommendations based on preferences
+    let filtered = allRecommendations.filter(rec => {
+      // Match categories
+      if (preferences.preferredCategories && preferences.preferredCategories.length > 0) {
+        if (!preferences.preferredCategories.includes(rec.category)) {
+          return false;
+        }
+      }
+
+      // Match suitable for
+      if (preferences.groupSize <= 2 && !rec.suitableFor.includes("couples")) {
+        return false;
+      }
+      if (preferences.hasChildren && !rec.suitableFor.includes("families")) {
+        return false;
+      }
+
+      // Match activity level
+      if (preferences.activityLevel === "relaxing" && rec.activityLevel === "adventure") {
+        return false;
+      }
+
+      // Match budget preference
+      if (preferences.budgetPreference === "budget" && rec.priceCategory === "luxury") {
+        return false;
+      }
+
+      return true;
+    });
+
+    // Sort by display order and return top 6
+    return filtered.sort((a, b) => a.displayOrder - b.displayOrder).slice(0, 6);
+  }
+
+  // ===== GUEST ACTIVITY TRACKER & RECOMMENDATIONS AI IMPLEMENTATIONS =====
+
+  // Get property activity recommendations with filtering
+  async getPropertyActivityRecommendations(organizationId: string, propertyId: number, filters?: any): Promise<any[]> {
+    // Mock data for Koh Samui property recommendations
+    const mockRecommendations = [
+      {
+        id: 1,
+        organizationId,
+        propertyId,
+        category: "restaurant",
+        title: "Zazen Restaurant",
+        description: "Elegant fine dining restaurant with stunning ocean views and contemporary Thai cuisine. Located right on Bophut Beach with romantic ambiance perfect for couples.",
+        shortDescription: "Fine dining with ocean views and Thai cuisine",
+        address: "169 Moo 1, Bophut Beach, Koh Samui",
+        googleMapsLink: "https://maps.google.com/?q=Zazen+Restaurant+Koh+Samui",
+        websiteUrl: "https://zazenrestaurant.com",
+        phoneNumber: "+66 77 425 085",
+        whatsappNumber: "+66 87 123 4567",
+        bookingUrl: "https://zazenrestaurant.com/booking",
+        estimatedPrice: "2,500-4,000 THB per person",
+        priceCategory: "luxury",
+        operatingHours: "6:00 PM - 11:00 PM",
+        bestTimeToVisit: "Sunset (6:30-7:30 PM)",
+        durationNeeded: "2-3 hours",
+        suitableFor: ["couples", "special occasions", "anniversaries"],
+        ageGroup: "adults",
+        activityLevel: "relaxing",
+        requiresAdvanceBooking: true,
+        tags: ["fine dining", "ocean view", "romantic", "thai cuisine", "sunset"],
+        imageUrl: null,
+        isFeatured: true,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      },
+      {
+        id: 2,
+        organizationId,
+        propertyId,
+        category: "beach",
+        title: "Chaweng Beach",
+        description: "The most famous and vibrant beach on Koh Samui with crystal clear waters, white sand, and plenty of activities. Perfect for swimming, sunbathing, and water sports.",
+        shortDescription: "Famous white sand beach with clear waters",
+        address: "Chaweng Beach Road, Chaweng, Koh Samui",
+        googleMapsLink: "https://maps.google.com/?q=Chaweng+Beach+Koh+Samui",
+        websiteUrl: null,
+        phoneNumber: null,
+        whatsappNumber: null,
+        bookingUrl: null,
+        estimatedPrice: "Free (beach access)",
+        priceCategory: "budget",
+        operatingHours: "24 hours",
+        bestTimeToVisit: "Early morning (7-9 AM) or late afternoon (4-6 PM)",
+        durationNeeded: "2-4 hours",
+        suitableFor: ["families", "couples", "groups", "solo travelers"],
+        ageGroup: "all ages",
+        activityLevel: "moderate",
+        requiresAdvanceBooking: false,
+        tags: ["beach", "swimming", "sunbathing", "water sports", "popular"],
+        imageUrl: null,
+        isFeatured: true,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      },
+      {
+        id: 3,
+        organizationId,
+        propertyId,
+        category: "viewpoint",
+        title: "Big Buddha Temple (Wat Phra Yai)",
+        description: "Iconic 12-meter tall golden Buddha statue sitting atop a small hill with panoramic views of the island. One of Koh Samui's most recognizable landmarks.",
+        shortDescription: "Iconic golden Buddha statue with panoramic views",
+        address: "99/9 Moo 4, Tambon Bo Phut, Koh Samui",
+        googleMapsLink: "https://maps.google.com/?q=Big+Buddha+Koh+Samui",
+        websiteUrl: null,
+        phoneNumber: null,
+        whatsappNumber: null,
+        bookingUrl: null,
+        estimatedPrice: "Free (donations welcome)",
+        priceCategory: "budget",
+        operatingHours: "6:00 AM - 7:00 PM",
+        bestTimeToVisit: "Early morning (7-9 AM) or late afternoon (5-6 PM)",
+        durationNeeded: "1-2 hours",
+        suitableFor: ["families", "couples", "cultural enthusiasts", "photographers"],
+        ageGroup: "all ages",
+        activityLevel: "moderate",
+        requiresAdvanceBooking: false,
+        tags: ["temple", "buddha", "cultural", "views", "photography", "landmark"],
+        imageUrl: null,
+        isFeatured: true,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      },
+      {
+        id: 4,
+        organizationId,
+        propertyId,
+        category: "spa",
+        title: "Peace Tropical Spa",
+        description: "Award-winning luxury spa offering traditional Thai massages and wellness treatments in a serene tropical garden setting.",
+        shortDescription: "Luxury spa with traditional Thai treatments",
+        address: "124/1 Moo 3, Chaweng Beach Road, Koh Samui",
+        googleMapsLink: "https://maps.google.com/?q=Peace+Tropical+Spa+Koh+Samui",
+        websiteUrl: "https://peacetropicalspa.com",
+        phoneNumber: "+66 77 422 015",
+        whatsappNumber: "+66 89 765 4321",
+        bookingUrl: "https://peacetropicalspa.com/booking",
+        estimatedPrice: "1,800-3,500 THB per treatment",
+        priceCategory: "luxury",
+        operatingHours: "9:00 AM - 9:00 PM",
+        bestTimeToVisit: "Late afternoon (2-5 PM)",
+        durationNeeded: "1.5-3 hours",
+        suitableFor: ["couples", "wellness seekers", "relaxation"],
+        ageGroup: "adults",
+        activityLevel: "relaxing",
+        requiresAdvanceBooking: true,
+        tags: ["spa", "massage", "wellness", "relaxation", "luxury", "couples"],
+        imageUrl: null,
+        isFeatured: true,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      },
+      {
+        id: 5,
+        organizationId,
+        propertyId,
+        category: "tour",
+        title: "Ang Thong Marine Park Day Trip",
+        description: "Full-day boat excursion to the stunning Ang Thong National Marine Park featuring pristine islands, emerald lagoons, and snorkeling opportunities.",
+        shortDescription: "Full-day marine park tour with islands and snorkeling",
+        address: "Departure from Nathon Pier, Koh Samui",
+        googleMapsLink: "https://maps.google.com/?q=Ang+Thong+Marine+Park+Tour+Koh+Samui",
+        websiteUrl: "https://angthongtours.com",
+        phoneNumber: "+66 77 420 157",
+        whatsappNumber: "+66 88 555 0123",
+        bookingUrl: "https://angthongtours.com/booking",
+        estimatedPrice: "1,500-2,200 THB per person",
+        priceCategory: "moderate",
+        operatingHours: "7:00 AM - 6:00 PM (tour duration)",
+        bestTimeToVisit: "Full day trip",
+        durationNeeded: "Full day (10-11 hours)",
+        suitableFor: ["adventure seekers", "families", "couples", "groups"],
+        ageGroup: "all ages",
+        activityLevel: "active",
+        requiresAdvanceBooking: true,
+        tags: ["boat tour", "marine park", "snorkeling", "islands", "full day", "adventure"],
+        imageUrl: null,
+        isFeatured: true,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      },
+      {
+        id: 6,
+        organizationId,
+        propertyId,
+        category: "market",
+        title: "Fisherman's Village Walking Street",
+        description: "Charming Friday night market in Bophut with local handicrafts, street food, and live entertainment in a traditional fishing village setting.",
+        shortDescription: "Friday night market with crafts and street food",
+        address: "Fisherman's Village, Bophut, Koh Samui",
+        googleMapsLink: "https://maps.google.com/?q=Fishermans+Village+Walking+Street+Koh+Samui",
+        websiteUrl: null,
+        phoneNumber: null,
+        whatsappNumber: null,
+        bookingUrl: null,
+        estimatedPrice: "200-800 THB for food and shopping",
+        priceCategory: "budget",
+        operatingHours: "Friday 5:00 PM - 11:00 PM",
+        bestTimeToVisit: "Friday evenings (6-8 PM)",
+        durationNeeded: "2-3 hours",
+        suitableFor: ["families", "couples", "cultural enthusiasts", "food lovers"],
+        ageGroup: "all ages",
+        activityLevel: "moderate",
+        requiresAdvanceBooking: false,
+        tags: ["market", "street food", "crafts", "friday night", "local culture", "walking"],
+        imageUrl: null,
+        isFeatured: false,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      }
+    ];
+
+    let filteredRecommendations = mockRecommendations;
+
+    if (filters?.category) {
+      filteredRecommendations = filteredRecommendations.filter(rec => rec.category === filters.category);
+    }
+    if (filters?.isFeatured !== undefined) {
+      filteredRecommendations = filteredRecommendations.filter(rec => rec.isFeatured === filters.isFeatured);
+    }
+    if (filters?.suitableFor && filters.suitableFor.length > 0) {
+      filteredRecommendations = filteredRecommendations.filter(rec => 
+        filters.suitableFor.some((suitable: string) => rec.suitableFor.includes(suitable))
+      );
+    }
+
+    return filteredRecommendations;
+  }
+
+  // Get personalized recommendations based on guest preferences
+  async getPersonalizedRecommendations(reservationId: string, guestId: string, propertyId: number): Promise<any[]> {
+    // Get all recommendations first
+    const allRecommendations = await this.getPropertyActivityRecommendations("default-org", propertyId);
+    
+    // For Demo1234 reservation, return personalized selection
+    if (reservationId === "Demo1234") {
+      return allRecommendations.filter(rec => 
+        rec.category === "restaurant" || 
+        rec.category === "spa" || 
+        rec.isFeatured
+      );
+    }
+    
+    return allRecommendations.slice(0, 4); // Return top 4 recommendations
+  }
+
+  // Get guest activity preferences
+  async getGuestActivityPreferences(reservationId: string): Promise<any | null> {
+    // Mock data for Demo1234
+    if (reservationId === "Demo1234") {
+      return {
+        id: 1,
+        organizationId: "default-org",
+        reservationId: "Demo1234",
+        guestId: "guest-liam-andersen",
+        propertyId: 1,
+        preferredCategories: ["restaurant", "spa", "beach"],
+        travelStyle: "romantic",
+        budgetPreference: "luxury",
+        activityLevel: "relaxing",
+        groupSize: 2,
+        hasChildren: false,
+        specialInterests: ["fine dining", "wellness", "sunset views"],
+        preferencesSetBy: "guest",
+        createdAt: new Date(),
+        updatedAt: new Date()
+      };
+    }
+    
+    return null;
+  }
+
+  // Create guest activity preferences
+  async createGuestActivityPreferences(preferences: any): Promise<any> {
+    const newPreferences = {
+      id: Date.now(),
+      ...preferences,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    return newPreferences;
+  }
+
+  // Update guest activity preferences
+  async updateGuestActivityPreferences(reservationId: string, preferences: any): Promise<any> {
+    const existing = await this.getGuestActivityPreferences(reservationId);
+    
+    if (existing) {
+      return {
+        ...existing,
+        ...preferences,
+        updatedAt: new Date()
+      };
+    }
+    
+    return this.createGuestActivityPreferences({
+      ...preferences,
+      reservationId
+    });
+  }
+
+  // Create recommendation interaction
+  async createRecommendationInteraction(interaction: any): Promise<any> {
+    const newInteraction = {
+      id: Date.now(),
+      ...interaction,
+      createdAt: new Date()
+    };
+    return newInteraction;
+  }
+
+  // Get recommendation interactions
+  async getRecommendationInteractions(reservationId: string, filters?: any): Promise<any[]> {
+    // Mock interaction data for analytics
+    const mockInteractions = [
+      {
+        id: 1,
+        organizationId: "default-org",
+        reservationId,
+        guestId: "guest-liam-andersen",
+        recommendationId: 1,
+        interactionType: "view",
+        sessionId: "session-123",
+        deviceType: "desktop",
+        clickedElement: null,
+        viewDuration: 45,
+        createdAt: new Date()
+      },
+      {
+        id: 2,
+        organizationId: "default-org", 
+        reservationId,
+        guestId: "guest-liam-andersen",
+        recommendationId: 1,
+        interactionType: "click",
+        sessionId: "session-123",
+        deviceType: "desktop",
+        clickedElement: "booking",
+        viewDuration: null,
+        createdAt: new Date()
+      }
+    ];
+
+    let filteredInteractions = mockInteractions;
+
+    if (filters?.recommendationId) {
+      filteredInteractions = filteredInteractions.filter(int => int.recommendationId === filters.recommendationId);
+    }
+    if (filters?.interactionType) {
+      filteredInteractions = filteredInteractions.filter(int => int.interactionType === filters.interactionType);
+    }
+
+    return filteredInteractions;
+  }
+
+  // Get recommendation analytics
+  async getRecommendationAnalytics(organizationId: string, propertyId: number, filters?: any): Promise<any> {
+    return {
+      totalRecommendations: 6,
+      totalInteractions: 234,
+      totalViews: 189,
+      totalClicks: 45,
+      clickThroughRate: 23.8,
+      topCategories: [
+        { category: "restaurant", views: 67, clicks: 18 },
+        { category: "beach", views: 45, clicks: 8 },
+        { category: "spa", views: 34, clicks: 12 },
+        { category: "tour", views: 28, clicks: 5 }
+      ],
+      popularRecommendations: [
+        { id: 1, title: "Zazen Restaurant", views: 67, clicks: 18 },
+        { id: 2, title: "Chaweng Beach", views: 45, clicks: 8 },
+        { id: 4, title: "Peace Tropical Spa", views: 34, clicks: 12 }
+      ],
+      conversionRates: {
+        restaurant: 26.9,
+        spa: 35.3,
+        beach: 17.8,
+        tour: 17.9,
+        viewpoint: 22.1,
+        market: 15.4
+      }
+    };
+  }
+
+  // Admin methods for managing recommendations
+  async createPropertyActivityRecommendation(recommendation: any): Promise<any> {
+    const newRecommendation = {
+      id: Date.now(),
+      ...recommendation,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    return newRecommendation;
+  }
+
+  async updatePropertyActivityRecommendation(id: number, recommendation: any): Promise<any> {
+    // Mock update - in real implementation would update database
+    return {
+      id,
+      ...recommendation,
+      updatedAt: new Date()
+    };
+  }
+
+  async deletePropertyActivityRecommendation(id: number): Promise<boolean> {
+    // Mock delete - in real implementation would delete from database
+    return true;
+  }
 }
 
 export const storage = new DatabaseStorage();

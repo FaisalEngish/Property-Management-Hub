@@ -1,0 +1,103 @@
+Create a module called “System-Wide Demo Data Integration” to simulate full system behavior.
+
+---
+
+🎯 Purpose:
+To allow Jordi to test all user types (Guest, Housekeeping, Pool Staff, Garden Staff, Pest Control, Host, Retail Agent, Referral Agent) using a single fake booking and property.
+
+---
+
+🏠 DEMO VILLA INFO:
+- Villa Name: “Villa Aruna”
+- Reservation Code: “DEMO1234”
+- Guest: John Doe
+- Check-in: 6 July
+- Check-out: 11 July
+- Electricity start meter: 1000 kWh
+- Electricity rate: 7 THB/kWh
+- Deposit Paid: 8,000 THB
+- Services booked:
+  - Pool Cleaning: 3 July @ 3pm
+  - Garden Service: 5 July @ 2pm
+  - During-Stay Cleaning: 8 July @ 10am
+  - Chef Dinner: 7 July @ 7pm
+  - Pest Control: 4 July @ 11am
+
+---
+
+👤 DEMO GUEST DASHBOARD:
+- See booking summary
+- Booking reference: DEMO1234
+- Property Info with house rules, map, service schedule, and AI suggestions
+- Confirmed Services tab visible
+- Electricity meter on check-in: 1000kWh with meter photo (use placeholder)
+- Deposit: 8,000 THB held
+- Schedule tab visible: cleaning, chef, pool, garden
+
+---
+
+🧼 DEMO HOUSEKEEPING DASHBOARD:
+- New tab: “Schedule”
+- Task on 6 July: Pre-clean for Villa Aruna
+- Task on 8 July: During-stay cleaning
+- Task on 11 July: Check-out clean
+- Linked to Demo1234 guest booking
+
+---
+
+🧑‍🌾 DEMO GARDEN DASHBOARD:
+- “Schedule” tab shows:
+  - Garden Service @ Villa Aruna on 5 July @ 2pm
+
+---
+
+💧 DEMO POOL DASHBOARD:
+- “Schedule” tab shows:
+  - Pool Service @ Villa Aruna on 3 July @ 3pm
+
+---
+
+🦟 DEMO PEST DASHBOARD:
+- “Schedule” tab shows:
+  - Pest Control @ Villa Aruna on 4 July @ 11am
+
+---
+
+🧑‍🍳 DEMO HOST DASHBOARD:
+- Assigned Check-in task for 6 July
+- Must confirm deposit and meter reading
+- Assigned Check-out task for 11 July
+- Show electricity usage = 120kWh = 840 THB
+- Refundable deposit = 8000 – 840 = 7160 THB
+- Add dropdown for:
+  - Electricity paid by guest
+  - Included
+  - Complimentary
+
+---
+
+🛍 DEMO RETAIL AGENT DASHBOARD:
+- Shows demo property “Villa Aruna”
+- Dates: 6–11 July
+- Price: 5 nights @ 10,000 THB/night = 50,000 THB
+- Commission preview: 10% = 5,000 THB
+
+---
+
+🔗 DEMO REFERRAL AGENT DASHBOARD:
+- Referral registered for “Villa Aruna”
+- 10% of management fee (assume 20% of 50,000 = 10,000 THB)
+- Agent earns 1,000 THB
+
+---
+
+🗓 EVERY STAFF USER:
+- Has a visible “Schedule” tab
+- Can filter schedule: Daily / Weekly / Monthly
+- Tasks sorted by assigned property
+- Only see assigned or allowed properties/tasks
+
+---
+
+Make all tasks and dashboards visible **without logging real bookings** for evaluation purposes.
+

@@ -1969,6 +1969,187 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ===== GUEST ACTIVITY TRACKER & RECOMMENDATIONS AI ENDPOINTS =====
+
+  // Get property activity recommendations
+  app.get("/api/guest-activity-recommendations/:propertyId", async (req, res) => {
+    try {
+      const organizationId = "default-org";
+      const propertyId = parseInt(req.params.propertyId);
+      const { category, isFeatured, suitableFor } = req.query;
+      
+      const filters: any = {};
+      if (category) filters.category = category as string;
+      if (isFeatured !== undefined) filters.isFeatured = isFeatured === 'true';
+      if (suitableFor) filters.suitableFor = (suitableFor as string).split(',');
+      
+      const recommendations = await storage.getPropertyActivityRecommendations(organizationId, propertyId, filters);
+      res.json(recommendations);
+    } catch (error) {
+      console.error("Error fetching activity recommendations:", error);
+      res.status(500).json({ message: "Failed to fetch activity recommendations" });
+    }
+  });
+
+  // Get personalized recommendations for a guest
+  app.get("/api/guest-activity-recommendations/:propertyId/personalized", async (req, res) => {
+    try {
+      const propertyId = parseInt(req.params.propertyId);
+      const { reservationId, guestId } = req.query;
+      
+      if (!reservationId || !guestId) {
+        return res.status(400).json({ message: "reservationId and guestId are required" });
+      }
+      
+      const recommendations = await storage.getPersonalizedRecommendations(
+        reservationId as string, 
+        guestId as string, 
+        propertyId
+      );
+      res.json(recommendations);
+    } catch (error) {
+      console.error("Error fetching personalized recommendations:", error);
+      res.status(500).json({ message: "Failed to fetch personalized recommendations" });
+    }
+  });
+
+  // Get guest activity preferences
+  app.get("/api/guest-activity-preferences/:reservationId", async (req, res) => {
+    try {
+      const reservationId = req.params.reservationId;
+      const preferences = await storage.getGuestActivityPreferences(reservationId);
+      res.json(preferences);
+    } catch (error) {
+      console.error("Error fetching guest preferences:", error);
+      res.status(500).json({ message: "Failed to fetch guest preferences" });
+    }
+  });
+
+  // Update guest activity preferences
+  app.post("/api/guest-activity-preferences", async (req, res) => {
+    try {
+      const preferences = await storage.createGuestActivityPreferences(req.body);
+      res.status(201).json(preferences);
+    } catch (error) {
+      console.error("Error creating guest preferences:", error);
+      res.status(500).json({ message: "Failed to create guest preferences" });
+    }
+  });
+
+  app.put("/api/guest-activity-preferences/:reservationId", async (req, res) => {
+    try {
+      const reservationId = req.params.reservationId;
+      const preferences = await storage.updateGuestActivityPreferences(reservationId, req.body);
+      res.json(preferences);
+    } catch (error) {
+      console.error("Error updating guest preferences:", error);
+      res.status(500).json({ message: "Failed to update guest preferences" });
+    }
+  });
+
+  // Track recommendation interactions
+  app.post("/api/guest-recommendation-interactions", async (req, res) => {
+    try {
+      const interaction = await storage.createRecommendationInteraction(req.body);
+      res.status(201).json(interaction);
+    } catch (error) {
+      console.error("Error tracking recommendation interaction:", error);
+      res.status(500).json({ message: "Failed to track recommendation interaction" });
+    }
+  });
+
+  // Get recommendation interactions for a guest
+  app.get("/api/guest-recommendation-interactions/:reservationId", async (req, res) => {
+    try {
+      const reservationId = req.params.reservationId;
+      const { recommendationId, interactionType } = req.query;
+      
+      const filters: any = {};
+      if (recommendationId) filters.recommendationId = parseInt(recommendationId as string);
+      if (interactionType) filters.interactionType = interactionType as string;
+      
+      const interactions = await storage.getRecommendationInteractions(reservationId, filters);
+      res.json(interactions);
+    } catch (error) {
+      console.error("Error fetching recommendation interactions:", error);
+      res.status(500).json({ message: "Failed to fetch recommendation interactions" });
+    }
+  });
+
+  // Get recommendation analytics (admin/PM only)
+  app.get("/api/recommendation-analytics/:propertyId", isDemoAuthenticated, async (req, res) => {
+    try {
+      const organizationId = "default-org";
+      const propertyId = parseInt(req.params.propertyId);
+      const { fromDate, toDate, category } = req.query;
+      
+      const filters: any = {};
+      if (fromDate) filters.fromDate = new Date(fromDate as string);
+      if (toDate) filters.toDate = new Date(toDate as string);
+      if (category) filters.category = category as string;
+      
+      const analytics = await storage.getRecommendationAnalytics(organizationId, propertyId, filters);
+      res.json(analytics);
+    } catch (error) {
+      console.error("Error fetching recommendation analytics:", error);
+      res.status(500).json({ message: "Failed to fetch recommendation analytics" });
+    }
+  });
+
+  // Admin endpoints for managing property recommendations
+  app.post("/api/admin/property-activity-recommendations", isDemoAuthenticated, async (req, res) => {
+    try {
+      const user = req.user as any;
+      if (user.role !== 'admin' && user.role !== 'portfolio-manager') {
+        return res.status(403).json({ message: "Access denied. Admin or Portfolio Manager role required." });
+      }
+      
+      const recommendationData = {
+        ...req.body,
+        organizationId: "default-org",
+        createdBy: user.username,
+      };
+      
+      const recommendation = await storage.createPropertyActivityRecommendation(recommendationData);
+      res.status(201).json(recommendation);
+    } catch (error) {
+      console.error("Error creating property recommendation:", error);
+      res.status(500).json({ message: "Failed to create property recommendation" });
+    }
+  });
+
+  app.put("/api/admin/property-activity-recommendations/:id", isDemoAuthenticated, async (req, res) => {
+    try {
+      const user = req.user as any;
+      if (user.role !== 'admin' && user.role !== 'portfolio-manager') {
+        return res.status(403).json({ message: "Access denied. Admin or Portfolio Manager role required." });
+      }
+      
+      const recommendationId = parseInt(req.params.id);
+      const recommendation = await storage.updatePropertyActivityRecommendation(recommendationId, req.body);
+      res.json(recommendation);
+    } catch (error) {
+      console.error("Error updating property recommendation:", error);
+      res.status(500).json({ message: "Failed to update property recommendation" });
+    }
+  });
+
+  app.delete("/api/admin/property-activity-recommendations/:id", isDemoAuthenticated, async (req, res) => {
+    try {
+      const user = req.user as any;
+      if (user.role !== 'admin' && user.role !== 'portfolio-manager') {
+        return res.status(403).json({ message: "Access denied. Admin or Portfolio Manager role required." });
+      }
+      
+      const recommendationId = parseInt(req.params.id);
+      const success = await storage.deletePropertyActivityRecommendation(recommendationId);
+      res.json({ success });
+    } catch (error) {
+      console.error("Error deleting property recommendation:", error);
+      res.status(500).json({ message: "Failed to delete property recommendation" });
+    }
+  });
+
   // ===== GUEST ADD-ON SERVICE BOOKING PLATFORM =====
   
   // Guest add-on services CRUD
@@ -22125,6 +22306,197 @@ async function processGuestIssueForAI(issueReport: any) {
     } catch (error) {
       console.error("Error analyzing message:", error);
       res.status(500).json({ message: "Failed to analyze message" });
+    }
+  });
+
+  // ===== GUEST ACTIVITY TRACKER & RECOMMENDATIONS AI ROUTES =====
+
+  // Get property activity recommendations
+  app.get("/api/guest-activity/recommendations", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = req.user?.organizationId || "default-org";
+      const propertyId = parseInt(req.query.propertyId) || 1;
+      const filters = {
+        category: req.query.category,
+        isFeatured: req.query.isFeatured === 'true' ? true : req.query.isFeatured === 'false' ? false : undefined,
+        suitableFor: req.query.suitableFor ? req.query.suitableFor.split(',') : undefined
+      };
+
+      const recommendations = await storage.getPropertyActivityRecommendations(organizationId, propertyId, filters);
+      res.json(recommendations);
+    } catch (error) {
+      console.error("Error fetching activity recommendations:", error);
+      res.status(500).json({ message: "Failed to fetch activity recommendations" });
+    }
+  });
+
+  // Get personalized recommendations for a guest
+  app.get("/api/guest-activity/recommendations/personalized", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const reservationId = req.query.reservationId as string;
+      const guestId = req.query.guestId as string;
+      const propertyId = parseInt(req.query.propertyId) || 1;
+
+      if (!reservationId || !guestId) {
+        return res.status(400).json({ message: "reservationId and guestId are required" });
+      }
+
+      const recommendations = await storage.getPersonalizedRecommendations(reservationId, guestId, propertyId);
+      res.json(recommendations);
+    } catch (error) {
+      console.error("Error fetching personalized recommendations:", error);
+      res.status(500).json({ message: "Failed to fetch personalized recommendations" });
+    }
+  });
+
+  // Get guest activity preferences
+  app.get("/api/guest-activity/preferences/:reservationId", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const reservationId = req.params.reservationId;
+      const preferences = await storage.getGuestActivityPreferences(reservationId);
+      
+      if (!preferences) {
+        return res.status(404).json({ message: "Guest preferences not found" });
+      }
+      
+      res.json(preferences);
+    } catch (error) {
+      console.error("Error fetching guest preferences:", error);
+      res.status(500).json({ message: "Failed to fetch guest preferences" });
+    }
+  });
+
+  // Create guest activity preferences
+  app.post("/api/guest-activity/preferences", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = req.user?.organizationId || "default-org";
+      const preferencesData = {
+        ...req.body,
+        organizationId
+      };
+
+      const preferences = await storage.createGuestActivityPreferences(preferencesData);
+      res.status(201).json(preferences);
+    } catch (error) {
+      console.error("Error creating guest preferences:", error);
+      res.status(500).json({ message: "Failed to create guest preferences" });
+    }
+  });
+
+  // Update guest activity preferences
+  app.put("/api/guest-activity/preferences/:reservationId", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const reservationId = req.params.reservationId;
+      const preferencesData = req.body;
+
+      const preferences = await storage.updateGuestActivityPreferences(reservationId, preferencesData);
+      res.json(preferences);
+    } catch (error) {
+      console.error("Error updating guest preferences:", error);
+      res.status(500).json({ message: "Failed to update guest preferences" });
+    }
+  });
+
+  // Create recommendation interaction
+  app.post("/api/guest-activity/interactions", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = req.user?.organizationId || "default-org";
+      const interactionData = {
+        ...req.body,
+        organizationId
+      };
+
+      const interaction = await storage.createRecommendationInteraction(interactionData);
+      res.status(201).json(interaction);
+    } catch (error) {
+      console.error("Error creating recommendation interaction:", error);
+      res.status(500).json({ message: "Failed to create recommendation interaction" });
+    }
+  });
+
+  // Get recommendation interactions
+  app.get("/api/guest-activity/interactions", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const reservationId = req.query.reservationId as string;
+      const filters = {
+        recommendationId: req.query.recommendationId ? parseInt(req.query.recommendationId) : undefined,
+        interactionType: req.query.interactionType
+      };
+
+      if (!reservationId) {
+        return res.status(400).json({ message: "reservationId is required" });
+      }
+
+      const interactions = await storage.getRecommendationInteractions(reservationId, filters);
+      res.json(interactions);
+    } catch (error) {
+      console.error("Error fetching recommendation interactions:", error);
+      res.status(500).json({ message: "Failed to fetch recommendation interactions" });
+    }
+  });
+
+  // Get recommendation analytics
+  app.get("/api/guest-activity/analytics", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = req.user?.organizationId || "default-org";
+      const propertyId = parseInt(req.query.propertyId) || 1;
+      const filters = {
+        dateFrom: req.query.dateFrom,
+        dateTo: req.query.dateTo,
+        category: req.query.category
+      };
+
+      const analytics = await storage.getRecommendationAnalytics(organizationId, propertyId, filters);
+      res.json(analytics);
+    } catch (error) {
+      console.error("Error fetching recommendation analytics:", error);
+      res.status(500).json({ message: "Failed to fetch recommendation analytics" });
+    }
+  });
+
+  // Admin routes for managing recommendations
+  app.post("/api/admin/guest-activity/recommendations", requireAdmin, async (req: any, res) => {
+    try {
+      const organizationId = req.user?.organizationId || "default-org";
+      const recommendationData = {
+        ...req.body,
+        organizationId
+      };
+
+      const recommendation = await storage.createPropertyActivityRecommendation(recommendationData);
+      res.status(201).json(recommendation);
+    } catch (error) {
+      console.error("Error creating activity recommendation:", error);
+      res.status(500).json({ message: "Failed to create activity recommendation" });
+    }
+  });
+
+  app.put("/api/admin/guest-activity/recommendations/:id", requireAdmin, async (req: any, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const recommendationData = req.body;
+
+      const recommendation = await storage.updatePropertyActivityRecommendation(id, recommendationData);
+      res.json(recommendation);
+    } catch (error) {
+      console.error("Error updating activity recommendation:", error);
+      res.status(500).json({ message: "Failed to update activity recommendation" });
+    }
+  });
+
+  app.delete("/api/admin/guest-activity/recommendations/:id", requireAdmin, async (req: any, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const success = await storage.deletePropertyActivityRecommendation(id);
+      
+      if (success) {
+        res.json({ message: "Activity recommendation deleted successfully" });
+      } else {
+        res.status(404).json({ message: "Activity recommendation not found" });
+      }
+    } catch (error) {
+      console.error("Error deleting activity recommendation:", error);
+      res.status(500).json({ message: "Failed to delete activity recommendation" });
     }
   });
 

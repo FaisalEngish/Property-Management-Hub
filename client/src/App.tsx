@@ -102,6 +102,8 @@ import OwnerOnboardingUtilitySettings from "@/pages/OwnerOnboardingUtilitySettin
 import EnhancedAgentBookingDemo from "@/pages/EnhancedAgentBookingDemo";
 import SandboxTestingDashboard from "@/pages/SandboxTestingDashboard";
 import LocalContactsManagement from "@/pages/LocalContactsManagement";
+import GuestActivityRecommendations from "@/pages/GuestActivityRecommendations";
+import SystemWideDemoIntegration from "@/pages/SystemWideDemoIntegration";
 
 function Router() {
   const { isAuthenticated, isLoading, user } = useAuth();
@@ -261,6 +263,8 @@ function Router() {
         <Route path="/villa-samui-demo" component={VillaSamuiDemo} />
         <Route path="/enhanced-agent-booking-demo" component={EnhancedAgentBookingDemo} />
         <Route path="/sandbox-testing" component={SandboxTestingDashboard} />
+        <Route path="/guest-activity-recommendations" component={GuestActivityRecommendations} />
+        <Route path="/system-wide-demo-integration" component={SystemWideDemoIntegration} />
         <Route component={NotFound} />
         </Switch>
       </Layout>

@@ -361,7 +361,7 @@ export default function EnhancedGuestDashboard() {
 
         {/* Main Dashboard Tabs */}
         <Tabs defaultValue="booking-overview" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-8 text-xs">
+          <TabsList className="grid w-full grid-cols-9 text-xs">
             <TabsTrigger value="booking-overview" className="flex items-center gap-1">
               <Calendar className="h-3 w-3" />
               Booking
@@ -377,6 +377,10 @@ export default function EnhancedGuestDashboard() {
             <TabsTrigger value="deposit-overview" className="flex items-center gap-1">
               <CheckCircle className="h-3 w-3" />
               Deposit
+            </TabsTrigger>
+            <TabsTrigger value="recommendations" className="flex items-center gap-1">
+              <Heart className="h-3 w-3" />
+              Activities
             </TabsTrigger>
             <TabsTrigger value="hostaway-info" className="flex items-center gap-1">
               <Info className="h-3 w-3" />
@@ -1200,6 +1204,38 @@ export default function EnhancedGuestDashboard() {
                 </CardContent>
               </Card>
             )}
+          </TabsContent>
+
+          {/* Recommendations Tab */}
+          <TabsContent value="recommendations" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Heart className="h-5 w-5 text-pink-600" />
+                  Personalized Activity Recommendations
+                </CardTitle>
+                <CardDescription>
+                  Discover amazing local experiences curated for your stay at {guestBooking?.property?.name}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="text-center py-8 space-y-4">
+                  <Heart className="h-12 w-12 text-pink-600 mx-auto" />
+                  <div>
+                    <h3 className="text-lg font-semibold mb-2">Coming Soon!</h3>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      We're preparing personalized activity recommendations just for you.
+                    </p>
+                    <Button 
+                      onClick={() => window.open('/guest-activity-recommendations', '_blank')}
+                      className="bg-pink-600 hover:bg-pink-700"
+                    >
+                      Preview Full Recommendations
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           </TabsContent>
         </Tabs>
 
