@@ -11,6 +11,8 @@ interface DualOtaPricingProps {
   size?: "sm" | "md" | "lg";
   showTooltip?: boolean;
   showBreakdown?: boolean;
+  reservationNumber?: string;
+  emphasizePayoutAsRevenue?: boolean;
 }
 
 export function DualOtaPricing({
@@ -22,6 +24,8 @@ export function DualOtaPricing({
   size = "md",
   showTooltip = true,
   showBreakdown = true,
+  reservationNumber,
+  emphasizePayoutAsRevenue = false,
 }: DualOtaPricingProps) {
   const formatCurrency = (amount: number, curr: string) => {
     return new Intl.NumberFormat("en-US", {
@@ -45,34 +49,54 @@ export function DualOtaPricing({
     <div className="space-y-1">
       {/* Guest Total Price */}
       <div className="flex items-center justify-between">
-        <span className="text-gray-600">Guest Paid:</span>
-        <span className={`font-semibold text-blue-600 ${sizeClasses[size]}`}>
+        <span className="text-gray-600 dark:text-gray-400">Guest Paid:</span>
+        <span className={`font-semibold text-blue-600 dark:text-blue-400 ${sizeClasses[size]}`}>
           {formatCurrency(guestTotalPrice, currency)}
         </span>
       </div>
 
-      {/* Platform Payout */}
+      {/* Platform Payout - Emphasized as Revenue Baseline */}
       <div className="flex items-center justify-between">
-        <span className="text-gray-600">Payout Received:</span>
-        <span className={`font-bold text-green-600 ${sizeClasses[size]}`}>
+        <span className="text-gray-600 dark:text-gray-400">
+          {emphasizePayoutAsRevenue ? "Revenue" : "Payout"} ({platform}):
+        </span>
+        <span className={`font-bold ${emphasizePayoutAsRevenue ? 'text-green-700 dark:text-green-400' : 'text-green-600 dark:text-green-400'} ${sizeClasses[size]}`}>
           {formatCurrency(platformPayout, currency)}
+          {emphasizePayoutAsRevenue && <span className="text-xs ml-1 text-green-600">*</span>}
         </span>
       </div>
 
       {/* Commission Breakdown */}
       {showBreakdown && commissionAmount > 0 && (
-        <div className="flex items-center justify-between pt-1 border-t border-gray-200">
-          <span className="text-xs text-red-600">
-            {platform} Commission:
+        <div className="flex items-center justify-between pt-1 border-t border-gray-200 dark:border-gray-700">
+          <span className="text-xs text-red-600 dark:text-red-400">
+            OTA Commission:
           </span>
           <div className="flex items-center gap-1">
-            <span className="text-xs text-red-600 font-medium">
+            <span className="text-xs text-red-600 dark:text-red-400 font-medium">
               {formatCurrency(commissionAmount, currency)}
             </span>
             <Badge variant="destructive" className="text-xs">
               {commissionPercentage.toFixed(1)}%
             </Badge>
           </div>
+        </div>
+      )}
+
+      {/* Reservation Number */}
+      {reservationNumber && (
+        <div className="flex items-center justify-between text-gray-500 dark:text-gray-400 pt-1">
+          <span className="text-xs">Reservation:</span>
+          <span className="text-xs font-mono">{reservationNumber}</span>
+        </div>
+      )}
+
+      {/* Revenue Baseline Note */}
+      {emphasizePayoutAsRevenue && (
+        <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700">
+          <p className="text-xs text-green-600 dark:text-green-400">
+            * All financial calculations use payout amount only
+          </p>
         </div>
       )}
     </div>
@@ -119,6 +143,7 @@ export function DualOtaPricing({
 export function DualOtaPricingCompact({
   guestTotalPrice,
   platformPayout,
+  otaCommissionAmount,
   currency = "THB",
   platform = "OTA",
 }: Omit<DualOtaPricingProps, "size" | "showTooltip" | "showBreakdown">) {
@@ -131,7 +156,7 @@ export function DualOtaPricingCompact({
     }).format(amount);
   };
 
-  const commissionAmount = guestTotalPrice - platformPayout;
+  const commissionAmount = otaCommissionAmount || (guestTotalPrice - platformPayout);
 
   return (
     <TooltipProvider>

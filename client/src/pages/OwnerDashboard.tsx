@@ -517,7 +517,6 @@ export default function OwnerDashboard() {
                         otaCommissionAmount={data.otaCommissionAmount}
                         currency="THB"
                         platform={platform}
-                        size="sm"
                       />
                     </div>
                   ) : (
