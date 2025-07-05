@@ -8,6 +8,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useEffect } from "react";
 import NotFound from "@/pages/not-found";
 import Landing from "@/pages/Landing";
+import Help from "@/pages/Help";
 import Layout from "@/components/Layout";
 import Dashboard from "@/pages/Dashboard";
 import Properties from "@/pages/Properties";
@@ -271,6 +272,7 @@ function Router() {
         <Route path="/guest-activity-recommendations" component={GuestActivityRecommendations} />
         <Route path="/system-wide-demo-integration" component={SystemWideDemoIntegration} />
         <Route path="/extended-utilities-management" component={ExtendedUtilitiesManagement} />
+        <Route path="/help" component={Help} />
         <Route component={NotFound} />
         </Switch>
       </Layout>

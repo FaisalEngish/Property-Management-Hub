@@ -74,6 +74,12 @@ const getRoleBasedMenus = (role: string): MenuSection[] => {
       items: [
         { label: "Dashboard", icon: Home, href: "/", description: "Main dashboard overview" },
       ]
+    },
+    {
+      title: "Support",
+      items: [
+        { label: "Help", icon: Phone, href: "/help", description: "Contact information and support" },
+      ]
     }
   ];
 
