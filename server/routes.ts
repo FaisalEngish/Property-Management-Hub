@@ -25,6 +25,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const { seedVillaArunaDemo } = await import("./seedVillaArunaDemo");
   await seedVillaArunaDemo();
 
+  // Seed Extended Utilities demo data
+  // const { seedExtendedUtilitiesDemo } = await import("./seedExtendedUtilitiesDemo");
+  // await seedExtendedUtilitiesDemo();
+
   // Auth routes
   app.get('/api/auth/user', isDemoAuthenticated, async (req: any, res) => {
     try {
@@ -23551,6 +23555,355 @@ async function processGuestIssueForAI(issueReport: any) {
     } catch (error) {
       console.error("Error fetching reservation summary:", error);
       res.status(500).json({ message: "Failed to fetch reservation summary" });
+    }
+  });
+
+  // ===== EXTENDED UTILITIES MANAGEMENT API ROUTES =====
+  
+  // Import ExtendedUtilitiesStorage
+  const { ExtendedUtilitiesStorage } = await import("./extendedUtilitiesStorage");
+
+  // Middleware for utilities access - Admin/PM full access, Owner limited access based on permissions
+  const requireUtilitiesAccess = (req: any, res: any, next: any) => {
+    const userRole = req.user?.role;
+    if (!['admin', 'portfolio-manager', 'owner'].includes(userRole)) {
+      return res.status(403).json({ message: "Utilities access not allowed for this role" });
+    }
+    next();
+  };
+
+  // Get all property utilities
+  app.get("/api/extended-utilities/properties/:propertyId/utilities", isDemoAuthenticated, requireUtilitiesAccess, async (req: any, res) => {
+    try {
+      const organizationId = req.user.organizationId || "default-org";
+      const utilStorage = new ExtendedUtilitiesStorage(organizationId);
+      const propertyId = parseInt(req.params.propertyId);
+      
+      const utilities = await utilStorage.getPropertyUtilities(propertyId);
+      res.json(utilities);
+    } catch (error) {
+      console.error("Error fetching property utilities:", error);
+      res.status(500).json({ message: "Failed to fetch property utilities" });
+    }
+  });
+
+  // Get all utilities (admin/PM only)
+  app.get("/api/extended-utilities/utilities", isDemoAuthenticated, requirePortfolioManagerOrAdmin, async (req: any, res) => {
+    try {
+      const organizationId = req.user.organizationId || "default-org";
+      const utilStorage = new ExtendedUtilitiesStorage(organizationId);
+      
+      const utilities = await utilStorage.getPropertyUtilities();
+      res.json(utilities);
+    } catch (error) {
+      console.error("Error fetching utilities:", error);
+      res.status(500).json({ message: "Failed to fetch utilities" });
+    }
+  });
+
+  // Create new utility
+  app.post("/api/extended-utilities/utilities", isDemoAuthenticated, requirePortfolioManagerOrAdmin, async (req: any, res) => {
+    try {
+      const organizationId = req.user.organizationId || "default-org";
+      const utilStorage = new ExtendedUtilitiesStorage(organizationId);
+      
+      const utility = await utilStorage.createPropertyUtility(req.body);
+      res.status(201).json(utility);
+    } catch (error) {
+      console.error("Error creating utility:", error);
+      res.status(500).json({ message: "Failed to create utility" });
+    }
+  });
+
+  // Update utility
+  app.put("/api/extended-utilities/utilities/:id", isDemoAuthenticated, requireUtilitiesAccess, async (req: any, res) => {
+    try {
+      const organizationId = req.user.organizationId || "default-org";
+      const utilStorage = new ExtendedUtilitiesStorage(organizationId);
+      const utilityId = parseInt(req.params.id);
+      
+      // For owners, check if they have edit permissions
+      if (req.user.role === 'owner') {
+        const permissions = await utilStorage.getUtilityPermissions(utilityId, 'owner');
+        const hasEditPermission = permissions.some(p => 
+          p.canEditProviderInfo || p.canEditAccountNumber
+        );
+        
+        if (!hasEditPermission) {
+          return res.status(403).json({ message: "No edit permission for this utility" });
+        }
+      }
+      
+      const utility = await utilStorage.updatePropertyUtility(utilityId, req.body);
+      if (!utility) {
+        return res.status(404).json({ message: "Utility not found" });
+      }
+      
+      res.json(utility);
+    } catch (error) {
+      console.error("Error updating utility:", error);
+      res.status(500).json({ message: "Failed to update utility" });
+    }
+  });
+
+  // Delete utility (admin only)
+  app.delete("/api/extended-utilities/utilities/:id", isDemoAuthenticated, requireAdmin, async (req: any, res) => {
+    try {
+      const organizationId = req.user.organizationId || "default-org";
+      const utilStorage = new ExtendedUtilitiesStorage(organizationId);
+      const utilityId = parseInt(req.params.id);
+      
+      const success = await utilStorage.deletePropertyUtility(utilityId);
+      if (!success) {
+        return res.status(404).json({ message: "Utility not found" });
+      }
+      
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting utility:", error);
+      res.status(500).json({ message: "Failed to delete utility" });
+    }
+  });
+
+  // Get utility bills
+  app.get("/api/extended-utilities/bills", isDemoAuthenticated, requireUtilitiesAccess, async (req: any, res) => {
+    try {
+      const organizationId = req.user.organizationId || "default-org";
+      const utilStorage = new ExtendedUtilitiesStorage(organizationId);
+      
+      const filters: any = {};
+      if (req.query.utilityMasterId) filters.utilityMasterId = parseInt(req.query.utilityMasterId as string);
+      if (req.query.propertyId) filters.propertyId = parseInt(req.query.propertyId as string);
+      if (req.query.billingMonth) filters.billingMonth = req.query.billingMonth as string;
+      if (req.query.isPaid !== undefined) filters.isPaid = req.query.isPaid === 'true';
+      if (req.query.isLate !== undefined) filters.isLate = req.query.isLate === 'true';
+      if (req.query.monthsBack) filters.monthsBack = parseInt(req.query.monthsBack as string);
+      
+      const bills = await utilStorage.getUtilityBills(filters);
+      res.json(bills);
+    } catch (error) {
+      console.error("Error fetching utility bills:", error);
+      res.status(500).json({ message: "Failed to fetch utility bills" });
+    }
+  });
+
+  // Create utility bill
+  app.post("/api/extended-utilities/bills", isDemoAuthenticated, requireUtilitiesAccess, async (req: any, res) => {
+    try {
+      const organizationId = req.user.organizationId || "default-org";
+      const utilStorage = new ExtendedUtilitiesStorage(organizationId);
+      
+      const billData = {
+        ...req.body,
+        uploadedBy: req.user.id,
+        uploadedAt: new Date(),
+      };
+      
+      const bill = await utilStorage.createUtilityBill(billData);
+      res.status(201).json(bill);
+    } catch (error) {
+      console.error("Error creating utility bill:", error);
+      res.status(500).json({ message: "Failed to create utility bill" });
+    }
+  });
+
+  // Update utility bill
+  app.put("/api/extended-utilities/bills/:id", isDemoAuthenticated, requireUtilitiesAccess, async (req: any, res) => {
+    try {
+      const organizationId = req.user.organizationId || "default-org";
+      const utilStorage = new ExtendedUtilitiesStorage(organizationId);
+      const billId = parseInt(req.params.id);
+      
+      const bill = await utilStorage.updateUtilityBill(billId, req.body);
+      if (!bill) {
+        return res.status(404).json({ message: "Bill not found" });
+      }
+      
+      res.json(bill);
+    } catch (error) {
+      console.error("Error updating utility bill:", error);
+      res.status(500).json({ message: "Failed to update utility bill" });
+    }
+  });
+
+  // Delete utility bill (admin only)
+  app.delete("/api/extended-utilities/bills/:id", isDemoAuthenticated, requireAdmin, async (req: any, res) => {
+    try {
+      const organizationId = req.user.organizationId || "default-org";
+      const utilStorage = new ExtendedUtilitiesStorage(organizationId);
+      const billId = parseInt(req.params.id);
+      
+      const success = await utilStorage.deleteUtilityBill(billId);
+      if (!success) {
+        return res.status(404).json({ message: "Bill not found" });
+      }
+      
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting utility bill:", error);
+      res.status(500).json({ message: "Failed to delete utility bill" });
+    }
+  });
+
+  // Get utility permissions
+  app.get("/api/extended-utilities/permissions/:utilityId", isDemoAuthenticated, requirePortfolioManagerOrAdmin, async (req: any, res) => {
+    try {
+      const organizationId = req.user.organizationId || "default-org";
+      const utilStorage = new ExtendedUtilitiesStorage(organizationId);
+      const utilityId = parseInt(req.params.utilityId);
+      const userRole = req.query.userRole as string;
+      
+      const permissions = await utilStorage.getUtilityPermissions(utilityId, userRole);
+      res.json(permissions);
+    } catch (error) {
+      console.error("Error fetching utility permissions:", error);
+      res.status(500).json({ message: "Failed to fetch utility permissions" });
+    }
+  });
+
+  // Create/Update utility permissions (admin only)
+  app.post("/api/extended-utilities/permissions", isDemoAuthenticated, requireAdmin, async (req: any, res) => {
+    try {
+      const organizationId = req.user.organizationId || "default-org";
+      const utilStorage = new ExtendedUtilitiesStorage(organizationId);
+      
+      const permissionData = {
+        ...req.body,
+        setBy: req.user.id,
+      };
+      
+      const permission = await utilStorage.createUtilityPermission(permissionData);
+      res.status(201).json(permission);
+    } catch (error) {
+      console.error("Error creating utility permission:", error);
+      res.status(500).json({ message: "Failed to create utility permission" });
+    }
+  });
+
+  // Get AI predictions
+  app.get("/api/extended-utilities/ai-predictions", isDemoAuthenticated, requireUtilitiesAccess, async (req: any, res) => {
+    try {
+      const organizationId = req.user.organizationId || "default-org";
+      const utilStorage = new ExtendedUtilitiesStorage(organizationId);
+      
+      const utilityMasterId = req.query.utilityMasterId ? parseInt(req.query.utilityMasterId as string) : undefined;
+      const predictionType = req.query.predictionType as string;
+      
+      const predictions = await utilStorage.getUtilityAiPredictions(utilityMasterId, predictionType);
+      res.json(predictions);
+    } catch (error) {
+      console.error("Error fetching AI predictions:", error);
+      res.status(500).json({ message: "Failed to fetch AI predictions" });
+    }
+  });
+
+  // Generate AI prediction for a utility
+  app.post("/api/extended-utilities/ai-predictions/generate/:utilityId", isDemoAuthenticated, requirePortfolioManagerOrAdmin, async (req: any, res) => {
+    try {
+      const organizationId = req.user.organizationId || "default-org";
+      const utilStorage = new ExtendedUtilitiesStorage(organizationId);
+      const utilityId = parseInt(req.params.utilityId);
+      
+      const prediction = await utilStorage.generateArrivalPrediction(utilityId);
+      
+      // Save the prediction
+      const savedPrediction = await utilStorage.createUtilityAiPrediction({
+        utilityMasterId: utilityId,
+        predictionType: 'arrival_date',
+        predictedDate: prediction.predictedDate,
+        confidenceScore: prediction.confidenceScore.toString(),
+        basedOnMonths: 6,
+        averageArrivalDay: prediction.averageArrivalDay,
+        notes: prediction.notes,
+      });
+      
+      res.json({
+        ...savedPrediction,
+        prediction,
+      });
+    } catch (error) {
+      console.error("Error generating AI prediction:", error);
+      res.status(500).json({ message: "Failed to generate AI prediction" });
+    }
+  });
+
+  // Get utility notifications
+  app.get("/api/extended-utilities/notifications", isDemoAuthenticated, requireUtilitiesAccess, async (req: any, res) => {
+    try {
+      const organizationId = req.user.organizationId || "default-org";
+      const utilStorage = new ExtendedUtilitiesStorage(organizationId);
+      
+      const filters: any = {};
+      if (req.query.recipientUserId) filters.recipientUserId = req.query.recipientUserId as string;
+      if (req.query.recipientRole) filters.recipientRole = req.query.recipientRole as string;
+      if (req.query.notificationType) filters.notificationType = req.query.notificationType as string;
+      if (req.query.isRead !== undefined) filters.isRead = req.query.isRead === 'true';
+      if (req.query.actionRequired !== undefined) filters.actionRequired = req.query.actionRequired === 'true';
+      if (req.query.severity) filters.severity = req.query.severity as string;
+      
+      const notifications = await utilStorage.getUtilityNotifications(filters);
+      res.json(notifications);
+    } catch (error) {
+      console.error("Error fetching utility notifications:", error);
+      res.status(500).json({ message: "Failed to fetch utility notifications" });
+    }
+  });
+
+  // Mark notification as read
+  app.post("/api/extended-utilities/notifications/:id/read", isDemoAuthenticated, requireUtilitiesAccess, async (req: any, res) => {
+    try {
+      const organizationId = req.user.organizationId || "default-org";
+      const utilStorage = new ExtendedUtilitiesStorage(organizationId);
+      const notificationId = parseInt(req.params.id);
+      
+      const notification = await utilStorage.markNotificationAsRead(notificationId, req.user.id);
+      if (!notification) {
+        return res.status(404).json({ message: "Notification not found" });
+      }
+      
+      res.json(notification);
+    } catch (error) {
+      console.error("Error marking notification as read:", error);
+      res.status(500).json({ message: "Failed to mark notification as read" });
+    }
+  });
+
+  // Mark notification action as taken
+  app.post("/api/extended-utilities/notifications/:id/action", isDemoAuthenticated, requireUtilitiesAccess, async (req: any, res) => {
+    try {
+      const organizationId = req.user.organizationId || "default-org";
+      const utilStorage = new ExtendedUtilitiesStorage(organizationId);
+      const notificationId = parseInt(req.params.id);
+      const { actionNotes } = req.body;
+      
+      const notification = await utilStorage.markNotificationActionTaken(
+        notificationId, 
+        req.user.id, 
+        actionNotes
+      );
+      
+      if (!notification) {
+        return res.status(404).json({ message: "Notification not found" });
+      }
+      
+      res.json(notification);
+    } catch (error) {
+      console.error("Error marking action as taken:", error);
+      res.status(500).json({ message: "Failed to mark action as taken" });
+    }
+  });
+
+  // Get dashboard analytics
+  app.get("/api/extended-utilities/analytics", isDemoAuthenticated, requireUtilitiesAccess, async (req: any, res) => {
+    try {
+      const organizationId = req.user.organizationId || "default-org";
+      const utilStorage = new ExtendedUtilitiesStorage(organizationId);
+      
+      const analytics = await utilStorage.getDashboardAnalytics();
+      res.json(analytics);
+    } catch (error) {
+      console.error("Error fetching utilities analytics:", error);
+      res.status(500).json({ message: "Failed to fetch utilities analytics" });
     }
   });
 

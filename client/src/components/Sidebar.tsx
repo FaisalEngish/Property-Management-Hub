@@ -100,6 +100,7 @@ const getRoleBasedMenus = (role: string): MenuSection[] => {
           { label: "Maintenance Log & Warranty", icon: Wrench, href: "/maintenance-log-warranty-tracker", badge: "New" },
           { label: "Maintenance & Service Tracking", icon: Activity, href: "/maintenance-service-tracking", badge: "New" },
           { label: "Utilities & Maintenance", icon: Settings, href: "/maintenance-utilities-renovation-tracker" },
+          { label: "Extended Utilities Management", icon: Settings, href: "/extended-utilities-management", badge: "New" },
           { label: "Task Attachments", icon: FileText, href: "/task-attachments-notes" },
           { label: "Document Center", icon: FolderOpen, href: "/document-center" },
           { label: "Local Contacts Management", icon: Phone, href: "/local-contacts-management", badge: "New" },
@@ -160,6 +161,7 @@ const getRoleBasedMenus = (role: string): MenuSection[] => {
           { label: "Property Access", icon: Key, href: "/property-access" },
           { label: "Owner Onboarding", icon: UserPlus, href: "/owner-onboarding-system", badge: "New" },
           { label: "Owner Onboarding & Utility Settings", icon: Settings, href: "/owner-onboarding-utility-settings", badge: "New" },
+          { label: "Extended Utilities Management", icon: Settings, href: "/extended-utilities-management", badge: "New" },
         ]
       },
       {

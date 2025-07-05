@@ -294,8 +294,8 @@ export default function UserManagementModule() {
       `${user.firstName} ${user.lastName}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
       user.email?.toLowerCase().includes(searchTerm.toLowerCase());
     
-    const matchesRole = !roleFilter || user.userRole?.primaryRole === roleFilter;
-    const matchesStatus = !statusFilter || user.isActive.toString() === statusFilter;
+    const matchesRole = !roleFilter || roleFilter === "all" || user.userRole?.primaryRole === roleFilter;
+    const matchesStatus = !statusFilter || statusFilter === "all" || user.isActive.toString() === statusFilter;
     
     return matchesSearch && matchesRole && matchesStatus;
   });
@@ -374,7 +374,7 @@ export default function UserManagementModule() {
                         <SelectValue placeholder="All roles" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">All roles</SelectItem>
+                        <SelectItem value="all">All roles</SelectItem>
                         {ROLE_OPTIONS.map(role => (
                           <SelectItem key={role.value} value={role.value}>
                             {role.label}
@@ -390,7 +390,7 @@ export default function UserManagementModule() {
                         <SelectValue placeholder="All statuses" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">All statuses</SelectItem>
+                        <SelectItem value="all">All statuses</SelectItem>
                         <SelectItem value="true">Active</SelectItem>
                         <SelectItem value="false">Inactive</SelectItem>
                       </SelectContent>

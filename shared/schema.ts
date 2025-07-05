@@ -2763,6 +2763,210 @@ export type InsertInvoiceBookingLink = z.infer<typeof insertInvoiceBookingLinkSc
 export type InvoiceServiceLink = typeof invoiceServiceLinks.$inferSelect;
 export type InsertInvoiceServiceLink = z.infer<typeof insertInvoiceServiceLinkSchema>;
 
+// ===== EXTENDED UTILITIES MANAGEMENT SYSTEM =====
+
+// Property utility master setup - Admin management of who pays for what utilities
+export const propertyUtilitiesMaster = pgTable("property_utilities_master", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  propertyId: integer("property_id").references(() => properties.id).notNull(),
+  utilityType: varchar("utility_type").notNull(), // electricity, water, internet, pest_control, garden, pool
+  providerName: varchar("provider_name").notNull(), // PEA, TOT, 3BB, Local Water, etc.
+  accountNumber: varchar("account_number").notNull(),
+  whoPays: varchar("who_pays").notNull().default("management"), // owner, management, guest, other
+  whoPayssOtherExplanation: text("who_pays_other_explanation"), // For "other" option
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_util_master_org").on(table.organizationId),
+  index("IDX_util_master_property").on(table.propertyId),
+  index("IDX_util_master_type").on(table.utilityType),
+]);
+
+// Utility bills tracking - 6 month history with receipt management
+export const utilityBillsExtended = pgTable("utility_bills_extended", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  utilityMasterId: integer("utility_master_id").references(() => propertyUtilitiesMaster.id).notNull(),
+  propertyId: integer("property_id").references(() => properties.id).notNull(),
+  billingMonth: varchar("billing_month").notNull(), // YYYY-MM format
+  billingPeriodStart: date("billing_period_start").notNull(),
+  billingPeriodEnd: date("billing_period_end").notNull(),
+  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+  currency: varchar("currency").default("THB"),
+  isPaid: boolean("is_paid").default(false),
+  paidDate: date("paid_date"),
+  receiptUploaded: boolean("receipt_uploaded").default(false),
+  receiptFileUrl: varchar("receipt_file_url"), // URL to uploaded receipt
+  receiptFileName: varchar("receipt_file_name"),
+  dueDate: date("due_date"),
+  expectedArrivalDate: date("expected_arrival_date"), // AI prediction
+  isLate: boolean("is_late").default(false), // Auto-computed based on arrival patterns
+  lateReason: text("late_reason"),
+  uploadedBy: varchar("uploaded_by").references(() => users.id),
+  uploadedAt: timestamp("uploaded_at"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_util_bills_org").on(table.organizationId),
+  index("IDX_util_bills_utility").on(table.utilityMasterId),
+  index("IDX_util_bills_property").on(table.propertyId),
+  index("IDX_util_bills_month").on(table.billingMonth),
+]);
+
+// Editable access permissions for Manager/Owner roles
+export const utilityAccessPermissions = pgTable("utility_access_permissions", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  utilityMasterId: integer("utility_master_id").references(() => propertyUtilitiesMaster.id).notNull(),
+  userRole: varchar("user_role").notNull(), // manager, owner
+  canEditProviderInfo: boolean("can_edit_provider_info").default(false),
+  canEditAccountNumber: boolean("can_edit_account_number").default(false),
+  canUploadBills: boolean("can_upload_bills").default(false),
+  canViewBills: boolean("can_view_bills").default(true),
+  canSetReminders: boolean("can_set_reminders").default(false),
+  canViewAccountNumber: boolean("can_view_account_number").default(false), // Show full account vs masked
+  setBy: varchar("set_by").references(() => users.id).notNull(), // Admin who set permissions
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_util_perms_org").on(table.organizationId),
+  index("IDX_util_perms_utility").on(table.utilityMasterId),
+  index("IDX_util_perms_role").on(table.userRole),
+]);
+
+// AI predictions and notifications for utility bills
+export const utilityAiPredictions = pgTable("utility_ai_predictions", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  utilityMasterId: integer("utility_master_id").references(() => propertyUtilitiesMaster.id).notNull(),
+  predictionType: varchar("prediction_type").notNull(), // arrival_date, late_alert, amount_estimate
+  predictedDate: date("predicted_date"), // For arrival predictions
+  predictedAmount: decimal("predicted_amount", { precision: 10, scale: 2 }), // For amount estimates
+  confidenceScore: decimal("confidence_score", { precision: 3, scale: 2 }), // 0.00 to 1.00
+  basedOnMonths: integer("based_on_months").default(6), // How many months of data used
+  lastBillDate: date("last_bill_date"), // Most recent bill for comparison
+  averageArrivalDay: integer("average_arrival_day"), // Typical day of month bills arrive
+  notes: text("notes"), // AI explanation
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_ai_pred_org").on(table.organizationId),
+  index("IDX_ai_pred_utility").on(table.utilityMasterId),
+  index("IDX_ai_pred_type").on(table.predictionType),
+]);
+
+// Notification system for late uploads and owner reminders
+export const utilityNotifications = pgTable("utility_notifications", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  utilityMasterId: integer("utility_master_id").references(() => propertyUtilitiesMaster.id).notNull(),
+  notificationType: varchar("notification_type").notNull(), // late_upload_alert, owner_reminder, payment_due
+  recipientRole: varchar("recipient_role").notNull(), // admin, manager, owner
+  recipientUserId: varchar("recipient_user_id").references(() => users.id),
+  message: text("message").notNull(),
+  severity: varchar("severity").notNull().default("normal"), // low, normal, high, critical
+  isRead: boolean("is_read").default(false),
+  readAt: timestamp("read_at"),
+  sentAt: timestamp("sent_at"),
+  relatedBillId: integer("related_bill_id").references(() => utilityBillsExtended.id),
+  actionRequired: boolean("action_required").default(false),
+  actionTaken: boolean("action_taken").default(false),
+  actionTakenBy: varchar("action_taken_by").references(() => users.id),
+  actionTakenAt: timestamp("action_taken_at"),
+  actionNotes: text("action_notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("IDX_util_notif_org").on(table.organizationId),
+  index("IDX_util_notif_utility").on(table.utilityMasterId),
+  index("IDX_util_notif_recipient").on(table.recipientUserId),
+  index("IDX_util_notif_type").on(table.notificationType),
+]);
+
+// Relations for Extended Utilities Management
+export const propertyUtilitiesMasterRelations = relations(propertyUtilitiesMaster, ({ one, many }) => ({
+  organization: one(organizations, { fields: [propertyUtilitiesMaster.organizationId], references: [organizations.id] }),
+  property: one(properties, { fields: [propertyUtilitiesMaster.propertyId], references: [properties.id] }),
+  bills: many(utilityBillsExtended),
+  permissions: many(utilityAccessPermissions),
+  aiPredictions: many(utilityAiPredictions),
+  notifications: many(utilityNotifications),
+}));
+
+export const utilityBillsExtendedRelations = relations(utilityBillsExtended, ({ one }) => ({
+  organization: one(organizations, { fields: [utilityBillsExtended.organizationId], references: [organizations.id] }),
+  utilityMaster: one(propertyUtilitiesMaster, { fields: [utilityBillsExtended.utilityMasterId], references: [propertyUtilitiesMaster.id] }),
+  property: one(properties, { fields: [utilityBillsExtended.propertyId], references: [properties.id] }),
+  uploadedByUser: one(users, { fields: [utilityBillsExtended.uploadedBy], references: [users.id] }),
+}));
+
+export const utilityAccessPermissionsRelations = relations(utilityAccessPermissions, ({ one }) => ({
+  organization: one(organizations, { fields: [utilityAccessPermissions.organizationId], references: [organizations.id] }),
+  utilityMaster: one(propertyUtilitiesMaster, { fields: [utilityAccessPermissions.utilityMasterId], references: [propertyUtilitiesMaster.id] }),
+  setByUser: one(users, { fields: [utilityAccessPermissions.setBy], references: [users.id] }),
+}));
+
+export const utilityAiPredictionsRelations = relations(utilityAiPredictions, ({ one }) => ({
+  organization: one(organizations, { fields: [utilityAiPredictions.organizationId], references: [organizations.id] }),
+  utilityMaster: one(propertyUtilitiesMaster, { fields: [utilityAiPredictions.utilityMasterId], references: [propertyUtilitiesMaster.id] }),
+}));
+
+export const utilityNotificationsRelations = relations(utilityNotifications, ({ one }) => ({
+  organization: one(organizations, { fields: [utilityNotifications.organizationId], references: [organizations.id] }),
+  utilityMaster: one(propertyUtilitiesMaster, { fields: [utilityNotifications.utilityMasterId], references: [propertyUtilitiesMaster.id] }),
+  recipientUser: one(users, { fields: [utilityNotifications.recipientUserId], references: [users.id] }),
+  relatedBill: one(utilityBillsExtended, { fields: [utilityNotifications.relatedBillId], references: [utilityBillsExtended.id] }),
+  actionTakenByUser: one(users, { fields: [utilityNotifications.actionTakenBy], references: [users.id] }),
+}));
+
+// Insert schemas for Extended Utilities Management
+export const insertPropertyUtilitiesMasterSchema = createInsertSchema(propertyUtilitiesMaster).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertUtilityBillsExtendedSchema = createInsertSchema(utilityBillsExtended).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertUtilityAccessPermissionsSchema = createInsertSchema(utilityAccessPermissions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertUtilityAiPredictionsSchema = createInsertSchema(utilityAiPredictions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertUtilityNotificationsSchema = createInsertSchema(utilityNotifications).omit({
+  id: true,
+});
+
+// Type exports for Extended Utilities Management
+export type PropertyUtilitiesMaster = typeof propertyUtilitiesMaster.$inferSelect;
+export type InsertPropertyUtilitiesMaster = z.infer<typeof insertPropertyUtilitiesMasterSchema>;
+
+export type UtilityBillsExtended = typeof utilityBillsExtended.$inferSelect;
+export type InsertUtilityBillsExtended = z.infer<typeof insertUtilityBillsExtendedSchema>;
+
+export type UtilityAccessPermissions = typeof utilityAccessPermissions.$inferSelect;
+export type InsertUtilityAccessPermissions = z.infer<typeof insertUtilityAccessPermissionsSchema>;
+
+export type UtilityAiPredictions = typeof utilityAiPredictions.$inferSelect;
+export type InsertUtilityAiPredictions = z.infer<typeof insertUtilityAiPredictionsSchema>;
+
+export type UtilityNotifications = typeof utilityNotifications.$inferSelect;
+export type InsertUtilityNotifications = z.infer<typeof insertUtilityNotificationsSchema>;
+
 // ===== OWNER STATEMENT EXPORTS =====
 export const ownerStatementExports = pgTable("owner_statement_exports", {
   id: serial("id").primaryKey(),
@@ -9259,7 +9463,7 @@ export const auditTrail = pgTable("audit_trail", {
 }, (table) => [
   index("IDX_audit_org_user").on(table.organizationId, table.userId),
   index("IDX_audit_entity").on(table.entityType, table.entityId),
-  index("IDX_audit_action").on(table.actionType),
+  index("IDX_audit_action_type").on(table.actionType),
   index("IDX_audit_date").on(table.createdAt),
 ]);
 

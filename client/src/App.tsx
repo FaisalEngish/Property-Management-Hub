@@ -106,6 +106,7 @@ import GuestActivityRecommendations from "@/pages/GuestActivityRecommendations";
 import SystemWideDemoIntegration from "@/pages/SystemWideDemoIntegration";
 import SystemIntegrityCheck from "@/pages/SystemIntegrityCheck";
 import UserManagementModule from "@/pages/UserManagementModule";
+import ExtendedUtilitiesManagement from "@/pages/ExtendedUtilitiesManagement";
 
 function Router() {
   const { isAuthenticated, isLoading, user } = useAuth();
@@ -269,6 +270,7 @@ function Router() {
         <Route path="/sandbox-testing" component={SandboxTestingDashboard} />
         <Route path="/guest-activity-recommendations" component={GuestActivityRecommendations} />
         <Route path="/system-wide-demo-integration" component={SystemWideDemoIntegration} />
+        <Route path="/extended-utilities-management" component={ExtendedUtilitiesManagement} />
         <Route component={NotFound} />
         </Switch>
       </Layout>
