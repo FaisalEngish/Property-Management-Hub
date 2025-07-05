@@ -1189,6 +1189,186 @@ export type InsertWaterDeliveryAlert = typeof waterDeliveryAlerts.$inferInsert;
 export type WaterUpgradeSuggestion = typeof waterUpgradeSuggestions.$inferSelect;
 export type InsertWaterUpgradeSuggestion = typeof waterUpgradeSuggestions.$inferInsert;
 
+// Enhanced Water Utility Management
+export const propertyWaterSources = pgTable("property_water_sources", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").notNull(),
+  propertyId: integer("property_id").notNull(),
+  
+  // Water source details
+  sourceType: varchar("source_type").notNull(), // 'government', 'deepwell', 'emergency_truck'
+  sourceName: varchar("source_name"), // Custom name for the source
+  isActive: boolean("is_active").notNull().default(true),
+  isPrimary: boolean("is_primary").notNull().default(false), // One primary source per property
+  
+  // Source-specific settings
+  billingCycle: varchar("billing_cycle"), // 'monthly', 'quarterly' for government/deepwell
+  accountNumber: varchar("account_number"), // For government/deepwell
+  supplierName: varchar("supplier_name"), // For emergency truck
+  contactNumber: varchar("contact_number"),
+  
+  // Cost tracking
+  averageCostPerLiter: decimal("average_cost_per_liter", { precision: 8, scale: 4 }),
+  currency: varchar("currency").notNull().default("THB"),
+  
+  // Setup and notes
+  setupDate: timestamp("setup_date"),
+  notes: text("notes"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const waterConsumptionEntries = pgTable("water_consumption_entries", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").notNull(),
+  propertyId: integer("property_id").notNull(),
+  sourceId: integer("source_id").notNull(), // References property_water_sources
+  
+  // Entry details
+  entryType: varchar("entry_type").notNull(), // 'bill', 'emergency_delivery', 'regular_delivery'
+  entryDate: timestamp("entry_date").notNull(),
+  
+  // Volume and cost
+  volumeLiters: integer("volume_liters"), // For deliveries
+  totalCost: decimal("total_cost", { precision: 10, scale: 2 }).notNull(),
+  costPerLiter: decimal("cost_per_liter", { precision: 8, scale: 4 }),
+  currency: varchar("currency").notNull().default("THB"),
+  
+  // Bill-specific fields
+  billDate: timestamp("bill_date"),
+  dueDate: timestamp("due_date"),
+  billNumber: varchar("bill_number"),
+  units: varchar("units"), // m3, liters, etc.
+  unitRate: decimal("unit_rate", { precision: 8, scale: 4 }),
+  
+  // Delivery-specific fields
+  supplierName: varchar("supplier_name"),
+  deliveryType: varchar("delivery_type"), // 'scheduled', 'emergency', 'top_up'
+  driverName: varchar("driver_name"),
+  truckLicensePlate: varchar("truck_license_plate"),
+  
+  // Payment and status
+  paidBy: varchar("paid_by"), // 'owner', 'management', 'other'
+  paidByCustom: varchar("paid_by_custom"), // When 'other' is selected
+  paymentStatus: varchar("payment_status").notNull().default("pending"), // 'pending', 'paid', 'overdue'
+  paidAt: timestamp("paid_at"),
+  
+  // Emergency and priority
+  isEmergency: boolean("is_emergency").notNull().default(false),
+  urgencyLevel: varchar("urgency_level"), // 'low', 'medium', 'high', 'critical'
+  emergencyReason: text("emergency_reason"),
+  
+  // Receipt and documentation
+  receiptUrl: varchar("receipt_url"),
+  proofOfDeliveryUrl: varchar("proof_of_delivery_url"),
+  notes: text("notes"),
+  
+  // Audit
+  createdBy: varchar("created_by").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const waterConsumptionAlerts = pgTable("water_consumption_alerts", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").notNull(),
+  propertyId: integer("property_id").notNull(),
+  
+  // Alert details
+  alertType: varchar("alert_type").notNull(), // 'no_entry_dry_season', 'frequent_emergency', 'cost_spike', 'overdue_bill'
+  alertMessage: text("alert_message").notNull(),
+  severity: varchar("severity").notNull().default("medium"), // 'low', 'medium', 'high', 'critical'
+  
+  // Alert triggers
+  triggerCount: integer("trigger_count"), // For frequency-based alerts
+  triggerPeriodDays: integer("trigger_period_days").notNull().default(30),
+  daysSinceLastEntry: integer("days_since_last_entry"),
+  
+  // Alert metadata
+  sourceType: varchar("source_type"), // Which source type triggered the alert
+  recommendations: text("recommendations"),
+  aiGenerated: boolean("ai_generated").notNull().default(false),
+  
+  // Status
+  isActive: boolean("is_active").notNull().default(true),
+  acknowledgedBy: varchar("acknowledged_by"),
+  acknowledgedAt: timestamp("acknowledged_at"),
+  notes: text("notes"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const waterSuppliers = pgTable("water_suppliers", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").notNull(),
+  
+  // Supplier details
+  supplierName: varchar("supplier_name").notNull(),
+  contactPerson: varchar("contact_person"),
+  phoneNumber: varchar("phone_number"),
+  alternatePhone: varchar("alternate_phone"),
+  email: varchar("email"),
+  
+  // Service details
+  serviceAreas: text("service_areas"), // JSON array of areas they serve
+  vehicleTypes: text("vehicle_types"), // JSON array of truck types/sizes
+  minimumOrder: integer("minimum_order"), // Minimum liters
+  maximumCapacity: integer("maximum_capacity"), // Maximum liters per delivery
+  
+  // Pricing
+  pricePerLiter: decimal("price_per_liter", { precision: 8, scale: 4 }),
+  emergencyUpcharge: decimal("emergency_upcharge", { precision: 5, scale: 2 }), // Percentage
+  currency: varchar("currency").notNull().default("THB"),
+  
+  // Performance tracking
+  averageResponseTime: integer("average_response_time"), // Hours
+  reliabilityRating: decimal("reliability_rating", { precision: 3, scale: 2 }), // 1-5 scale
+  totalDeliveries: integer("total_deliveries").notNull().default(0),
+  
+  // Status and notes
+  isActive: boolean("is_active").notNull().default(true),
+  isPreferred: boolean("is_preferred").notNull().default(false),
+  notes: text("notes"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Relations for enhanced water utility system
+export const propertyWaterSourcesRelations = relations(propertyWaterSources, ({ one, many }) => ({
+  property: one(properties, { fields: [propertyWaterSources.propertyId], references: [properties.id] }),
+  consumptionEntries: many(waterConsumptionEntries),
+}));
+
+export const waterConsumptionEntriesRelations = relations(waterConsumptionEntries, ({ one }) => ({
+  property: one(properties, { fields: [waterConsumptionEntries.propertyId], references: [properties.id] }),
+  source: one(propertyWaterSources, { fields: [waterConsumptionEntries.sourceId], references: [propertyWaterSources.id] }),
+  createdByUser: one(users, { fields: [waterConsumptionEntries.createdBy], references: [users.id] }),
+}));
+
+export const waterConsumptionAlertsRelations = relations(waterConsumptionAlerts, ({ one }) => ({
+  property: one(properties, { fields: [waterConsumptionAlerts.propertyId], references: [properties.id] }),
+  acknowledgedByUser: one(users, { fields: [waterConsumptionAlerts.acknowledgedBy], references: [users.id] }),
+}));
+
+export const waterSuppliersRelations = relations(waterSuppliers, ({ many }) => ({
+  // No direct relations, but can be referenced by supplier name in consumption entries
+}));
+
+// Types for enhanced water utility system
+export type PropertyWaterSource = typeof propertyWaterSources.$inferSelect;
+export type InsertPropertyWaterSource = typeof propertyWaterSources.$inferInsert;
+
+export type WaterConsumptionEntry = typeof waterConsumptionEntries.$inferSelect;
+export type InsertWaterConsumptionEntry = typeof waterConsumptionEntries.$inferInsert;
+
+export type WaterConsumptionAlert = typeof waterConsumptionAlerts.$inferSelect;
+export type InsertWaterConsumptionAlert = typeof waterConsumptionAlerts.$inferInsert;
+
+export type WaterSupplier = typeof waterSuppliers.$inferSelect;
+export type InsertWaterSupplier = typeof waterSuppliers.$inferInsert;
+
 // Owner Payouts
 export const ownerPayouts = pgTable("owner_payouts", {
   id: serial("id").primaryKey(),

@@ -123,6 +123,7 @@ import WaterUtilityEmergencyTracker from "@/pages/WaterUtilityEmergencyTracker";
 import OtaRevenueNetPayoutCalculation from "@/pages/OtaRevenueNetPayoutCalculation";
 import SmartPricingPerformanceToolkit from "@/pages/SmartPricingPerformanceToolkit";
 import OwnerTargetUpgradeTracker from "@/pages/OwnerTargetUpgradeTracker";
+import WaterUtilityEnhanced from "@/pages/WaterUtilityEnhanced";
 
 function Router() {
   const { isAuthenticated, isLoading, user } = useAuth();
@@ -303,6 +304,7 @@ function Router() {
         <Route path="/help" component={Help} />
         <Route path="/smart-pricing-performance-toolkit" component={SmartPricingPerformanceToolkit} />
         <Route path="/owner-target-upgrade-tracker" component={OwnerTargetUpgradeTracker} />
+        <Route path="/water-utility-enhanced" component={WaterUtilityEnhanced} />
         <Route component={NotFound} />
         </Switch>
       </Layout>

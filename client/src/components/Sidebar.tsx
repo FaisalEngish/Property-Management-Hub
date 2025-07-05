@@ -114,6 +114,7 @@ const getRoleBasedMenus = (role: string): MenuSection[] => {
           { label: "Extended Utilities Management", icon: Settings, href: "/extended-utilities-management", badge: "New" },
           { label: "Water Emergency Refill Log", icon: Droplets, href: "/water-utility-emergency-truck-refill-log", badge: "New" },
           { label: "Water Utility & Emergency Tracker", icon: Droplets, href: "/water-utility-emergency-tracker", badge: "New" },
+          { label: "Enhanced Water Utility", icon: Droplets, href: "/water-utility-enhanced", badge: "AI" },
           { label: "Task Attachments", icon: FileText, href: "/task-attachments-notes" },
           { label: "Document Center", icon: FolderOpen, href: "/document-center" },
           { label: "Local Contacts Management", icon: Phone, href: "/local-contacts-management", badge: "New" },
@@ -183,6 +184,7 @@ const getRoleBasedMenus = (role: string): MenuSection[] => {
           { label: "Owner Onboarding", icon: UserPlus, href: "/owner-onboarding-system", badge: "New" },
           { label: "Owner Onboarding & Utility Settings", icon: Settings, href: "/owner-onboarding-utility-settings", badge: "New" },
           { label: "Extended Utilities Management", icon: Settings, href: "/extended-utilities-management", badge: "New" },
+          { label: "Enhanced Water Utility", icon: Droplets, href: "/water-utility-enhanced", badge: "AI" },
           { label: "AI Notifications & Reminders", icon: Brain, href: "/ai-notifications-reminders", badge: "New" },
           { label: "Owner Targets & Upgrades", icon: Target, href: "/owner-target-upgrade-tracker", badge: "New" },
         ]

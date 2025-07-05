@@ -26413,6 +26413,291 @@ async function processGuestIssueForAI(issueReport: any) {
     }
   });
 
+  // Enhanced Water Utility Management Routes
+  const { WaterUtilityEnhancedStorage } = await import("./waterUtilityEnhancedStorage");
+
+  // Water Sources Management
+  app.get("/api/water/sources", requirePortfolioManagerOrAdmin, async (req, res) => {
+    try {
+      const waterStorage = new WaterUtilityEnhancedStorage(req.user.organizationId);
+      const { propertyId, sourceType, isActive } = req.query;
+      
+      const sources = await waterStorage.getWaterSources({
+        propertyId: propertyId ? parseInt(propertyId as string) : undefined,
+        sourceType: sourceType as string,
+        isActive: isActive === 'true' ? true : isActive === 'false' ? false : undefined,
+      });
+      
+      res.json(sources);
+    } catch (error) {
+      console.error("Error fetching water sources:", error);
+      res.status(500).json({ message: "Failed to fetch water sources" });
+    }
+  });
+
+  app.post("/api/water/sources", requirePortfolioManagerOrAdmin, async (req, res) => {
+    try {
+      const waterStorage = new WaterUtilityEnhancedStorage(req.user.organizationId);
+      const source = await waterStorage.createWaterSource(req.body);
+      res.json(source);
+    } catch (error) {
+      console.error("Error creating water source:", error);
+      res.status(500).json({ message: "Failed to create water source" });
+    }
+  });
+
+  app.put("/api/water/sources/:id", requirePortfolioManagerOrAdmin, async (req, res) => {
+    try {
+      const waterStorage = new WaterUtilityEnhancedStorage(req.user.organizationId);
+      const { id } = req.params;
+      const source = await waterStorage.updateWaterSource(parseInt(id), req.body);
+      
+      if (!source) {
+        return res.status(404).json({ message: "Water source not found" });
+      }
+      
+      res.json(source);
+    } catch (error) {
+      console.error("Error updating water source:", error);
+      res.status(500).json({ message: "Failed to update water source" });
+    }
+  });
+
+  app.delete("/api/water/sources/:id", requireAdmin, async (req, res) => {
+    try {
+      const waterStorage = new WaterUtilityEnhancedStorage(req.user.organizationId);
+      const { id } = req.params;
+      const success = await waterStorage.deleteWaterSource(parseInt(id));
+      
+      if (!success) {
+        return res.status(404).json({ message: "Water source not found" });
+      }
+      
+      res.json({ message: "Water source deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting water source:", error);
+      res.status(500).json({ message: "Failed to delete water source" });
+    }
+  });
+
+  // Water Consumption Entries Management
+  app.get("/api/water/consumption", isDemoAuthenticated, async (req, res) => {
+    try {
+      const waterStorage = new WaterUtilityEnhancedStorage(req.user.organizationId);
+      const { propertyId, sourceId, entryType, isEmergency, startDate, endDate, paidBy } = req.query;
+      
+      const entries = await waterStorage.getConsumptionEntries({
+        propertyId: propertyId ? parseInt(propertyId as string) : undefined,
+        sourceId: sourceId ? parseInt(sourceId as string) : undefined,
+        entryType: entryType as string,
+        isEmergency: isEmergency === 'true' ? true : isEmergency === 'false' ? false : undefined,
+        startDate: startDate ? new Date(startDate as string) : undefined,
+        endDate: endDate ? new Date(endDate as string) : undefined,
+        paidBy: paidBy as string,
+      });
+      
+      res.json(entries);
+    } catch (error) {
+      console.error("Error fetching consumption entries:", error);
+      res.status(500).json({ message: "Failed to fetch consumption entries" });
+    }
+  });
+
+  app.post("/api/water/consumption", requirePortfolioManagerOrAdmin, async (req, res) => {
+    try {
+      const waterStorage = new WaterUtilityEnhancedStorage(req.user.organizationId);
+      const entryData = {
+        ...req.body,
+        createdBy: req.user.id,
+      };
+      
+      const entry = await waterStorage.createConsumptionEntry(entryData);
+      res.json(entry);
+    } catch (error) {
+      console.error("Error creating consumption entry:", error);
+      res.status(500).json({ message: "Failed to create consumption entry" });
+    }
+  });
+
+  app.put("/api/water/consumption/:id", requirePortfolioManagerOrAdmin, async (req, res) => {
+    try {
+      const waterStorage = new WaterUtilityEnhancedStorage(req.user.organizationId);
+      const { id } = req.params;
+      const entry = await waterStorage.updateConsumptionEntry(parseInt(id), req.body);
+      
+      if (!entry) {
+        return res.status(404).json({ message: "Consumption entry not found" });
+      }
+      
+      res.json(entry);
+    } catch (error) {
+      console.error("Error updating consumption entry:", error);
+      res.status(500).json({ message: "Failed to update consumption entry" });
+    }
+  });
+
+  app.delete("/api/water/consumption/:id", requireAdmin, async (req, res) => {
+    try {
+      const waterStorage = new WaterUtilityEnhancedStorage(req.user.organizationId);
+      const { id } = req.params;
+      const success = await waterStorage.deleteConsumptionEntry(parseInt(id));
+      
+      if (!success) {
+        return res.status(404).json({ message: "Consumption entry not found" });
+      }
+      
+      res.json({ message: "Consumption entry deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting consumption entry:", error);
+      res.status(500).json({ message: "Failed to delete consumption entry" });
+    }
+  });
+
+  // Water Alerts Management
+  app.get("/api/water/alerts", isDemoAuthenticated, async (req, res) => {
+    try {
+      const waterStorage = new WaterUtilityEnhancedStorage(req.user.organizationId);
+      const { propertyId, alertType, severity, isActive } = req.query;
+      
+      const alerts = await waterStorage.getAlerts({
+        propertyId: propertyId ? parseInt(propertyId as string) : undefined,
+        alertType: alertType as string,
+        severity: severity as string,
+        isActive: isActive === 'true' ? true : isActive === 'false' ? false : undefined,
+      });
+      
+      res.json(alerts);
+    } catch (error) {
+      console.error("Error fetching water alerts:", error);
+      res.status(500).json({ message: "Failed to fetch water alerts" });
+    }
+  });
+
+  app.put("/api/water/alerts/:id/acknowledge", requirePortfolioManagerOrAdmin, async (req, res) => {
+    try {
+      const waterStorage = new WaterUtilityEnhancedStorage(req.user.organizationId);
+      const { id } = req.params;
+      const alert = await waterStorage.acknowledgeAlert(parseInt(id), req.user.id);
+      
+      if (!alert) {
+        return res.status(404).json({ message: "Alert not found" });
+      }
+      
+      res.json(alert);
+    } catch (error) {
+      console.error("Error acknowledging alert:", error);
+      res.status(500).json({ message: "Failed to acknowledge alert" });
+    }
+  });
+
+  // Water Suppliers Management
+  app.get("/api/water/suppliers", requirePortfolioManagerOrAdmin, async (req, res) => {
+    try {
+      const waterStorage = new WaterUtilityEnhancedStorage(req.user.organizationId);
+      const { isActive, isPreferred } = req.query;
+      
+      const suppliers = await waterStorage.getSuppliers({
+        isActive: isActive === 'true' ? true : isActive === 'false' ? false : undefined,
+        isPreferred: isPreferred === 'true' ? true : isPreferred === 'false' ? false : undefined,
+      });
+      
+      res.json(suppliers);
+    } catch (error) {
+      console.error("Error fetching water suppliers:", error);
+      res.status(500).json({ message: "Failed to fetch water suppliers" });
+    }
+  });
+
+  app.post("/api/water/suppliers", requireAdmin, async (req, res) => {
+    try {
+      const waterStorage = new WaterUtilityEnhancedStorage(req.user.organizationId);
+      const supplier = await waterStorage.createSupplier(req.body);
+      res.json(supplier);
+    } catch (error) {
+      console.error("Error creating water supplier:", error);
+      res.status(500).json({ message: "Failed to create water supplier" });
+    }
+  });
+
+  app.put("/api/water/suppliers/:id", requireAdmin, async (req, res) => {
+    try {
+      const waterStorage = new WaterUtilityEnhancedStorage(req.user.organizationId);
+      const { id } = req.params;
+      const supplier = await waterStorage.updateSupplier(parseInt(id), req.body);
+      
+      if (!supplier) {
+        return res.status(404).json({ message: "Supplier not found" });
+      }
+      
+      res.json(supplier);
+    } catch (error) {
+      console.error("Error updating water supplier:", error);
+      res.status(500).json({ message: "Failed to update water supplier" });
+    }
+  });
+
+  // Water Analytics and Dashboard
+  app.get("/api/water/summary", isDemoAuthenticated, async (req, res) => {
+    try {
+      const waterStorage = new WaterUtilityEnhancedStorage(req.user.organizationId);
+      const { propertyId } = req.query;
+      
+      const summary = await waterStorage.getWaterConsumptionSummary(
+        propertyId ? parseInt(propertyId as string) : undefined
+      );
+      
+      res.json(summary);
+    } catch (error) {
+      console.error("Error fetching water summary:", error);
+      res.status(500).json({ message: "Failed to fetch water summary" });
+    }
+  });
+
+  // Demo Data Routes for Enhanced Water Utility
+  app.get("/api/water/sources/demo", isDemoAuthenticated, async (req, res) => {
+    try {
+      const waterStorage = new WaterUtilityEnhancedStorage(req.user.organizationId);
+      const sources = await waterStorage.getDemoWaterSources();
+      res.json(sources);
+    } catch (error) {
+      console.error("Error fetching demo water sources:", error);
+      res.status(500).json({ message: "Failed to fetch demo water sources" });
+    }
+  });
+
+  app.get("/api/water/consumption/demo", isDemoAuthenticated, async (req, res) => {
+    try {
+      const waterStorage = new WaterUtilityEnhancedStorage(req.user.organizationId);
+      const entries = await waterStorage.getDemoConsumptionEntries();
+      res.json(entries);
+    } catch (error) {
+      console.error("Error fetching demo consumption entries:", error);
+      res.status(500).json({ message: "Failed to fetch demo consumption entries" });
+    }
+  });
+
+  app.get("/api/water/suppliers/demo", isDemoAuthenticated, async (req, res) => {
+    try {
+      const waterStorage = new WaterUtilityEnhancedStorage(req.user.organizationId);
+      const suppliers = await waterStorage.getDemoSuppliers();
+      res.json(suppliers);
+    } catch (error) {
+      console.error("Error fetching demo suppliers:", error);
+      res.status(500).json({ message: "Failed to fetch demo suppliers" });
+    }
+  });
+
+  app.get("/api/water/alerts/demo", isDemoAuthenticated, async (req, res) => {
+    try {
+      const waterStorage = new WaterUtilityEnhancedStorage(req.user.organizationId);
+      const alerts = await waterStorage.getDemoAlerts();
+      res.json(alerts);
+    } catch (error) {
+      console.error("Error fetching demo alerts:", error);
+      res.status(500).json({ message: "Failed to fetch demo alerts" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
