@@ -14,6 +14,7 @@ import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { format, parseISO } from "date-fns";
+import { Link } from "wouter";
 import { 
   Calendar, 
   DollarSign, 
@@ -496,38 +497,38 @@ export default function PortfolioManagerDashboard() {
             <CardContent>
               <div className="grid gap-4 md:grid-cols-5">
                 <Button asChild variant="outline" className="h-20 flex-col">
-                  <a href="/portfolio/property-access">
+                  <Link href="/portfolio/property-access">
                     <Building className="h-6 w-6 mb-2" />
                     <span className="text-sm">Property Access</span>
-                  </a>
+                  </Link>
                 </Button>
                 
                 <Button asChild variant="outline" className="h-20 flex-col">
-                  <a href="/portfolio/documents">
+                  <Link href="/portfolio/documents">
                     <FileText className="h-6 w-6 mb-2" />
                     <span className="text-sm">Document Center</span>
-                  </a>
+                  </Link>
                 </Button>
                 
                 <Button asChild variant="outline" className="h-20 flex-col">
-                  <a href="/portfolio/maintenance">
+                  <Link href="/portfolio/maintenance">
                     <Settings className="h-6 w-6 mb-2" />
                     <span className="text-sm">Maintenance</span>
-                  </a>
+                  </Link>
                 </Button>
                 
                 <Button asChild variant="outline" className="h-20 flex-col">
-                  <a href="/portfolio/service-tracker">
+                  <Link href="/portfolio/service-tracker">
                     <Calendar className="h-6 w-6 mb-2" />
                     <span className="text-sm">Service Tracker</span>
-                  </a>
+                  </Link>
                 </Button>
                 
                 <Button asChild variant="outline" className="h-20 flex-col">
-                  <a href="/portfolio/invoices">
+                  <Link href="/portfolio/invoices">
                     <Receipt className="h-6 w-6 mb-2" />
                     <span className="text-sm">Invoices</span>
-                  </a>
+                  </Link>
                 </Button>
               </div>
             </CardContent>
