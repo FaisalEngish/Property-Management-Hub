@@ -1019,6 +1019,29 @@ export interface IStorage {
   updateMaintenanceReportStatus(id: number, status: string, assignedTo?: string): Promise<GuestMaintenanceReport | undefined>;
   completeMaintenanceReport(id: number, resolutionNotes: string, images?: string[]): Promise<GuestMaintenanceReport | undefined>;
 
+  // Task Scheduling System operations
+  getScheduledTasks(organizationId: string, filters?: { 
+    role?: string; 
+    userId?: string; 
+    propertyId?: number; 
+    date?: string; 
+    dateRange?: { start: string; end: string };
+    reservationId?: string;
+    status?: string;
+    assignedRole?: string;
+    guestVisible?: boolean;
+  }): Promise<any[]>;
+  getScheduledTask(id: number): Promise<any | undefined>;
+  createScheduledTask(task: any): Promise<any>;
+  updateScheduledTask(id: number, updates: any): Promise<any | undefined>;
+  deleteScheduledTask(id: number): Promise<boolean>;
+  updateTaskStatus(id: number, status: string, completedBy?: string, evidence?: any): Promise<any | undefined>;
+  
+  // Demo data methods for task scheduling
+  getDemoTaskSchedule(role?: string, date?: string, reservationId?: string): Promise<any[]>;
+  getDemoGuestInfo(reservationId: string): Promise<any | undefined>;
+  getDemoPropertyInfo(propertyId: number): Promise<any | undefined>;
+  
   // Add-On Services Booking Engine operations
   // Service categories
   getServiceCategories(organizationId: string): Promise<any[]>;
@@ -10670,6 +10693,143 @@ export class DatabaseStorage implements IStorage {
   async createOwnerChargeRequest(data: any): Promise<any> {
     const [charge] = await db.insert(ownerChargeRequests).values(data).returning();
     return charge;
+  }
+
+  // ===== TASK SCHEDULING SYSTEM IMPLEMENTATION =====
+  
+  // Task Scheduling System operations
+  async getScheduledTasks(organizationId: string, filters?: { 
+    role?: string; 
+    userId?: string; 
+    propertyId?: number; 
+    date?: string; 
+    dateRange?: { start: string; end: string };
+    reservationId?: string;
+    status?: string;
+    assignedRole?: string;
+    guestVisible?: boolean;
+  }): Promise<any[]> {
+    // Import demo data
+    const { DEMO_TASKS_SCHEDULE, getTasksByRole } = await import('./demoConfig');
+    
+    // Filter tasks based on criteria
+    let filteredTasks = [...DEMO_TASKS_SCHEDULE];
+    
+    if (filters?.role) {
+      filteredTasks = getTasksByRole(filters.role, filters.date);
+    }
+    
+    if (filters?.propertyId) {
+      filteredTasks = filteredTasks.filter(task => task.propertyId === filters.propertyId);
+    }
+    
+    if (filters?.reservationId) {
+      filteredTasks = filteredTasks.filter(task => task.reservationId === filters.reservationId);
+    }
+    
+    if (filters?.status) {
+      filteredTasks = filteredTasks.filter(task => task.status === filters.status);
+    }
+    
+    if (filters?.assignedRole) {
+      filteredTasks = filteredTasks.filter(task => task.assignedRole === filters.assignedRole);
+    }
+    
+    if (filters?.guestVisible !== undefined) {
+      filteredTasks = filteredTasks.filter(task => task.guestVisible === filters.guestVisible);
+    }
+    
+    if (filters?.dateRange) {
+      filteredTasks = filteredTasks.filter(task => 
+        task.scheduledDate >= filters.dateRange!.start && 
+        task.scheduledDate <= filters.dateRange!.end
+      );
+    }
+    
+    return filteredTasks;
+  }
+
+  async getScheduledTask(id: number): Promise<any | undefined> {
+    const { DEMO_TASKS_SCHEDULE } = await import('./demoConfig');
+    return DEMO_TASKS_SCHEDULE.find(task => task.id === id);
+  }
+
+  async createScheduledTask(task: any): Promise<any> {
+    // In a real implementation, this would insert into database
+    // For demo purposes, return the task with an ID
+    return {
+      id: Math.floor(Math.random() * 10000),
+      ...task,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+  }
+
+  async updateScheduledTask(id: number, updates: any): Promise<any | undefined> {
+    const task = await this.getScheduledTask(id);
+    if (!task) return undefined;
+    
+    return {
+      ...task,
+      ...updates,
+      updatedAt: new Date()
+    };
+  }
+
+  async deleteScheduledTask(id: number): Promise<boolean> {
+    const task = await this.getScheduledTask(id);
+    return !!task;
+  }
+
+  async updateTaskStatus(id: number, status: string, completedBy?: string, evidence?: any): Promise<any | undefined> {
+    const task = await this.getScheduledTask(id);
+    if (!task) return undefined;
+    
+    return {
+      ...task,
+      status,
+      completedBy,
+      evidence,
+      completedAt: status === 'completed' ? new Date() : undefined,
+      updatedAt: new Date()
+    };
+  }
+  
+  // Demo data methods for task scheduling
+  async getDemoTaskSchedule(role?: string, date?: string, reservationId?: string): Promise<any[]> {
+    const { DEMO_TASKS_SCHEDULE, getTasksByRole, getGuestVisibleTasks } = await import('./demoConfig');
+    
+    if (reservationId) {
+      return getGuestVisibleTasks(reservationId);
+    }
+    
+    if (role) {
+      return getTasksByRole(role, date);
+    }
+    
+    return DEMO_TASKS_SCHEDULE;
+  }
+
+  async getDemoGuestInfo(reservationId: string): Promise<any | undefined> {
+    const { getGuestByReservation, DEMO_PROPERTY_DETAILS } = await import('./demoConfig');
+    const guest = getGuestByReservation(reservationId);
+    
+    if (!guest) return undefined;
+    
+    return {
+      ...guest,
+      property: DEMO_PROPERTY_DETAILS.villaAruna
+    };
+  }
+
+  async getDemoPropertyInfo(propertyId: number): Promise<any | undefined> {
+    const { DEMO_PROPERTY_DETAILS } = await import('./demoConfig');
+    
+    if (propertyId === 2) {
+      return DEMO_PROPERTY_DETAILS.villaAruna;
+    }
+    
+    return undefined;
   }
 
   async getUtilityAccounts(organizationId: string): Promise<any[]> {
@@ -31574,6 +31734,169 @@ Plant Care:
   async deletePropertyActivityRecommendation(id: number): Promise<boolean> {
     // Mock delete - in real implementation would delete from database
     return true;
+  }
+
+  // ===== COMPREHENSIVE TASK SCHEDULING SYSTEM STORAGE METHODS =====
+
+  // Import comprehensive task schedule
+  private getComprehensiveTaskSchedule() {
+    const {
+      COMPREHENSIVE_TASK_SCHEDULE,
+      getTasksByRole,
+      getGuestVisibleTasks,
+      getTasksByReservation,
+      getTasksByProperty,
+      getTasksByDateRange,
+      updateTaskStatus
+    } = require("./demoTaskSchedule");
+    
+    return {
+      COMPREHENSIVE_TASK_SCHEDULE,
+      getTasksByRole,
+      getGuestVisibleTasks,
+      getTasksByReservation,
+      getTasksByProperty,
+      getTasksByDateRange,
+      updateTaskStatus
+    };
+  }
+
+  // Get scheduled tasks with comprehensive filtering
+  async getScheduledTasks(organizationId: string, filters: any = {}): Promise<any[]> {
+    const taskHelpers = this.getComprehensiveTaskSchedule();
+    let tasks = [...taskHelpers.COMPREHENSIVE_TASK_SCHEDULE];
+
+    // Apply role-based filtering
+    if (filters.role && filters.role !== 'admin' && filters.role !== 'portfolio-manager') {
+      tasks = taskHelpers.getTasksByRole(filters.role);
+    }
+
+    // Apply additional filters
+    if (filters.propertyId) {
+      tasks = tasks.filter(task => task.propertyId === filters.propertyId);
+    }
+
+    if (filters.date) {
+      tasks = tasks.filter(task => task.scheduledDate === filters.date);
+    }
+
+    if (filters.dateRange) {
+      tasks = taskHelpers.getTasksByDateRange(filters.dateRange.start, filters.dateRange.end);
+    }
+
+    if (filters.reservationId) {
+      tasks = tasks.filter(task => task.reservationId === filters.reservationId);
+    }
+
+    if (filters.status) {
+      tasks = tasks.filter(task => task.status === filters.status);
+    }
+
+    if (filters.assignedRole) {
+      tasks = tasks.filter(task => task.assignedRole === filters.assignedRole);
+    }
+
+    if (filters.guestVisible !== undefined) {
+      tasks = tasks.filter(task => task.guestVisible === filters.guestVisible);
+    }
+
+    // Sort by scheduled date and time
+    tasks.sort((a, b) => 
+      new Date(`${a.scheduledDate} ${a.scheduledTime}`).getTime() - 
+      new Date(`${b.scheduledDate} ${b.scheduledTime}`).getTime()
+    );
+
+    return tasks;
+  }
+
+  // Get single scheduled task
+  async getScheduledTask(taskId: number): Promise<any | undefined> {
+    const taskHelpers = this.getComprehensiveTaskSchedule();
+    return taskHelpers.COMPREHENSIVE_TASK_SCHEDULE.find(task => task.id === taskId);
+  }
+
+  // Create new scheduled task
+  async createScheduledTask(taskData: any): Promise<any> {
+    const taskHelpers = this.getComprehensiveTaskSchedule();
+    const newTask = {
+      id: Math.max(...taskHelpers.COMPREHENSIVE_TASK_SCHEDULE.map(t => t.id)) + 1,
+      ...taskData,
+      status: 'scheduled',
+      evidenceRequired: taskData.evidenceRequired || false,
+      guestVisible: taskData.guestVisible || false
+    };
+    
+    taskHelpers.COMPREHENSIVE_TASK_SCHEDULE.push(newTask);
+    return newTask;
+  }
+
+  // Update scheduled task
+  async updateScheduledTask(taskId: number, updates: any): Promise<any | undefined> {
+    const taskHelpers = this.getComprehensiveTaskSchedule();
+    const taskIndex = taskHelpers.COMPREHENSIVE_TASK_SCHEDULE.findIndex(task => task.id === taskId);
+    
+    if (taskIndex !== -1) {
+      taskHelpers.COMPREHENSIVE_TASK_SCHEDULE[taskIndex] = {
+        ...taskHelpers.COMPREHENSIVE_TASK_SCHEDULE[taskIndex],
+        ...updates
+      };
+      return taskHelpers.COMPREHENSIVE_TASK_SCHEDULE[taskIndex];
+    }
+    
+    return undefined;
+  }
+
+  // Update task status with evidence
+  async updateTaskStatus(taskId: number, status: string, userId: string, evidence?: any): Promise<any | undefined> {
+    const taskHelpers = this.getComprehensiveTaskSchedule();
+    const updatedTask = taskHelpers.updateTaskStatus(taskId, status);
+    
+    if (updatedTask && evidence) {
+      updatedTask.evidence = evidence;
+      updatedTask.completedBy = userId;
+      updatedTask.completedAt = new Date().toISOString();
+    }
+    
+    return updatedTask;
+  }
+
+  // Delete scheduled task
+  async deleteScheduledTask(taskId: number): Promise<boolean> {
+    const taskHelpers = this.getComprehensiveTaskSchedule();
+    const taskIndex = taskHelpers.COMPREHENSIVE_TASK_SCHEDULE.findIndex(task => task.id === taskId);
+    
+    if (taskIndex !== -1) {
+      taskHelpers.COMPREHENSIVE_TASK_SCHEDULE.splice(taskIndex, 1);
+      return true;
+    }
+    
+    return false;
+  }
+
+  // Demo integration methods
+  async getDemoGuestInfo(reservationId: string): Promise<any | undefined> {
+    const { DEMO_GUESTS, DEMO_RESERVATIONS } = require("./demoConfig");
+    return DEMO_GUESTS[reservationId];
+  }
+
+  async getDemoPropertyInfo(propertyId: number): Promise<any | undefined> {
+    const { DEMO_PROPERTY_DETAILS } = require("./demoConfig");
+    return Object.values(DEMO_PROPERTY_DETAILS).find((property: any) => property.propertyId === propertyId);
+  }
+
+  async getDemoTaskSchedule(role?: string, date?: string, reservationId?: string): Promise<any[]> {
+    const taskHelpers = this.getComprehensiveTaskSchedule();
+    let tasks = [...taskHelpers.COMPREHENSIVE_TASK_SCHEDULE];
+
+    if (role) {
+      tasks = taskHelpers.getTasksByRole(role, date);
+    }
+
+    if (reservationId) {
+      tasks = tasks.filter(task => task.reservationId === reservationId);
+    }
+
+    return tasks;
   }
 }
 

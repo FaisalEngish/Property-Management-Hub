@@ -2,25 +2,41 @@
 // All demo data across the platform must reference these reservation IDs
 
 export const DEMO_RESERVATIONS = {
-  demoOne: "Demo1234",  // Liam Andersen at Villa Aruna
-  demoTwo: "Demo1235"   // Future demo reservation
+  demoOne: "Demo1234",  // John Doe at Villa Aruna (July 6-10)
+  demoTwo: "Demo1235"   // Maria Smith at Villa Aruna (July 8-12)
 } as const;
 
 export const DEMO_GUESTS = {
-  liamAndersen: {
+  johnDoe: {
     reservationId: DEMO_RESERVATIONS.demoOne,
-    guestName: "Liam Andersen",
-    guestEmail: "liam.andersen@email.com",
-    guestPhone: "+47-555-0198",
-    numberOfGuests: 1,
+    guestName: "John Doe",
+    guestEmail: "john.doe@email.com",
+    guestPhone: "+1-555-0123",
+    numberOfGuests: 2,
     villa: "Villa Aruna",
     villaId: 2,
-    checkInDate: "2025-07-05",
+    checkInDate: "2025-07-06",
     checkOutDate: "2025-07-10",
-    stayDuration: 5, // nights
+    stayDuration: 4, // nights
     depositAmount: 8000,
     depositCurrency: "THB",
     electricityStartReading: 1000,
+    electricityRate: 7, // THB per kWh
+  },
+  mariaSmith: {
+    reservationId: DEMO_RESERVATIONS.demoTwo,
+    guestName: "Maria Smith",
+    guestEmail: "maria.smith@email.com",
+    guestPhone: "+1-555-0456",
+    numberOfGuests: 1,
+    villa: "Villa Aruna",
+    villaId: 2,
+    checkInDate: "2025-07-08",
+    checkOutDate: "2025-07-12",
+    stayDuration: 4, // nights
+    depositAmount: 8000,
+    depositCurrency: "THB",
+    electricityStartReading: 1200,
     electricityRate: 7, // THB per kWh
   }
 } as const;
@@ -55,14 +71,231 @@ export const DEMO_PROPERTY_DETAILS = {
   }
 } as const;
 
-// Demo service timeline - all dates within stay period (July 5-10, 2025)
+// Demo Tasks Schedule - Comprehensive role-based task assignments
+export const DEMO_TASKS_SCHEDULE = [
+  // John Doe (Demo1234) - July 6-10 Tasks
+  {
+    id: 1,
+    reservationId: DEMO_RESERVATIONS.demoOne,
+    taskType: "housekeeping",
+    title: "Pre-Clean for John Doe Check-in",
+    description: "Complete pre-arrival cleaning and preparation",
+    scheduledDate: "2025-07-06",
+    scheduledTime: "12:00",
+    duration: "2 hours",
+    assignedRole: "housekeeping",
+    assignedTo: "Housekeeping Team",
+    property: "Villa Aruna",
+    propertyId: 2,
+    status: "scheduled",
+    priority: "high",
+    evidenceRequired: true,
+    guestVisible: false,
+    checkInDetails: {
+      guestName: "John Doe",
+      checkInTime: "15:00",
+      numberOfGuests: 2
+    }
+  },
+  {
+    id: 2,
+    reservationId: DEMO_RESERVATIONS.demoOne,
+    taskType: "host",
+    title: "Guest Check-in - John Doe",
+    description: "Conduct check-in process with meter reading and deposit collection",
+    scheduledDate: "2025-07-06",
+    scheduledTime: "15:00",
+    duration: "30 minutes",
+    assignedRole: "host",
+    assignedTo: "Host Manager",
+    property: "Villa Aruna",
+    propertyId: 2,
+    status: "scheduled",
+    priority: "critical",
+    evidenceRequired: true,
+    requiresPhotoUpload: true,
+    photoFields: ["passport", "electricity_meter"],
+    guestVisible: false,
+    checkInDetails: {
+      guestName: "John Doe",
+      depositAmount: 8000,
+      depositCurrency: "THB",
+      electricityStartReading: 1000
+    }
+  },
+  {
+    id: 3,
+    reservationId: DEMO_RESERVATIONS.demoOne,
+    taskType: "pool",
+    title: "Pool Service - Villa Aruna",
+    description: "Regular pool cleaning and chemical balancing",
+    scheduledDate: "2025-07-07",
+    scheduledTime: "15:00",
+    duration: "1 hour",
+    assignedRole: "pool-staff",
+    assignedTo: "Pool Team",
+    property: "Villa Aruna",
+    propertyId: 2,
+    status: "scheduled",
+    priority: "normal",
+    evidenceRequired: true,
+    guestVisible: true
+  },
+  {
+    id: 4,
+    reservationId: DEMO_RESERVATIONS.demoOne,
+    taskType: "garden",
+    title: "Garden Maintenance - Villa Aruna",
+    description: "Garden trimming and landscape maintenance",
+    scheduledDate: "2025-07-08",
+    scheduledTime: "14:00",
+    duration: "1.5 hours",
+    assignedRole: "garden",
+    assignedTo: "Garden Team", 
+    property: "Villa Aruna",
+    propertyId: 2,
+    status: "scheduled",
+    priority: "normal",
+    evidenceRequired: true,
+    guestVisible: true
+  },
+  {
+    id: 5,
+    reservationId: DEMO_RESERVATIONS.demoOne,
+    taskType: "pest-control",
+    title: "Pest Control Service - Villa Aruna",
+    description: "Monthly pest control treatment",
+    scheduledDate: "2025-07-09",
+    scheduledTime: "13:00",
+    duration: "45 minutes",
+    assignedRole: "pest-control",
+    assignedTo: "Pest Control Team",
+    property: "Villa Aruna",
+    propertyId: 2,
+    status: "scheduled",
+    priority: "normal",
+    evidenceRequired: true,
+    guestVisible: false
+  },
+  {
+    id: 6,
+    reservationId: DEMO_RESERVATIONS.demoOne,
+    taskType: "catering",
+    title: "Private Chef Dinner Service",
+    description: "Premium dinner service for guest",
+    scheduledDate: "2025-07-09",
+    scheduledTime: "20:00",
+    duration: "3 hours",
+    assignedRole: "chef",
+    assignedTo: "Chef Phyo",
+    property: "Villa Aruna", 
+    propertyId: 2,
+    status: "confirmed",
+    priority: "high",
+    evidenceRequired: true,
+    guestVisible: true
+  },
+  {
+    id: 7,
+    reservationId: DEMO_RESERVATIONS.demoOne,
+    taskType: "housekeeping",
+    title: "Checkout Cleaning - John Doe",
+    description: "Complete checkout cleaning and property inspection",
+    scheduledDate: "2025-07-10",
+    scheduledTime: "10:00",
+    duration: "2 hours",
+    assignedRole: "housekeeping",
+    assignedTo: "Housekeeping Team",
+    property: "Villa Aruna",
+    propertyId: 2,
+    status: "scheduled",
+    priority: "high",
+    evidenceRequired: true,
+    checkOutDetails: {
+      guestName: "John Doe",
+      checkOutTime: "11:00"
+    }
+  },
+
+  // Maria Smith (Demo1235) - July 8-12 Tasks  
+  {
+    id: 8,
+    reservationId: DEMO_RESERVATIONS.demoTwo,
+    taskType: "housekeeping",
+    title: "Pre-Clean for Maria Smith Check-in",
+    description: "Complete pre-arrival cleaning and preparation",
+    scheduledDate: "2025-07-08",
+    scheduledTime: "12:00",
+    duration: "2 hours",
+    assignedRole: "housekeeping",
+    assignedTo: "Housekeeping Team",
+    property: "Villa Aruna",
+    propertyId: 2,
+    status: "scheduled",
+    priority: "high",
+    evidenceRequired: true,
+    checkInDetails: {
+      guestName: "Maria Smith",
+      checkInTime: "15:00",
+      numberOfGuests: 1
+    }
+  },
+  {
+    id: 9,
+    reservationId: DEMO_RESERVATIONS.demoTwo,
+    taskType: "host",
+    title: "Guest Check-in - Maria Smith",
+    description: "Conduct check-in process with meter reading and deposit collection",
+    scheduledDate: "2025-07-08",
+    scheduledTime: "15:00",
+    duration: "30 minutes",
+    assignedRole: "host",
+    assignedTo: "Host Manager",
+    property: "Villa Aruna",
+    propertyId: 2,
+    status: "scheduled",
+    priority: "critical",
+    evidenceRequired: true,
+    requiresPhotoUpload: true,
+    photoFields: ["passport", "electricity_meter"],
+    checkInDetails: {
+      guestName: "Maria Smith",
+      depositAmount: 8000,
+      depositCurrency: "THB",
+      electricityStartReading: 1200
+    }
+  },
+  {
+    id: 10,
+    reservationId: DEMO_RESERVATIONS.demoTwo,
+    taskType: "housekeeping",
+    title: "Checkout Cleaning - Maria Smith",
+    description: "Complete checkout cleaning and property inspection",
+    scheduledDate: "2025-07-12",
+    scheduledTime: "10:00",
+    duration: "2 hours",
+    assignedRole: "housekeeping",
+    assignedTo: "Housekeeping Team",
+    property: "Villa Aruna",
+    propertyId: 2,
+    status: "scheduled",
+    priority: "high",
+    evidenceRequired: true,
+    checkOutDetails: {
+      guestName: "Maria Smith",
+      checkOutTime: "11:00"
+    }
+  }
+] as const;
+
+// Legacy services for backward compatibility - updated for new guests
 export const DEMO_SERVICES = [
   {
     id: 1,
     reservationId: DEMO_RESERVATIONS.demoOne,
     serviceType: "pool",
     serviceName: "Pool Cleaning",
-    scheduledDate: "2025-07-09",
+    scheduledDate: "2025-07-07",
     scheduledTime: "15:00",
     estimatedDuration: "1 hour",
     serviceProvider: "Pool Team",
@@ -73,7 +306,7 @@ export const DEMO_SERVICES = [
     id: 2,
     reservationId: DEMO_RESERVATIONS.demoOne,
     serviceType: "cleaning", 
-    serviceName: "Mid-Stay Cleaning",
+    serviceName: "Checkout Cleaning",
     scheduledDate: "2025-07-10",
     scheduledTime: "10:00",
     estimatedDuration: "2 hours",
@@ -91,19 +324,19 @@ export const DEMO_SERVICES = [
     estimatedDuration: "3 hours",
     serviceProvider: "Chef Phyo",
     status: "confirmed",
-    notes: "Private chef dinner service for 1 guest"
+    notes: "Private chef dinner service for 2 guests"
   },
   {
     id: 4,
     reservationId: DEMO_RESERVATIONS.demoOne,
     serviceType: "garden",
     serviceName: "Garden Maintenance",
-    scheduledDate: "2025-07-12",
+    scheduledDate: "2025-07-08",
     scheduledTime: "14:00",
     estimatedDuration: "1.5 hours",
     serviceProvider: "Garden Team",
     status: "scheduled", 
-    notes: "Post-checkout garden maintenance for Villa Aruna"
+    notes: "Garden maintenance for Villa Aruna"
   }
 ] as const;
 
@@ -159,18 +392,52 @@ export const DEMO_DEPOSIT = {
   notes: "Guest paid cash deposit at check-in at Villa Aruna. 700 THB deducted for electricity usage (100 kWh × 7 THB/kWh)."
 } as const;
 
+// Helper function to get guest data by reservation ID
+export function getGuestByReservation(reservationId: string) {
+  switch (reservationId) {
+    case DEMO_RESERVATIONS.demoOne:
+      return DEMO_GUESTS.johnDoe;
+    case DEMO_RESERVATIONS.demoTwo:
+      return DEMO_GUESTS.mariaSmith;
+    default:
+      return null;
+  }
+}
+
+// Helper function to get tasks by role
+export function getTasksByRole(role: string, date?: string) {
+  return DEMO_TASKS_SCHEDULE.filter(task => {
+    const roleMatch = task.assignedRole === role || 
+                     (role === 'admin' || role === 'host') || // Admin and host can see all tasks
+                     (role === 'staff' && ['housekeeping', 'pool-staff', 'garden', 'pest-control'].includes(task.assignedRole));
+    
+    if (date) {
+      return roleMatch && task.scheduledDate === date;
+    }
+    return roleMatch;
+  });
+}
+
+// Helper function to get guest-visible tasks  
+export function getGuestVisibleTasks(reservationId: string) {
+  return DEMO_TASKS_SCHEDULE.filter(task => 
+    task.reservationId === reservationId && task.guestVisible === true
+  );
+}
+
 // Helper function to bind all demo data to reservation
 export function bindDemoDataToReservation(reservationId: string) {
   console.log(`✅ Demo data bound to reservation: ${reservationId}`);
   
-  // This function serves as documentation for the demo data binding
-  // All storage methods should reference DEMO_RESERVATIONS for consistency
+  const guest = getGuestByReservation(reservationId);
+  if (!guest) return null;
   
   return {
     reservationId,
-    guest: DEMO_GUESTS.liamAndersen,
+    guest,
     property: DEMO_PROPERTY_DETAILS.villaAruna,
-    services: DEMO_SERVICES,
+    services: DEMO_SERVICES.filter(s => s.reservationId === reservationId),
+    tasks: DEMO_TASKS_SCHEDULE.filter(t => t.reservationId === reservationId),
     electricity: DEMO_ELECTRICITY,
     deposit: DEMO_DEPOSIT
   };

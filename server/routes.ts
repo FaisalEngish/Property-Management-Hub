@@ -22500,6 +22500,292 @@ async function processGuestIssueForAI(issueReport: any) {
     }
   });
 
+  // ===== COMPREHENSIVE TASK SCHEDULING SYSTEM API ROUTES =====
+
+  // Get scheduled tasks
+  app.get("/api/tasks/scheduled", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { role, id: userId } = req.user;
+      const organizationId = "demo-org-1";
+      
+      const { 
+        propertyId, 
+        date, 
+        startDate, 
+        endDate, 
+        reservationId, 
+        status, 
+        assignedRole, 
+        guestVisible 
+      } = req.query;
+
+      const filters: any = { role };
+      
+      if (propertyId) filters.propertyId = parseInt(propertyId);
+      if (date) filters.date = date;
+      if (startDate && endDate) {
+        filters.dateRange = { start: startDate, end: endDate };
+      }
+      if (reservationId) filters.reservationId = reservationId;
+      if (status) filters.status = status;
+      if (assignedRole) filters.assignedRole = assignedRole;
+      if (guestVisible !== undefined) filters.guestVisible = guestVisible === 'true';
+
+      const tasks = await storage.getScheduledTasks(organizationId, filters);
+      res.json(tasks);
+    } catch (error) {
+      console.error("Error fetching scheduled tasks:", error);
+      res.status(500).json({ message: "Failed to fetch scheduled tasks" });
+    }
+  });
+
+  // Get single scheduled task
+  app.get("/api/tasks/scheduled/:id", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const task = await storage.getScheduledTask(parseInt(id));
+      
+      if (!task) {
+        return res.status(404).json({ message: "Task not found" });
+      }
+      
+      res.json(task);
+    } catch (error) {
+      console.error("Error fetching task:", error);
+      res.status(500).json({ message: "Failed to fetch task" });
+    }
+  });
+
+  // Create new scheduled task
+  app.post("/api/tasks/scheduled", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { role, id: userId } = req.user;
+      const organizationId = "demo-org-1";
+
+      // Check permissions
+      if (!['admin', 'portfolio-manager', 'staff'].includes(role)) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const taskData = {
+        ...req.body,
+        organizationId,
+        createdBy: userId,
+      };
+
+      const task = await storage.createScheduledTask(taskData);
+      res.status(201).json(task);
+    } catch (error) {
+      console.error("Error creating task:", error);
+      res.status(500).json({ message: "Failed to create task" });
+    }
+  });
+
+  // Update scheduled task
+  app.put("/api/tasks/scheduled/:id", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { role, id: userId } = req.user;
+      const { id } = req.params;
+
+      // Check permissions
+      if (!['admin', 'portfolio-manager', 'staff'].includes(role)) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const updates = {
+        ...req.body,
+        updatedBy: userId,
+      };
+
+      const task = await storage.updateScheduledTask(parseInt(id), updates);
+      
+      if (!task) {
+        return res.status(404).json({ message: "Task not found" });
+      }
+      
+      res.json(task);
+    } catch (error) {
+      console.error("Error updating task:", error);
+      res.status(500).json({ message: "Failed to update task" });
+    }
+  });
+
+  // Update task status with evidence
+  app.patch("/api/tasks/scheduled/:id/status", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { role, id: userId } = req.user;
+      const { id } = req.params;
+      const { status, evidence, notes } = req.body;
+
+      // Check permissions - staff can update their own tasks, admin/PM can update any
+      if (!['admin', 'portfolio-manager', 'staff'].includes(role)) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const task = await storage.updateTaskStatus(parseInt(id), status, userId, evidence);
+      
+      if (!task) {
+        return res.status(404).json({ message: "Task not found" });
+      }
+      
+      res.json(task);
+    } catch (error) {
+      console.error("Error updating task status:", error);
+      res.status(500).json({ message: "Failed to update task status" });
+    }
+  });
+
+  // Delete scheduled task
+  app.delete("/api/tasks/scheduled/:id", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { role } = req.user;
+      const { id } = req.params;
+
+      // Check permissions - only admin/PM can delete tasks
+      if (!['admin', 'portfolio-manager'].includes(role)) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const success = await storage.deleteScheduledTask(parseInt(id));
+      
+      if (!success) {
+        return res.status(404).json({ message: "Task not found" });
+      }
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting task:", error);
+      res.status(500).json({ message: "Failed to delete task" });
+    }
+  });
+
+  // Get demo guest information
+  app.get("/api/demo/guest/:reservationId", async (req: any, res) => {
+    try {
+      const { reservationId } = req.params;
+      const guestInfo = await storage.getDemoGuestInfo(reservationId);
+      
+      if (!guestInfo) {
+        return res.status(404).json({ message: "Guest information not found" });
+      }
+      
+      res.json(guestInfo);
+    } catch (error) {
+      console.error("Error fetching guest info:", error);
+      res.status(500).json({ message: "Failed to fetch guest information" });
+    }
+  });
+
+  // Get demo property information
+  app.get("/api/demo/property/:propertyId", async (req: any, res) => {
+    try {
+      const { propertyId } = req.params;
+      const propertyInfo = await storage.getDemoPropertyInfo(parseInt(propertyId));
+      
+      if (!propertyInfo) {
+        return res.status(404).json({ message: "Property information not found" });
+      }
+      
+      res.json(propertyInfo);
+    } catch (error) {
+      console.error("Error fetching property info:", error);
+      res.status(500).json({ message: "Failed to fetch property information" });
+    }
+  });
+
+  // ===== COMPREHENSIVE TASK SCHEDULING API ENDPOINTS =====
+  
+  // Get scheduled tasks with comprehensive filtering
+  app.get("/api/tasks/scheduled", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = req.user?.organizationId || "default-org";
+      const { 
+        role, 
+        assignedRole, 
+        propertyId, 
+        reservationId, 
+        date, 
+        startDate, 
+        endDate, 
+        status, 
+        guestVisible 
+      } = req.query;
+
+      const filters: any = {};
+      
+      if (role) filters.role = role;
+      if (assignedRole) filters.assignedRole = assignedRole;
+      if (propertyId) filters.propertyId = parseInt(propertyId);
+      if (reservationId) filters.reservationId = reservationId;
+      if (date) filters.date = date;
+      if (startDate && endDate) {
+        filters.dateRange = { start: startDate, end: endDate };
+      }
+      if (status) filters.status = status;
+      if (guestVisible !== undefined) filters.guestVisible = guestVisible === 'true';
+
+      const tasks = await storage.getScheduledTasks(organizationId, filters);
+      res.json(tasks);
+    } catch (error) {
+      console.error("Error fetching scheduled tasks:", error);
+      res.status(500).json({ message: "Failed to fetch scheduled tasks" });
+    }
+  });
+
+  // Get single scheduled task
+  app.get("/api/tasks/scheduled/:taskId", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const taskId = parseInt(req.params.taskId);
+      const task = await storage.getScheduledTask(taskId);
+      
+      if (!task) {
+        return res.status(404).json({ message: "Task not found" });
+      }
+      
+      res.json(task);
+    } catch (error) {
+      console.error("Error fetching scheduled task:", error);
+      res.status(500).json({ message: "Failed to fetch scheduled task" });
+    }
+  });
+
+  // Update task status with evidence
+  app.patch("/api/tasks/scheduled/:taskId/status", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const taskId = parseInt(req.params.taskId);
+      const { status, evidence } = req.body;
+      const userId = req.user.id;
+
+      const updatedTask = await storage.updateTaskStatus(taskId, status, userId, evidence);
+      
+      if (!updatedTask) {
+        return res.status(404).json({ message: "Task not found" });
+      }
+      
+      res.json(updatedTask);
+    } catch (error) {
+      console.error("Error updating task status:", error);
+      res.status(500).json({ message: "Failed to update task status" });
+    }
+  });
+
+  // Get demo task schedule (legacy endpoint for compatibility)
+  app.get("/api/demo/tasks", async (req: any, res) => {
+    try {
+      const { role, date, reservationId } = req.query;
+      const tasks = await storage.getDemoTaskSchedule(
+        role as string, 
+        date as string, 
+        reservationId as string
+      );
+      
+      res.json(tasks);
+    } catch (error) {
+      console.error("Error fetching demo tasks:", error);
+      res.status(500).json({ message: "Failed to fetch demo tasks" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
