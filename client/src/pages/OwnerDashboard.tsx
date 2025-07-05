@@ -83,6 +83,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
 import { RoleBackButton } from "@/components/BackButton";
 import { OwnerStatementExport } from "@/components/OwnerStatementExport";
+import { DualOtaPricing, DualOtaPricingCompact } from "@/components/DualOtaPricing";
 
 // Enhanced types for comprehensive owner dashboard
 interface EarningsOverview {
@@ -488,6 +489,16 @@ export default function OwnerDashboard() {
           </CardTitle>
         </CardHeader>
         <CardContent>
+          <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+            <div className="flex items-start gap-2">
+              <AlertCircle className="h-4 w-4 text-amber-600 mt-0.5" />
+              <div className="text-sm">
+                <p className="font-medium text-amber-800">OTA Commission Information</p>
+                <p className="text-amber-700">Platform revenue shown reflects actual payout received after OTA commissions. Hover over amounts for guest price details.</p>
+              </div>
+            </div>
+          </div>
+          
           <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
             {earningsData?.platformSplit && Object.entries(earningsData.platformSplit).map(([platform, data]: [string, any]) => (
               <div key={platform} className={`p-4 rounded-lg border ${PLATFORM_COLORS[platform as keyof typeof PLATFORM_COLORS]}`}>
@@ -496,8 +507,31 @@ export default function OwnerDashboard() {
                     {platform === 'bookingCom' ? 'Booking.com' : platform}
                   </h4>
                   <p className="text-2xl font-bold">{formatPercentage(data.percentage)}</p>
-                  <p className="text-sm">{formatCurrency(data.revenue)}</p>
+                  
+                  {/* Show dual pricing for OTA platforms */}
+                  {platform !== 'direct' && data.guestTotalPrice && data.otaCommissionAmount ? (
+                    <div className="space-y-1">
+                      <DualOtaPricingCompact
+                        guestTotalPrice={data.guestTotalPrice}
+                        platformPayout={data.revenue}
+                        otaCommissionAmount={data.otaCommissionAmount}
+                        currency="THB"
+                        platform={platform}
+                        size="sm"
+                      />
+                    </div>
+                  ) : (
+                    <p className="text-sm">{formatCurrency(data.revenue)}</p>
+                  )}
+                  
                   <p className="text-xs">{data.bookings} bookings</p>
+                  
+                  {/* Commission rate indicator for OTA platforms */}
+                  {platform !== 'direct' && data.otaCommissionRate && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {data.otaCommissionRate}% OTA fee
+                    </p>
+                  )}
                 </div>
               </div>
             ))}

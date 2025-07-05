@@ -570,7 +570,16 @@ export const bookings = pgTable("bookings", {
   checkIn: date("check_in").notNull(),
   checkOut: date("check_out").notNull(),
   guests: integer("guests").notNull(),
-  totalAmount: decimal("total_amount", { precision: 10, scale: 2 }),
+  
+  // OTA Dual Commission Tracking
+  guestTotalPrice: decimal("guest_total_price", { precision: 10, scale: 2 }), // What guest paid to OTA
+  platformPayout: decimal("platform_payout", { precision: 10, scale: 2 }), // What host receives after OTA commission
+  otaCommissionAmount: decimal("ota_commission_amount", { precision: 10, scale: 2 }), // OTA commission deducted
+  bookingPlatform: varchar("booking_platform").default("direct"), // airbnb, vrbo, booking_com, direct
+  
+  // Legacy field for backward compatibility
+  totalAmount: decimal("total_amount", { precision: 10, scale: 2 }), // Will map to platformPayout for existing data
+  
   currency: varchar("currency").default("AUD"),
   status: varchar("status").notNull().default("confirmed"), // pending, confirmed, checked-in, checked-out, cancelled
   hostawayId: varchar("hostaway_id"),
@@ -8992,7 +9001,15 @@ export const bookingIncomeRecords = pgTable("booking_income_records", {
   guestName: varchar("guest_name").notNull(),
   checkInDate: date("check_in_date").notNull(),
   checkOutDate: date("check_out_date").notNull(),
-  totalRentalIncome: decimal("total_rental_income", { precision: 10, scale: 2 }).notNull(),
+  
+  // OTA Dual Commission Tracking
+  guestTotalPrice: decimal("guest_total_price", { precision: 10, scale: 2 }).notNull(), // What guest paid to OTA
+  platformPayout: decimal("platform_payout", { precision: 10, scale: 2 }).notNull(), // What host receives after OTA commission
+  otaCommissionAmount: decimal("ota_commission_amount", { precision: 10, scale: 2 }).default("0.00"), // OTA commission deducted
+  
+  // Legacy field for backward compatibility
+  totalRentalIncome: decimal("total_rental_income", { precision: 10, scale: 2 }).notNull(), // Will map to platformPayout
+  
   routingApplied: varchar("routing_applied").notNull(), // rule_id reference or 'manual_override'
   ownerAmount: decimal("owner_amount", { precision: 10, scale: 2 }).notNull(),
   managementAmount: decimal("management_amount", { precision: 10, scale: 2 }).notNull(),

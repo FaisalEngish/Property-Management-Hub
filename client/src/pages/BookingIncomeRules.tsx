@@ -20,6 +20,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
+import { DualOtaPricing, DualOtaPricingSummary } from "@/components/DualOtaPricing";
 
 // Mock data for property payout rules
 const mockPayoutRules = [
@@ -55,7 +56,7 @@ const mockPayoutRules = [
   }
 ];
 
-// Mock data for booking income records
+// Mock data for booking income records with dual OTA pricing
 const mockBookingIncomeRecords = [
   {
     id: 1,
@@ -65,10 +66,15 @@ const mockBookingIncomeRecords = [
     bookingReference: "HM89234712",
     checkInDate: "2025-01-15",
     checkOutDate: "2025-01-22",
-    grossIncome: "2100.00",
-    ownerShare: "1470.00",
-    managementShare: "630.00",
-    stripeFee: "105.00",
+    // OTA Dual Pricing Data
+    guestTotalPrice: 2450.00,       // What guest paid to Airbnb
+    platformPayout: 2100.00,        // What host received after Airbnb's 14.3% commission
+    otaCommissionAmount: 350.00,    // Airbnb commission (14.3%)
+    // Legacy for backward compatibility
+    grossIncome: "2100.00",         // Maps to platformPayout
+    ownerShare: "1470.00",          // 70% of platformPayout
+    managementShare: "630.00",      // 30% of platformPayout
+    stripeFee: "105.00",            // 5% processing fee
     currency: "AUD",
     payoutStatus: "pending"
   },
@@ -80,12 +86,57 @@ const mockBookingIncomeRecords = [
     bookingReference: "VR45678901",
     checkInDate: "2025-01-20",
     checkOutDate: "2025-01-27",
-    grossIncome: "1800.00",
-    ownerShare: "900.00",
-    managementShare: "900.00",
-    stripeFee: "90.00",
+    // OTA Dual Pricing Data
+    guestTotalPrice: 2115.00,       // What guest paid to VRBO
+    platformPayout: 1800.00,        // What host received after VRBO's 15% commission
+    otaCommissionAmount: 315.00,    // VRBO commission (15%)
+    // Legacy for backward compatibility
+    grossIncome: "1800.00",         // Maps to platformPayout
+    ownerShare: "900.00",           // 50% of platformPayout
+    managementShare: "900.00",      // 50% of platformPayout
+    stripeFee: "90.00",             // 5% processing fee
     currency: "AUD",
     payoutStatus: "processed"
+  },
+  {
+    id: 3,
+    propertyName: "Villa Opal",
+    guestName: "David Chen",
+    bookingPlatform: "Booking.com",
+    bookingReference: "BC12345678",
+    checkInDate: "2025-01-25",
+    checkOutDate: "2025-02-01",
+    // OTA Dual Pricing Data
+    guestTotalPrice: 1950.00,       // What guest paid to Booking.com
+    platformPayout: 1560.00,        // What host received after Booking.com's 20% commission
+    otaCommissionAmount: 390.00,    // Booking.com commission (20%)
+    // Legacy for backward compatibility
+    grossIncome: "1560.00",         // Maps to platformPayout
+    ownerShare: "0.00",             // 0% to owner (management property)
+    managementShare: "1560.00",     // 100% to management
+    stripeFee: "78.00",             // 5% processing fee
+    currency: "AUD",
+    payoutStatus: "processed"
+  },
+  {
+    id: 4,
+    propertyName: "Villa Diamond",
+    guestName: "Lisa Martinez",
+    bookingPlatform: "Direct",
+    bookingReference: "DIR789012",
+    checkInDate: "2025-02-05",
+    checkOutDate: "2025-02-12",
+    // Direct booking - no OTA commission
+    guestTotalPrice: 2200.00,       // What guest paid directly
+    platformPayout: 2200.00,        // Same as guest total (no OTA commission)
+    otaCommissionAmount: 0.00,      // No OTA commission
+    // Legacy for backward compatibility
+    grossIncome: "2200.00",         // Maps to platformPayout
+    ownerShare: "0.00",             // 0% to owner (management property)
+    managementShare: "2200.00",     // 100% to management
+    stripeFee: "110.00",            // 5% processing fee
+    currency: "AUD",
+    payoutStatus: "pending"
   }
 ];
 
@@ -331,7 +382,18 @@ export default function BookingIncomeRules() {
                       </div>
                     </div>
                     
-                    <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                    {/* Dual OTA Pricing Section */}
+                    <div className="mb-4">
+                      <DualOtaPricingSummary
+                        guestTotalPrice={record.guestTotalPrice}
+                        platformPayout={record.platformPayout}
+                        otaCommissionAmount={record.otaCommissionAmount}
+                        currency={record.currency}
+                        platform={record.bookingPlatform}
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                       <div>
                         <Label className="text-sm text-muted-foreground">Check-in</Label>
                         <div className="font-medium">{record.checkInDate}</div>
@@ -341,16 +403,14 @@ export default function BookingIncomeRules() {
                         <div className="font-medium">{record.checkOutDate}</div>
                       </div>
                       <div>
-                        <Label className="text-sm text-muted-foreground">Gross Income</Label>
-                        <div className="font-medium">{record.currency} {record.grossIncome}</div>
-                      </div>
-                      <div>
                         <Label className="text-sm text-muted-foreground">Owner Share</Label>
                         <div className="font-medium text-green-600">{record.currency} {record.ownerShare}</div>
+                        <div className="text-xs text-muted-foreground">From payout amount</div>
                       </div>
                       <div>
                         <Label className="text-sm text-muted-foreground">Management Share</Label>
                         <div className="font-medium text-blue-600">{record.currency} {record.managementShare}</div>
+                        <div className="text-xs text-muted-foreground">From payout amount</div>
                       </div>
                     </div>
                     
