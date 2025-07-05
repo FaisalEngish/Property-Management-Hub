@@ -11646,6 +11646,61 @@ export type InsertMaintenanceTimelineEvent = z.infer<typeof insertMaintenanceTim
 export type MaintenanceAnalytics = typeof maintenanceAnalytics.$inferSelect;
 export type InsertMaintenanceAnalytics = z.infer<typeof insertMaintenanceAnalyticsSchema>;
 
+// ===== AI NOTIFICATIONS & REMINDERS MODULE =====
+
+export const aiNotifications = pgTable("ai_notifications", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").notNull(),
+  propertyId: integer("property_id").references(() => properties.id).notNull(),
+  alertType: varchar("alert_type").notNull(), // "cleaning", "electricity", "garden", "pest", "maintenance", "ac", "water", "checkin", "upgrade"
+  title: varchar("title").notNull(),
+  description: text("description"),
+  priority: varchar("priority").default("medium"), // "low", "medium", "high", "critical"
+  status: varchar("status").default("active"), // "active", "dismissed", "completed", "snoozed"
+  dueDate: timestamp("due_date"),
+  snoozeUntil: timestamp("snooze_until"),
+  lastServiceDate: timestamp("last_service_date"),
+  estimatedNextDate: timestamp("estimated_next_date"),
+  aiConfidence: decimal("ai_confidence", { precision: 3, scale: 2 }), // 0.00 to 1.00
+  sourceType: varchar("source_type"), // "service_log", "bill_pattern", "maintenance_history", "manual"
+  sourceId: varchar("source_id"), // reference to source record
+  visibleToRoles: text("visible_to_roles").array(), // ["admin", "portfolio-manager", "owner", "staff"]
+  assignedTo: varchar("assigned_to"), // user ID
+  createdBy: varchar("created_by"),
+  actionTaken: boolean("action_taken").default(false),
+  actionTakenBy: varchar("action_taken_by"),
+  actionTakenAt: timestamp("action_taken_at"),
+  actionNotes: text("action_notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const aiReminderSettings = pgTable("ai_reminder_settings", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").notNull(),
+  propertyId: integer("property_id").references(() => properties.id).notNull(),
+  alertType: varchar("alert_type").notNull(),
+  enabled: boolean("enabled").default(true),
+  intervalDays: integer("interval_days"), // expected interval between services
+  reminderDaysBefore: integer("reminder_days_before").default(3),
+  autoCreateTasks: boolean("auto_create_tasks").default(false),
+  notificationMethods: text("notification_methods").array(), // ["dashboard", "email", "whatsapp"]
+  customRules: jsonb("custom_rules"), // flexible rules for specific alert types
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const aiNotificationHistory = pgTable("ai_notification_history", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").notNull(),
+  notificationId: integer("notification_id").references(() => aiNotifications.id).notNull(),
+  action: varchar("action").notNull(), // "created", "dismissed", "completed", "snoozed", "task_created"
+  performedBy: varchar("performed_by").notNull(),
+  notes: text("notes"),
+  metadata: jsonb("metadata"), // additional action-specific data
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // ===== OWNER ONBOARDING & UTILITY SETTINGS MODULE =====
 
 // Owner onboarding process tracking
@@ -12184,6 +12239,34 @@ export type InsertPropertyGoalsNote = z.infer<typeof insertPropertyGoalsNoteSche
 
 export type PropertyGoalsComment = typeof propertyGoalsComments.$inferSelect;
 export type InsertPropertyGoalsComment = z.infer<typeof insertPropertyGoalsCommentSchema>;
+
+// AI Notifications & Reminders Module - Insert Schemas
+export const insertAiNotificationSchema = createInsertSchema(aiNotifications).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertAiReminderSettingSchema = createInsertSchema(aiReminderSettings).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertAiNotificationHistorySchema = createInsertSchema(aiNotificationHistory).omit({
+  id: true,
+  createdAt: true,
+});
+
+// AI Notifications & Reminders Module - Type Exports
+export type AiNotification = typeof aiNotifications.$inferSelect;
+export type InsertAiNotification = z.infer<typeof insertAiNotificationSchema>;
+
+export type AiReminderSetting = typeof aiReminderSettings.$inferSelect;
+export type InsertAiReminderSetting = z.infer<typeof insertAiReminderSettingSchema>;
+
+export type AiNotificationHistory = typeof aiNotificationHistory.$inferSelect;
+export type InsertAiNotificationHistory = z.infer<typeof insertAiNotificationHistorySchema>;
 
 // Additional type exports
 export type PMPayoutRequest = typeof pmPayoutRequests.$inferSelect;

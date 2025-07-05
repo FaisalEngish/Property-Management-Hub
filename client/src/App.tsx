@@ -115,6 +115,7 @@ import Documents from "@/pages/portfolio/Documents";
 import Maintenance from "@/pages/portfolio/Maintenance";
 import ServiceTracker from "@/pages/portfolio/ServiceTracker";
 import Invoices from "@/pages/portfolio/Invoices";
+import AiNotificationsReminders from "@/pages/AiNotificationsReminders";
 
 function Router() {
   const { isAuthenticated, isLoading, user } = useAuth();
@@ -199,6 +200,7 @@ function Router() {
         <Route path="/maintenance-log-warranty-tracker" component={MaintenanceLogWarrantyTracker} />
         <Route path="/smart-inventory-dashboard" component={SmartInventoryDashboard} />
         <Route path="/service-marketplace-dashboard" component={ServiceMarketplaceDashboard} />
+        <Route path="/ai-notifications-reminders" component={AiNotificationsReminders} />
         <Route path="/owner-onboarding-system" component={OwnerOnboardingSystem} />
         <Route path="/owner-onboarding-utility-settings" component={OwnerOnboardingUtilitySettings} />
         <Route path="/task-attachments-notes" component={TaskAttachmentsNotes} />

@@ -24293,6 +24293,208 @@ async function processGuestIssueForAI(issueReport: any) {
     }
   });
 
+  // ===== AI NOTIFICATIONS & REMINDERS MODULE ROUTES =====
+
+  // Import AI notifications storage
+  const { AiNotificationsStorage } = require("./aiNotificationsStorage");
+
+  // Middleware for AI notifications access
+  const requireAiNotificationsAccess = (req: any, res: any, next: any) => {
+    const user = req.user;
+    if (!user) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    const allowedRoles = ['admin', 'portfolio-manager', 'staff'];
+    if (!allowedRoles.includes(user.role)) {
+      return res.status(403).json({ message: "Access denied. Insufficient permissions for AI notifications." });
+    }
+
+    next();
+  };
+
+  // Get AI notifications for property
+  app.get("/api/ai-notifications", isDemoAuthenticated, requireAiNotificationsAccess, async (req: any, res) => {
+    try {
+      const organizationId = req.user.organizationId || "default-org";
+      const aiStorage = new AiNotificationsStorage(organizationId);
+      const { propertyId, alertType, status, priority } = req.query;
+      
+      const filters: any = {};
+      if (propertyId) filters.propertyId = parseInt(propertyId);
+      if (alertType) filters.alertType = alertType;
+      if (status) filters.status = status;
+      if (priority) filters.priority = priority;
+      
+      // For demo purposes, return demo data
+      const notifications = await aiStorage.getDemoNotifications();
+      res.json(notifications);
+    } catch (error) {
+      console.error("Error fetching AI notifications:", error);
+      res.status(500).json({ message: "Failed to fetch AI notifications" });
+    }
+  });
+
+  // Get specific AI notification
+  app.get("/api/ai-notifications/:id", isDemoAuthenticated, requireAiNotificationsAccess, async (req: any, res) => {
+    try {
+      const organizationId = req.user.organizationId || "default-org";
+      const aiStorage = new AiNotificationsStorage(organizationId);
+      const notificationId = parseInt(req.params.id);
+      
+      const notification = await aiStorage.getAiNotification(notificationId);
+      
+      if (!notification) {
+        return res.status(404).json({ message: "Notification not found" });
+      }
+      
+      res.json(notification);
+    } catch (error) {
+      console.error("Error fetching AI notification:", error);
+      res.status(500).json({ message: "Failed to fetch AI notification" });
+    }
+  });
+
+  // Create new AI notification
+  app.post("/api/ai-notifications", isDemoAuthenticated, requireAiNotificationsAccess, async (req: any, res) => {
+    try {
+      const organizationId = req.user.organizationId || "default-org";
+      const aiStorage = new AiNotificationsStorage(organizationId);
+      
+      const notification = await aiStorage.createAiNotification({
+        ...req.body,
+        createdBy: req.user.id,
+      });
+      
+      res.status(201).json(notification);
+    } catch (error) {
+      console.error("Error creating AI notification:", error);
+      res.status(500).json({ message: "Failed to create AI notification" });
+    }
+  });
+
+  // Update AI notification (mark as done, dismiss, snooze)
+  app.patch("/api/ai-notifications/:id", isDemoAuthenticated, requireAiNotificationsAccess, async (req: any, res) => {
+    try {
+      const organizationId = req.user.organizationId || "default-org";
+      const aiStorage = new AiNotificationsStorage(organizationId);
+      const notificationId = parseInt(req.params.id);
+      
+      const updates = {
+        ...req.body,
+        actionTakenBy: req.user.id,
+      };
+      
+      const notification = await aiStorage.updateAiNotification(notificationId, updates);
+      
+      if (!notification) {
+        return res.status(404).json({ message: "Notification not found" });
+      }
+      
+      // Log the action in history
+      await aiStorage.createNotificationHistory({
+        notificationId,
+        action: req.body.status === 'completed' ? 'completed' : 'updated',
+        performedBy: req.user.id,
+        notes: req.body.actionNotes || '',
+      });
+      
+      res.json(notification);
+    } catch (error) {
+      console.error("Error updating AI notification:", error);
+      res.status(500).json({ message: "Failed to update AI notification" });
+    }
+  });
+
+  // Delete AI notification
+  app.delete("/api/ai-notifications/:id", isDemoAuthenticated, requireAiNotificationsAccess, async (req: any, res) => {
+    try {
+      const organizationId = req.user.organizationId || "default-org";
+      const aiStorage = new AiNotificationsStorage(organizationId);
+      const notificationId = parseInt(req.params.id);
+      
+      // Check if user is admin or PM (only they can delete)
+      if (req.user.role !== 'admin' && req.user.role !== 'portfolio-manager') {
+        return res.status(403).json({ message: "Only admins and portfolio managers can delete notifications" });
+      }
+      
+      const success = await aiStorage.deleteAiNotification(notificationId);
+      
+      if (!success) {
+        return res.status(404).json({ message: "Notification not found" });
+      }
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting AI notification:", error);
+      res.status(500).json({ message: "Failed to delete AI notification" });
+    }
+  });
+
+  // Get reminder settings
+  app.get("/api/ai-reminder-settings", isDemoAuthenticated, requireAiNotificationsAccess, async (req: any, res) => {
+    try {
+      const organizationId = req.user.organizationId || "default-org";
+      const aiStorage = new AiNotificationsStorage(organizationId);
+      const { propertyId } = req.query;
+      
+      // For demo purposes, return demo data
+      const settings = await aiStorage.getDemoReminderSettings();
+      res.json(settings);
+    } catch (error) {
+      console.error("Error fetching reminder settings:", error);
+      res.status(500).json({ message: "Failed to fetch reminder settings" });
+    }
+  });
+
+  // Create/update reminder setting
+  app.post("/api/ai-reminder-settings", isDemoAuthenticated, requireAiNotificationsAccess, async (req: any, res) => {
+    try {
+      const organizationId = req.user.organizationId || "default-org";
+      const aiStorage = new AiNotificationsStorage(organizationId);
+      
+      const setting = await aiStorage.createReminderSetting(req.body);
+      res.status(201).json(setting);
+    } catch (error) {
+      console.error("Error creating reminder setting:", error);
+      res.status(500).json({ message: "Failed to create reminder setting" });
+    }
+  });
+
+  // Get notification history
+  app.get("/api/ai-notification-history", isDemoAuthenticated, requireAiNotificationsAccess, async (req: any, res) => {
+    try {
+      const organizationId = req.user.organizationId || "default-org";
+      const aiStorage = new AiNotificationsStorage(organizationId);
+      const { notificationId } = req.query;
+      
+      const history = await aiStorage.getNotificationHistory(
+        notificationId ? parseInt(notificationId as string) : undefined
+      );
+      res.json(history);
+    } catch (error) {
+      console.error("Error fetching notification history:", error);
+      res.status(500).json({ message: "Failed to fetch notification history" });
+    }
+  });
+
+  // Get notification statistics
+  app.get("/api/ai-notifications/stats", isDemoAuthenticated, requireAiNotificationsAccess, async (req: any, res) => {
+    try {
+      const organizationId = req.user.organizationId || "default-org";
+      const aiStorage = new AiNotificationsStorage(organizationId);
+      const { propertyId } = req.query;
+      
+      const stats = await aiStorage.getNotificationStats(
+        propertyId ? parseInt(propertyId as string) : undefined
+      );
+      res.json(stats);
+    } catch (error) {
+      console.error("Error fetching notification stats:", error);
+      res.status(500).json({ message: "Failed to fetch notification stats" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

@@ -46,7 +46,8 @@ import {
   Luggage,
   CheckCircle,
   Phone,
-  Eye
+  Eye,
+  Brain
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
@@ -116,6 +117,7 @@ const getRoleBasedMenus = (role: string): MenuSection[] => {
           { label: "Welcome Packs", icon: Package, href: "/welcome-packs" },
           { label: "Smart Inventory", icon: Package, href: "/smart-inventory-dashboard", badge: "New" },
           { label: "Service Marketplace", icon: Star, href: "/service-marketplace-dashboard", badge: "New" },
+          { label: "AI Notifications & Reminders", icon: Brain, href: "/ai-notifications-reminders", badge: "New" },
         ]
       },
       {
@@ -148,6 +150,7 @@ const getRoleBasedMenus = (role: string): MenuSection[] => {
           { label: "System Integrity Check", icon: Shield, href: "/admin/system-integrity-check", badge: "QA" },
           { label: "Activity Logs", icon: Activity, href: "/admin/activity-log" },
           { label: "Finance Reset", icon: Shield, href: "/admin/finance-reset" },
+          { label: "AI Notifications & Reminders", icon: Brain, href: "/ai-notifications-reminders", badge: "New" },
           { label: "System Settings", icon: Settings, href: "/settings" },
           { label: "Utility Settings", icon: Settings, href: "/admin/utility-customization" },
         ]
@@ -170,6 +173,7 @@ const getRoleBasedMenus = (role: string): MenuSection[] => {
           { label: "Owner Onboarding", icon: UserPlus, href: "/owner-onboarding-system", badge: "New" },
           { label: "Owner Onboarding & Utility Settings", icon: Settings, href: "/owner-onboarding-utility-settings", badge: "New" },
           { label: "Extended Utilities Management", icon: Settings, href: "/extended-utilities-management", badge: "New" },
+          { label: "AI Notifications & Reminders", icon: Brain, href: "/ai-notifications-reminders", badge: "New" },
         ]
       },
       {
