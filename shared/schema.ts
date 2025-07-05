@@ -12667,6 +12667,78 @@ export type InsertPropertyGoalProgress = z.infer<typeof insertPropertyGoalProgre
 export type PMPayoutRequest = typeof pmPayoutRequests.$inferSelect;
 export type InsertPMPayoutRequest = typeof pmPayoutRequests.$inferInsert;
 
+// ===== OWNER TARGET & UPGRADE TRACKER =====
+
+// Property revenue targets
+export const propertyRevenueTargets = pgTable("property_revenue_targets", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  propertyId: integer("property_id").references(() => properties.id).notNull(),
+  targetYear: integer("target_year").notNull(),
+  targetQuarter: integer("target_quarter"), // Optional: 1, 2, 3, 4 for quarterly targets
+  targetAmount: decimal("target_amount", { precision: 12, scale: 2 }).notNull(),
+  currency: varchar("currency").default("THB").notNull(),
+  currentRevenue: decimal("current_revenue", { precision: 12, scale: 2 }).default("0"),
+  description: text("description"), // e.g., "3M THB this year"
+  isActive: boolean("is_active").default(true),
+  createdBy: varchar("created_by").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Property upgrade wishlist tied to revenue targets
+export const propertyUpgradeWishlist = pgTable("property_upgrade_wishlist", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  propertyId: integer("property_id").references(() => properties.id).notNull(),
+  targetId: integer("target_id").references(() => propertyRevenueTargets.id).notNull(),
+  upgradeName: varchar("upgrade_name").notNull(), // e.g., "New sunbeds"
+  description: text("description"), // Detailed description
+  triggerAmount: decimal("trigger_amount", { precision: 12, scale: 2 }).notNull(), // Revenue needed to trigger
+  estimatedCost: decimal("estimated_cost", { precision: 12, scale: 2 }),
+  currency: varchar("currency").default("THB").notNull(),
+  priority: varchar("priority").default("medium").notNull(), // low, medium, high
+  status: varchar("status").default("planned").notNull(), // planned, confirmed, completed, cancelled
+  deadline: date("deadline"), // Optional deadline
+  category: varchar("category").notNull(), // furniture, appliances, outdoor, technology, renovation
+  notes: text("notes"),
+  createdBy: varchar("created_by").notNull(),
+  approvedBy: varchar("approved_by"), // For owner suggestions requiring approval
+  approvedAt: timestamp("approved_at"),
+  completedAt: timestamp("completed_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// AI suggestions for targets and upgrades
+export const targetUpgradeSuggestions = pgTable("target_upgrade_suggestions", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  propertyId: integer("property_id").references(() => properties.id).notNull(),
+  suggestionType: varchar("suggestion_type").notNull(), // price_increase, promotion, upgrade_timing, performance_alert
+  title: varchar("title").notNull(),
+  message: text("message").notNull(),
+  suggestedAction: text("suggested_action"),
+  confidence: decimal("confidence", { precision: 3, scale: 2 }), // AI confidence score 0-1
+  isRead: boolean("is_read").default(false),
+  isDismissed: boolean("is_dismissed").default(false),
+  metadata: jsonb("metadata"), // Additional data for the suggestion
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Progress tracking for revenue targets
+export const targetProgressTracking = pgTable("target_progress_tracking", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  targetId: integer("target_id").references(() => propertyRevenueTargets.id).notNull(),
+  recordDate: date("record_date").notNull(),
+  actualRevenue: decimal("actual_revenue", { precision: 12, scale: 2 }).notNull(),
+  progressPercentage: decimal("progress_percentage", { precision: 5, scale: 2 }).notNull(),
+  notes: text("notes"),
+  createdBy: varchar("created_by").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // ===== WATER UTILITY & EMERGENCY SUPPLY TRACKER =====
 
 // Water utility sources configuration
@@ -13015,3 +13087,39 @@ export type InsertSmartPricingAlerts = z.infer<typeof insertSmartPricingAlertsSc
 
 export type HolidayHeatmapCalendar = typeof holidayHeatmapCalendar.$inferSelect;
 export type InsertHolidayHeatmapCalendar = z.infer<typeof insertHolidayHeatmapCalendarSchema>;
+
+// Create insert schemas for Owner Target & Upgrade Tracker
+export const insertPropertyRevenueTargetSchema = createInsertSchema(propertyRevenueTargets).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertPropertyUpgradeWishlistSchema = createInsertSchema(propertyUpgradeWishlist).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertTargetUpgradeSuggestionSchema = createInsertSchema(targetUpgradeSuggestions).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertTargetProgressTrackingSchema = createInsertSchema(targetProgressTracking).omit({
+  id: true,
+  createdAt: true,
+});
+
+// Type exports for Owner Target & Upgrade Tracker
+export type PropertyRevenueTarget = typeof propertyRevenueTargets.$inferSelect;
+export type InsertPropertyRevenueTarget = z.infer<typeof insertPropertyRevenueTargetSchema>;
+
+export type PropertyUpgradeWishlist = typeof propertyUpgradeWishlist.$inferSelect;
+export type InsertPropertyUpgradeWishlist = z.infer<typeof insertPropertyUpgradeWishlistSchema>;
+
+export type TargetUpgradeSuggestion = typeof targetUpgradeSuggestions.$inferSelect;
+export type InsertTargetUpgradeSuggestion = z.infer<typeof insertTargetUpgradeSuggestionSchema>;
+
+export type TargetProgressTracking = typeof targetProgressTracking.$inferSelect;
+export type InsertTargetProgressTracking = z.infer<typeof insertTargetProgressTrackingSchema>;

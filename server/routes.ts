@@ -3547,6 +3547,339 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ===== OWNER TARGET & UPGRADE TRACKER ROUTES =====
+  
+  // Import storage
+  const { OwnerTargetUpgradeStorage } = await import("./ownerTargetUpgradeStorage");
+  
+  // Revenue Targets routes
+  app.get("/api/targets", isDemoAuthenticated, async (req, res) => {
+    try {
+      const organizationId = "default-org";
+      const targetStorage = new OwnerTargetUpgradeStorage(organizationId);
+      const { propertyId, targetYear, targetQuarter, isActive } = req.query;
+      
+      const filters: any = {};
+      if (propertyId) filters.propertyId = parseInt(propertyId as string);
+      if (targetYear) filters.targetYear = parseInt(targetYear as string);
+      if (targetQuarter) filters.targetQuarter = parseInt(targetQuarter as string);
+      if (isActive !== undefined) filters.isActive = isActive === 'true';
+      
+      const targets = await targetStorage.getRevenueTargets(filters);
+      res.json(targets);
+    } catch (error) {
+      console.error("Error fetching revenue targets:", error);
+      res.status(500).json({ message: "Failed to fetch revenue targets" });
+    }
+  });
+
+  app.get("/api/targets/demo", isDemoAuthenticated, async (req, res) => {
+    try {
+      const organizationId = "default-org";
+      const targetStorage = new OwnerTargetUpgradeStorage(organizationId);
+      const targets = await targetStorage.getDemoRevenueTargets();
+      res.json(targets);
+    } catch (error) {
+      console.error("Error fetching demo revenue targets:", error);
+      res.status(500).json({ message: "Failed to fetch demo revenue targets" });
+    }
+  });
+
+  app.post("/api/targets", isDemoAuthenticated, async (req, res) => {
+    try {
+      const organizationId = "default-org";
+      const targetStorage = new OwnerTargetUpgradeStorage(organizationId);
+      const user = req.user as any;
+
+      const targetData = {
+        ...req.body,
+        createdBy: user.id,
+      };
+
+      const target = await targetStorage.createRevenueTarget(targetData);
+      res.json(target);
+    } catch (error) {
+      console.error("Error creating revenue target:", error);
+      res.status(500).json({ message: "Failed to create revenue target" });
+    }
+  });
+
+  app.put("/api/targets/:id", isDemoAuthenticated, async (req, res) => {
+    try {
+      const organizationId = "default-org";
+      const targetStorage = new OwnerTargetUpgradeStorage(organizationId);
+      const targetId = parseInt(req.params.id);
+
+      const target = await targetStorage.updateRevenueTarget(targetId, req.body);
+      if (!target) {
+        return res.status(404).json({ message: "Revenue target not found" });
+      }
+      res.json(target);
+    } catch (error) {
+      console.error("Error updating revenue target:", error);
+      res.status(500).json({ message: "Failed to update revenue target" });
+    }
+  });
+
+  app.delete("/api/targets/:id", isDemoAuthenticated, async (req, res) => {
+    try {
+      const organizationId = "default-org";
+      const targetStorage = new OwnerTargetUpgradeStorage(organizationId);
+      const targetId = parseInt(req.params.id);
+
+      const deleted = await targetStorage.deleteRevenueTarget(targetId);
+      if (!deleted) {
+        return res.status(404).json({ message: "Revenue target not found" });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting revenue target:", error);
+      res.status(500).json({ message: "Failed to delete revenue target" });
+    }
+  });
+
+  // Upgrade Wishlist routes
+  app.get("/api/upgrades", isDemoAuthenticated, async (req, res) => {
+    try {
+      const organizationId = "default-org";
+      const targetStorage = new OwnerTargetUpgradeStorage(organizationId);
+      const { propertyId, targetId, status, priority, category } = req.query;
+      
+      const filters: any = {};
+      if (propertyId) filters.propertyId = parseInt(propertyId as string);
+      if (targetId) filters.targetId = parseInt(targetId as string);
+      if (status) filters.status = status as string;
+      if (priority) filters.priority = priority as string;
+      if (category) filters.category = category as string;
+      
+      const upgrades = await targetStorage.getUpgradeWishlist(filters);
+      res.json(upgrades);
+    } catch (error) {
+      console.error("Error fetching upgrade wishlist:", error);
+      res.status(500).json({ message: "Failed to fetch upgrade wishlist" });
+    }
+  });
+
+  app.get("/api/upgrades/demo", isDemoAuthenticated, async (req, res) => {
+    try {
+      const organizationId = "default-org";
+      const targetStorage = new OwnerTargetUpgradeStorage(organizationId);
+      const upgrades = await targetStorage.getDemoUpgradeWishlist();
+      res.json(upgrades);
+    } catch (error) {
+      console.error("Error fetching demo upgrade wishlist:", error);
+      res.status(500).json({ message: "Failed to fetch demo upgrade wishlist" });
+    }
+  });
+
+  app.post("/api/upgrades", isDemoAuthenticated, async (req, res) => {
+    try {
+      const organizationId = "default-org";
+      const targetStorage = new OwnerTargetUpgradeStorage(organizationId);
+      const user = req.user as any;
+
+      const upgradeData = {
+        ...req.body,
+        createdBy: user.id,
+      };
+
+      const upgrade = await targetStorage.createUpgradeItem(upgradeData);
+      res.json(upgrade);
+    } catch (error) {
+      console.error("Error creating upgrade item:", error);
+      res.status(500).json({ message: "Failed to create upgrade item" });
+    }
+  });
+
+  app.put("/api/upgrades/:id", isDemoAuthenticated, async (req, res) => {
+    try {
+      const organizationId = "default-org";
+      const targetStorage = new OwnerTargetUpgradeStorage(organizationId);
+      const upgradeId = parseInt(req.params.id);
+
+      const upgrade = await targetStorage.updateUpgradeItem(upgradeId, req.body);
+      if (!upgrade) {
+        return res.status(404).json({ message: "Upgrade item not found" });
+      }
+      res.json(upgrade);
+    } catch (error) {
+      console.error("Error updating upgrade item:", error);
+      res.status(500).json({ message: "Failed to update upgrade item" });
+    }
+  });
+
+  app.post("/api/upgrades/:id/approve", isDemoAuthenticated, async (req, res) => {
+    try {
+      const organizationId = "default-org";
+      const targetStorage = new OwnerTargetUpgradeStorage(organizationId);
+      const upgradeId = parseInt(req.params.id);
+      const user = req.user as any;
+
+      const upgrade = await targetStorage.approveUpgradeItem(upgradeId, user.id);
+      if (!upgrade) {
+        return res.status(404).json({ message: "Upgrade item not found" });
+      }
+      res.json(upgrade);
+    } catch (error) {
+      console.error("Error approving upgrade item:", error);
+      res.status(500).json({ message: "Failed to approve upgrade item" });
+    }
+  });
+
+  app.post("/api/upgrades/:id/complete", isDemoAuthenticated, async (req, res) => {
+    try {
+      const organizationId = "default-org";
+      const targetStorage = new OwnerTargetUpgradeStorage(organizationId);
+      const upgradeId = parseInt(req.params.id);
+
+      const upgrade = await targetStorage.completeUpgradeItem(upgradeId);
+      if (!upgrade) {
+        return res.status(404).json({ message: "Upgrade item not found" });
+      }
+      res.json(upgrade);
+    } catch (error) {
+      console.error("Error completing upgrade item:", error);
+      res.status(500).json({ message: "Failed to complete upgrade item" });
+    }
+  });
+
+  app.delete("/api/upgrades/:id", isDemoAuthenticated, async (req, res) => {
+    try {
+      const organizationId = "default-org";
+      const targetStorage = new OwnerTargetUpgradeStorage(organizationId);
+      const upgradeId = parseInt(req.params.id);
+
+      const deleted = await targetStorage.deleteUpgradeItem(upgradeId);
+      if (!deleted) {
+        return res.status(404).json({ message: "Upgrade item not found" });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting upgrade item:", error);
+      res.status(500).json({ message: "Failed to delete upgrade item" });
+    }
+  });
+
+  // AI Suggestions routes
+  app.get("/api/target-suggestions", isDemoAuthenticated, async (req, res) => {
+    try {
+      const organizationId = "default-org";
+      const targetStorage = new OwnerTargetUpgradeStorage(organizationId);
+      const { propertyId, suggestionType, isRead, isDismissed } = req.query;
+      
+      const filters: any = {};
+      if (propertyId) filters.propertyId = parseInt(propertyId as string);
+      if (suggestionType) filters.suggestionType = suggestionType as string;
+      if (isRead !== undefined) filters.isRead = isRead === 'true';
+      if (isDismissed !== undefined) filters.isDismissed = isDismissed === 'true';
+      
+      const suggestions = await targetStorage.getSuggestions(filters);
+      res.json(suggestions);
+    } catch (error) {
+      console.error("Error fetching target suggestions:", error);
+      res.status(500).json({ message: "Failed to fetch target suggestions" });
+    }
+  });
+
+  app.get("/api/target-suggestions/demo", isDemoAuthenticated, async (req, res) => {
+    try {
+      const organizationId = "default-org";
+      const targetStorage = new OwnerTargetUpgradeStorage(organizationId);
+      const suggestions = await targetStorage.getDemoSuggestions();
+      res.json(suggestions);
+    } catch (error) {
+      console.error("Error fetching demo target suggestions:", error);
+      res.status(500).json({ message: "Failed to fetch demo target suggestions" });
+    }
+  });
+
+  app.post("/api/target-suggestions/:id/read", isDemoAuthenticated, async (req, res) => {
+    try {
+      const organizationId = "default-org";
+      const targetStorage = new OwnerTargetUpgradeStorage(organizationId);
+      const suggestionId = parseInt(req.params.id);
+
+      const suggestion = await targetStorage.markSuggestionAsRead(suggestionId);
+      if (!suggestion) {
+        return res.status(404).json({ message: "Suggestion not found" });
+      }
+      res.json(suggestion);
+    } catch (error) {
+      console.error("Error marking suggestion as read:", error);
+      res.status(500).json({ message: "Failed to mark suggestion as read" });
+    }
+  });
+
+  app.post("/api/target-suggestions/:id/dismiss", isDemoAuthenticated, async (req, res) => {
+    try {
+      const organizationId = "default-org";
+      const targetStorage = new OwnerTargetUpgradeStorage(organizationId);
+      const suggestionId = parseInt(req.params.id);
+
+      const suggestion = await targetStorage.dismissSuggestion(suggestionId);
+      if (!suggestion) {
+        return res.status(404).json({ message: "Suggestion not found" });
+      }
+      res.json(suggestion);
+    } catch (error) {
+      console.error("Error dismissing suggestion:", error);
+      res.status(500).json({ message: "Failed to dismiss suggestion" });
+    }
+  });
+
+  // Dashboard analytics
+  app.get("/api/target-dashboard", isDemoAuthenticated, async (req, res) => {
+    try {
+      const organizationId = "default-org";
+      const targetStorage = new OwnerTargetUpgradeStorage(organizationId);
+      const { propertyId } = req.query;
+
+      const dashboard = await targetStorage.getTargetDashboard(
+        propertyId ? parseInt(propertyId as string) : undefined
+      );
+      res.json(dashboard);
+    } catch (error) {
+      console.error("Error fetching target dashboard:", error);
+      res.status(500).json({ message: "Failed to fetch target dashboard" });
+    }
+  });
+
+  // Progress tracking
+  app.get("/api/targets/:id/progress", isDemoAuthenticated, async (req, res) => {
+    try {
+      const organizationId = "default-org";
+      const targetStorage = new OwnerTargetUpgradeStorage(organizationId);
+      const targetId = parseInt(req.params.id);
+
+      const progress = await targetStorage.getProgressTracking(targetId);
+      res.json(progress);
+    } catch (error) {
+      console.error("Error fetching target progress:", error);
+      res.status(500).json({ message: "Failed to fetch target progress" });
+    }
+  });
+
+  app.post("/api/targets/:id/progress", isDemoAuthenticated, async (req, res) => {
+    try {
+      const organizationId = "default-org";
+      const targetStorage = new OwnerTargetUpgradeStorage(organizationId);
+      const targetId = parseInt(req.params.id);
+      const user = req.user as any;
+
+      const progressData = {
+        ...req.body,
+        targetId,
+        createdBy: user.id,
+      };
+
+      const progress = await targetStorage.createProgressRecord(progressData);
+      res.json(progress);
+    } catch (error) {
+      console.error("Error creating progress record:", error);
+      res.status(500).json({ message: "Failed to create progress record" });
+    }
+  });
+
   // ===== OWNER DASHBOARD ROUTES =====
 
   // Get owner dashboard stats

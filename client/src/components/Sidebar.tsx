@@ -160,6 +160,7 @@ const getRoleBasedMenus = (role: string): MenuSection[] => {
           { label: "Activity Logs", icon: Activity, href: "/admin/activity-log" },
           { label: "Finance Reset", icon: Shield, href: "/admin/finance-reset" },
           { label: "AI Notifications & Reminders", icon: Brain, href: "/ai-notifications-reminders", badge: "New" },
+          { label: "Owner Targets & Upgrades", icon: Target, href: "/owner-target-upgrade-tracker", badge: "New" },
           { label: "System Settings", icon: Settings, href: "/settings" },
           { label: "Utility Settings", icon: Settings, href: "/admin/utility-customization" },
         ]
@@ -183,6 +184,7 @@ const getRoleBasedMenus = (role: string): MenuSection[] => {
           { label: "Owner Onboarding & Utility Settings", icon: Settings, href: "/owner-onboarding-utility-settings", badge: "New" },
           { label: "Extended Utilities Management", icon: Settings, href: "/extended-utilities-management", badge: "New" },
           { label: "AI Notifications & Reminders", icon: Brain, href: "/ai-notifications-reminders", badge: "New" },
+          { label: "Owner Targets & Upgrades", icon: Target, href: "/owner-target-upgrade-tracker", badge: "New" },
         ]
       },
       {
@@ -251,6 +253,7 @@ const getRoleBasedMenus = (role: string): MenuSection[] => {
         title: "Property Management",
         items: [
           { label: "My Bookings", icon: Calendar, href: "/bookings" },
+          { label: "Revenue Targets & Upgrades", icon: Target, href: "/owner-target-upgrade-tracker", badge: "New" },
           { label: "Maintenance Requests", icon: Wrench, href: "/maintenance-task-system" },
           { label: "Property Timeline", icon: Activity, href: "/properties" },
         ]

@@ -122,6 +122,7 @@ import PropertyGoalsInvestmentPlans from "@/pages/PropertyGoalsInvestmentPlans";
 import WaterUtilityEmergencyTracker from "@/pages/WaterUtilityEmergencyTracker";
 import OtaRevenueNetPayoutCalculation from "@/pages/OtaRevenueNetPayoutCalculation";
 import SmartPricingPerformanceToolkit from "@/pages/SmartPricingPerformanceToolkit";
+import OwnerTargetUpgradeTracker from "@/pages/OwnerTargetUpgradeTracker";
 
 function Router() {
   const { isAuthenticated, isLoading, user } = useAuth();
@@ -301,6 +302,7 @@ function Router() {
         <Route path="/portfolio/invoices" component={Invoices} />
         <Route path="/help" component={Help} />
         <Route path="/smart-pricing-performance-toolkit" component={SmartPricingPerformanceToolkit} />
+        <Route path="/owner-target-upgrade-tracker" component={OwnerTargetUpgradeTracker} />
         <Route component={NotFound} />
         </Switch>
       </Layout>
