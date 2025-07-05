@@ -25745,6 +25745,341 @@ async function processGuestIssueForAI(issueReport: any) {
     }
   });
 
+  // ===== SMART PRICING & PERFORMANCE TOOLKIT API ROUTES =====
+
+  // Middleware for smart pricing access (admin/PM only)
+  const requireSmartPricingAccess = (req: any, res: any, next: any) => {
+    if (!['admin', 'portfolio-manager'].includes(req.user?.role)) {
+      return res.status(403).json({ message: "Smart Pricing access requires admin or portfolio manager role" });
+    }
+    next();
+  };
+
+  // Dashboard Overview
+  app.get("/api/smart-pricing/dashboard", isDemoAuthenticated, requireSmartPricingAccess, async (req: any, res) => {
+    try {
+      const { organizationId } = req.user;
+      const { propertyId } = req.query;
+      
+      const { SmartPricingStorage } = await import("./smartPricingStorage");
+      const smartPricingStorage = new SmartPricingStorage(organizationId);
+      
+      const dashboard = await smartPricingStorage.getPerformanceDashboard(
+        propertyId ? parseInt(propertyId as string) : undefined
+      );
+      res.json(dashboard);
+    } catch (error) {
+      console.error("Error fetching smart pricing dashboard:", error);
+      res.status(500).json({ message: "Failed to fetch dashboard data" });
+    }
+  });
+
+  // Year-on-Year Performance
+  app.get("/api/smart-pricing/year-on-year", isDemoAuthenticated, requireSmartPricingAccess, async (req: any, res) => {
+    try {
+      const { organizationId } = req.user;
+      const { propertyId, year, month } = req.query;
+      
+      const { SmartPricingStorage } = await import("./smartPricingStorage");
+      const smartPricingStorage = new SmartPricingStorage(organizationId);
+      
+      const performance = await smartPricingStorage.getDemoYearOnYearPerformance();
+      res.json(performance);
+    } catch (error) {
+      console.error("Error fetching year-on-year performance:", error);
+      res.status(500).json({ message: "Failed to fetch performance data" });
+    }
+  });
+
+  // Holiday & Event Calendar
+  app.get("/api/smart-pricing/holidays", isDemoAuthenticated, requireSmartPricingAccess, async (req: any, res) => {
+    try {
+      const { organizationId } = req.user;
+      const { startDate, endDate, eventType, country } = req.query;
+      
+      const { SmartPricingStorage } = await import("./smartPricingStorage");
+      const smartPricingStorage = new SmartPricingStorage(organizationId);
+      
+      const holidays = await smartPricingStorage.getDemoHolidayEvents();
+      res.json(holidays);
+    } catch (error) {
+      console.error("Error fetching holiday calendar:", error);
+      res.status(500).json({ message: "Failed to fetch holiday data" });
+    }
+  });
+
+  // Price Deviation Analysis
+  app.get("/api/smart-pricing/price-deviation", isDemoAuthenticated, requireSmartPricingAccess, async (req: any, res) => {
+    try {
+      const { organizationId } = req.user;
+      const { propertyId, isUnderpriced, isOverpriced, startDate, endDate } = req.query;
+      
+      const { SmartPricingStorage } = await import("./smartPricingStorage");
+      const smartPricingStorage = new SmartPricingStorage(organizationId);
+      
+      const analysis = await smartPricingStorage.getDemoPriceDeviationAnalysis();
+      res.json(analysis);
+    } catch (error) {
+      console.error("Error fetching price deviation analysis:", error);
+      res.status(500).json({ message: "Failed to fetch price analysis" });
+    }
+  });
+
+  // Booking Gap Analysis
+  app.get("/api/smart-pricing/booking-gaps", isDemoAuthenticated, requireSmartPricingAccess, async (req: any, res) => {
+    try {
+      const { organizationId } = req.user;
+      const { propertyId, gapType, isResolved, startDate, endDate } = req.query;
+      
+      const { SmartPricingStorage } = await import("./smartPricingStorage");
+      const smartPricingStorage = new SmartPricingStorage(organizationId);
+      
+      const gaps = await smartPricingStorage.getDemoBookingGaps();
+      res.json(gaps);
+    } catch (error) {
+      console.error("Error fetching booking gaps:", error);
+      res.status(500).json({ message: "Failed to fetch booking gap data" });
+    }
+  });
+
+  // Resolve Booking Gap
+  app.patch("/api/smart-pricing/booking-gaps/:id/resolve", isDemoAuthenticated, requireSmartPricingAccess, async (req: any, res) => {
+    try {
+      const { organizationId } = req.user;
+      const { id } = req.params;
+      const { actionTaken } = req.body;
+      
+      const { SmartPricingStorage } = await import("./smartPricingStorage");
+      const smartPricingStorage = new SmartPricingStorage(organizationId);
+      
+      const resolvedGap = await smartPricingStorage.resolveBookingGap(parseInt(id), actionTaken);
+      res.json(resolvedGap);
+    } catch (error) {
+      console.error("Error resolving booking gap:", error);
+      res.status(500).json({ message: "Failed to resolve booking gap" });
+    }
+  });
+
+  // AI Performance Summary
+  app.get("/api/smart-pricing/ai-summary", isDemoAuthenticated, requireSmartPricingAccess, async (req: any, res) => {
+    try {
+      const { organizationId } = req.user;
+      const { propertyId, periodType, startDate, endDate } = req.query;
+      
+      const { SmartPricingStorage } = await import("./smartPricingStorage");
+      const smartPricingStorage = new SmartPricingStorage(organizationId);
+      
+      // Demo AI Performance Summary
+      const aiSummary = [{
+        id: 1,
+        organizationId,
+        propertyId: propertyId ? parseInt(propertyId as string) : 999,
+        summaryDate: "2025-01-05",
+        periodType: "weekly",
+        summaryData: {
+          totalBookings: 3,
+          averageOccupancy: 78.5,
+          averageRate: 2500,
+          leadTime: 21,
+          competitorComparison: "10% below market",
+        },
+        aiSuggestions: [
+          "Increase rates by 10% for weekend bookings",
+          "Add minimum stay requirements for peak periods",
+          "Enable instant booking to improve conversion",
+        ],
+        confidenceScore: "0.85",
+        keyInsights: "Property is performing well but has pricing optimization opportunities",
+        actionItems: [
+          { action: "Update weekend pricing", priority: "high", estimatedImpact: "15% revenue increase" },
+          { action: "Review minimum stay settings", priority: "medium", estimatedImpact: "5% occupancy improvement" },
+        ],
+        performanceGrade: "B+",
+        createdAt: new Date(),
+        propertyName: "Villa Demo12345",
+      }];
+      
+      res.json(aiSummary);
+    } catch (error) {
+      console.error("Error fetching AI summary:", error);
+      res.status(500).json({ message: "Failed to fetch AI summary" });
+    }
+  });
+
+  // Direct Booking Optimization
+  app.get("/api/smart-pricing/direct-booking", isDemoAuthenticated, requireSmartPricingAccess, async (req: any, res) => {
+    try {
+      const { organizationId } = req.user;
+      const { propertyId, conversionPotential, startDate, endDate } = req.query;
+      
+      const { SmartPricingStorage } = await import("./smartPricingStorage");
+      const smartPricingStorage = new SmartPricingStorage(organizationId);
+      
+      const optimization = await smartPricingStorage.getDemoDirectBookingOptimization();
+      res.json(optimization);
+    } catch (error) {
+      console.error("Error fetching direct booking optimization:", error);
+      res.status(500).json({ message: "Failed to fetch optimization data" });
+    }
+  });
+
+  // Smart Pricing Alerts
+  app.get("/api/smart-pricing/alerts", isDemoAuthenticated, requireSmartPricingAccess, async (req: any, res) => {
+    try {
+      const { organizationId } = req.user;
+      const { propertyId, alertType, severity, isRead, isResolved } = req.query;
+      
+      const { SmartPricingStorage } = await import("./smartPricingStorage");
+      const smartPricingStorage = new SmartPricingStorage(organizationId);
+      
+      const alerts = await smartPricingStorage.getDemoSmartAlerts();
+      res.json(alerts);
+    } catch (error) {
+      console.error("Error fetching smart pricing alerts:", error);
+      res.status(500).json({ message: "Failed to fetch alerts" });
+    }
+  });
+
+  // Mark Alert as Read
+  app.patch("/api/smart-pricing/alerts/:id/read", isDemoAuthenticated, requireSmartPricingAccess, async (req: any, res) => {
+    try {
+      const { organizationId } = req.user;
+      const { id } = req.params;
+      
+      const { SmartPricingStorage } = await import("./smartPricingStorage");
+      const smartPricingStorage = new SmartPricingStorage(organizationId);
+      
+      const alert = await smartPricingStorage.markAlertAsRead(parseInt(id));
+      res.json(alert);
+    } catch (error) {
+      console.error("Error marking alert as read:", error);
+      res.status(500).json({ message: "Failed to mark alert as read" });
+    }
+  });
+
+  // Resolve Alert
+  app.patch("/api/smart-pricing/alerts/:id/resolve", isDemoAuthenticated, requireSmartPricingAccess, async (req: any, res) => {
+    try {
+      const { organizationId } = req.user;
+      const { id } = req.params;
+      const { actionTaken } = req.body;
+      
+      const { SmartPricingStorage } = await import("./smartPricingStorage");
+      const smartPricingStorage = new SmartPricingStorage(organizationId);
+      
+      const alert = await smartPricingStorage.resolveAlert(parseInt(id), req.user.id, actionTaken);
+      res.json(alert);
+    } catch (error) {
+      console.error("Error resolving alert:", error);
+      res.status(500).json({ message: "Failed to resolve alert" });
+    }
+  });
+
+  // Holiday Heatmap Calendar
+  app.get("/api/smart-pricing/heatmap", isDemoAuthenticated, requireSmartPricingAccess, async (req: any, res) => {
+    try {
+      const { organizationId } = req.user;
+      const { propertyId, startDate, endDate, demandLevel, colorCode } = req.query;
+      
+      const { SmartPricingStorage } = await import("./smartPricingStorage");
+      const smartPricingStorage = new SmartPricingStorage(organizationId);
+      
+      // Demo Heatmap Calendar Data
+      const today = new Date();
+      const heatmapData = [];
+      
+      // Generate 30 days of heatmap data
+      for (let i = 0; i < 30; i++) {
+        const date = new Date(today);
+        date.setDate(today.getDate() + i);
+        
+        const isWeekend = date.getDay() === 0 || date.getDay() === 6;
+        const demandLevel = isWeekend ? "high" : (Math.random() > 0.7 ? "high" : Math.random() > 0.3 ? "normal" : "low");
+        
+        heatmapData.push({
+          id: i + 1,
+          organizationId,
+          propertyId: propertyId ? parseInt(propertyId as string) : 999,
+          date: date.toISOString().split('T')[0],
+          demandLevel,
+          pricingStrategy: demandLevel === "high" ? "increase" : demandLevel === "low" ? "decrease" : "maintain",
+          historicalOccupancy: Math.random() * 30 + 60, // 60-90%
+          currentPace: Math.random() * 20 + 90, // 90-110%
+          recommendedRate: demandLevel === "high" ? "2800.00" : demandLevel === "low" ? "2200.00" : "2500.00",
+          competitorRates: { avg: 2600, min: 2200, max: 3000 },
+          events: isWeekend ? ["Weekend"] : [],
+          colorCode: demandLevel === "high" ? "green" : demandLevel === "low" ? "red" : "yellow",
+          notes: demandLevel === "high" ? "Peak demand period" : demandLevel === "low" ? "Consider promotions" : "Normal demand",
+          isLocked: false,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          propertyName: "Villa Demo12345",
+        });
+      }
+      
+      res.json(heatmapData);
+    } catch (error) {
+      console.error("Error fetching heatmap calendar:", error);
+      res.status(500).json({ message: "Failed to fetch heatmap data" });
+    }
+  });
+
+  // Historical Booking Patterns
+  app.get("/api/smart-pricing/historical-patterns", isDemoAuthenticated, requireSmartPricingAccess, async (req: any, res) => {
+    try {
+      const { organizationId } = req.user;
+      const { propertyId, year, month, week } = req.query;
+      
+      const { SmartPricingStorage } = await import("./smartPricingStorage");
+      const smartPricingStorage = new SmartPricingStorage(organizationId);
+      
+      // Demo Historical Patterns
+      const patterns = [
+        {
+          id: 1,
+          organizationId,
+          propertyId: propertyId ? parseInt(propertyId as string) : 999,
+          year: 2024,
+          month: 12,
+          week: 52,
+          dayOfWeek: 6, // Saturday
+          averageLeadTime: 14,
+          bookingVelocity: "1.5",
+          averageStayLength: "4.2",
+          averageRate: "2800.00",
+          occupancyRate: "95.00",
+          seasonalityFactor: "1.25",
+          trendDirection: "up",
+          createdAt: new Date(),
+          propertyName: "Villa Demo12345",
+        },
+        {
+          id: 2,
+          organizationId,
+          propertyId: propertyId ? parseInt(propertyId as string) : 999,
+          year: 2024,
+          month: 12,
+          week: 52,
+          dayOfWeek: 1, // Monday
+          averageLeadTime: 21,
+          bookingVelocity: "0.8",
+          averageStayLength: "6.5",
+          averageRate: "2200.00",
+          occupancyRate: "65.00",
+          seasonalityFactor: "0.85",
+          trendDirection: "stable",
+          createdAt: new Date(),
+          propertyName: "Villa Demo12345",
+        },
+      ];
+      
+      res.json(patterns);
+    } catch (error) {
+      console.error("Error fetching historical patterns:", error);
+      res.status(500).json({ message: "Failed to fetch historical patterns" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

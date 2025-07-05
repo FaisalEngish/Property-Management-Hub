@@ -12775,3 +12775,243 @@ export type InsertWaterUtilityAlert = z.infer<typeof insertWaterUtilityAlertSche
 
 export type PropertyWaterSetting = typeof propertyWaterSettings.$inferSelect;
 export type InsertPropertyWaterSetting = z.infer<typeof insertPropertyWaterSettingSchema>;
+
+// ===== SMART PRICING & PERFORMANCE TOOLKIT =====
+
+// Year-on-Year Performance Tracking
+export const yearOnYearPerformance = pgTable("year_on_year_performance", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  propertyId: integer("property_id").references(() => properties.id).notNull(),
+  year: integer("year").notNull(),
+  month: integer("month").notNull(), // 1-12
+  totalBookings: integer("total_bookings").default(0),
+  totalRevenue: decimal("total_revenue", { precision: 12, scale: 2 }).default("0"),
+  averageDailyRate: decimal("average_daily_rate", { precision: 8, scale: 2 }).default("0"),
+  occupancyRate: decimal("occupancy_rate", { precision: 5, scale: 2 }).default("0"), // percentage
+  averageLeadTime: integer("average_lead_time").default(0), // days
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Holiday and Event Calendar Integration
+export const holidayEventCalendar = pgTable("holiday_event_calendar", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  eventDate: date("event_date").notNull(),
+  eventName: varchar("event_name").notNull(),
+  eventType: varchar("event_type").notNull(), // international_holiday, thai_holiday, regional_event, high_demand_period
+  country: varchar("country"), // For international holidays
+  region: varchar("region"), // For regional events
+  demandImpact: varchar("demand_impact").default("medium"), // low, medium, high
+  pricingMultiplier: decimal("pricing_multiplier", { precision: 3, scale: 2 }).default("1.00"),
+  isActive: boolean("is_active").default(true),
+  source: varchar("source"), // calendarific, manual, api_import
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Price Deviation Analysis
+export const priceDeviationAnalysis = pgTable("price_deviation_analysis", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  propertyId: integer("property_id").references(() => properties.id).notNull(),
+  analysisDate: date("analysis_date").notNull(),
+  currentPrice: decimal("current_price", { precision: 8, scale: 2 }).notNull(),
+  marketAverage: decimal("market_average", { precision: 8, scale: 2 }),
+  portfolioAverage: decimal("portfolio_average", { precision: 8, scale: 2 }),
+  deviationPercentage: decimal("deviation_percentage", { precision: 5, scale: 2 }),
+  isUnderpriced: boolean("is_underpriced").default(false),
+  isOverpriced: boolean("is_overpriced").default(false),
+  recommendedPrice: decimal("recommended_price", { precision: 8, scale: 2 }),
+  confidence: decimal("confidence", { precision: 3, scale: 2 }).default("0.50"), // 0-1
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Booking Gap Detection
+export const bookingGapAnalysis = pgTable("booking_gap_analysis", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  propertyId: integer("property_id").references(() => properties.id).notNull(),
+  gapStartDate: date("gap_start_date").notNull(),
+  gapEndDate: date("gap_end_date").notNull(),
+  gapDuration: integer("gap_duration").notNull(), // nights
+  gapType: varchar("gap_type").notNull(), // short_gap, weekend_gap, weekday_gap, long_gap
+  surroundingRates: jsonb("surrounding_rates"), // rates before and after gap
+  recommendedAction: varchar("recommended_action"), // remove_minimum_stay, price_reduction, special_offer
+  estimatedRevenueLoss: decimal("estimated_revenue_loss", { precision: 10, scale: 2 }),
+  isResolved: boolean("is_resolved").default(false),
+  resolvedDate: date("resolved_date"),
+  actionTaken: text("action_taken"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// AI Performance Summary
+export const aiPerformanceSummary = pgTable("ai_performance_summary", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  propertyId: integer("property_id"),
+  summaryDate: date("summary_date").notNull(),
+  periodType: varchar("period_type").notNull(), // weekly, monthly
+  summaryData: jsonb("summary_data").notNull(), // Comprehensive performance metrics
+  aiSuggestions: jsonb("ai_suggestions").notNull(), // AI-generated recommendations
+  confidenceScore: decimal("confidence_score", { precision: 3, scale: 2 }).default("0.50"),
+  keyInsights: text("key_insights"),
+  actionItems: jsonb("action_items"),
+  performanceGrade: varchar("performance_grade"), // A, B, C, D, F
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Direct Booking Price Optimization
+export const directBookingOptimization = pgTable("direct_booking_optimization", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  propertyId: integer("property_id").references(() => properties.id).notNull(),
+  analysisDate: date("analysis_date").notNull(),
+  currentDirectRate: decimal("current_direct_rate", { precision: 8, scale: 2 }).notNull(),
+  otaGuestRate: decimal("ota_guest_rate", { precision: 8, scale: 2 }),
+  otaNetPayout: decimal("ota_net_payout", { precision: 8, scale: 2 }),
+  otaCommissionRate: decimal("ota_commission_rate", { precision: 5, scale: 2 }),
+  recommendedDirectRate: decimal("recommended_direct_rate", { precision: 8, scale: 2 }),
+  competitiveAdvantage: decimal("competitive_advantage", { precision: 8, scale: 2 }), // savings vs OTA
+  suggestedPerks: jsonb("suggested_perks"), // free airport pickup, late checkout, etc.
+  conversionPotential: varchar("conversion_potential"), // low, medium, high
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Historical Booking Pattern Analysis
+export const historicalBookingPatterns = pgTable("historical_booking_patterns", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  propertyId: integer("property_id").references(() => properties.id).notNull(),
+  year: integer("year").notNull(),
+  month: integer("month").notNull(),
+  week: integer("week"), // Week of year (1-52)
+  dayOfWeek: integer("day_of_week"), // 1-7 (Mon-Sun)
+  averageLeadTime: integer("average_lead_time"),
+  bookingVelocity: decimal("booking_velocity", { precision: 5, scale: 2 }), // bookings per day
+  averageStayLength: decimal("average_stay_length", { precision: 4, scale: 1 }),
+  averageRate: decimal("average_rate", { precision: 8, scale: 2 }),
+  occupancyRate: decimal("occupancy_rate", { precision: 5, scale: 2 }),
+  seasonalityFactor: decimal("seasonality_factor", { precision: 3, scale: 2 }).default("1.00"),
+  trendDirection: varchar("trend_direction"), // up, down, stable
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Smart Alert System
+export const smartPricingAlerts = pgTable("smart_pricing_alerts", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  propertyId: integer("property_id").references(() => properties.id),
+  alertType: varchar("alert_type").notNull(), // performance_decline, pricing_opportunity, gap_detected, competitor_change
+  severity: varchar("severity").notNull(), // low, medium, high, critical
+  title: varchar("title").notNull(),
+  message: text("message").notNull(),
+  data: jsonb("data"), // Supporting data for the alert
+  recommendedAction: text("recommended_action"),
+  isRead: boolean("is_read").default(false),
+  isResolved: boolean("is_resolved").default(false),
+  resolvedBy: varchar("resolved_by"),
+  resolvedDate: timestamp("resolved_date"),
+  actionTaken: text("action_taken"),
+  notificationsSent: jsonb("notifications_sent"), // whatsapp, email, in_app
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Holiday Heatmap Calendar
+export const holidayHeatmapCalendar = pgTable("holiday_heatmap_calendar", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  propertyId: integer("property_id").references(() => properties.id).notNull(),
+  date: date("date").notNull(),
+  demandLevel: varchar("demand_level").notNull(), // high, normal, low
+  pricingStrategy: varchar("pricing_strategy"), // increase, maintain, decrease, promote
+  historicalOccupancy: decimal("historical_occupancy", { precision: 5, scale: 2 }),
+  currentPace: decimal("current_pace", { precision: 5, scale: 2 }), // vs historical
+  recommendedRate: decimal("recommended_rate", { precision: 8, scale: 2 }),
+  competitorRates: jsonb("competitor_rates"),
+  events: jsonb("events"), // holidays, local events
+  colorCode: varchar("color_code").notNull(), // green, yellow, red
+  notes: text("notes"),
+  isLocked: boolean("is_locked").default(false), // prevent auto-updates
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Create insert schemas for Smart Pricing & Performance Toolkit
+export const insertYearOnYearPerformanceSchema = createInsertSchema(yearOnYearPerformance).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertHolidayEventCalendarSchema = createInsertSchema(holidayEventCalendar).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertPriceDeviationAnalysisSchema = createInsertSchema(priceDeviationAnalysis).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertBookingGapAnalysisSchema = createInsertSchema(bookingGapAnalysis).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertAiPerformanceSummarySchema = createInsertSchema(aiPerformanceSummary).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertDirectBookingOptimizationSchema = createInsertSchema(directBookingOptimization).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertHistoricalBookingPatternsSchema = createInsertSchema(historicalBookingPatterns).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertSmartPricingAlertsSchema = createInsertSchema(smartPricingAlerts).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertHolidayHeatmapCalendarSchema = createInsertSchema(holidayHeatmapCalendar).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+// Type exports for Smart Pricing & Performance Toolkit
+export type YearOnYearPerformance = typeof yearOnYearPerformance.$inferSelect;
+export type InsertYearOnYearPerformance = z.infer<typeof insertYearOnYearPerformanceSchema>;
+
+export type HolidayEventCalendar = typeof holidayEventCalendar.$inferSelect;
+export type InsertHolidayEventCalendar = z.infer<typeof insertHolidayEventCalendarSchema>;
+
+export type PriceDeviationAnalysis = typeof priceDeviationAnalysis.$inferSelect;
+export type InsertPriceDeviationAnalysis = z.infer<typeof insertPriceDeviationAnalysisSchema>;
+
+export type BookingGapAnalysis = typeof bookingGapAnalysis.$inferSelect;
+export type InsertBookingGapAnalysis = z.infer<typeof insertBookingGapAnalysisSchema>;
+
+export type AiPerformanceSummary = typeof aiPerformanceSummary.$inferSelect;
+export type InsertAiPerformanceSummary = z.infer<typeof insertAiPerformanceSummarySchema>;
+
+export type DirectBookingOptimization = typeof directBookingOptimization.$inferSelect;
+export type InsertDirectBookingOptimization = z.infer<typeof insertDirectBookingOptimizationSchema>;
+
+export type HistoricalBookingPatterns = typeof historicalBookingPatterns.$inferSelect;
+export type InsertHistoricalBookingPatterns = z.infer<typeof insertHistoricalBookingPatternsSchema>;
+
+export type SmartPricingAlerts = typeof smartPricingAlerts.$inferSelect;
+export type InsertSmartPricingAlerts = z.infer<typeof insertSmartPricingAlertsSchema>;
+
+export type HolidayHeatmapCalendar = typeof holidayHeatmapCalendar.$inferSelect;
+export type InsertHolidayHeatmapCalendar = z.infer<typeof insertHolidayHeatmapCalendarSchema>;
