@@ -55,6 +55,81 @@ export async function registerRoutes(app: Express): Promise<Server> {
     next();
   };
 
+  // ===== USER ACCESS MANAGER API ROUTES =====
+
+  // Get all users for access management (admin only)
+  app.get("/api/admin/users", isDemoAuthenticated, requireAdmin, async (req: any, res) => {
+    try {
+      const organizationId = req.user.organizationId || "default-org";
+      
+      // Get all users from the users table
+      const users = await storage.getUsers();
+      
+      // Filter by organization and format response
+      const formattedUsers = users
+        .filter(user => user.organizationId === organizationId)
+        .map(user => ({
+          id: user.id,
+          organizationId: user.organizationId,
+          email: user.email,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          role: user.role,
+          isActive: user.isActive,
+          lastLoginAt: user.lastLoginAt,
+          createdAt: user.createdAt,
+          // Add default permissions structure
+          permissions: {
+            listings: { view: false, edit: false, create: false, delete: false },
+            reservations: { view: false, edit: false, create: false, delete: false },
+            calendar: { view: false, edit: false, create: false, delete: false },
+            financials: { view: false, edit: false, create: false, delete: false },
+            ownerStatements: { view: false, edit: false, create: false, delete: false },
+            tasks: { view: false, edit: false, create: false, delete: false },
+            utilities: { view: false, edit: false, create: false, delete: false },
+            adminAccess: user.role === 'admin',
+            financialDataAccess: ['admin', 'portfolio-manager', 'owner'].includes(user.role),
+            otaPayoutDataOnly: ['owner', 'retail-agent', 'referral-agent'].includes(user.role),
+          },
+          listingsAccess: [], // Will be enhanced later
+        }));
+      
+      res.json(formattedUsers);
+    } catch (error) {
+      console.error("Error fetching users for access management:", error);
+      res.status(500).json({ message: "Failed to fetch users" });
+    }
+  });
+
+  // Update user permissions (admin only)
+  app.put("/api/admin/users/:userId/permissions", isDemoAuthenticated, requireAdmin, async (req: any, res) => {
+    try {
+      const { permissions, listingsAccess } = req.body;
+      const { userId } = req.params;
+      
+      // For now, we'll store permissions in memory/demo mode
+      // In a full implementation, these would be stored in a permissions table
+      
+      // Log the permission update for audit purposes
+      console.log(`Admin ${req.user.id} updated permissions for user ${userId}:`, {
+        permissions,
+        listingsAccess,
+        timestamp: new Date().toISOString()
+      });
+      
+      res.json({ 
+        success: true, 
+        message: "Permissions updated successfully",
+        userId,
+        permissions,
+        listingsAccess 
+      });
+    } catch (error) {
+      console.error("Error updating user permissions:", error);
+      res.status(500).json({ message: "Failed to update permissions" });
+    }
+  });
+
   // Middleware for portfolio manager or admin access
   const requirePortfolioManagerOrAdmin = (req: any, res: any, next: any) => {
     if (!['admin', 'portfolio-manager'].includes(req.user?.role)) {

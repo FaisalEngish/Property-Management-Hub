@@ -159,6 +159,7 @@ const getRoleBasedMenus = (role: string): MenuSection[] => {
         items: [
           { label: "Enhanced Admin Dashboard", icon: BarChart3, href: "/enhanced-admin-dashboard", badge: "Enhanced" },
           { label: "User Management", icon: Users, href: "/admin/user-management", badge: "New" },
+          { label: "User Access Manager", icon: Shield, href: "/admin/user-access-manager", badge: "Admin" },
           { label: "User Access & Visibility", icon: Eye, href: "/admin/user-access", badge: "New" },
           { label: "System Integrity Check", icon: Shield, href: "/admin/system-integrity-check", badge: "QA" },
           { label: "Activity Logs", icon: Activity, href: "/admin/activity-log" },

@@ -130,6 +130,7 @@ import WaterUtilityEnhanced from "@/pages/WaterUtilityEnhanced";
 import OtaPayoutLogicSmartRevenue from "@/pages/OtaPayoutLogicSmartRevenue";
 import EnhancedAdminDashboard from "@/pages/EnhancedAdminDashboard";
 import FixedGuestCheckInTracker from "@/pages/FixedGuestCheckInTracker";
+import UserAccessManager from "@/pages/UserAccessManager";
 
 function Router() {
   const [location, setLocation] = useLocation();
@@ -287,6 +288,7 @@ function Router() {
         <Route path="/admin/system-integrity-check" component={SystemIntegrityCheck} />
         <Route path="/admin/user-management" component={UserManagementModule} />
         <Route path="/admin/user-access" component={UserAccessVisibilityControls} />
+        <Route path="/admin/user-access-manager" component={UserAccessManager} />
         <Route path="/access-denied" component={AccessDenied} />
         <Route path="/document-center" component={DocumentCenter} />
         <Route path="/property-access" component={PropertyAccessManagement} />
