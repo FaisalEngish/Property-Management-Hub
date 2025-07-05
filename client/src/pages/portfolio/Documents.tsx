@@ -1,205 +1,76 @@
 import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
+import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
-import { 
-  FileText, 
-  Download, 
-  Upload, 
-  Search, 
-  Filter,
-  Calendar,
-  User,
-  Building,
-  Eye,
-  Trash2,
-  Plus
-} from "lucide-react";
-import { useAuth } from "@/hooks/useAuth";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Building, FileText, Upload, Download, Eye, Search, Filter } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
-interface Document {
-  id: number;
-  fileName: string;
-  fileType: string;
-  fileSize: string;
-  propertyName: string;
-  category: string;
-  uploadDate: string;
-  uploadedBy: string;
-  description: string;
-  status: "approved" | "pending" | "rejected";
-  downloadUrl: string;
-}
-
 export default function Documents() {
-  const { user } = useAuth();
   const { toast } = useToast();
-  const queryClient = useQueryClient();
+  const [selectedProperty, setSelectedProperty] = useState<string>("all");
+  const [selectedType, setSelectedType] = useState<string>("all");
   const [searchTerm, setSearchTerm] = useState("");
-  const [filterCategory, setFilterCategory] = useState("");
-  const [filterProperty, setFilterProperty] = useState("");
-  const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
 
-  // Mock data for portfolio manager's assigned property documents
-  const mockDocuments: Document[] = [
-    {
-      id: 1,
-      fileName: "Villa_Aruna_Insurance_Policy.pdf",
-      fileType: "PDF",
-      fileSize: "2.1 MB",
-      propertyName: "Villa Aruna",
-      category: "Insurance",
-      uploadDate: "2024-01-15",
-      uploadedBy: "Admin User",
-      description: "Property insurance policy document",
-      status: "approved",
-      downloadUrl: "#"
-    },
-    {
-      id: 2,
-      fileName: "Villa_Aruna_Floorplan.pdf",
-      fileType: "PDF",
-      fileSize: "5.3 MB",
-      propertyName: "Villa Aruna",
-      category: "Property Plans",
-      uploadDate: "2024-01-10",
-      uploadedBy: "Owner",
-      description: "Detailed floor plan and layout",
-      status: "approved",
-      downloadUrl: "#"
-    },
-    {
-      id: 3,
-      fileName: "Samui_Breeze_Rental_License.pdf",
-      fileType: "PDF",
-      fileSize: "1.8 MB",
-      propertyName: "Villa Samui Breeze",
-      category: "Legal Documents",
-      uploadDate: "2024-01-05",
-      uploadedBy: "Admin User",
-      description: "Government rental operation license",
-      status: "approved",
-      downloadUrl: "#"
-    },
-    {
-      id: 4,
-      fileName: "Villa_Aruna_Welcome_Guide.pdf",
-      fileType: "PDF",
-      fileSize: "3.2 MB",
-      propertyName: "Villa Aruna",
-      category: "Guest Information",
-      uploadDate: "2024-01-12",
-      uploadedBy: "Portfolio Manager",
-      description: "Guest welcome guide and house rules",
-      status: "pending",
-      downloadUrl: "#"
-    }
+  // Fetch documents data
+  const { data: documents, isLoading } = useQuery({
+    queryKey: ["/api/portfolio/documents"],
+  });
+
+  const documentTypes = [
+    "Ownership Proof",
+    "Insurance",
+    "Rental License",
+    "Safety Certificate",
+    "Floor Plan",
+    "Welcome Book",
+    "HOA Rules",
+    "Service Contract",
+    "Maintenance Log",
+    "Other"
   ];
 
-  const { data: documents, isLoading, error } = useQuery({
-    queryKey: ['/api/portfolio/documents'],
-    initialData: mockDocuments
-  });
-
-  const uploadMutation = useMutation({
-    mutationFn: async (formData: FormData) => {
-      // Mock upload functionality
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      return { success: true };
-    },
-    onSuccess: () => {
-      toast({
-        title: "Document uploaded successfully",
-        description: "The document is now pending review.",
-      });
-      setUploadDialogOpen(false);
-      queryClient.invalidateQueries({ queryKey: ['/api/portfolio/documents'] });
-    },
-    onError: () => {
-      toast({
-        title: "Upload failed",
-        description: "Please try again later.",
-        variant: "destructive",
-      });
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "approved": return "bg-green-100 text-green-800";
+      case "pending": return "bg-yellow-100 text-yellow-800";
+      case "rejected": return "bg-red-100 text-red-800";
+      default: return "bg-gray-100 text-gray-800";
     }
-  });
-
-  const categories = ["Insurance", "Property Plans", "Legal Documents", "Guest Information", "Maintenance Records", "Safety Certificates"];
-  const properties = ["Villa Aruna", "Villa Samui Breeze"];
-
-  const filteredDocuments = documents?.filter(doc => {
-    const matchesSearch = doc.fileName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         doc.description.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCategory = !filterCategory || doc.category === filterCategory;
-    const matchesProperty = !filterProperty || doc.propertyName === filterProperty;
-    
-    return matchesSearch && matchesCategory && matchesProperty;
-  }) || [];
-
-  const handleUpload = (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const formData = new FormData(event.currentTarget);
-    uploadMutation.mutate(formData);
   };
+
+  const filteredDocuments = documents?.filter((doc: any) => {
+    const matchesProperty = selectedProperty === "all" || doc.propertyId.toString() === selectedProperty;
+    const matchesType = selectedType === "all" || doc.type === selectedType;
+    const matchesSearch = doc.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         doc.description?.toLowerCase().includes(searchTerm.toLowerCase());
+    return matchesProperty && matchesType && matchesSearch;
+  });
 
   if (isLoading) {
     return (
-      <div className="container mx-auto p-6">
-        <div className="flex items-center justify-center h-64">
+      <div className="p-6">
+        <div className="flex items-center justify-center h-32">
           <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
         </div>
       </div>
     );
   }
 
-  if (error) {
-    return (
-      <div className="container mx-auto p-6">
-        <Card>
-          <CardContent className="pt-6">
-            <div className="text-center text-red-600">
-              Error loading documents. Please try again later.
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
   return (
-    <div className="container mx-auto p-6 max-w-7xl">
-      {/* Breadcrumb Navigation */}
-      <Breadcrumb className="mb-6">
-        <BreadcrumbList>
-          <BreadcrumbItem>
-            <BreadcrumbLink href="/">Dashboard</BreadcrumbLink>
-          </BreadcrumbItem>
-          <BreadcrumbSeparator />
-          <BreadcrumbItem>
-            <BreadcrumbLink href="/pm/dashboard">Portfolio Manager</BreadcrumbLink>
-          </BreadcrumbItem>
-          <BreadcrumbSeparator />
-          <BreadcrumbPage>Documents</BreadcrumbPage>
-        </BreadcrumbList>
-      </Breadcrumb>
-
-      {/* Header */}
-      <div className="flex justify-between items-center mb-6">
+    <div className="p-6 space-y-6">
+      <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold mb-2">Document Center</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Document Center</h1>
           <p className="text-muted-foreground">
-            View and manage documents for your assigned properties
+            Manage property documents and files
           </p>
         </div>
-        
-        <Dialog open={uploadDialogOpen} onOpenChange={setUploadDialogOpen}>
+        <Dialog>
           <DialogTrigger asChild>
             <Button>
               <Upload className="h-4 w-4 mr-2" />
@@ -210,177 +81,157 @@ export default function Documents() {
             <DialogHeader>
               <DialogTitle>Upload New Document</DialogTitle>
               <DialogDescription>
-                Upload a document for one of your assigned properties
+                Upload a new document for one of your properties
               </DialogDescription>
             </DialogHeader>
-            <form onSubmit={handleUpload} className="space-y-4">
+            <div className="space-y-4">
               <div>
-                <Label htmlFor="property">Property</Label>
-                <Select name="property" required>
+                <label className="text-sm font-medium">Property</label>
+                <Select>
                   <SelectTrigger>
-                    <SelectValue placeholder="Select property..." />
+                    <SelectValue placeholder="Select property" />
                   </SelectTrigger>
                   <SelectContent>
-                    {properties.map(property => (
-                      <SelectItem key={property} value={property}>{property}</SelectItem>
+                    <SelectItem value="999">Villa Demo1234</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="text-sm font-medium">Document Type</label>
+                <Select>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {documentTypes.map((type) => (
+                      <SelectItem key={type} value={type}>{type}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
-              
               <div>
-                <Label htmlFor="category">Category</Label>
-                <Select name="category" required>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select category..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {categories.map(category => (
-                      <SelectItem key={category} value={category}>{category}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <label className="text-sm font-medium">File</label>
+                <Input type="file" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" />
               </div>
-              
               <div>
-                <Label htmlFor="description">Description</Label>
-                <Input name="description" placeholder="Brief description..." required />
+                <label className="text-sm font-medium">Description</label>
+                <Input placeholder="Optional description" />
               </div>
-              
-              <div>
-                <Label htmlFor="file">File</Label>
-                <Input name="file" type="file" accept=".pdf,.doc,.docx,.jpg,.png" required />
-              </div>
-              
-              <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => setUploadDialogOpen(false)}>
-                  Cancel
-                </Button>
-                <Button type="submit" disabled={uploadMutation.isPending}>
-                  {uploadMutation.isPending ? "Uploading..." : "Upload"}
-                </Button>
-              </DialogFooter>
-            </form>
+            </div>
+            <DialogFooter>
+              <Button
+                onClick={() => {
+                  toast({
+                    title: "Document uploaded",
+                    description: "Document has been uploaded successfully and is pending review.",
+                  });
+                }}
+              >
+                Upload Document
+              </Button>
+            </DialogFooter>
           </DialogContent>
         </Dialog>
       </div>
 
       {/* Filters */}
-      <div className="grid gap-4 md:grid-cols-4 mb-6">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search documents..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10"
-          />
-        </div>
-        
-        <Select value={filterCategory} onValueChange={setFilterCategory}>
-          <SelectTrigger>
-            <SelectValue placeholder="All categories" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="">All categories</SelectItem>
-            {categories.map(category => (
-              <SelectItem key={category} value={category}>{category}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        
-        <Select value={filterProperty} onValueChange={setFilterProperty}>
-          <SelectTrigger>
-            <SelectValue placeholder="All properties" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="">All properties</SelectItem>
-            {properties.map(property => (
-              <SelectItem key={property} value={property}>{property}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        
-        <Button variant="outline" onClick={() => {
-          setSearchTerm("");
-          setFilterCategory("");
-          setFilterProperty("");
-        }}>
-          Clear Filters
-        </Button>
+      <Card>
+        <CardContent className="pt-6">
+          <div className="flex flex-col sm:flex-row gap-4">
+            <div className="flex-1">
+              <div className="relative">
+                <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search documents..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+            </div>
+            <Select value={selectedProperty} onValueChange={setSelectedProperty}>
+              <SelectTrigger className="w-full sm:w-48">
+                <SelectValue placeholder="Filter by property" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Properties</SelectItem>
+                <SelectItem value="999">Villa Demo1234</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={selectedType} onValueChange={setSelectedType}>
+              <SelectTrigger className="w-full sm:w-48">
+                <SelectValue placeholder="Filter by type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Types</SelectItem>
+                {documentTypes.map((type) => (
+                  <SelectItem key={type} value={type}>{type}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Documents Grid */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        {filteredDocuments?.map((document: any) => (
+          <Card key={document.id} className="hover:shadow-lg transition-shadow">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <FileText className="h-5 w-5" />
+                {document.name}
+              </CardTitle>
+              <CardDescription>{document.description}</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex justify-between items-center">
+                <Badge className={getStatusColor(document.status)}>
+                  {document.status}
+                </Badge>
+                <span className="text-sm text-muted-foreground">
+                  {document.type}
+                </span>
+              </div>
+              
+              <div className="text-sm space-y-1">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Property:</span>
+                  <span>{document.propertyName}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Uploaded:</span>
+                  <span>{document.uploadedAt}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Size:</span>
+                  <span>{document.fileSize}</span>
+                </div>
+              </div>
+
+              <div className="flex gap-2">
+                <Button size="sm" variant="outline" className="flex-1">
+                  <Eye className="h-4 w-4 mr-2" />
+                  View
+                </Button>
+                <Button size="sm" variant="outline" className="flex-1">
+                  <Download className="h-4 w-4 mr-2" />
+                  Download
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
       </div>
 
-      {/* Documents Table */}
-      {filteredDocuments.length === 0 ? (
+      {!filteredDocuments?.length && (
         <Card>
-          <CardContent className="pt-6">
-            <div className="text-center py-8">
-              <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-              <h3 className="text-lg font-semibold mb-2">No documents found</h3>
-              <p className="text-muted-foreground">
-                {documents?.length === 0 
-                  ? "No documents have been uploaded yet." 
-                  : "Try adjusting your search or filter criteria."
-                }
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-      ) : (
-        <Card>
-          <CardHeader>
-            <CardTitle>Documents ({filteredDocuments.length})</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {filteredDocuments.map((doc) => (
-                <div key={doc.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50">
-                  <div className="flex items-center space-x-4">
-                    <div className="flex-shrink-0">
-                      <FileText className="h-8 w-8 text-blue-500" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium truncate">{doc.fileName}</p>
-                      <p className="text-sm text-muted-foreground">{doc.description}</p>
-                      <div className="flex items-center space-x-4 mt-1 text-xs text-muted-foreground">
-                        <span className="flex items-center">
-                          <Building className="h-3 w-3 mr-1" />
-                          {doc.propertyName}
-                        </span>
-                        <span className="flex items-center">
-                          <Calendar className="h-3 w-3 mr-1" />
-                          {doc.uploadDate}
-                        </span>
-                        <span className="flex items-center">
-                          <User className="h-3 w-3 mr-1" />
-                          {doc.uploadedBy}
-                        </span>
-                        <span>{doc.fileSize}</span>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center space-x-2">
-                    <Badge variant={
-                      doc.status === "approved" ? "default" :
-                      doc.status === "pending" ? "secondary" : "destructive"
-                    }>
-                      {doc.status}
-                    </Badge>
-                    <Badge variant="outline">{doc.category}</Badge>
-                    
-                    <div className="flex space-x-1">
-                      <Button variant="ghost" size="sm">
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                      <Button variant="ghost" size="sm">
-                        <Download className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
+          <CardContent className="text-center py-8">
+            <FileText className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+            <h3 className="text-lg font-medium mb-2">No Documents Found</h3>
+            <p className="text-muted-foreground">
+              No documents match your current filters.
+            </p>
           </CardContent>
         </Card>
       )}

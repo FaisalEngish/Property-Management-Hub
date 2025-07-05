@@ -3861,16 +3861,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // PM Financial Overview
   app.get("/api/pm/dashboard/financial-overview", isDemoAuthenticated, async (req: any, res) => {
     try {
-      const { organizationId, id: managerId } = req.user;
-      const { startDate, endDate, propertyId } = req.query;
+      const { email: managerId } = req.user;
       
-      const overview = await storage.getPMFinancialOverview(organizationId, managerId, {
-        startDate,
-        endDate,
-        propertyId: propertyId ? parseInt(propertyId) : undefined,
+      // Use demo data for portfolio manager
+      if (managerId === "manager@test.com") {
+        const { getDemoPortfolioData } = await import("./portfolioManagerDemo");
+        const demoData = getDemoPortfolioData(managerId);
+        res.json(demoData?.financialOverview || {
+          totalCommissionEarnings: 0,
+          propertyBreakdown: [],
+          monthlyTrend: []
+        });
+        return;
+      }
+      
+      // Fallback for other users
+      res.json({
+        totalCommissionEarnings: 0,
+        propertyBreakdown: [],
+        monthlyTrend: []
       });
-      
-      res.json(overview);
     } catch (error) {
       console.error("Error fetching PM financial overview:", error);
       res.status(500).json({ message: "Failed to fetch financial overview" });
@@ -3880,11 +3890,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // PM Commission Balance
   app.get("/api/pm/dashboard/balance", isDemoAuthenticated, async (req: any, res) => {
     try {
-      const { organizationId, id: managerId } = req.user;
+      const { email: managerId } = req.user;
       
-      const balance = await storage.getPMCommissionBalance(organizationId, managerId);
+      // Use demo data for portfolio manager
+      if (managerId === "manager@test.com") {
+        const { getDemoPortfolioData } = await import("./portfolioManagerDemo");
+        const demoData = getDemoPortfolioData(managerId);
+        res.json(demoData?.balance || {
+          totalEarned: 0,
+          totalPaid: 0,
+          currentBalance: 0,
+          lastPayoutDate: null,
+        });
+        return;
+      }
       
-      res.json(balance || {
+      // Fallback for other users
+      res.json({
         totalEarned: 0,
         totalPaid: 0,
         currentBalance: 0,
@@ -3893,6 +3915,97 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching PM balance:", error);
       res.status(500).json({ message: "Failed to fetch balance" });
+    }
+  });
+
+  // Portfolio Manager Specific Routes
+  app.get("/api/portfolio/property-access", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { email: managerId } = req.user;
+      
+      if (managerId === "manager@test.com") {
+        const { getDemoPortfolioData } = await import("./portfolioManagerDemo");
+        const demoData = getDemoPortfolioData(managerId);
+        res.json(demoData?.propertyAccess || {});
+        return;
+      }
+      
+      res.json({});
+    } catch (error) {
+      console.error("Error fetching property access:", error);
+      res.status(500).json({ message: "Failed to fetch property access" });
+    }
+  });
+
+  app.get("/api/portfolio/documents", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { email: managerId } = req.user;
+      
+      if (managerId === "manager@test.com") {
+        const { getDemoPortfolioData } = await import("./portfolioManagerDemo");
+        const demoData = getDemoPortfolioData(managerId);
+        res.json(demoData?.documents || []);
+        return;
+      }
+      
+      res.json([]);
+    } catch (error) {
+      console.error("Error fetching documents:", error);
+      res.status(500).json({ message: "Failed to fetch documents" });
+    }
+  });
+
+  app.get("/api/portfolio/maintenance", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { email: managerId } = req.user;
+      
+      if (managerId === "manager@test.com") {
+        const { getDemoPortfolioData } = await import("./portfolioManagerDemo");
+        const demoData = getDemoPortfolioData(managerId);
+        res.json(demoData?.maintenanceTasks || []);
+        return;
+      }
+      
+      res.json([]);
+    } catch (error) {
+      console.error("Error fetching maintenance tasks:", error);
+      res.status(500).json({ message: "Failed to fetch maintenance tasks" });
+    }
+  });
+
+  app.get("/api/portfolio/service-tracker", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { email: managerId } = req.user;
+      
+      if (managerId === "manager@test.com") {
+        const { getDemoPortfolioData } = await import("./portfolioManagerDemo");
+        const demoData = getDemoPortfolioData(managerId);
+        res.json(demoData?.serviceTimeline || []);
+        return;
+      }
+      
+      res.json([]);
+    } catch (error) {
+      console.error("Error fetching service timeline:", error);
+      res.status(500).json({ message: "Failed to fetch service timeline" });
+    }
+  });
+
+  app.get("/api/portfolio/invoices", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { email: managerId } = req.user;
+      
+      if (managerId === "manager@test.com") {
+        const { getDemoPortfolioData } = await import("./portfolioManagerDemo");
+        const demoData = getDemoPortfolioData(managerId);
+        res.json(demoData?.invoices || []);
+        return;
+      }
+      
+      res.json([]);
+    } catch (error) {
+      console.error("Error fetching invoices:", error);
+      res.status(500).json({ message: "Failed to fetch invoices" });
     }
   });
 
@@ -3968,19 +4081,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // PM Task Logs
   app.get("/api/pm/dashboard/task-logs", isDemoAuthenticated, async (req: any, res) => {
     try {
-      const { organizationId, id: managerId } = req.user;
-      const { propertyId, department, status, startDate, endDate, limit } = req.query;
+      const { email: managerId } = req.user;
       
-      const taskLogs = await storage.getPMTaskLogs(organizationId, managerId, {
-        propertyId: propertyId ? parseInt(propertyId) : undefined,
-        department,
-        status,
-        startDate,
-        endDate,
-        limit: limit ? parseInt(limit) : undefined,
-      });
+      // Use demo data for portfolio manager
+      if (managerId === "manager@test.com") {
+        const { getDemoPortfolioData } = await import("./portfolioManagerDemo");
+        const demoData = getDemoPortfolioData(managerId);
+        res.json(demoData?.taskLogs || []);
+        return;
+      }
       
-      res.json(taskLogs);
+      // Fallback for other users
+      res.json([]);
     } catch (error) {
       console.error("Error fetching PM task logs:", error);
       res.status(500).json({ message: "Failed to fetch task logs" });
@@ -3990,11 +4102,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // PM Portfolio Properties
   app.get("/api/pm/dashboard/portfolio", isDemoAuthenticated, async (req: any, res) => {
     try {
-      const { organizationId, id: managerId } = req.user;
+      const { email: managerId } = req.user;
       
-      const properties = await storage.getPMPortfolioProperties(organizationId, managerId);
+      // Use demo data for portfolio manager
+      if (managerId === "manager@test.com") {
+        const { getDemoPortfolioData } = await import("./portfolioManagerDemo");
+        const demoData = getDemoPortfolioData(managerId);
+        res.json([demoData?.demoProperty] || []);
+        return;
+      }
       
-      res.json(properties);
+      // Fallback for other users
+      res.json([]);
     } catch (error) {
       console.error("Error fetching PM portfolio:", error);
       res.status(500).json({ message: "Failed to fetch portfolio" });
@@ -4004,18 +4123,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // PM Notifications
   app.get("/api/pm/dashboard/notifications", isDemoAuthenticated, async (req: any, res) => {
     try {
-      const { organizationId, id: managerId } = req.user;
-      const { type, severity, isRead, actionRequired, limit } = req.query;
+      const { email: managerId } = req.user;
       
-      const notifications = await storage.getPMNotifications(organizationId, managerId, {
-        type,
-        severity,
-        isRead: isRead ? JSON.parse(isRead) : undefined,
-        actionRequired: actionRequired ? JSON.parse(actionRequired) : undefined,
-        limit: limit ? parseInt(limit) : undefined,
-      });
+      // Use demo data for portfolio manager
+      if (managerId === "manager@test.com") {
+        const { getDemoPortfolioData } = await import("./portfolioManagerDemo");
+        const demoData = getDemoPortfolioData(managerId);
+        res.json(demoData?.notifications || []);
+        return;
+      }
       
-      res.json(notifications);
+      // Fallback for other users
+      res.json([]);
     } catch (error) {
       console.error("Error fetching PM notifications:", error);
       res.status(500).json({ message: "Failed to fetch notifications" });
@@ -4344,20 +4463,118 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/pm/dashboard/invoices", isDemoAuthenticated, async (req: any, res) => {
     try {
-      const { organizationId, id: managerId } = req.user;
-      const { status, startDate, endDate } = req.query;
+      const { email: managerId } = req.user;
       
-      const invoices = await storage.getInvoices(organizationId, {
-        createdBy: managerId,
-        status,
-        startDate,
-        endDate,
-      });
+      // Use demo data for portfolio manager
+      if (managerId === "manager@test.com") {
+        const { getDemoPortfolioData } = await import("./portfolioManagerDemo");
+        const demoData = getDemoPortfolioData(managerId);
+        res.json(demoData?.invoices || []);
+        return;
+      }
       
-      res.json(invoices);
+      // Fallback for other users
+      res.json([]);
     } catch (error) {
       console.error("Error fetching PM invoices:", error);
       res.status(500).json({ message: "Failed to fetch invoices" });
+    }
+  });
+
+  // ===== PORTFOLIO MANAGER SPECIFIC PAGE ROUTES =====
+
+  // Property Access API
+  app.get("/api/portfolio/property-access", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { email: managerId } = req.user;
+      
+      if (managerId === "manager@test.com") {
+        const { getDemoPropertyAccess } = await import("./portfolioManagerDemo");
+        const propertyAccess = getDemoPropertyAccess(managerId);
+        res.json(propertyAccess);
+        return;
+      }
+      
+      res.json([]);
+    } catch (error) {
+      console.error("Error fetching property access:", error);
+      res.status(500).json({ message: "Failed to fetch property access" });
+    }
+  });
+
+  // Documents API
+  app.get("/api/portfolio/documents", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { email: managerId } = req.user;
+      
+      if (managerId === "manager@test.com") {
+        const { getDemoPortfolioData } = await import("./portfolioManagerDemo");
+        const demoData = getDemoPortfolioData(managerId);
+        res.json(demoData?.documents || []);
+        return;
+      }
+      
+      res.json([]);
+    } catch (error) {
+      console.error("Error fetching documents:", error);
+      res.status(500).json({ message: "Failed to fetch documents" });
+    }
+  });
+
+  // Maintenance API
+  app.get("/api/portfolio/maintenance", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { email: managerId } = req.user;
+      
+      if (managerId === "manager@test.com") {
+        const { getDemoPortfolioData } = await import("./portfolioManagerDemo");
+        const demoData = getDemoPortfolioData(managerId);
+        res.json(demoData?.maintenanceTasks || []);
+        return;
+      }
+      
+      res.json([]);
+    } catch (error) {
+      console.error("Error fetching maintenance:", error);
+      res.status(500).json({ message: "Failed to fetch maintenance" });
+    }
+  });
+
+  // Service Tracker API
+  app.get("/api/portfolio/service-tracker", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { email: managerId } = req.user;
+      
+      if (managerId === "manager@test.com") {
+        const { getDemoPortfolioData } = await import("./portfolioManagerDemo");
+        const demoData = getDemoPortfolioData(managerId);
+        res.json(demoData?.serviceTimeline || []);
+        return;
+      }
+      
+      res.json([]);
+    } catch (error) {
+      console.error("Error fetching service tracker:", error);
+      res.status(500).json({ message: "Failed to fetch service tracker" });
+    }
+  });
+
+  // Portfolio Invoices API (separate from dashboard invoices)
+  app.get("/api/portfolio/invoices", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { email: managerId } = req.user;
+      
+      if (managerId === "manager@test.com") {
+        const { getDemoPortfolioData } = await import("./portfolioManagerDemo");
+        const demoData = getDemoPortfolioData(managerId);
+        res.json(demoData?.invoices || []);
+        return;
+      }
+      
+      res.json([]);
+    } catch (error) {
+      console.error("Error fetching portfolio invoices:", error);
+      res.status(500).json({ message: "Failed to fetch portfolio invoices" });
     }
   });
 

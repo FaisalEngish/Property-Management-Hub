@@ -1,533 +1,297 @@
 import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
-import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
+import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { 
-  Wrench, 
-  Search, 
-  Filter,
-  Calendar,
-  User,
-  Building,
-  DollarSign,
-  Clock,
-  AlertTriangle,
-  CheckCircle,
-  XCircle,
-  Play,
-  Eye
-} from "lucide-react";
-import { useAuth } from "@/hooks/useAuth";
+import { Textarea } from "@/components/ui/textarea";
+import { Wrench, Calendar, DollarSign, User, Plus, Search, Filter } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
-interface MaintenanceTask {
-  id: number;
-  taskTitle: string;
-  description: string;
-  propertyName: string;
-  priority: "low" | "medium" | "high" | "urgent";
-  status: "pending" | "in_progress" | "resolved" | "cancelled";
-  reportedBy: string;
-  reportedDate: string;
-  assignedStaff: string;
-  estimatedCost: number;
-  actualCost?: number;
-  notes: string;
-  category: string;
-  dueDate: string;
-  completedDate?: string;
-}
-
 export default function Maintenance() {
-  const { user } = useAuth();
   const { toast } = useToast();
-  const queryClient = useQueryClient();
+  const [selectedStatus, setSelectedStatus] = useState<string>("all");
+  const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [searchTerm, setSearchTerm] = useState("");
-  const [filterStatus, setFilterStatus] = useState("");
-  const [filterProperty, setFilterProperty] = useState("");
-  const [filterPriority, setFilterPriority] = useState("");
-  const [selectedTask, setSelectedTask] = useState<MaintenanceTask | null>(null);
-  const [updateDialogOpen, setUpdateDialogOpen] = useState(false);
 
-  // Mock maintenance tasks for assigned properties
-  const mockMaintenanceTasks: MaintenanceTask[] = [
-    {
-      id: 1,
-      taskTitle: "Pool Filter Replacement",
-      description: "Pool filter needs replacement, water clarity issues reported by guest",
-      propertyName: "Villa Aruna",
-      priority: "high",
-      status: "pending",
-      reportedBy: "Guest (John Doe)",
-      reportedDate: "2024-01-18",
-      assignedStaff: "Pool Maintenance Team",
-      estimatedCost: 1500,
-      notes: "Guest reported cloudy water this morning. Urgent replacement needed.",
-      category: "Pool Maintenance",
-      dueDate: "2024-01-20"
-    },
-    {
-      id: 2,
-      taskTitle: "Air Conditioning Unit Service",
-      description: "AC in master bedroom not cooling properly",
-      propertyName: "Villa Aruna",
-      priority: "medium",
-      status: "in_progress",
-      reportedBy: "Portfolio Manager",
-      reportedDate: "2024-01-15",
-      assignedStaff: "AC Technician - Somchai",
-      estimatedCost: 2000,
-      actualCost: 1800,
-      notes: "Technician on-site. Refrigerant leak found and being repaired.",
-      category: "HVAC",
-      dueDate: "2024-01-19"
-    },
-    {
-      id: 3,
-      taskTitle: "Garden Sprinkler Repair",
-      description: "Two sprinkler heads not working in front garden area",
-      propertyName: "Villa Samui Breeze",
-      priority: "low",
-      status: "resolved",
-      reportedBy: "Staff Member",
-      reportedDate: "2024-01-12",
-      assignedStaff: "Garden Team - Niran",
-      estimatedCost: 800,
-      actualCost: 650,
-      notes: "Replaced two damaged sprinkler heads. System working normally.",
-      category: "Landscaping",
-      dueDate: "2024-01-16",
-      completedDate: "2024-01-15"
-    },
-    {
-      id: 4,
-      taskTitle: "Kitchen Sink Drain Blockage",
-      description: "Kitchen sink draining slowly, possible blockage",
-      propertyName: "Villa Samui Breeze",
-      priority: "medium",
-      status: "pending",
-      reportedBy: "Housekeeping Staff",
-      reportedDate: "2024-01-17",
-      assignedStaff: "Plumber - Chai",
-      estimatedCost: 1200,
-      notes: "Scheduled for inspection tomorrow morning",
-      category: "Plumbing",
-      dueDate: "2024-01-21"
-    }
-  ];
-
-  const { data: maintenanceTasks, isLoading, error } = useQuery({
-    queryKey: ['/api/portfolio/maintenance'],
-    initialData: mockMaintenanceTasks
+  // Fetch maintenance tasks data
+  const { data: maintenanceTasks, isLoading } = useQuery({
+    queryKey: ["/api/portfolio/maintenance"],
   });
 
-  const updateStatusMutation = useMutation({
-    mutationFn: async ({ taskId, status, notes }: { taskId: number; status: string; notes?: string }) => {
-      // Mock API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      return { success: true };
-    },
-    onSuccess: () => {
-      toast({
-        title: "Task updated successfully",
-        description: "Maintenance task status has been updated.",
-      });
-      setUpdateDialogOpen(false);
-      queryClient.invalidateQueries({ queryKey: ['/api/portfolio/maintenance'] });
-    },
-    onError: () => {
-      toast({
-        title: "Update failed",
-        description: "Please try again later.",
-        variant: "destructive",
-      });
+  const categories = ["HVAC", "Pool", "Landscaping", "Electrical", "Plumbing", "General"];
+  const statusOptions = ["pending", "in_progress", "completed", "cancelled"];
+  const priorities = ["low", "normal", "high", "urgent"];
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "completed": return "bg-green-100 text-green-800";
+      case "in_progress": return "bg-blue-100 text-blue-800";
+      case "pending": return "bg-yellow-100 text-yellow-800";
+      case "cancelled": return "bg-red-100 text-red-800";
+      default: return "bg-gray-100 text-gray-800";
     }
-  });
-
-  const properties = ["Villa Aruna", "Villa Samui Breeze"];
-  const statuses = ["pending", "in_progress", "resolved", "cancelled"];
-  const priorities = ["low", "medium", "high", "urgent"];
-
-  const filteredTasks = maintenanceTasks?.filter(task => {
-    const matchesSearch = task.taskTitle.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         task.description.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = !filterStatus || task.status === filterStatus;
-    const matchesProperty = !filterProperty || task.propertyName === filterProperty;
-    const matchesPriority = !filterPriority || task.priority === filterPriority;
-    
-    return matchesSearch && matchesStatus && matchesProperty && matchesPriority;
-  }) || [];
-
-  const handleStatusUpdate = (task: MaintenanceTask) => {
-    setSelectedTask(task);
-    setUpdateDialogOpen(true);
-  };
-
-  const submitStatusUpdate = (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (!selectedTask) return;
-    
-    const formData = new FormData(event.currentTarget);
-    const status = formData.get('status') as string;
-    const notes = formData.get('notes') as string;
-    
-    updateStatusMutation.mutate({
-      taskId: selectedTask.id,
-      status,
-      notes
-    });
   };
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
-      case 'urgent': return 'bg-red-500 text-white';
-      case 'high': return 'bg-orange-500 text-white';
-      case 'medium': return 'bg-yellow-500 text-black';
-      case 'low': return 'bg-green-500 text-white';
-      default: return 'bg-gray-500 text-white';
+      case "urgent": return "bg-red-100 text-red-800";
+      case "high": return "bg-orange-100 text-orange-800";
+      case "normal": return "bg-blue-100 text-blue-800";
+      case "low": return "bg-gray-100 text-gray-800";
+      default: return "bg-gray-100 text-gray-800";
     }
   };
 
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'pending': return <Clock className="h-4 w-4" />;
-      case 'in_progress': return <Play className="h-4 w-4" />;
-      case 'resolved': return <CheckCircle className="h-4 w-4" />;
-      case 'cancelled': return <XCircle className="h-4 w-4" />;
-      default: return <Clock className="h-4 w-4" />;
-    }
-  };
+  const filteredTasks = maintenanceTasks?.filter((task: any) => {
+    const matchesStatus = selectedStatus === "all" || task.status === selectedStatus;
+    const matchesCategory = selectedCategory === "all" || task.category === selectedCategory;
+    const matchesSearch = task.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         task.description?.toLowerCase().includes(searchTerm.toLowerCase());
+    return matchesStatus && matchesCategory && matchesSearch;
+  });
 
   if (isLoading) {
     return (
-      <div className="container mx-auto p-6">
-        <div className="flex items-center justify-center h-64">
+      <div className="p-6">
+        <div className="flex items-center justify-center h-32">
           <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
         </div>
       </div>
     );
   }
 
-  if (error) {
-    return (
-      <div className="container mx-auto p-6">
-        <Card>
-          <CardContent className="pt-6">
-            <div className="text-center text-red-600">
-              Error loading maintenance tasks. Please try again later.
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
   return (
-    <div className="container mx-auto p-6 max-w-7xl">
-      {/* Breadcrumb Navigation */}
-      <Breadcrumb className="mb-6">
-        <BreadcrumbList>
-          <BreadcrumbItem>
-            <BreadcrumbLink href="/">Dashboard</BreadcrumbLink>
-          </BreadcrumbItem>
-          <BreadcrumbSeparator />
-          <BreadcrumbItem>
-            <BreadcrumbLink href="/pm/dashboard">Portfolio Manager</BreadcrumbLink>
-          </BreadcrumbItem>
-          <BreadcrumbSeparator />
-          <BreadcrumbPage>Maintenance</BreadcrumbPage>
-        </BreadcrumbList>
-      </Breadcrumb>
-
-      {/* Header */}
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold mb-2">Maintenance Management</h1>
-        <p className="text-muted-foreground">
-          Track and manage maintenance tasks for your assigned properties
-        </p>
-      </div>
-
-      {/* Stats Overview */}
-      <div className="grid gap-4 md:grid-cols-4 mb-6">
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center space-x-2">
-              <Clock className="h-4 w-4 text-orange-500" />
+    <div className="p-6 space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Maintenance Tasks</h1>
+          <p className="text-muted-foreground">
+            Manage property maintenance requests and tasks
+          </p>
+        </div>
+        <Dialog>
+          <DialogTrigger asChild>
+            <Button>
+              <Plus className="h-4 w-4 mr-2" />
+              New Task
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Create Maintenance Task</DialogTitle>
+              <DialogDescription>
+                Create a new maintenance task for one of your properties
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
               <div>
-                <p className="text-2xl font-bold">{maintenanceTasks?.filter(t => t.status === 'pending').length || 0}</p>
-                <p className="text-xs text-muted-foreground">Pending Tasks</p>
+                <Label>Property</Label>
+                <Select>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select property" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="999">Villa Demo1234</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Task Title</Label>
+                <Input placeholder="Brief description of the task" />
+              </div>
+              <div>
+                <Label>Category</Label>
+                <Select>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categories.map((category) => (
+                      <SelectItem key={category} value={category}>{category}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Priority</Label>
+                <Select>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select priority" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {priorities.map((priority) => (
+                      <SelectItem key={priority} value={priority}>
+                        {priority.charAt(0).toUpperCase() + priority.slice(1)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Description</Label>
+                <Textarea placeholder="Detailed description of the maintenance task" />
+              </div>
+              <div>
+                <Label>Estimated Cost</Label>
+                <Input type="number" placeholder="0.00" />
               </div>
             </div>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center space-x-2">
-              <Play className="h-4 w-4 text-blue-500" />
-              <div>
-                <p className="text-2xl font-bold">{maintenanceTasks?.filter(t => t.status === 'in_progress').length || 0}</p>
-                <p className="text-xs text-muted-foreground">In Progress</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center space-x-2">
-              <AlertTriangle className="h-4 w-4 text-red-500" />
-              <div>
-                <p className="text-2xl font-bold">{maintenanceTasks?.filter(t => t.priority === 'urgent' || t.priority === 'high').length || 0}</p>
-                <p className="text-xs text-muted-foreground">High Priority</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center space-x-2">
-              <DollarSign className="h-4 w-4 text-green-500" />
-              <div>
-                <p className="text-2xl font-bold">
-                  ${maintenanceTasks?.reduce((sum, t) => sum + (t.actualCost || t.estimatedCost), 0).toLocaleString()}
-                </p>
-                <p className="text-xs text-muted-foreground">Total Cost</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+            <DialogFooter>
+              <Button
+                onClick={() => {
+                  toast({
+                    title: "Task created",
+                    description: "Maintenance task has been created successfully.",
+                  });
+                }}
+              >
+                Create Task
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
 
       {/* Filters */}
-      <div className="grid gap-4 md:grid-cols-5 mb-6">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search tasks..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10"
-          />
-        </div>
-        
-        <Select value={filterStatus} onValueChange={setFilterStatus}>
-          <SelectTrigger>
-            <SelectValue placeholder="All statuses" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="">All statuses</SelectItem>
-            {statuses.map(status => (
-              <SelectItem key={status} value={status}>{status.replace('_', ' ')}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        
-        <Select value={filterProperty} onValueChange={setFilterProperty}>
-          <SelectTrigger>
-            <SelectValue placeholder="All properties" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="">All properties</SelectItem>
-            {properties.map(property => (
-              <SelectItem key={property} value={property}>{property}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        
-        <Select value={filterPriority} onValueChange={setFilterPriority}>
-          <SelectTrigger>
-            <SelectValue placeholder="All priorities" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="">All priorities</SelectItem>
-            {priorities.map(priority => (
-              <SelectItem key={priority} value={priority}>{priority}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        
-        <Button variant="outline" onClick={() => {
-          setSearchTerm("");
-          setFilterStatus("");
-          setFilterProperty("");
-          setFilterPriority("");
-        }}>
-          Clear Filters
-        </Button>
+      <Card>
+        <CardContent className="pt-6">
+          <div className="flex flex-col sm:flex-row gap-4">
+            <div className="flex-1">
+              <div className="relative">
+                <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search tasks..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+            </div>
+            <Select value={selectedStatus} onValueChange={setSelectedStatus}>
+              <SelectTrigger className="w-full sm:w-48">
+                <SelectValue placeholder="Filter by status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Status</SelectItem>
+                {statusOptions.map((status) => (
+                  <SelectItem key={status} value={status}>
+                    {status.charAt(0).toUpperCase() + status.slice(1).replace('_', ' ')}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+              <SelectTrigger className="w-full sm:w-48">
+                <SelectValue placeholder="Filter by category" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Categories</SelectItem>
+                {categories.map((category) => (
+                  <SelectItem key={category} value={category}>{category}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Tasks Grid */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        {filteredTasks?.map((task: any) => (
+          <Card key={task.id} className="hover:shadow-lg transition-shadow">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <Wrench className="h-5 w-5" />
+                {task.title}
+              </CardTitle>
+              <CardDescription>{task.description}</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex justify-between items-center">
+                <Badge className={getStatusColor(task.status)}>
+                  {task.status.replace('_', ' ')}
+                </Badge>
+                <Badge className={getPriorityColor(task.priority)}>
+                  {task.priority}
+                </Badge>
+              </div>
+              
+              <div className="text-sm space-y-2">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Property:</span>
+                  <span>{task.propertyName}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Category:</span>
+                  <span>{task.category}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground flex items-center gap-1">
+                    <Calendar className="h-3 w-3" />
+                    Due:
+                  </span>
+                  <span>{task.dueDate}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground flex items-center gap-1">
+                    <DollarSign className="h-3 w-3" />
+                    Cost:
+                  </span>
+                  <span>
+                    ${task.actualCost || task.estimatedCost}
+                    {!task.actualCost && " (est.)"}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground flex items-center gap-1">
+                    <User className="h-3 w-3" />
+                    Assigned:
+                  </span>
+                  <span className="text-xs truncate">{task.assignedTo}</span>
+                </div>
+              </div>
+
+              {task.notes && (
+                <div className="border-t pt-2">
+                  <p className="text-sm text-muted-foreground">{task.notes}</p>
+                </div>
+              )}
+
+              <div className="flex gap-2">
+                <Button size="sm" variant="outline" className="flex-1">
+                  View Details
+                </Button>
+                {task.status === "pending" && (
+                  <Button size="sm" className="flex-1">
+                    Start Task
+                  </Button>
+                )}
+                {task.status === "in_progress" && (
+                  <Button size="sm" variant="outline" className="flex-1">
+                    Mark Complete
+                  </Button>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        ))}
       </div>
 
-      {/* Tasks List */}
-      {filteredTasks.length === 0 ? (
+      {!filteredTasks?.length && (
         <Card>
-          <CardContent className="pt-6">
-            <div className="text-center py-8">
-              <Wrench className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-              <h3 className="text-lg font-semibold mb-2">No maintenance tasks found</h3>
-              <p className="text-muted-foreground">
-                {maintenanceTasks?.length === 0 
-                  ? "No maintenance tasks have been reported yet." 
-                  : "Try adjusting your search or filter criteria."
-                }
-              </p>
-            </div>
+          <CardContent className="text-center py-8">
+            <Wrench className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+            <h3 className="text-lg font-medium mb-2">No Maintenance Tasks</h3>
+            <p className="text-muted-foreground">
+              No maintenance tasks match your current filters.
+            </p>
           </CardContent>
         </Card>
-      ) : (
-        <div className="space-y-4">
-          {filteredTasks.map((task) => (
-            <Card key={task.id} className="border-l-4" style={{
-              borderLeftColor: task.priority === 'urgent' ? '#ef4444' : 
-                              task.priority === 'high' ? '#f97316' :
-                              task.priority === 'medium' ? '#eab308' : '#22c55e'
-            }}>
-              <CardHeader>
-                <div className="flex justify-between items-start">
-                  <div className="flex-1">
-                    <CardTitle className="flex items-center gap-2">
-                      <Wrench className="h-5 w-5" />
-                      {task.taskTitle}
-                    </CardTitle>
-                    <CardDescription className="flex items-center gap-4 mt-1">
-                      <span className="flex items-center gap-1">
-                        <Building className="h-4 w-4" />
-                        {task.propertyName}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <Calendar className="h-4 w-4" />
-                        Due: {task.dueDate}
-                      </span>
-                    </CardDescription>
-                  </div>
-                  
-                  <div className="flex items-center space-x-2">
-                    <Badge className={getPriorityColor(task.priority)}>
-                      {task.priority}
-                    </Badge>
-                    <Badge variant="outline" className="flex items-center gap-1">
-                      {getStatusIcon(task.status)}
-                      {task.status.replace('_', ' ')}
-                    </Badge>
-                  </div>
-                </div>
-              </CardHeader>
-              
-              <CardContent className="space-y-4">
-                <p className="text-sm text-muted-foreground">{task.description}</p>
-                
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Reported by:</span>
-                      <span>{task.reportedBy}</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Assigned to:</span>
-                      <span>{task.assignedStaff}</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Category:</span>
-                      <span>{task.category}</span>
-                    </div>
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Reported:</span>
-                      <span>{task.reportedDate}</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Estimated Cost:</span>
-                      <span>${task.estimatedCost.toLocaleString()}</span>
-                    </div>
-                    {task.actualCost && (
-                      <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">Actual Cost:</span>
-                        <span>${task.actualCost.toLocaleString()}</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-                
-                {task.notes && (
-                  <div className="bg-muted p-3 rounded-lg">
-                    <p className="text-sm"><strong>Notes:</strong> {task.notes}</p>
-                  </div>
-                )}
-                
-                <div className="flex justify-end space-x-2">
-                  <Button variant="outline" size="sm">
-                    <Eye className="h-4 w-4 mr-2" />
-                    View Details
-                  </Button>
-                  <Button 
-                    size="sm" 
-                    onClick={() => handleStatusUpdate(task)}
-                    disabled={task.status === 'resolved' || task.status === 'cancelled'}
-                  >
-                    Update Status
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
       )}
-
-      {/* Update Status Dialog */}
-      <Dialog open={updateDialogOpen} onOpenChange={setUpdateDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Update Task Status</DialogTitle>
-            <DialogDescription>
-              Update the status and add notes for: {selectedTask?.taskTitle}
-            </DialogDescription>
-          </DialogHeader>
-          
-          <form onSubmit={submitStatusUpdate} className="space-y-4">
-            <div>
-              <Label htmlFor="status">Status</Label>
-              <Select name="status" defaultValue={selectedTask?.status} required>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select status..." />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="pending">Pending</SelectItem>
-                  <SelectItem value="in_progress">In Progress</SelectItem>
-                  <SelectItem value="resolved">Resolved</SelectItem>
-                  <SelectItem value="cancelled">Cancelled</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            
-            <div>
-              <Label htmlFor="notes">Notes</Label>
-              <Textarea 
-                name="notes" 
-                placeholder="Add notes about the status update..."
-                defaultValue={selectedTask?.notes}
-              />
-            </div>
-            
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setUpdateDialogOpen(false)}>
-                Cancel
-              </Button>
-              <Button type="submit" disabled={updateStatusMutation.isPending}>
-                {updateStatusMutation.isPending ? "Updating..." : "Update Status"}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
