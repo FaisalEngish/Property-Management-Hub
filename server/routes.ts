@@ -25608,6 +25608,143 @@ async function processGuestIssueForAI(issueReport: any) {
     }
   });
 
+  // ===== WATER UTILITY & EMERGENCY SUPPLY TRACKER ROUTES =====
+
+  // Require Water Utility management access (Admin, Portfolio Manager, Staff can manage; Owner can view)
+  const requireWaterUtilityAccess = (req: any, res: any, next: any) => {
+    const userRole = req.user?.role;
+    if (!['admin', 'portfolio-manager', 'staff', 'owner'].includes(userRole)) {
+      return res.status(403).json({ message: "Water utility access required" });
+    }
+    next();
+  };
+
+  // Require Water Utility management (Admin, Portfolio Manager, Staff can manage)
+  const requireWaterUtilityManagement = (req: any, res: any, next: any) => {
+    const userRole = req.user?.role;
+    if (!['admin', 'portfolio-manager', 'staff'].includes(userRole)) {
+      return res.status(403).json({ message: "Water utility management access required" });
+    }
+    next();
+  };
+
+  // Get emergency water deliveries
+  app.get("/api/water-utility/emergency-deliveries", isDemoAuthenticated, requireWaterUtilityAccess, async (req: any, res) => {
+    try {
+      const { organizationId } = req.user;
+      const { propertyId, startDate, endDate } = req.query;
+      
+      const waterUtilityStorage = new (await import("./waterUtilityEmergencyStorage")).WaterUtilityEmergencyStorage(organizationId);
+      
+      const deliveries = await waterUtilityStorage.getDemoEmergencyWaterDeliveries();
+      res.json(deliveries);
+    } catch (error) {
+      console.error("Error fetching emergency water deliveries:", error);
+      res.status(500).json({ message: "Failed to fetch emergency water deliveries" });
+    }
+  });
+
+  // Create emergency water delivery
+  app.post("/api/water-utility/emergency-deliveries", isDemoAuthenticated, requireWaterUtilityManagement, async (req: any, res) => {
+    try {
+      const { organizationId, id: userId } = req.user;
+      
+      const waterUtilityStorage = new (await import("./waterUtilityEmergencyStorage")).WaterUtilityEmergencyStorage(organizationId);
+      
+      const deliveryData = {
+        ...req.body,
+        processedBy: userId,
+      };
+      
+      const delivery = await waterUtilityStorage.createEmergencyWaterDelivery(deliveryData);
+      res.status(201).json(delivery);
+    } catch (error) {
+      console.error("Error creating emergency water delivery:", error);
+      res.status(500).json({ message: "Failed to create emergency water delivery" });
+    }
+  });
+
+  // Get water utility bills
+  app.get("/api/water-utility/bills", isDemoAuthenticated, requireWaterUtilityAccess, async (req: any, res) => {
+    try {
+      const { organizationId } = req.user;
+      const { propertyId, startDate, endDate, billType, paymentStatus } = req.query;
+      
+      const waterUtilityStorage = new (await import("./waterUtilityEmergencyStorage")).WaterUtilityEmergencyStorage(organizationId);
+      
+      const bills = await waterUtilityStorage.getDemoWaterUtilityBills();
+      res.json(bills);
+    } catch (error) {
+      console.error("Error fetching water utility bills:", error);
+      res.status(500).json({ message: "Failed to fetch water utility bills" });
+    }
+  });
+
+  // Get water utility alerts
+  app.get("/api/water-utility/alerts", isDemoAuthenticated, requireWaterUtilityAccess, async (req: any, res) => {
+    try {
+      const { organizationId } = req.user;
+      const { propertyId, alertType, isActive } = req.query;
+      
+      const waterUtilityStorage = new (await import("./waterUtilityEmergencyStorage")).WaterUtilityEmergencyStorage(organizationId);
+      
+      const alerts = await waterUtilityStorage.getDemoWaterUtilityAlerts();
+      res.json(alerts);
+    } catch (error) {
+      console.error("Error fetching water utility alerts:", error);
+      res.status(500).json({ message: "Failed to fetch water utility alerts" });
+    }
+  });
+
+  // Dismiss water utility alert
+  app.patch("/api/water-utility/alerts/:id/dismiss", isDemoAuthenticated, requireWaterUtilityManagement, async (req: any, res) => {
+    try {
+      const { organizationId, id: userId } = req.user;
+      const alertId = parseInt(req.params.id);
+      const { actionTaken } = req.body;
+      
+      const waterUtilityStorage = new (await import("./waterUtilityEmergencyStorage")).WaterUtilityEmergencyStorage(organizationId);
+      
+      const alert = await waterUtilityStorage.dismissWaterUtilityAlert(alertId, userId, actionTaken);
+      res.json(alert);
+    } catch (error) {
+      console.error("Error dismissing water utility alert:", error);
+      res.status(500).json({ message: "Failed to dismiss alert" });
+    }
+  });
+
+  // Get property water settings
+  app.get("/api/water-utility/settings", isDemoAuthenticated, requireWaterUtilityAccess, async (req: any, res) => {
+    try {
+      const { organizationId } = req.user;
+      const { propertyId } = req.query;
+      
+      const waterUtilityStorage = new (await import("./waterUtilityEmergencyStorage")).WaterUtilityEmergencyStorage(organizationId);
+      
+      const settings = await waterUtilityStorage.getDemoPropertyWaterSettings();
+      res.json(settings);
+    } catch (error) {
+      console.error("Error fetching property water settings:", error);
+      res.status(500).json({ message: "Failed to fetch property water settings" });
+    }
+  });
+
+  // Get water utility analytics
+  app.get("/api/water-utility/analytics", isDemoAuthenticated, requireWaterUtilityAccess, async (req: any, res) => {
+    try {
+      const { organizationId } = req.user;
+      const { propertyId } = req.query;
+      
+      const waterUtilityStorage = new (await import("./waterUtilityEmergencyStorage")).WaterUtilityEmergencyStorage(organizationId);
+      
+      const analytics = await waterUtilityStorage.getDemoWaterUtilityAnalytics();
+      res.json(analytics);
+    } catch (error) {
+      console.error("Error fetching water utility analytics:", error);
+      res.status(500).json({ message: "Failed to fetch water utility analytics" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

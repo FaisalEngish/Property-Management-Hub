@@ -12666,3 +12666,112 @@ export type InsertPropertyGoalProgress = z.infer<typeof insertPropertyGoalProgre
 // Additional type exports
 export type PMPayoutRequest = typeof pmPayoutRequests.$inferSelect;
 export type InsertPMPayoutRequest = typeof pmPayoutRequests.$inferInsert;
+
+// ===== WATER UTILITY & EMERGENCY SUPPLY TRACKER =====
+
+// Water utility sources configuration
+export const waterUtilitySources = pgTable("water_utility_sources", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  propertyId: integer("property_id").references(() => properties.id).notNull(),
+  sourceType: varchar("source_type").notNull(), // government_water, deepwell, rainwater_collection, emergency_truck
+  isActive: boolean("is_active").default(true),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Water utility bills (enhanced with emergency deliveries tracking)
+export const waterUtilityBills = pgTable("water_utility_bills", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  propertyId: integer("property_id").references(() => properties.id).notNull(),
+  billType: varchar("bill_type").notNull(), // regular_bill, emergency_delivery
+  billDate: date("bill_date").notNull(),
+  dueDate: date("due_date"),
+  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+  currency: varchar("currency").default("THB").notNull(),
+  units: decimal("units", { precision: 10, scale: 2 }), // Cubic meters or liters
+  unitRate: decimal("unit_rate", { precision: 6, scale: 2 }),
+  paymentStatus: varchar("payment_status").default("pending"), // pending, paid, overdue
+  paidDate: date("paid_date"),
+  receiptUrl: varchar("receipt_url"),
+  sourceType: varchar("source_type").notNull(), // government_water, deepwell, rainwater_collection, emergency_truck
+  emergencyDeliveryId: integer("emergency_delivery_id").references(() => emergencyWaterDeliveries.id), // Link to emergency delivery
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// AI notification system for water bill tracking
+export const waterUtilityAlerts = pgTable("water_utility_alerts", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  propertyId: integer("property_id").references(() => properties.id).notNull(),
+  alertType: varchar("alert_type").notNull(), // missing_bill, overdue_payment, emergency_prompt
+  alertDate: timestamp("alert_date").defaultNow(),
+  expectedBillDate: date("expected_bill_date"),
+  daysSinceLastBill: integer("days_since_last_bill"),
+  alertMessage: text("alert_message").notNull(),
+  isActive: boolean("is_active").default(true),
+  dismissedBy: varchar("dismissed_by").references(() => users.id),
+  dismissedAt: timestamp("dismissed_at"),
+  actionTaken: varchar("action_taken"), // logged_emergency, bill_added, ignored
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Water utility settings per property
+export const propertyWaterSettings = pgTable("property_water_settings", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  propertyId: integer("property_id").references(() => properties.id).notNull(),
+  primarySource: varchar("primary_source").notNull(), // government_water, deepwell, rainwater_collection
+  expectedBillCycle: integer("expected_bill_cycle").default(30), // Days between bills
+  autoAlertEnabled: boolean("auto_alert_enabled").default(true),
+  alertThresholdDays: integer("alert_threshold_days").default(7), // Days before prompting
+  emergencySupplierContact: varchar("emergency_supplier_contact"),
+  averageMonthlyUsage: decimal("average_monthly_usage", { precision: 10, scale: 2 }),
+  usageUnit: varchar("usage_unit").default("cubic_meters"), // cubic_meters, liters
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Insert schemas for Water Utility Emergency Tracker  
+export const insertWaterUtilitySourceSchema = createInsertSchema(waterUtilitySources).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertWaterUtilityBillSchema = createInsertSchema(waterUtilityBills).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertWaterUtilityAlertSchema = createInsertSchema(waterUtilityAlerts).omit({
+  id: true,
+  alertDate: true,
+  createdAt: true,
+});
+
+export const insertPropertyWaterSettingSchema = createInsertSchema(propertyWaterSettings).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+// Type exports for Water Utility Emergency Tracker
+export type WaterUtilitySource = typeof waterUtilitySources.$inferSelect;
+export type InsertWaterUtilitySource = z.infer<typeof insertWaterUtilitySourceSchema>;
+
+export type WaterUtilityBill = typeof waterUtilityBills.$inferSelect;
+export type InsertWaterUtilityBill = z.infer<typeof insertWaterUtilityBillSchema>;
+
+export type WaterUtilityAlert = typeof waterUtilityAlerts.$inferSelect;
+export type InsertWaterUtilityAlert = z.infer<typeof insertWaterUtilityAlertSchema>;
+
+export type PropertyWaterSetting = typeof propertyWaterSettings.$inferSelect;
+export type InsertPropertyWaterSetting = z.infer<typeof insertPropertyWaterSettingSchema>;

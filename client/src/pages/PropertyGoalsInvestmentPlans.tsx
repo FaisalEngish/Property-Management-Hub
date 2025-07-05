@@ -135,10 +135,10 @@ export default function PropertyGoalsInvestmentPlans() {
   const queryClient = useQueryClient();
   const [selectedTab, setSelectedTab] = useState("goals");
   const [filters, setFilters] = useState({
-    status: "",
-    priority: "",
-    upgradeType: "",
-    triggerType: "",
+    status: "all",
+    priority: "all",
+    upgradeType: "all",
+    triggerType: "all",
   });
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [selectedGoal, setSelectedGoal] = useState<PropertyGoal | null>(null);
@@ -155,7 +155,21 @@ export default function PropertyGoalsInvestmentPlans() {
   });
 
   const goals = Array.isArray(goalsResponse) ? goalsResponse : [];
-  const analytics = analyticsResponse || { summary: {}, upgradeTypeBreakdown: [], triggerTypeBreakdown: [] };
+  const analytics = analyticsResponse || { 
+    summary: {
+      totalGoals: 0,
+      notStartedGoals: 0,
+      inProgressGoals: 0,
+      completedGoals: 0,
+      cancelledGoals: 0,
+      completionRate: 0,
+      totalEstimatedCost: 0,
+      completedActualCost: 0,
+      costVariance: 0
+    }, 
+    upgradeTypeBreakdown: [], 
+    triggerTypeBreakdown: [] 
+  };
 
   // Create goal mutation
   const createGoalMutation = useMutation({
@@ -266,10 +280,10 @@ export default function PropertyGoalsInvestmentPlans() {
 
   const filteredGoals = goals.filter((goal: PropertyGoal) => {
     return (
-      (!filters.status || goal.status === filters.status) &&
-      (!filters.priority || goal.priority === filters.priority) &&
-      (!filters.upgradeType || goal.upgradeType === filters.upgradeType) &&
-      (!filters.triggerType || goal.triggerType === filters.triggerType)
+      (filters.status === "all" || goal.status === filters.status) &&
+      (filters.priority === "all" || goal.priority === filters.priority) &&
+      (filters.upgradeType === "all" || goal.upgradeType === filters.upgradeType) &&
+      (filters.triggerType === "all" || goal.triggerType === filters.triggerType)
     );
   });
 
@@ -326,7 +340,7 @@ export default function PropertyGoalsInvestmentPlans() {
                     <SelectValue placeholder="Status" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">All Status</SelectItem>
+                    <SelectItem value="all">All Status</SelectItem>
                     <SelectItem value="not_started">Not Started</SelectItem>
                     <SelectItem value="in_progress">In Progress</SelectItem>
                     <SelectItem value="completed">Completed</SelectItem>
@@ -339,7 +353,7 @@ export default function PropertyGoalsInvestmentPlans() {
                     <SelectValue placeholder="Priority" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">All Priority</SelectItem>
+                    <SelectItem value="all">All Priority</SelectItem>
                     <SelectItem value="low">Low</SelectItem>
                     <SelectItem value="medium">Medium</SelectItem>
                     <SelectItem value="high">High</SelectItem>
@@ -352,7 +366,7 @@ export default function PropertyGoalsInvestmentPlans() {
                     <SelectValue placeholder="Type" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">All Types</SelectItem>
+                    <SelectItem value="all">All Types</SelectItem>
                     <SelectItem value="Furniture">Furniture</SelectItem>
                     <SelectItem value="Electronics">Electronics</SelectItem>
                     <SelectItem value="Maintenance">Maintenance</SelectItem>
@@ -363,7 +377,7 @@ export default function PropertyGoalsInvestmentPlans() {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setFilters({ status: "", priority: "", upgradeType: "", triggerType: "" })}
+                  onClick={() => setFilters({ status: "all", priority: "all", upgradeType: "all", triggerType: "all" })}
                 >
                   <Filter className="h-4 w-4 mr-2" />
                   Clear Filters

@@ -112,6 +112,7 @@ const getRoleBasedMenus = (role: string): MenuSection[] => {
           { label: "Utilities & Maintenance", icon: Settings, href: "/maintenance-utilities-renovation-tracker" },
           { label: "Extended Utilities Management", icon: Settings, href: "/extended-utilities-management", badge: "New" },
           { label: "Water Emergency Refill Log", icon: Droplets, href: "/water-utility-emergency-truck-refill-log", badge: "New" },
+          { label: "Water Utility & Emergency Tracker", icon: Droplets, href: "/water-utility-emergency-tracker", badge: "New" },
           { label: "Task Attachments", icon: FileText, href: "/task-attachments-notes" },
           { label: "Document Center", icon: FolderOpen, href: "/document-center" },
           { label: "Local Contacts Management", icon: Phone, href: "/local-contacts-management", badge: "New" },
