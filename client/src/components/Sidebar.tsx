@@ -218,7 +218,8 @@ const getRoleBasedMenus = (role: string): MenuSection[] => {
       {
         title: "Daily Tasks",
         items: [
-          { label: "Task List", icon: CheckSquare, href: "/staff-tasks", badge: "Priority" },
+          { label: "Schedule", icon: Calendar, href: "/staff-tasks", badge: "New", description: "Task calendar with filtering" },
+          { label: "Task List", icon: CheckSquare, href: "/staff-task-list", description: "Complete task management" },
           { label: "Scheduled Tasks", icon: Clock, href: "/auto-scheduling-recurring-task-generator", badge: "New" },
           { label: "Maintenance Log & Warranty", icon: Wrench, href: "/maintenance-log-warranty-tracker", badge: "New" },
           { label: "Maintenance & Service Tracking", icon: Activity, href: "/maintenance-service-tracking", badge: "New" },

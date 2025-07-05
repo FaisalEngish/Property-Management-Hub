@@ -2,7 +2,7 @@ import { useAuth } from "@/hooks/useAuth";
 import EnhancedStaffDashboard from "@/components/EnhancedStaffDashboard";
 import { RoleBackButton } from "@/components/BackButton";
 
-export default function StaffDashboard() {
+export default function StaffTaskList() {
   const { user } = useAuth();
 
   // Get staff department from user profile or default to housekeeping

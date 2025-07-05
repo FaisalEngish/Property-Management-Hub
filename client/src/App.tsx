@@ -14,6 +14,7 @@ import Dashboard from "@/pages/Dashboard";
 import Properties from "@/pages/Properties";
 import Tasks from "@/pages/Tasks";
 import StaffTasks from "@/pages/StaffTasks";
+import StaffTaskList from "@/pages/StaffTaskList";
 import Bookings from "@/pages/Bookings";
 import Services from "@/pages/Services";
 import Finances from "@/pages/Finances";
@@ -197,6 +198,7 @@ function Router() {
         <Route path="/properties" component={Properties} />
         <Route path="/tasks" component={Tasks} />
         <Route path="/staff-tasks" component={StaffTasks} />
+        <Route path="/staff-task-list" component={StaffTaskList} />
         <Route path="/staff-overhours-tracker" component={StaffOverhoursTracker} />
         <Route path="/staff-clock-overtime" component={StaffClockinOvertime} />
         <Route path="/staff-salary-overtime-tracker" component={StaffSalaryOvertimeTracker} />
