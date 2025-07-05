@@ -1076,7 +1076,110 @@ export const waterUpgradeSuggestionsRelations = relations(waterUpgradeSuggestion
   reviewedByUser: one(users, { fields: [waterUpgradeSuggestions.reviewedBy], references: [users.id] }),
 }));
 
-// Emergency Water Delivery Types
+// Water Utility Emergency Truck Refill Log
+export const waterUtilityRefills = pgTable("water_utility_refills", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").notNull(),
+  propertyId: integer("property_id").notNull(),
+  
+  // Delivery details
+  deliveryDate: timestamp("delivery_date").notNull(),
+  litersDelivered: integer("liters_delivered").notNull(),
+  costAmount: decimal("cost_amount", { precision: 10, scale: 2 }).notNull(),
+  costPerLiter: decimal("cost_per_liter", { precision: 10, scale: 4 }).notNull(),
+  
+  // Supplier information
+  supplierName: varchar("supplier_name"),
+  supplierContact: varchar("supplier_contact"),
+  
+  // Classification
+  waterType: varchar("water_type").notNull().default("emergency_truck"), // 'government', 'deepwell', 'emergency_truck'
+  billingRoute: varchar("billing_route").notNull(), // 'guest_billable', 'owner_billable', 'company_expense'
+  
+  // Additional details
+  notes: text("notes"),
+  status: varchar("status").notNull().default("delivered"), // 'delivered', 'cancelled', 'refunded'
+  
+  // Audit trail
+  createdBy: varchar("created_by").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const waterRefillAlerts = pgTable("water_refill_alerts", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").notNull(),
+  propertyId: integer("property_id").notNull(),
+  
+  // Alert details
+  alertType: varchar("alert_type").notNull(), // 'frequency_alert', 'cost_alert', 'volume_alert'
+  alertMessage: text("alert_message").notNull(),
+  triggerCount: integer("trigger_count").notNull(),
+  triggerPeriodDays: integer("trigger_period_days").notNull().default(30),
+  severity: varchar("severity").notNull().default("medium"), // 'low', 'medium', 'high'
+  recommendations: text("recommendations"),
+  
+  // Status
+  isAcknowledged: boolean("is_acknowledged").notNull().default(false),
+  acknowledgedBy: varchar("acknowledged_by"),
+  acknowledgedAt: timestamp("acknowledged_at"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const waterRefillBills = pgTable("water_refill_bills", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").notNull(),
+  propertyId: integer("property_id").notNull(),
+  refillId: integer("refill_id").notNull(),
+  
+  // Bill details
+  billAmount: decimal("bill_amount", { precision: 10, scale: 2 }).notNull(),
+  billingRoute: varchar("billing_route").notNull(),
+  billDate: timestamp("bill_date").notNull(),
+  dueDate: timestamp("due_date"),
+  
+  // Status
+  paymentStatus: varchar("payment_status").notNull().default("pending"), // 'pending', 'paid', 'overdue'
+  paidAt: timestamp("paid_at"),
+  paidBy: varchar("paid_by"),
+  
+  // Integration with water bills
+  waterBillId: integer("water_bill_id"), // Reference to existing water bill if added as line item
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Relations
+export const waterUtilityRefillsRelations = relations(waterUtilityRefills, ({ one, many }) => ({
+  property: one(properties, { fields: [waterUtilityRefills.propertyId], references: [properties.id] }),
+  createdByUser: one(users, { fields: [waterUtilityRefills.createdBy], references: [users.id] }),
+  bills: many(waterRefillBills),
+}));
+
+export const waterRefillAlertsRelations = relations(waterRefillAlerts, ({ one }) => ({
+  property: one(properties, { fields: [waterRefillAlerts.propertyId], references: [properties.id] }),
+  acknowledgedByUser: one(users, { fields: [waterRefillAlerts.acknowledgedBy], references: [users.id] }),
+}));
+
+export const waterRefillBillsRelations = relations(waterRefillBills, ({ one }) => ({
+  property: one(properties, { fields: [waterRefillBills.propertyId], references: [properties.id] }),
+  refill: one(waterUtilityRefills, { fields: [waterRefillBills.refillId], references: [waterUtilityRefills.id] }),
+  paidByUser: one(users, { fields: [waterRefillBills.paidBy], references: [users.id] }),
+}));
+
+// Types
+export type WaterUtilityRefill = typeof waterUtilityRefills.$inferSelect;
+export type InsertWaterUtilityRefill = typeof waterUtilityRefills.$inferInsert;
+
+export type WaterRefillAlert = typeof waterRefillAlerts.$inferSelect;
+export type InsertWaterRefillAlert = typeof waterRefillAlerts.$inferInsert;
+
+export type WaterRefillBill = typeof waterRefillBills.$inferSelect;
+export type InsertWaterRefillBill = typeof waterRefillBills.$inferInsert;
+
+// Emergency Water Delivery Types (existing)
 export type EmergencyWaterDelivery = typeof emergencyWaterDeliveries.$inferSelect;
 export type InsertEmergencyWaterDelivery = typeof emergencyWaterDeliveries.$inferInsert;
 

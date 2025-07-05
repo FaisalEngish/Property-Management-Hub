@@ -24860,6 +24860,231 @@ async function processGuestIssueForAI(issueReport: any) {
     }
   });
 
+  // ===== WATER UTILITY EMERGENCY TRUCK REFILL LOG ROUTES =====
+
+  // Middleware for water refill access control
+  const requireWaterRefillAccess = (req: any, res: any, next: any) => {
+    const userRole = req.user?.role;
+    if (!['admin', 'portfolio-manager', 'owner'].includes(userRole)) {
+      return res.status(403).json({ message: "Access denied. Admin, Portfolio Manager, or Owner role required." });
+    }
+    next();
+  };
+
+  const requireWaterRefillManagement = (req: any, res: any, next: any) => {
+    const userRole = req.user?.role;
+    if (!['admin', 'portfolio-manager'].includes(userRole)) {
+      return res.status(403).json({ message: "Access denied. Admin or Portfolio Manager role required for management operations." });
+    }
+    next();
+  };
+
+  // Get water refills
+  app.get("/api/water-refills", isDemoAuthenticated, requireWaterRefillAccess, async (req: any, res) => {
+    try {
+      const organizationId = req.user.organizationId || "default-org";
+      const { WaterRefillStorage } = await import("./waterRefillStorage");
+      const waterRefillStorage = new WaterRefillStorage(organizationId);
+      
+      const { propertyId, status, waterType, billingRoute, fromDate, toDate } = req.query;
+      
+      const filters: any = {};
+      if (propertyId) filters.propertyId = parseInt(propertyId as string);
+      if (status) filters.status = status as string;
+      if (waterType) filters.waterType = waterType as string;
+      if (billingRoute) filters.billingRoute = billingRoute as string;
+      if (fromDate) filters.fromDate = new Date(fromDate as string);
+      if (toDate) filters.toDate = new Date(toDate as string);
+
+      const refills = await waterRefillStorage.getWaterRefills(filters);
+      res.json(refills);
+    } catch (error) {
+      console.error("Error fetching water refills:", error);
+      res.status(500).json({ message: "Failed to fetch water refills" });
+    }
+  });
+
+  // Get specific water refill
+  app.get("/api/water-refills/:id", isDemoAuthenticated, requireWaterRefillAccess, async (req: any, res) => {
+    try {
+      const organizationId = req.user.organizationId || "default-org";
+      const { WaterRefillStorage } = await import("./waterRefillStorage");
+      const waterRefillStorage = new WaterRefillStorage(organizationId);
+      const id = parseInt(req.params.id);
+      
+      const refill = await waterRefillStorage.getWaterRefill(id);
+      
+      if (!refill) {
+        return res.status(404).json({ message: "Water refill not found" });
+      }
+
+      res.json(refill);
+    } catch (error) {
+      console.error("Error fetching water refill:", error);
+      res.status(500).json({ message: "Failed to fetch water refill" });
+    }
+  });
+
+  // Create water refill
+  app.post("/api/water-refills", isDemoAuthenticated, requireWaterRefillManagement, async (req: any, res) => {
+    try {
+      const organizationId = req.user.organizationId || "default-org";
+      const { WaterRefillStorage } = await import("./waterRefillStorage");
+      const waterRefillStorage = new WaterRefillStorage(organizationId);
+      
+      const refillData = {
+        ...req.body,
+        createdBy: req.user.id,
+      };
+      
+      const refill = await waterRefillStorage.createWaterRefill(refillData);
+      res.status(201).json(refill);
+    } catch (error) {
+      console.error("Error creating water refill:", error);
+      res.status(500).json({ message: "Failed to create water refill" });
+    }
+  });
+
+  // Update water refill
+  app.put("/api/water-refills/:id", isDemoAuthenticated, requireWaterRefillManagement, async (req: any, res) => {
+    try {
+      const organizationId = req.user.organizationId || "default-org";
+      const { WaterRefillStorage } = await import("./waterRefillStorage");
+      const waterRefillStorage = new WaterRefillStorage(organizationId);
+      const id = parseInt(req.params.id);
+      
+      const refill = await waterRefillStorage.updateWaterRefill(id, req.body);
+      
+      if (!refill) {
+        return res.status(404).json({ message: "Water refill not found" });
+      }
+      
+      res.json(refill);
+    } catch (error) {
+      console.error("Error updating water refill:", error);
+      res.status(500).json({ message: "Failed to update water refill" });
+    }
+  });
+
+  // Delete water refill (admin only)
+  app.delete("/api/water-refills/:id", isDemoAuthenticated, requireAdmin, async (req: any, res) => {
+    try {
+      const organizationId = req.user.organizationId || "default-org";
+      const { WaterRefillStorage } = await import("./waterRefillStorage");
+      const waterRefillStorage = new WaterRefillStorage(organizationId);
+      const id = parseInt(req.params.id);
+      
+      const success = await waterRefillStorage.deleteWaterRefill(id);
+      if (!success) {
+        return res.status(404).json({ message: "Water refill not found" });
+      }
+      
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting water refill:", error);
+      res.status(500).json({ message: "Failed to delete water refill" });
+    }
+  });
+
+  // Get water refill analytics
+  app.get("/api/water-refills/analytics", isDemoAuthenticated, requireWaterRefillAccess, async (req: any, res) => {
+    try {
+      const organizationId = req.user.organizationId || "default-org";
+      const { WaterRefillStorage } = await import("./waterRefillStorage");
+      const waterRefillStorage = new WaterRefillStorage(organizationId);
+      
+      const { propertyId, fromDate, toDate } = req.query;
+      
+      const filters: any = {};
+      if (propertyId) filters.propertyId = parseInt(propertyId as string);
+      if (fromDate) filters.fromDate = new Date(fromDate as string);
+      if (toDate) filters.toDate = new Date(toDate as string);
+      
+      const analytics = await waterRefillStorage.getRefillAnalytics(filters);
+      res.json(analytics);
+    } catch (error) {
+      console.error("Error fetching water refill analytics:", error);
+      res.status(500).json({ message: "Failed to fetch water refill analytics" });
+    }
+  });
+
+  // Get water refill alerts
+  app.get("/api/water-refills/alerts", isDemoAuthenticated, requireWaterRefillAccess, async (req: any, res) => {
+    try {
+      const organizationId = req.user.organizationId || "default-org";
+      const { WaterRefillStorage } = await import("./waterRefillStorage");
+      const waterRefillStorage = new WaterRefillStorage(organizationId);
+      
+      const propertyId = req.query.propertyId ? parseInt(req.query.propertyId as string) : undefined;
+      const alerts = await waterRefillStorage.getRefillAlerts(propertyId);
+      res.json(alerts);
+    } catch (error) {
+      console.error("Error fetching water refill alerts:", error);
+      res.status(500).json({ message: "Failed to fetch water refill alerts" });
+    }
+  });
+
+  // Acknowledge water refill alert
+  app.put("/api/water-refills/alerts/:id/acknowledge", isDemoAuthenticated, requireWaterRefillManagement, async (req: any, res) => {
+    try {
+      const organizationId = req.user.organizationId || "default-org";
+      const { WaterRefillStorage } = await import("./waterRefillStorage");
+      const waterRefillStorage = new WaterRefillStorage(organizationId);
+      const alertId = parseInt(req.params.id);
+      
+      const alert = await waterRefillStorage.acknowledgeAlert(alertId, req.user.id);
+      
+      if (!alert) {
+        return res.status(404).json({ message: "Alert not found" });
+      }
+      
+      res.json(alert);
+    } catch (error) {
+      console.error("Error acknowledging alert:", error);
+      res.status(500).json({ message: "Failed to acknowledge alert" });
+    }
+  });
+
+  // Export water refills to CSV
+  app.get("/api/water-refills/export", isDemoAuthenticated, requireWaterRefillAccess, async (req: any, res) => {
+    try {
+      const organizationId = req.user.organizationId || "default-org";
+      const { WaterRefillStorage } = await import("./waterRefillStorage");
+      const waterRefillStorage = new WaterRefillStorage(organizationId);
+      
+      const { propertyId, status, waterType, billingRoute, fromDate, toDate } = req.query;
+      
+      const filters: any = {};
+      if (propertyId) filters.propertyId = parseInt(propertyId as string);
+      if (status) filters.status = status as string;
+      if (waterType) filters.waterType = waterType as string;
+      if (billingRoute) filters.billingRoute = billingRoute as string;
+      if (fromDate) filters.fromDate = new Date(fromDate as string);
+      if (toDate) filters.toDate = new Date(toDate as string);
+
+      const csv = await waterRefillStorage.exportRefillsToCSV(filters);
+      res.json({ csv });
+    } catch (error) {
+      console.error("Error exporting water refills:", error);
+      res.status(500).json({ message: "Failed to export water refills" });
+    }
+  });
+
+  // Initialize demo data for water refills (development only)
+  app.post("/api/water-refills/init-demo", isDemoAuthenticated, requireAdmin, async (req: any, res) => {
+    try {
+      const organizationId = req.user.organizationId || "default-org";
+      const { WaterRefillStorage } = await import("./waterRefillStorage");
+      const waterRefillStorage = new WaterRefillStorage(organizationId);
+      
+      await waterRefillStorage.createDemoRefills();
+      res.json({ message: "Demo water refill data initialized successfully" });
+    } catch (error) {
+      console.error("Error initializing demo water refill data:", error);
+      res.status(500).json({ message: "Failed to initialize demo data" });
+    }
+  });
+
   // ===== BOOKING REVENUE TRANSPARENCY ROUTES =====
 
   // Get booking revenue data with filtering

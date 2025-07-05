@@ -47,7 +47,8 @@ import {
   CheckCircle,
   Phone,
   Eye,
-  Brain
+  Brain,
+  Droplets
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
@@ -109,6 +110,7 @@ const getRoleBasedMenus = (role: string): MenuSection[] => {
           { label: "Maintenance & Service Tracking", icon: Activity, href: "/maintenance-service-tracking", badge: "New" },
           { label: "Utilities & Maintenance", icon: Settings, href: "/maintenance-utilities-renovation-tracker" },
           { label: "Extended Utilities Management", icon: Settings, href: "/extended-utilities-management", badge: "New" },
+          { label: "Water Emergency Refill Log", icon: Droplets, href: "/water-utility-emergency-truck-refill-log", badge: "New" },
           { label: "Task Attachments", icon: FileText, href: "/task-attachments-notes" },
           { label: "Document Center", icon: FolderOpen, href: "/document-center" },
           { label: "Local Contacts Management", icon: Phone, href: "/local-contacts-management", badge: "New" },
