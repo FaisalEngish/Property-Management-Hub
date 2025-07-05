@@ -22786,6 +22786,99 @@ async function processGuestIssueForAI(issueReport: any) {
     }
   });
 
+  // ===== SYSTEM INTEGRITY CHECK API ENDPOINTS =====
+  
+  // Get latest system integrity report
+  app.get("/api/admin/system-integrity-check", requireAdmin, async (req: any, res) => {
+    try {
+      const { SystemIntegrityScanner, integrityStorage } = await import('./systemIntegrityScanner');
+      
+      let report = integrityStorage.getLatestReport();
+      
+      // If no report exists, run a scan
+      if (!report) {
+        const scanner = new SystemIntegrityScanner();
+        report = await scanner.runFullScan();
+        integrityStorage.saveReport(report);
+      }
+      
+      res.json(report);
+    } catch (error) {
+      console.error("Error fetching integrity report:", error);
+      res.status(500).json({ message: "Failed to fetch integrity report" });
+    }
+  });
+
+  // Run new system integrity scan
+  app.post("/api/admin/system-integrity-check/scan", requireAdmin, async (req: any, res) => {
+    try {
+      const { SystemIntegrityScanner, integrityStorage } = await import('./systemIntegrityScanner');
+      
+      const scanner = new SystemIntegrityScanner();
+      const report = await scanner.runFullScan();
+      
+      integrityStorage.saveReport(report);
+      
+      res.json({ 
+        message: "Scan completed successfully", 
+        scanId: report.scanId,
+        totalIssues: report.totalIssues 
+      });
+    } catch (error) {
+      console.error("Error running integrity scan:", error);
+      res.status(500).json({ message: "Failed to run integrity scan" });
+    }
+  });
+
+  // Update issue status (flag as resolved or send to developer)
+  app.patch("/api/admin/system-integrity-check/issues/:issueId", requireAdmin, async (req: any, res) => {
+    try {
+      const { issueId } = req.params;
+      const { status, notes } = req.body;
+      
+      const { integrityStorage } = await import('./systemIntegrityScanner');
+      
+      const updatedIssue = integrityStorage.updateIssue(issueId, {
+        status,
+        notes,
+        ...(status === 'flagged_resolved' && { resolvedAt: new Date().toISOString() }),
+        ...(status === 'sent_to_developer' && { sentToDeveloperAt: new Date().toISOString() })
+      });
+      
+      if (!updatedIssue) {
+        return res.status(404).json({ message: "Issue not found" });
+      }
+      
+      res.json({ 
+        message: "Issue updated successfully", 
+        issue: updatedIssue 
+      });
+    } catch (error) {
+      console.error("Error updating issue:", error);
+      res.status(500).json({ message: "Failed to update issue" });
+    }
+  });
+
+  // Get specific issue details
+  app.get("/api/admin/system-integrity-check/issues/:issueId", requireAdmin, async (req: any, res) => {
+    try {
+      const { issueId } = req.params;
+      
+      const { integrityStorage } = await import('./systemIntegrityScanner');
+      
+      const issue = integrityStorage.getIssue(issueId);
+      
+      if (!issue) {
+        return res.status(404).json({ message: "Issue not found" });
+      }
+      
+      res.json(issue);
+    } catch (error) {
+      console.error("Error fetching issue:", error);
+      res.status(500).json({ message: "Failed to fetch issue" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

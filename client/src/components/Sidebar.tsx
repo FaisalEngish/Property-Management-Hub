@@ -135,6 +135,7 @@ const getRoleBasedMenus = (role: string): MenuSection[] => {
       {
         title: "Administration",
         items: [
+          { label: "System Integrity Check", icon: Shield, href: "/admin/system-integrity-check", badge: "QA" },
           { label: "Activity Logs", icon: Activity, href: "/admin/activity-log" },
           { label: "Finance Reset", icon: Shield, href: "/admin/finance-reset" },
           { label: "System Settings", icon: Settings, href: "/settings" },

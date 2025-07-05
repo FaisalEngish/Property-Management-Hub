@@ -104,6 +104,7 @@ import SandboxTestingDashboard from "@/pages/SandboxTestingDashboard";
 import LocalContactsManagement from "@/pages/LocalContactsManagement";
 import GuestActivityRecommendations from "@/pages/GuestActivityRecommendations";
 import SystemWideDemoIntegration from "@/pages/SystemWideDemoIntegration";
+import SystemIntegrityCheck from "@/pages/SystemIntegrityCheck";
 
 function Router() {
   const { isAuthenticated, isLoading, user } = useAuth();
@@ -245,6 +246,7 @@ function Router() {
         <Route path="/admin/finance-reset" component={FinanceResetControl} />
         <Route path="/admin/utility-customization" component={UtilityCustomization} />
         <Route path="/admin/activity-log" component={AdminActivityLog} />
+        <Route path="/admin/system-integrity-check" component={SystemIntegrityCheck} />
         <Route path="/document-center" component={DocumentCenter} />
         <Route path="/property-access" component={PropertyAccessManagement} />
         <Route path="/property/:id" component={PropertyDetailView} />
