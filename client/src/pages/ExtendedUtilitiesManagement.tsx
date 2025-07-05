@@ -17,7 +17,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Switch } from "@/components/ui/switch";
 import { Zap, Droplets, Wifi, Bug, TreePine, Car, Plus, Search, Edit, Trash2, Bell, Upload, Download, Calendar, DollarSign, AlertTriangle, CheckCircle, XCircle, Clock, User, Settings, BarChart3, FileText, Eye, EyeOff, Filter, RefreshCw, BookOpen, Target, Activity, Lightbulb, Truck } from "lucide-react";
-import { EmergencyWaterTruck } from "@/components/EmergencyWaterTruck";
+import EmergencyWaterTruck from "@/components/EmergencyWaterTruck";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -1081,10 +1081,7 @@ export default function ExtendedUtilitiesManagement() {
 
           {/* Emergency Water Truck Tab */}
           <TabsContent value="emergency-water" className="space-y-4">
-            <EmergencyWaterTruck 
-              propertyId={selectedProperty} 
-              userRole={user?.role || 'guest'} 
-            />
+            <EmergencyWaterTruck />
           </TabsContent>
 
           {/* Notifications Tab */}

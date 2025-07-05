@@ -48,6 +48,10 @@ import {
   guestAddonServiceRequests,
   guestPropertyLocalInfo,
   guestMaintenanceReports,
+  // Emergency Water Delivery tables
+  emergencyWaterDeliveries,
+  waterDeliveryAlerts,
+  waterUpgradeSuggestions,
   // Property Utilities & Maintenance Enhanced
   propertyUtilityAccountsEnhanced,
   utilityBillLogsEnhanced,
@@ -32139,6 +32143,336 @@ Plant Care:
 
     console.log('Freelancer responding to task request:', updatedRequest);
     return updatedRequest;
+  }
+
+  // Emergency Water Delivery Operations
+  async getEmergencyWaterDeliveries(organizationId: string, filters?: {
+    propertyId?: number;
+    status?: string;
+    deliveryType?: string;
+    fromDate?: Date;
+    toDate?: Date;
+  }): Promise<EmergencyWaterDelivery[]> {
+    let query = db.select().from(emergencyWaterDeliveries).where(eq(emergencyWaterDeliveries.organizationId, organizationId));
+
+    if (filters?.propertyId) {
+      query = query.where(eq(emergencyWaterDeliveries.propertyId, filters.propertyId));
+    }
+    if (filters?.status) {
+      query = query.where(eq(emergencyWaterDeliveries.status, filters.status));
+    }
+    if (filters?.deliveryType) {
+      query = query.where(eq(emergencyWaterDeliveries.deliveryType, filters.deliveryType));
+    }
+    if (filters?.fromDate) {
+      query = query.where(gte(emergencyWaterDeliveries.deliveryDate, filters.fromDate.toISOString().split('T')[0]));
+    }
+    if (filters?.toDate) {
+      query = query.where(lte(emergencyWaterDeliveries.deliveryDate, filters.toDate.toISOString().split('T')[0]));
+    }
+
+    return query.orderBy(desc(emergencyWaterDeliveries.deliveryDate));
+  }
+
+  async getEmergencyWaterDelivery(id: number): Promise<EmergencyWaterDelivery | undefined> {
+    const [delivery] = await db.select().from(emergencyWaterDeliveries).where(eq(emergencyWaterDeliveries.id, id));
+    return delivery;
+  }
+
+  async createEmergencyWaterDelivery(delivery: InsertEmergencyWaterDelivery): Promise<EmergencyWaterDelivery> {
+    // Auto-calculate cost per liter
+    const costPerLiter = delivery.volumeLiters > 0 ? 
+      (parseFloat(delivery.costTHB as string) / delivery.volumeLiters).toFixed(4) : 
+      "0.0000";
+    
+    const deliveryWithCalculation = {
+      ...delivery,
+      costPerLiter
+    };
+
+    const [newDelivery] = await db.insert(emergencyWaterDeliveries).values(deliveryWithCalculation).returning();
+    
+    // Check if we need to generate alerts
+    await this.checkWaterDeliveryAlerts(delivery.organizationId, delivery.propertyId);
+    
+    return newDelivery;
+  }
+
+  async updateEmergencyWaterDelivery(id: number, updates: Partial<InsertEmergencyWaterDelivery>): Promise<EmergencyWaterDelivery | undefined> {
+    // Recalculate cost per liter if volume or cost changed
+    if (updates.volumeLiters || updates.costTHB) {
+      const existing = await this.getEmergencyWaterDelivery(id);
+      if (existing) {
+        const volume = updates.volumeLiters || existing.volumeLiters;
+        const cost = updates.costTHB || existing.costTHB;
+        updates.costPerLiter = volume > 0 ? 
+          (parseFloat(cost as string) / volume).toFixed(4) : 
+          "0.0000";
+      }
+    }
+
+    const [updated] = await db
+      .update(emergencyWaterDeliveries)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(emergencyWaterDeliveries.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteEmergencyWaterDelivery(id: number): Promise<boolean> {
+    const result = await db
+      .delete(emergencyWaterDeliveries)
+      .where(eq(emergencyWaterDeliveries.id, id));
+    return result.rowCount > 0;
+  }
+
+  // Water Delivery Alerts Operations
+  async getWaterDeliveryAlerts(organizationId: string, filters?: {
+    propertyId?: number;
+    isAcknowledged?: boolean;
+    severity?: string;
+  }): Promise<WaterDeliveryAlert[]> {
+    let query = db.select().from(waterDeliveryAlerts).where(eq(waterDeliveryAlerts.organizationId, organizationId));
+
+    if (filters?.propertyId) {
+      query = query.where(eq(waterDeliveryAlerts.propertyId, filters.propertyId));
+    }
+    if (filters?.isAcknowledged !== undefined) {
+      query = query.where(eq(waterDeliveryAlerts.isAcknowledged, filters.isAcknowledged));
+    }
+    if (filters?.severity) {
+      query = query.where(eq(waterDeliveryAlerts.severity, filters.severity));
+    }
+
+    return query.orderBy(desc(waterDeliveryAlerts.createdAt));
+  }
+
+  async acknowledgeWaterAlert(alertId: number, acknowledgedBy: string): Promise<WaterDeliveryAlert | undefined> {
+    const [updated] = await db
+      .update(waterDeliveryAlerts)
+      .set({
+        isAcknowledged: true,
+        acknowledgedBy,
+        acknowledgedAt: new Date()
+      })
+      .where(eq(waterDeliveryAlerts.id, alertId))
+      .returning();
+    return updated;
+  }
+
+  async checkWaterDeliveryAlerts(organizationId: string, propertyId: number): Promise<void> {
+    // Check for frequent deliveries in the last 60 days
+    const sixtyDaysAgo = new Date();
+    sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60);
+
+    const recentDeliveries = await db
+      .select()
+      .from(emergencyWaterDeliveries)
+      .where(
+        and(
+          eq(emergencyWaterDeliveries.organizationId, organizationId),
+          eq(emergencyWaterDeliveries.propertyId, propertyId),
+          gte(emergencyWaterDeliveries.deliveryDate, sixtyDaysAgo.toISOString().split('T')[0])
+        )
+      );
+
+    // Generate alert if 2+ deliveries in 60 days
+    if (recentDeliveries.length >= 2) {
+      const totalCost = recentDeliveries.reduce((sum, delivery) => 
+        sum + parseFloat(delivery.costTHB as string), 0);
+
+      await db.insert(waterDeliveryAlerts).values({
+        organizationId,
+        propertyId,
+        alertType: "frequent_delivery",
+        alertTitle: "Frequent Water Deliveries Detected",
+        alertMessage: `Property has received ${recentDeliveries.length} water deliveries in the last 60 days, totaling ${totalCost.toFixed(2)} THB. Consider investigating water infrastructure for potential upgrades.`,
+        severity: "high",
+        triggerCount: recentDeliveries.length,
+        triggerPeriodDays: 60,
+        totalCost: totalCost.toFixed(2),
+        recommendationAI: "Consider upgrading to a deep well system or expanding water storage capacity to reduce dependency on emergency deliveries."
+      });
+
+      // Also create upgrade suggestion
+      await this.createWaterUpgradeSuggestion(organizationId, propertyId, recentDeliveries.length, totalCost);
+    }
+  }
+
+  // Water Upgrade Suggestions Operations
+  async getWaterUpgradeSuggestions(organizationId: string, filters?: {
+    propertyId?: number;
+    status?: string;
+    priority?: string;
+  }): Promise<WaterUpgradeSuggestion[]> {
+    let query = db.select().from(waterUpgradeSuggestions).where(eq(waterUpgradeSuggestions.organizationId, organizationId));
+
+    if (filters?.propertyId) {
+      query = query.where(eq(waterUpgradeSuggestions.propertyId, filters.propertyId));
+    }
+    if (filters?.status) {
+      query = query.where(eq(waterUpgradeSuggestions.status, filters.status));
+    }
+    if (filters?.priority) {
+      query = query.where(eq(waterUpgradeSuggestions.priority, filters.priority));
+    }
+
+    return query.orderBy(desc(waterUpgradeSuggestions.createdAt));
+  }
+
+  async createWaterUpgradeSuggestion(
+    organizationId: string, 
+    propertyId: number, 
+    deliveryCount: number, 
+    totalCost: number
+  ): Promise<WaterUpgradeSuggestion> {
+    // Calculate upgrade recommendations based on delivery frequency and cost
+    const annualizedCost = (totalCost / 60) * 365; // Estimate annual cost
+    let upgradeType = "deep_well";
+    let estimatedCost = 150000; // Default deep well cost in THB
+    let estimatedSavings = annualizedCost * 0.8; // 80% savings
+    
+    if (deliveryCount >= 4) {
+      upgradeType = "tank_expansion";
+      estimatedCost = 80000;
+      estimatedSavings = annualizedCost * 0.6;
+    }
+
+    const paybackMonths = estimatedCost / (estimatedSavings / 12);
+
+    const [suggestion] = await db.insert(waterUpgradeSuggestions).values({
+      organizationId,
+      propertyId,
+      upgradeType,
+      currentIssue: `Frequent water deliveries (${deliveryCount} in 60 days) indicate unreliable water supply.`,
+      suggestedSolution: upgradeType === "deep_well" 
+        ? "Install a deep well system with submersible pump and storage tank."
+        : "Expand water storage capacity with additional tanks and backup systems.",
+      estimatedCost: estimatedCost.toString(),
+      estimatedSavingsPerYear: estimatedSavings.toString(),
+      paybackPeriodMonths: Math.round(paybackMonths),
+      priority: deliveryCount >= 4 ? "high" : "medium",
+      basedOnDeliveries: deliveryCount,
+      confidenceScore: "0.85"
+    }).returning();
+
+    return suggestion;
+  }
+
+  async updateWaterUpgradeSuggestion(
+    id: number, 
+    updates: Partial<InsertWaterUpgradeSuggestion>
+  ): Promise<WaterUpgradeSuggestion | undefined> {
+    const [updated] = await db
+      .update(waterUpgradeSuggestions)
+      .set(updates)
+      .where(eq(waterUpgradeSuggestions.id, id))
+      .returning();
+    return updated;
+  }
+
+  async reviewWaterUpgradeSuggestion(
+    id: number, 
+    reviewedBy: string, 
+    status: string
+  ): Promise<WaterUpgradeSuggestion | undefined> {
+    const [updated] = await db
+      .update(waterUpgradeSuggestions)
+      .set({
+        status,
+        reviewedBy,
+        reviewedAt: new Date(),
+        implementedAt: status === "implemented" ? new Date() : undefined
+      })
+      .where(eq(waterUpgradeSuggestions.id, id))
+      .returning();
+    return updated;
+  }
+
+  // Water Management Analytics
+  async getWaterManagementAnalytics(organizationId: string, propertyId?: number): Promise<{
+    totalDeliveries: number;
+    totalCost: number;
+    averageCostPerLiter: number;
+    deliveriesByType: { type: string; count: number; totalCost: number }[];
+    monthlyTrend: { month: string; deliveries: number; cost: number }[];
+    activeAlerts: number;
+    pendingSuggestions: number;
+  }> {
+    let deliveryQuery = db.select().from(emergencyWaterDeliveries).where(eq(emergencyWaterDeliveries.organizationId, organizationId));
+    
+    if (propertyId) {
+      deliveryQuery = deliveryQuery.where(eq(emergencyWaterDeliveries.propertyId, propertyId));
+    }
+
+    const deliveries = await deliveryQuery;
+    
+    const totalDeliveries = deliveries.length;
+    const totalCost = deliveries.reduce((sum, d) => sum + parseFloat(d.costTHB as string), 0);
+    const totalVolume = deliveries.reduce((sum, d) => sum + d.volumeLiters, 0);
+    const averageCostPerLiter = totalVolume > 0 ? totalCost / totalVolume : 0;
+
+    // Group by delivery type
+    const deliveriesByType = deliveries.reduce((acc, delivery) => {
+      const existing = acc.find(item => item.type === delivery.deliveryType);
+      if (existing) {
+        existing.count++;
+        existing.totalCost += parseFloat(delivery.costTHB as string);
+      } else {
+        acc.push({
+          type: delivery.deliveryType,
+          count: 1,
+          totalCost: parseFloat(delivery.costTHB as string)
+        });
+      }
+      return acc;
+    }, [] as { type: string; count: number; totalCost: number }[]);
+
+    // Monthly trend (last 12 months)
+    const monthlyTrend = [];
+    for (let i = 11; i >= 0; i--) {
+      const date = new Date();
+      date.setMonth(date.getMonth() - i);
+      const monthKey = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}`;
+      
+      const monthDeliveries = deliveries.filter(d => d.deliveryDate.startsWith(monthKey));
+      monthlyTrend.push({
+        month: monthKey,
+        deliveries: monthDeliveries.length,
+        cost: monthDeliveries.reduce((sum, d) => sum + parseFloat(d.costTHB as string), 0)
+      });
+    }
+
+    // Count active alerts and pending suggestions
+    let alertQuery = db.select({ count: count() }).from(waterDeliveryAlerts)
+      .where(and(
+        eq(waterDeliveryAlerts.organizationId, organizationId),
+        eq(waterDeliveryAlerts.isAcknowledged, false)
+      ));
+    
+    let suggestionQuery = db.select({ count: count() }).from(waterUpgradeSuggestions)
+      .where(and(
+        eq(waterUpgradeSuggestions.organizationId, organizationId),
+        eq(waterUpgradeSuggestions.status, "new")
+      ));
+
+    if (propertyId) {
+      alertQuery = alertQuery.where(eq(waterDeliveryAlerts.propertyId, propertyId));
+      suggestionQuery = suggestionQuery.where(eq(waterUpgradeSuggestions.propertyId, propertyId));
+    }
+
+    const [activeAlertsResult] = await alertQuery;
+    const [pendingSuggestionsResult] = await suggestionQuery;
+
+    return {
+      totalDeliveries,
+      totalCost: Math.round(totalCost * 100) / 100,
+      averageCostPerLiter: Math.round(averageCostPerLiter * 100) / 100,
+      deliveriesByType,
+      monthlyTrend,
+      activeAlerts: activeAlertsResult.count,
+      pendingSuggestions: pendingSuggestionsResult.count
+    };
   }
 }
 

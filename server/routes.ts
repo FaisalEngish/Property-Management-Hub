@@ -24635,6 +24635,231 @@ async function processGuestIssueForAI(issueReport: any) {
     }
   });
 
+  // ===== EMERGENCY WATER DELIVERY ROUTES =====
+
+  // Middleware for emergency water delivery access control
+  const requireWaterDeliveryAccess = (req: any, res: any, next: any) => {
+    const userRole = req.user?.role;
+    if (!['admin', 'portfolio-manager', 'owner'].includes(userRole)) {
+      return res.status(403).json({ message: "Access denied. Admin, Portfolio Manager, or Owner role required." });
+    }
+    next();
+  };
+
+  const requireWaterDeliveryManagement = (req: any, res: any, next: any) => {
+    const userRole = req.user?.role;
+    if (!['admin', 'portfolio-manager'].includes(userRole)) {
+      return res.status(403).json({ message: "Access denied. Admin or Portfolio Manager role required for management operations." });
+    }
+    next();
+  };
+
+  // Get emergency water deliveries
+  app.get("/api/emergency-water-deliveries", isDemoAuthenticated, requireWaterDeliveryAccess, async (req: any, res) => {
+    try {
+      const organizationId = req.user.organizationId || "default-org";
+      const { propertyId, status, deliveryType, fromDate, toDate } = req.query;
+      
+      const filters: any = {};
+      if (propertyId) filters.propertyId = parseInt(propertyId as string);
+      if (status) filters.status = status as string;
+      if (deliveryType) filters.deliveryType = deliveryType as string;
+      if (fromDate) filters.fromDate = new Date(fromDate as string);
+      if (toDate) filters.toDate = new Date(toDate as string);
+
+      const deliveries = await storage.getEmergencyWaterDeliveries(organizationId, filters);
+      res.json(deliveries);
+    } catch (error) {
+      console.error("Error fetching emergency water deliveries:", error);
+      res.status(500).json({ message: "Failed to fetch emergency water deliveries" });
+    }
+  });
+
+  // Get specific emergency water delivery
+  app.get("/api/emergency-water-deliveries/:id", isDemoAuthenticated, requireWaterDeliveryAccess, async (req: any, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const delivery = await storage.getEmergencyWaterDelivery(id);
+      
+      if (!delivery) {
+        return res.status(404).json({ message: "Emergency water delivery not found" });
+      }
+
+      res.json(delivery);
+    } catch (error) {
+      console.error("Error fetching emergency water delivery:", error);
+      res.status(500).json({ message: "Failed to fetch emergency water delivery" });
+    }
+  });
+
+  // Create emergency water delivery
+  app.post("/api/emergency-water-deliveries", isDemoAuthenticated, requireWaterDeliveryManagement, async (req: any, res) => {
+    try {
+      const organizationId = req.user.organizationId || "default-org";
+      
+      const deliveryData = {
+        ...req.body,
+        organizationId,
+        requestedBy: req.user.id
+      };
+
+      const newDelivery = await storage.createEmergencyWaterDelivery(deliveryData);
+      res.status(201).json(newDelivery);
+    } catch (error) {
+      console.error("Error creating emergency water delivery:", error);
+      res.status(500).json({ message: "Failed to create emergency water delivery" });
+    }
+  });
+
+  // Update emergency water delivery
+  app.put("/api/emergency-water-deliveries/:id", isDemoAuthenticated, requireWaterDeliveryManagement, async (req: any, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const updates = req.body;
+
+      const updatedDelivery = await storage.updateEmergencyWaterDelivery(id, updates);
+      
+      if (!updatedDelivery) {
+        return res.status(404).json({ message: "Emergency water delivery not found" });
+      }
+
+      res.json(updatedDelivery);
+    } catch (error) {
+      console.error("Error updating emergency water delivery:", error);
+      res.status(500).json({ message: "Failed to update emergency water delivery" });
+    }
+  });
+
+  // Delete emergency water delivery
+  app.delete("/api/emergency-water-deliveries/:id", isDemoAuthenticated, requireWaterDeliveryManagement, async (req: any, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const success = await storage.deleteEmergencyWaterDelivery(id);
+      
+      if (!success) {
+        return res.status(404).json({ message: "Emergency water delivery not found" });
+      }
+
+      res.json({ message: "Emergency water delivery deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting emergency water delivery:", error);
+      res.status(500).json({ message: "Failed to delete emergency water delivery" });
+    }
+  });
+
+  // Get water delivery alerts
+  app.get("/api/water-delivery-alerts", isDemoAuthenticated, requireWaterDeliveryAccess, async (req: any, res) => {
+    try {
+      const organizationId = req.user.organizationId || "default-org";
+      const { propertyId, isAcknowledged, severity } = req.query;
+      
+      const filters: any = {};
+      if (propertyId) filters.propertyId = parseInt(propertyId as string);
+      if (isAcknowledged !== undefined) filters.isAcknowledged = isAcknowledged === 'true';
+      if (severity) filters.severity = severity as string;
+
+      const alerts = await storage.getWaterDeliveryAlerts(organizationId, filters);
+      res.json(alerts);
+    } catch (error) {
+      console.error("Error fetching water delivery alerts:", error);
+      res.status(500).json({ message: "Failed to fetch water delivery alerts" });
+    }
+  });
+
+  // Acknowledge water delivery alert
+  app.put("/api/water-delivery-alerts/:id/acknowledge", isDemoAuthenticated, requireWaterDeliveryManagement, async (req: any, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const acknowledgedBy = req.user.id;
+
+      const updatedAlert = await storage.acknowledgeWaterAlert(id, acknowledgedBy);
+      
+      if (!updatedAlert) {
+        return res.status(404).json({ message: "Water delivery alert not found" });
+      }
+
+      res.json(updatedAlert);
+    } catch (error) {
+      console.error("Error acknowledging water delivery alert:", error);
+      res.status(500).json({ message: "Failed to acknowledge water delivery alert" });
+    }
+  });
+
+  // Get water upgrade suggestions
+  app.get("/api/water-upgrade-suggestions", isDemoAuthenticated, requireWaterDeliveryAccess, async (req: any, res) => {
+    try {
+      const organizationId = req.user.organizationId || "default-org";
+      const { propertyId, status, priority } = req.query;
+      
+      const filters: any = {};
+      if (propertyId) filters.propertyId = parseInt(propertyId as string);
+      if (status) filters.status = status as string;
+      if (priority) filters.priority = priority as string;
+
+      const suggestions = await storage.getWaterUpgradeSuggestions(organizationId, filters);
+      res.json(suggestions);
+    } catch (error) {
+      console.error("Error fetching water upgrade suggestions:", error);
+      res.status(500).json({ message: "Failed to fetch water upgrade suggestions" });
+    }
+  });
+
+  // Update water upgrade suggestion
+  app.put("/api/water-upgrade-suggestions/:id", isDemoAuthenticated, requireWaterDeliveryManagement, async (req: any, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const updates = req.body;
+
+      const updatedSuggestion = await storage.updateWaterUpgradeSuggestion(id, updates);
+      
+      if (!updatedSuggestion) {
+        return res.status(404).json({ message: "Water upgrade suggestion not found" });
+      }
+
+      res.json(updatedSuggestion);
+    } catch (error) {
+      console.error("Error updating water upgrade suggestion:", error);
+      res.status(500).json({ message: "Failed to update water upgrade suggestion" });
+    }
+  });
+
+  // Review water upgrade suggestion
+  app.put("/api/water-upgrade-suggestions/:id/review", isDemoAuthenticated, requireWaterDeliveryManagement, async (req: any, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { status } = req.body;
+      const reviewedBy = req.user.id;
+
+      const updatedSuggestion = await storage.reviewWaterUpgradeSuggestion(id, reviewedBy, status);
+      
+      if (!updatedSuggestion) {
+        return res.status(404).json({ message: "Water upgrade suggestion not found" });
+      }
+
+      res.json(updatedSuggestion);
+    } catch (error) {
+      console.error("Error reviewing water upgrade suggestion:", error);
+      res.status(500).json({ message: "Failed to review water upgrade suggestion" });
+    }
+  });
+
+  // Get water management analytics
+  app.get("/api/water-management-analytics", isDemoAuthenticated, requireWaterDeliveryAccess, async (req: any, res) => {
+    try {
+      const organizationId = req.user.organizationId || "default-org";
+      const { propertyId } = req.query;
+
+      const analytics = await storage.getWaterManagementAnalytics(
+        organizationId,
+        propertyId ? parseInt(propertyId as string) : undefined
+      );
+      res.json(analytics);
+    } catch (error) {
+      console.error("Error fetching water management analytics:", error);
+      res.status(500).json({ message: "Failed to fetch water management analytics" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

@@ -904,6 +904,69 @@ export const welcomePackUsage = pgTable("welcome_pack_usage", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// Emergency Water Truck Deliveries
+export const emergencyWaterDeliveries = pgTable("emergency_water_deliveries", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").notNull(),
+  propertyId: integer("property_id").notNull().references(() => properties.id),
+  deliveryDate: date("delivery_date").notNull(),
+  volumeLiters: integer("volume_liters").notNull(), // Volume in liters
+  costTHB: decimal("cost_thb", { precision: 10, scale: 2 }).notNull(), // Cost in THB
+  costPerLiter: decimal("cost_per_liter", { precision: 10, scale: 4 }).notNull(), // Auto-calculated THB per liter
+  supplierName: varchar("supplier_name"), // Optional supplier/company name
+  receiptUrl: varchar("receipt_url"), // File upload URL
+  notes: text("notes"), // Additional notes
+  linkedGuestBooking: varchar("linked_guest_booking"), // Optional guest association
+  linkedEvent: varchar("linked_event"), // Optional event association
+  deliveryType: varchar("delivery_type").notNull().default("unexpected"), // "unexpected", "preventable", "planned"
+  billingType: varchar("billing_type").notNull().default("owner_billable"), // "owner_billable", "company_expense", "guest_billable"
+  processedBy: varchar("processed_by").references(() => users.id),
+  approvedBy: varchar("approved_by").references(() => users.id), // Manager/Admin approval
+  status: varchar("status").notNull().default("pending"), // "pending", "approved", "billed", "completed"
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Water Delivery Alerts and Recommendations
+export const waterDeliveryAlerts = pgTable("water_delivery_alerts", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").notNull(),
+  propertyId: integer("property_id").notNull().references(() => properties.id),
+  alertType: varchar("alert_type").notNull(), // "frequent_delivery", "upgrade_suggestion", "cost_warning"
+  alertTitle: varchar("alert_title").notNull(),
+  alertMessage: text("alert_message").notNull(),
+  severity: varchar("severity").notNull().default("medium"), // "low", "medium", "high", "critical"
+  triggerCount: integer("trigger_count").notNull(), // Number of deliveries that triggered this alert
+  triggerPeriodDays: integer("trigger_period_days").notNull(), // Period in days (30, 60, 90)
+  totalCost: decimal("total_cost", { precision: 10, scale: 2 }), // Total cost during trigger period
+  recommendationAI: text("recommendation_ai"), // AI-generated recommendation
+  isAcknowledged: boolean("is_acknowledged").default(false),
+  acknowledgedBy: varchar("acknowledged_by").references(() => users.id),
+  acknowledgedAt: timestamp("acknowledged_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Water Infrastructure Upgrade Suggestions
+export const waterUpgradeSuggestions = pgTable("water_upgrade_suggestions", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").notNull(),
+  propertyId: integer("property_id").notNull().references(() => properties.id),
+  upgradeType: varchar("upgrade_type").notNull(), // "deep_well", "tank_expansion", "water_conservation", "filtration_system"
+  currentIssue: text("current_issue").notNull(),
+  suggestedSolution: text("suggested_solution").notNull(),
+  estimatedCost: decimal("estimated_cost", { precision: 10, scale: 2 }),
+  estimatedSavingsPerYear: decimal("estimated_savings_per_year", { precision: 10, scale: 2 }),
+  paybackPeriodMonths: integer("payback_period_months"),
+  priority: varchar("priority").notNull().default("medium"), // "low", "medium", "high", "urgent"
+  basedOnDeliveries: integer("based_on_deliveries").notNull(), // Number of deliveries that triggered this suggestion
+  confidenceScore: decimal("confidence_score", { precision: 3, scale: 2 }), // AI confidence 0.00-1.00
+  status: varchar("status").notNull().default("new"), // "new", "reviewed", "approved", "implemented", "rejected"
+  reviewedBy: varchar("reviewed_by").references(() => users.id),
+  reviewedAt: timestamp("reviewed_at"),
+  implementedAt: timestamp("implemented_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Relations
 export const usersRelations = relations(users, ({ many }) => ({
   ownedProperties: many(properties),
@@ -988,6 +1051,32 @@ export const welcomePackUsageRelations = relations(welcomePackUsage, ({ one }) =
   booking: one(bookings, { fields: [welcomePackUsage.bookingId], references: [bookings.id] }),
   item: one(welcomePackItems, { fields: [welcomePackUsage.itemId], references: [welcomePackItems.id] }),
 }));
+
+export const emergencyWaterDeliveriesRelations = relations(emergencyWaterDeliveries, ({ one }) => ({
+  property: one(properties, { fields: [emergencyWaterDeliveries.propertyId], references: [properties.id] }),
+  processedByUser: one(users, { fields: [emergencyWaterDeliveries.processedBy], references: [users.id] }),
+  approvedByUser: one(users, { fields: [emergencyWaterDeliveries.approvedBy], references: [users.id] }),
+}));
+
+export const waterDeliveryAlertsRelations = relations(waterDeliveryAlerts, ({ one }) => ({
+  property: one(properties, { fields: [waterDeliveryAlerts.propertyId], references: [properties.id] }),
+  acknowledgedByUser: one(users, { fields: [waterDeliveryAlerts.acknowledgedBy], references: [users.id] }),
+}));
+
+export const waterUpgradeSuggestionsRelations = relations(waterUpgradeSuggestions, ({ one }) => ({
+  property: one(properties, { fields: [waterUpgradeSuggestions.propertyId], references: [properties.id] }),
+  reviewedByUser: one(users, { fields: [waterUpgradeSuggestions.reviewedBy], references: [users.id] }),
+}));
+
+// Emergency Water Delivery Types
+export type EmergencyWaterDelivery = typeof emergencyWaterDeliveries.$inferSelect;
+export type InsertEmergencyWaterDelivery = typeof emergencyWaterDeliveries.$inferInsert;
+
+export type WaterDeliveryAlert = typeof waterDeliveryAlerts.$inferSelect;
+export type InsertWaterDeliveryAlert = typeof waterDeliveryAlerts.$inferInsert;
+
+export type WaterUpgradeSuggestion = typeof waterUpgradeSuggestions.$inferSelect;
+export type InsertWaterUpgradeSuggestion = typeof waterUpgradeSuggestions.$inferInsert;
 
 // Owner Payouts
 export const ownerPayouts = pgTable("owner_payouts", {
@@ -1822,6 +1911,23 @@ export const insertWelcomePackUsageSchema = createInsertSchema(welcomePackUsage)
   updatedAt: true,
 });
 
+// Emergency Water Delivery schemas
+export const insertEmergencyWaterDeliverySchema = createInsertSchema(emergencyWaterDeliveries).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertWaterDeliveryAlertSchema = createInsertSchema(waterDeliveryAlerts).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertWaterUpgradeSuggestionSchema = createInsertSchema(waterUpgradeSuggestions).omit({
+  id: true,
+  createdAt: true,
+});
+
 export const insertOwnerPayoutSchema = createInsertSchema(ownerPayouts).omit({
   id: true,
   createdAt: true,
@@ -2326,6 +2432,15 @@ export type InsertWelcomePackTemplate = z.infer<typeof insertWelcomePackTemplate
 export type WelcomePackTemplate = typeof welcomePackTemplates.$inferSelect;
 export type InsertWelcomePackUsage = z.infer<typeof insertWelcomePackUsageSchema>;
 export type WelcomePackUsage = typeof welcomePackUsage.$inferSelect;
+
+// Emergency Water Delivery types
+export type InsertEmergencyWaterDelivery = z.infer<typeof insertEmergencyWaterDeliverySchema>;
+export type EmergencyWaterDelivery = typeof emergencyWaterDeliveries.$inferSelect;
+export type InsertWaterDeliveryAlert = z.infer<typeof insertWaterDeliveryAlertSchema>;
+export type WaterDeliveryAlert = typeof waterDeliveryAlerts.$inferSelect;
+export type InsertWaterUpgradeSuggestion = z.infer<typeof insertWaterUpgradeSuggestionSchema>;
+export type WaterUpgradeSuggestion = typeof waterUpgradeSuggestions.$inferSelect;
+
 export type InsertOwnerPayout = z.infer<typeof insertOwnerPayoutSchema>;
 export type OwnerPayout = typeof ownerPayouts.$inferSelect;
 
@@ -3013,209 +3128,6 @@ export const utilityNotifications = pgTable("utility_notifications", {
   index("IDX_util_notif_type").on(table.notificationType),
 ]);
 
-// Emergency Water Truck Deliveries - Track water delivery services and costs
-export const emergencyWaterDeliveries = pgTable("emergency_water_deliveries", {
-  id: serial("id").primaryKey(),
-  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
-  propertyId: integer("property_id").references(() => properties.id).notNull(),
-  
-  // Delivery Details
-  deliveryDate: date("delivery_date").notNull(),
-  supplierName: varchar("supplier_name").notNull(),
-  volumeLiters: integer("volume_liters").notNull(),
-  costPerLiter: decimal("cost_per_liter", { precision: 10, scale: 2 }),
-  totalCost: decimal("total_cost", { precision: 10, scale: 2 }).notNull(),
-  currency: varchar("currency").default("THB"),
-  
-  // Payment and Documentation
-  paymentStatus: varchar("payment_status").default("pending"), // pending, paid, cancelled
-  paymentMethod: varchar("payment_method"), // cash, bank_transfer, card
-  receiptUrl: varchar("receipt_url"),
-  
-  // Service Details
-  emergencyType: varchar("emergency_type").notNull(), // outage, shortage, quality_issue, pump_failure
-  urgencyLevel: varchar("urgency_level").default("normal"), // low, normal, high, critical
-  deliveryNotes: text("delivery_notes"),
-  waterQualityReport: varchar("water_quality_report_url"),
-  
-  // Billing Assignment
-  billingAssignment: varchar("billing_assignment").default("owner"), // owner, management, guest, insurance
-  
-  // Tracking and Status
-  deliveryStatus: varchar("delivery_status").default("scheduled"), // scheduled, delivered, cancelled
-  deliveredBy: varchar("delivered_by"), // Driver/company name
-  receivedBy: varchar("received_by").references(() => users.id),
-  deliveryTime: varchar("delivery_time"), // HH:MM format
-  
-  // Follow-up and Monitoring
-  followUpRequired: boolean("follow_up_required").default(false),
-  followUpNotes: text("follow_up_notes"),
-  waterSystemRestored: boolean("water_system_restored").default(false),
-  restorationDate: timestamp("restoration_date"),
-  
-  // Metadata
-  createdBy: varchar("created_by").references(() => users.id).notNull(),
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
-}, (table) => [
-  index("IDX_emergency_water_org").on(table.organizationId),
-  index("IDX_emergency_water_property").on(table.propertyId),
-  index("IDX_emergency_water_date").on(table.deliveryDate),
-  index("IDX_emergency_water_status").on(table.deliveryStatus),
-  index("IDX_emergency_water_emergency_type").on(table.emergencyType),
-]);
-
-// Emergency Water Alerts - Track frequency and generate recommendations
-export const emergencyWaterAlerts = pgTable("emergency_water_alerts", {
-  id: serial("id").primaryKey(),
-  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
-  propertyId: integer("property_id").references(() => properties.id).notNull(),
-  
-  // Alert Configuration
-  alertType: varchar("alert_type").notNull(), // frequency_alert, cost_threshold, quality_concern
-  alertTrigger: varchar("alert_trigger").notNull(), // monthly_frequency, cost_increase, quality_degradation
-  thresholdValue: integer("threshold_value").default(2), // Default: Alert after 2 deliveries per month
-  
-  // Alert Status
-  isActive: boolean("is_active").default(true),
-  lastTriggered: timestamp("last_triggered"),
-  triggerCount: integer("trigger_count").default(0),
-  
-  // Notification Settings
-  notifyRoles: text("notify_roles").array().default(['admin', 'portfolio-manager']),
-  notifyEmails: text("notify_emails").array(),
-  alertMessage: text("alert_message"),
-  
-  // Recommendations
-  aiRecommendations: text("ai_recommendations").array(),
-  recommendedActions: text("recommended_actions").array(),
-  
-  // Resolution Tracking
-  isResolved: boolean("is_resolved").default(false),
-  resolvedAt: timestamp("resolved_at"),
-  resolvedBy: varchar("resolved_by").references(() => users.id),
-  resolutionNotes: text("resolution_notes"),
-  
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
-}, (table) => [
-  index("IDX_water_alerts_org").on(table.organizationId),
-  index("IDX_water_alerts_property").on(table.propertyId),
-  index("IDX_water_alerts_type").on(table.alertType),
-  index("IDX_water_alerts_active").on(table.isActive),
-]);
-
-// Relations for Extended Utilities Management
-export const propertyUtilitiesMasterRelations = relations(propertyUtilitiesMaster, ({ one, many }) => ({
-  organization: one(organizations, { fields: [propertyUtilitiesMaster.organizationId], references: [organizations.id] }),
-  property: one(properties, { fields: [propertyUtilitiesMaster.propertyId], references: [properties.id] }),
-  bills: many(utilityBillsExtended),
-  permissions: many(utilityAccessPermissions),
-  aiPredictions: many(utilityAiPredictions),
-  notifications: many(utilityNotifications),
-}));
-
-export const utilityBillsExtendedRelations = relations(utilityBillsExtended, ({ one }) => ({
-  organization: one(organizations, { fields: [utilityBillsExtended.organizationId], references: [organizations.id] }),
-  utilityMaster: one(propertyUtilitiesMaster, { fields: [utilityBillsExtended.utilityMasterId], references: [propertyUtilitiesMaster.id] }),
-  property: one(properties, { fields: [utilityBillsExtended.propertyId], references: [properties.id] }),
-  uploadedByUser: one(users, { fields: [utilityBillsExtended.uploadedBy], references: [users.id] }),
-}));
-
-export const utilityAccessPermissionsRelations = relations(utilityAccessPermissions, ({ one }) => ({
-  organization: one(organizations, { fields: [utilityAccessPermissions.organizationId], references: [organizations.id] }),
-  utilityMaster: one(propertyUtilitiesMaster, { fields: [utilityAccessPermissions.utilityMasterId], references: [propertyUtilitiesMaster.id] }),
-  setByUser: one(users, { fields: [utilityAccessPermissions.setBy], references: [users.id] }),
-}));
-
-export const utilityAiPredictionsRelations = relations(utilityAiPredictions, ({ one }) => ({
-  organization: one(organizations, { fields: [utilityAiPredictions.organizationId], references: [organizations.id] }),
-  utilityMaster: one(propertyUtilitiesMaster, { fields: [utilityAiPredictions.utilityMasterId], references: [propertyUtilitiesMaster.id] }),
-}));
-
-export const utilityNotificationsRelations = relations(utilityNotifications, ({ one }) => ({
-  organization: one(organizations, { fields: [utilityNotifications.organizationId], references: [organizations.id] }),
-  utilityMaster: one(propertyUtilitiesMaster, { fields: [utilityNotifications.utilityMasterId], references: [propertyUtilitiesMaster.id] }),
-  recipientUser: one(users, { fields: [utilityNotifications.recipientUserId], references: [users.id] }),
-  relatedBill: one(utilityBillsExtended, { fields: [utilityNotifications.relatedBillId], references: [utilityBillsExtended.id] }),
-  actionTakenByUser: one(users, { fields: [utilityNotifications.actionTakenBy], references: [users.id] }),
-}));
-
-export const emergencyWaterDeliveriesRelations = relations(emergencyWaterDeliveries, ({ one }) => ({
-  organization: one(organizations, { fields: [emergencyWaterDeliveries.organizationId], references: [organizations.id] }),
-  property: one(properties, { fields: [emergencyWaterDeliveries.propertyId], references: [properties.id] }),
-  receivedByUser: one(users, { fields: [emergencyWaterDeliveries.receivedBy], references: [users.id] }),
-  createdByUser: one(users, { fields: [emergencyWaterDeliveries.createdBy], references: [users.id] }),
-}));
-
-export const emergencyWaterAlertsRelations = relations(emergencyWaterAlerts, ({ one }) => ({
-  organization: one(organizations, { fields: [emergencyWaterAlerts.organizationId], references: [organizations.id] }),
-  property: one(properties, { fields: [emergencyWaterAlerts.propertyId], references: [properties.id] }),
-  resolvedByUser: one(users, { fields: [emergencyWaterAlerts.resolvedBy], references: [users.id] }),
-}));
-
-// Insert schemas for Extended Utilities Management
-export const insertPropertyUtilitiesMasterSchema = createInsertSchema(propertyUtilitiesMaster).omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
-});
-
-export const insertUtilityBillsExtendedSchema = createInsertSchema(utilityBillsExtended).omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
-});
-
-export const insertUtilityAccessPermissionsSchema = createInsertSchema(utilityAccessPermissions).omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
-});
-
-export const insertUtilityAiPredictionsSchema = createInsertSchema(utilityAiPredictions).omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
-});
-
-export const insertUtilityNotificationsSchema = createInsertSchema(utilityNotifications).omit({
-  id: true,
-});
-
-export const insertEmergencyWaterDeliverySchema = createInsertSchema(emergencyWaterDeliveries).omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
-});
-
-export const insertEmergencyWaterAlertSchema = createInsertSchema(emergencyWaterAlerts).omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
-});
-
-// Type exports for Extended Utilities Management
-export type PropertyUtilitiesMaster = typeof propertyUtilitiesMaster.$inferSelect;
-export type InsertPropertyUtilitiesMaster = z.infer<typeof insertPropertyUtilitiesMasterSchema>;
-
-export type UtilityBillsExtended = typeof utilityBillsExtended.$inferSelect;
-export type InsertUtilityBillsExtended = z.infer<typeof insertUtilityBillsExtendedSchema>;
-
-export type UtilityAccessPermissions = typeof utilityAccessPermissions.$inferSelect;
-export type InsertUtilityAccessPermissions = z.infer<typeof insertUtilityAccessPermissionsSchema>;
-
-export type UtilityAiPredictions = typeof utilityAiPredictions.$inferSelect;
-export type InsertUtilityAiPredictions = z.infer<typeof insertUtilityAiPredictionsSchema>;
-
-export type UtilityNotifications = typeof utilityNotifications.$inferSelect;
-export type InsertUtilityNotifications = z.infer<typeof insertUtilityNotificationsSchema>;
-
-export type EmergencyWaterDelivery = typeof emergencyWaterDeliveries.$inferSelect;
-export type InsertEmergencyWaterDelivery = z.infer<typeof insertEmergencyWaterDeliverySchema>;
-
-export type EmergencyWaterAlert = typeof emergencyWaterAlerts.$inferSelect;
-export type InsertEmergencyWaterAlert = z.infer<typeof insertEmergencyWaterAlertSchema>;
 
 // ===== OWNER STATEMENT EXPORTS =====
 export const ownerStatementExports = pgTable("owner_statement_exports", {

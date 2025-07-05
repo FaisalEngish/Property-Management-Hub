@@ -1,589 +1,345 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Truck, Droplets, AlertTriangle, Plus, Calendar, DollarSign, BarChart3, FileText, CheckCircle, X } from "lucide-react";
 import { format } from "date-fns";
-import type { EmergencyWaterDelivery, EmergencyWaterAlert } from "@shared/schema";
+import {
+  Truck, Droplets, AlertTriangle, TrendingUp, Calendar, 
+  DollarSign, Zap, CheckCircle, XCircle, Clock, 
+  Users, Target, BarChart3, Edit, Trash2, Plus
+} from "lucide-react";
 
-interface EmergencyWaterTruckProps {
-  propertyId?: number;
-  userRole: string;
+// Types
+interface EmergencyWaterDelivery {
+  id: number;
+  organizationId: string;
+  propertyId: number;
+  deliveryDate: string;
+  volumeLiters: number;
+  costTHB: string;
+  costPerLiter: string;
+  supplierName: string;
+  supplierContact: string;
+  deliveryType: string;
+  emergencyReason: string;
+  urgencyLevel: string;
+  requestedBy: string;
+  approvedBy?: string;
+  deliveredBy?: string;
+  receiptUrl?: string;
+  paymentStatus: string;
+  billingRoute: string;
+  notes?: string;
+  weatherConditions?: string;
+  deliveryTime?: string;
+  tankLocation?: string;
+  pumpingRequired: boolean;
+  deliveryConfirmed: boolean;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
-export function EmergencyWaterTruck({ propertyId, userRole }: EmergencyWaterTruckProps) {
-  const [activeTab, setActiveTab] = useState<'deliveries' | 'alerts' | 'analytics'>('deliveries');
-  const [showCreateDelivery, setShowCreateDelivery] = useState(false);
-  const [showAlertDetails, setShowAlertDetails] = useState<number | null>(null);
+interface WaterDeliveryAlert {
+  id: number;
+  organizationId: string;
+  propertyId: number;
+  alertType: string;
+  alertTitle: string;
+  alertMessage: string;
+  severity: string;
+  triggerCount: number;
+  triggerPeriodDays: number;
+  totalCost: string;
+  recommendationAI: string;
+  isAcknowledged: boolean;
+  acknowledgedBy?: string;
+  acknowledgedAt?: string;
+  createdAt: string;
+}
+
+interface WaterUpgradeSuggestion {
+  id: number;
+  organizationId: string;
+  propertyId: number;
+  upgradeType: string;
+  currentIssue: string;
+  suggestedSolution: string;
+  estimatedCost: string;
+  estimatedSavingsPerYear: string;
+  paybackPeriodMonths: number;
+  priority: string;
+  basedOnDeliveries: number;
+  confidenceScore: string;
+  status: string;
+  reviewedBy?: string;
+  reviewedAt?: string;
+  implementedAt?: string;
+  createdAt: string;
+}
+
+interface WaterManagementAnalytics {
+  totalDeliveries: number;
+  totalCost: number;
+  averageCostPerLiter: number;
+  deliveriesByType: { type: string; count: number; totalCost: number }[];
+  monthlyTrend: { month: string; deliveries: number; cost: number }[];
+  activeAlerts: number;
+  pendingSuggestions: number;
+}
+
+export default function EmergencyWaterTruck() {
+  const [selectedPropertyId, setSelectedPropertyId] = useState<number | null>(null);
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [selectedDelivery, setSelectedDelivery] = useState<EmergencyWaterDelivery | null>(null);
+  const [newDelivery, setNewDelivery] = useState<Partial<EmergencyWaterDelivery>>({
+    deliveryDate: new Date().toISOString().split('T')[0],
+    volumeLiters: 5000,
+    costTHB: "2500",
+    supplierName: "Samui Water Supply Co.",
+    supplierContact: "+66 77 123 456",
+    deliveryType: "emergency",
+    urgencyLevel: "high",
+    paymentStatus: "pending",
+    billingRoute: "owner_billable",
+    pumpingRequired: true,
+    deliveryConfirmed: false,
+    status: "scheduled"
+  });
+
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Fetch emergency water deliveries
-  const { data: deliveries = [], isLoading: deliveriesLoading } = useQuery({
-    queryKey: ['/api/emergency-water/deliveries', propertyId],
-    queryFn: () => apiRequest('GET', `/api/emergency-water/deliveries${propertyId ? `?propertyId=${propertyId}` : ''}`),
+  // Fetch water deliveries
+  const { data: deliveries = [], isLoading: isLoadingDeliveries } = useQuery({
+    queryKey: ["/api/emergency-water-deliveries", selectedPropertyId],
+    queryFn: () => apiRequest("GET", `/api/emergency-water-deliveries${selectedPropertyId ? `?propertyId=${selectedPropertyId}` : ""}`).then(res => res.json())
   });
 
-  // Fetch emergency water alerts
-  const { data: alerts = [], isLoading: alertsLoading } = useQuery({
-    queryKey: ['/api/emergency-water/alerts', propertyId],
-    queryFn: () => apiRequest('GET', `/api/emergency-water/alerts${propertyId ? `?propertyId=${propertyId}` : ''}`),
+  // Fetch water delivery alerts
+  const { data: alerts = [], isLoading: isLoadingAlerts } = useQuery({
+    queryKey: ["/api/water-delivery-alerts", selectedPropertyId],
+    queryFn: () => apiRequest("GET", `/api/water-delivery-alerts${selectedPropertyId ? `?propertyId=${selectedPropertyId}` : ""}`).then(res => res.json())
   });
 
-  // Fetch emergency water analytics
-  const { data: analytics, isLoading: analyticsLoading } = useQuery({
-    queryKey: ['/api/emergency-water/analytics', propertyId],
-    queryFn: () => apiRequest('GET', `/api/emergency-water/analytics${propertyId ? `?propertyId=${propertyId}` : ''}`),
+  // Fetch water upgrade suggestions
+  const { data: suggestions = [], isLoading: isLoadingSuggestions } = useQuery({
+    queryKey: ["/api/water-upgrade-suggestions", selectedPropertyId],
+    queryFn: () => apiRequest("GET", `/api/water-upgrade-suggestions${selectedPropertyId ? `?propertyId=${selectedPropertyId}` : ""}`).then(res => res.json())
+  });
+
+  // Fetch water management analytics
+  const { data: analytics, isLoading: isLoadingAnalytics } = useQuery({
+    queryKey: ["/api/water-management-analytics", selectedPropertyId],
+    queryFn: () => apiRequest("GET", `/api/water-management-analytics${selectedPropertyId ? `?propertyId=${selectedPropertyId}` : ""}`).then(res => res.json())
   });
 
   // Create delivery mutation
   const createDeliveryMutation = useMutation({
-    mutationFn: (data: any) => apiRequest('POST', '/api/emergency-water/deliveries', data),
+    mutationFn: (data: Partial<EmergencyWaterDelivery>) => 
+      apiRequest("POST", "/api/emergency-water-deliveries", data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/emergency-water/deliveries'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/emergency-water/analytics'] });
-      setShowCreateDelivery(false);
-      toast({
-        title: "Success",
-        description: "Emergency water delivery recorded successfully",
+      toast({ title: "Success", description: "Emergency water delivery created successfully" });
+      queryClient.invalidateQueries({ queryKey: ["/api/emergency-water-deliveries"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/water-management-analytics"] });
+      setIsCreateDialogOpen(false);
+      setNewDelivery({
+        deliveryDate: new Date().toISOString().split('T')[0],
+        volumeLiters: 5000,
+        costTHB: "2500",
+        supplierName: "Samui Water Supply Co.",
+        supplierContact: "+66 77 123 456",
+        deliveryType: "emergency",
+        urgencyLevel: "high",
+        paymentStatus: "pending",
+        billingRoute: "owner_billable",
+        pumpingRequired: true,
+        deliveryConfirmed: false,
+        status: "scheduled"
       });
     },
     onError: () => {
-      toast({
-        title: "Error",
-        description: "Failed to record emergency water delivery",
-        variant: "destructive",
-      });
+      toast({ title: "Error", description: "Failed to create emergency water delivery", variant: "destructive" });
     }
   });
 
-  // Resolve alert mutation
-  const resolveAlertMutation = useMutation({
-    mutationFn: ({ alertId, notes }: { alertId: number; notes: string }) =>
-      apiRequest('PUT', `/api/emergency-water/alerts/${alertId}/resolve`, { notes }),
+  // Update delivery mutation
+  const updateDeliveryMutation = useMutation({
+    mutationFn: ({ id, ...data }: { id: number } & Partial<EmergencyWaterDelivery>) => 
+      apiRequest("PUT", `/api/emergency-water-deliveries/${id}`, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/emergency-water/alerts'] });
-      setShowAlertDetails(null);
-      toast({
-        title: "Success",
-        description: "Alert resolved successfully",
-      });
+      toast({ title: "Success", description: "Emergency water delivery updated successfully" });
+      queryClient.invalidateQueries({ queryKey: ["/api/emergency-water-deliveries"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/water-management-analytics"] });
+      setIsEditDialogOpen(false);
+      setSelectedDelivery(null);
     },
     onError: () => {
-      toast({
-        title: "Error",
-        description: "Failed to resolve alert",
-        variant: "destructive",
-      });
+      toast({ title: "Error", description: "Failed to update emergency water delivery", variant: "destructive" });
     }
   });
 
-  // Inject demo data mutation (admin only)
-  const injectDemoMutation = useMutation({
-    mutationFn: () => apiRequest('POST', '/api/emergency-water/inject-demo', { propertyId: 1 }),
+  // Delete delivery mutation
+  const deleteDeliveryMutation = useMutation({
+    mutationFn: (id: number) => apiRequest("DELETE", `/api/emergency-water-deliveries/${id}`),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/emergency-water/deliveries'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/emergency-water/analytics'] });
-      toast({
-        title: "Success",
-        description: "Demo emergency water data injected successfully",
-      });
+      toast({ title: "Success", description: "Emergency water delivery deleted successfully" });
+      queryClient.invalidateQueries({ queryKey: ["/api/emergency-water-deliveries"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/water-management-analytics"] });
     },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to delete emergency water delivery", variant: "destructive" });
+    }
   });
 
-  const handleCreateDelivery = (formData: FormData) => {
-    const data = {
-      propertyId: propertyId || parseInt(formData.get('propertyId') as string),
-      deliveryDate: formData.get('deliveryDate') as string,
-      supplierName: formData.get('supplierName') as string,
-      volumeLiters: parseInt(formData.get('volumeLiters') as string),
-      costPerLiter: parseFloat(formData.get('costPerLiter') as string),
-      totalCost: parseFloat(formData.get('totalCost') as string),
-      currency: formData.get('currency') as string || 'THB',
-      paymentStatus: formData.get('paymentStatus') as string,
-      paymentMethod: formData.get('paymentMethod') as string,
-      emergencyType: formData.get('emergencyType') as string,
-      urgencyLevel: formData.get('urgencyLevel') as string,
-      deliveryNotes: formData.get('deliveryNotes') as string,
-      billingAssignment: formData.get('billingAssignment') as string,
-      deliveryStatus: 'delivered',
-      deliveredBy: formData.get('deliveredBy') as string,
-      deliveryTime: formData.get('deliveryTime') as string,
-      followUpRequired: formData.get('followUpRequired') === 'true',
-      waterSystemRestored: formData.get('waterSystemRestored') === 'true',
-    };
+  // Acknowledge alert mutation
+  const acknowledgeAlertMutation = useMutation({
+    mutationFn: (alertId: number) => 
+      apiRequest("PUT", `/api/water-delivery-alerts/${alertId}/acknowledge`, {}),
+    onSuccess: () => {
+      toast({ title: "Success", description: "Alert acknowledged successfully" });
+      queryClient.invalidateQueries({ queryKey: ["/api/water-delivery-alerts"] });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to acknowledge alert", variant: "destructive" });
+    }
+  });
 
-    createDeliveryMutation.mutate(data);
+  // Review suggestion mutation
+  const reviewSuggestionMutation = useMutation({
+    mutationFn: ({ id, status }: { id: number; status: string }) => 
+      apiRequest("PUT", `/api/water-upgrade-suggestions/${id}/review`, { status }),
+    onSuccess: () => {
+      toast({ title: "Success", description: "Suggestion reviewed successfully" });
+      queryClient.invalidateQueries({ queryKey: ["/api/water-upgrade-suggestions"] });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to review suggestion", variant: "destructive" });
+    }
+  });
+
+  const handleCreateDelivery = () => {
+    if (!newDelivery.propertyId || !newDelivery.emergencyReason) {
+      toast({ 
+        title: "Validation Error", 
+        description: "Please fill in all required fields", 
+        variant: "destructive" 
+      });
+      return;
+    }
+    createDeliveryMutation.mutate(newDelivery);
   };
 
-  const getUrgencyColor = (urgency: string) => {
-    switch (urgency) {
-      case 'critical': return 'bg-red-100 text-red-800 border-red-200';
-      case 'high': return 'bg-orange-100 text-orange-800 border-orange-200';
+  const handleUpdateDelivery = () => {
+    if (!selectedDelivery) return;
+    updateDeliveryMutation.mutate({ id: selectedDelivery.id, ...selectedDelivery });
+  };
+
+  const getSeverityColor = (severity: string) => {
+    switch (severity) {
+      case 'high': return 'bg-red-100 text-red-800 border-red-200';
       case 'medium': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-      case 'low': return 'bg-green-100 text-green-800 border-green-200';
+      case 'low': return 'bg-blue-100 text-blue-800 border-blue-200';
       default: return 'bg-gray-100 text-gray-800 border-gray-200';
     }
   };
 
-  const getPaymentStatusColor = (status: string) => {
+  const getStatusColor = (status: string) => {
     switch (status) {
-      case 'paid': return 'bg-green-100 text-green-800';
-      case 'pending': return 'bg-yellow-100 text-yellow-800';
-      case 'overdue': return 'bg-red-100 text-red-800';
+      case 'completed': return 'bg-green-100 text-green-800';
+      case 'delivered': return 'bg-blue-100 text-blue-800';
+      case 'scheduled': return 'bg-yellow-100 text-yellow-800';
+      case 'cancelled': return 'bg-red-100 text-red-800';
       default: return 'bg-gray-100 text-gray-800';
     }
   };
 
-  const canManageDeliveries = ['admin', 'portfolio-manager', 'staff'].includes(userRole);
-  const canResolveAlerts = ['admin', 'portfolio-manager'].includes(userRole);
-
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="p-2 bg-blue-100 dark:bg-blue-900 rounded-lg">
-            <Truck className="w-6 h-6 text-blue-600 dark:text-blue-400" />
-          </div>
-          <div>
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Emergency Water Truck</h2>
-            <p className="text-gray-600 dark:text-gray-400">Track emergency water deliveries and alerts</p>
-          </div>
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-3xl font-bold flex items-center gap-2">
+            <Truck className="h-8 w-8 text-blue-600" />
+            Emergency Water Delivery
+          </h1>
+          <p className="text-gray-600">AI forecasting and role-based management</p>
         </div>
-        
-        <div className="flex gap-2">
-          {userRole === 'admin' && (
-            <Button
-              onClick={() => injectDemoMutation.mutate()}
-              variant="outline"
-              size="sm"
-              disabled={injectDemoMutation.isPending}
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              Inject Demo
+        <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+          <DialogTrigger asChild>
+            <Button className="flex items-center gap-2">
+              <Plus className="h-4 w-4" />
+              Schedule Delivery
             </Button>
-          )}
-          
-          {canManageDeliveries && (
-            <Button onClick={() => setShowCreateDelivery(true)}>
-              <Plus className="w-4 h-4 mr-2" />
-              Record Delivery
-            </Button>
-          )}
-        </div>
-      </div>
-
-      {/* Statistics Cards */}
-      {analytics && (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Total Deliveries</p>
-                  <p className="text-2xl font-bold text-gray-900 dark:text-white">{analytics.totalDeliveries}</p>
-                </div>
-                <Droplets className="w-8 h-8 text-blue-500" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Total Volume</p>
-                  <p className="text-2xl font-bold text-gray-900 dark:text-white">{analytics.totalVolume.toLocaleString()}L</p>
-                </div>
-                <Truck className="w-8 h-8 text-green-500" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Total Cost</p>
-                  <p className="text-2xl font-bold text-gray-900 dark:text-white">฿{analytics.totalCost.toLocaleString()}</p>
-                </div>
-                <DollarSign className="w-8 h-8 text-orange-500" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Avg Cost/Liter</p>
-                  <p className="text-2xl font-bold text-gray-900 dark:text-white">฿{analytics.averageCostPerLiter.toFixed(2)}</p>
-                </div>
-                <BarChart3 className="w-8 h-8 text-purple-500" />
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
-
-      {/* Navigation Tabs */}
-      <div className="flex space-x-1 bg-gray-100 dark:bg-gray-800 p-1 rounded-lg">
-        {[
-          { id: 'deliveries', label: 'Deliveries', icon: Truck },
-          { id: 'alerts', label: 'Alerts', icon: AlertTriangle },
-          { id: 'analytics', label: 'Analytics', icon: BarChart3 },
-        ].map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id as any)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-              activeTab === tab.id
-                ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
-                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
-            }`}
-          >
-            <tab.icon className="w-4 h-4" />
-            {tab.label}
-          </button>
-        ))}
-      </div>
-
-      {/* Tab Content */}
-      {activeTab === 'deliveries' && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Truck className="w-5 h-5" />
-              Emergency Water Deliveries
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {deliveriesLoading ? (
-              <div className="flex items-center justify-center py-8">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-              </div>
-            ) : deliveries.length === 0 ? (
-              <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-                No emergency water deliveries recorded yet
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {deliveries.map((delivery: EmergencyWaterDelivery) => (
-                  <div
-                    key={delivery.id}
-                    className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 space-y-2"
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Badge variant="outline" className="text-sm">
-                          {delivery.supplierName}
-                        </Badge>
-                        <Badge className={getUrgencyColor(delivery.urgencyLevel)}>
-                          {delivery.urgencyLevel}
-                        </Badge>
-                        <Badge className={getPaymentStatusColor(delivery.paymentStatus)}>
-                          {delivery.paymentStatus}
-                        </Badge>
-                      </div>
-                      <span className="text-sm text-gray-500 dark:text-gray-400">
-                        {format(new Date(delivery.deliveryDate), 'MMM dd, yyyy')}
-                      </span>
-                    </div>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                      <div>
-                        <span className="font-medium text-gray-600 dark:text-gray-400">Volume:</span>
-                        <span className="ml-1">{delivery.volumeLiters.toLocaleString()}L</span>
-                      </div>
-                      <div>
-                        <span className="font-medium text-gray-600 dark:text-gray-400">Cost:</span>
-                        <span className="ml-1">{delivery.currency} {parseFloat(delivery.totalCost).toLocaleString()}</span>
-                      </div>
-                      <div>
-                        <span className="font-medium text-gray-600 dark:text-gray-400">Emergency Type:</span>
-                        <span className="ml-1 capitalize">{delivery.emergencyType}</span>
-                      </div>
-                    </div>
-                    
-                    {delivery.deliveryNotes && (
-                      <div className="text-sm">
-                        <span className="font-medium text-gray-600 dark:text-gray-400">Notes:</span>
-                        <p className="mt-1 text-gray-700 dark:text-gray-300">{delivery.deliveryNotes}</p>
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
-
-      {activeTab === 'alerts' && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <AlertTriangle className="w-5 h-5" />
-              System Alerts
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {alertsLoading ? (
-              <div className="flex items-center justify-center py-8">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-              </div>
-            ) : alerts.length === 0 ? (
-              <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-                No active alerts
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {alerts.map((alert: EmergencyWaterAlert) => (
-                  <div
-                    key={alert.id}
-                    className="border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 rounded-lg p-4"
-                  >
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-2">
-                          <AlertTriangle className="w-5 h-5 text-red-500" />
-                          <Badge className="bg-red-100 text-red-800">
-                            {alert.alertType.replace('_', ' ')}
-                          </Badge>
-                          {alert.isResolved && (
-                            <Badge className="bg-green-100 text-green-800">
-                              <CheckCircle className="w-3 h-3 mr-1" />
-                              Resolved
-                            </Badge>
-                          )}
-                        </div>
-                        
-                        <p className="font-medium text-gray-900 dark:text-white mb-2">
-                          {alert.alertMessage}
-                        </p>
-                        
-                        {alert.aiRecommendations && alert.aiRecommendations.length > 0 && (
-                          <div className="mb-2">
-                            <span className="font-medium text-gray-600 dark:text-gray-400">AI Recommendations:</span>
-                            <ul className="mt-1 list-disc list-inside text-sm text-gray-700 dark:text-gray-300">
-                              {alert.aiRecommendations.map((rec, idx) => (
-                                <li key={idx}>{rec}</li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
-                        
-                        <div className="text-xs text-gray-500 dark:text-gray-400">
-                          Last triggered: {alert.lastTriggered ? format(new Date(alert.lastTriggered), 'MMM dd, yyyy HH:mm') : 'N/A'}
-                        </div>
-                      </div>
-                      
-                      {canResolveAlerts && !alert.isResolved && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => setShowAlertDetails(alert.id)}
-                        >
-                          Resolve
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
-
-      {activeTab === 'analytics' && analytics && (
-        <div className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <BarChart3 className="w-5 h-5" />
-                Emergency Types Breakdown
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {Object.entries(analytics.emergencyTypes).map(([type, data]: [string, any]) => (
-                  <div key={type} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded">
-                    <div>
-                      <span className="font-medium capitalize">{type}</span>
-                      <span className="text-sm text-gray-500 dark:text-gray-400 ml-2">
-                        ({data.count} {data.count === 1 ? 'delivery' : 'deliveries'})
-                      </span>
-                    </div>
-                    <span className="font-medium">฿{data.cost.toLocaleString()}</span>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardHeader>
-              <CardTitle>Monthly Trend</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {Object.entries(analytics.monthlyData).map(([month, data]: [string, any]) => (
-                  <div key={month} className="grid grid-cols-4 gap-4 p-3 bg-gray-50 dark:bg-gray-800 rounded">
-                    <div>
-                      <span className="text-sm text-gray-500 dark:text-gray-400">Month</span>
-                      <p className="font-medium">{month}</p>
-                    </div>
-                    <div>
-                      <span className="text-sm text-gray-500 dark:text-gray-400">Deliveries</span>
-                      <p className="font-medium">{data.deliveries}</p>
-                    </div>
-                    <div>
-                      <span className="text-sm text-gray-500 dark:text-gray-400">Volume</span>
-                      <p className="font-medium">{data.volume.toLocaleString()}L</p>
-                    </div>
-                    <div>
-                      <span className="text-sm text-gray-500 dark:text-gray-400">Cost</span>
-                      <p className="font-medium">฿{data.cost.toLocaleString()}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
-
-      {/* Create Delivery Dialog */}
-      <Dialog open={showCreateDelivery} onOpenChange={setShowCreateDelivery}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Record Emergency Water Delivery</DialogTitle>
-          </DialogHeader>
-          
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              const formData = new FormData(e.target as HTMLFormElement);
-              handleCreateDelivery(formData);
-            }}
-            className="space-y-4"
-          >
-            <div className="grid grid-cols-2 gap-4">
+          </DialogTrigger>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Schedule Emergency Water Delivery</DialogTitle>
+              <DialogDescription>
+                Create a new emergency water delivery request
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
               <div>
-                <Label htmlFor="deliveryDate">Delivery Date</Label>
-                <Input
-                  id="deliveryDate"
-                  name="deliveryDate"
-                  type="date"
-                  required
-                  defaultValue={new Date().toISOString().split('T')[0]}
-                />
-              </div>
-              
-              <div>
-                <Label htmlFor="deliveryTime">Delivery Time</Label>
-                <Input
-                  id="deliveryTime"
-                  name="deliveryTime"
-                  type="time"
-                  required
-                  defaultValue="14:30"
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="supplierName">Supplier Name</Label>
-                <Input
-                  id="supplierName"
-                  name="supplierName"
-                  required
-                  placeholder="e.g., Samui Water Rescue"
-                />
-              </div>
-              
-              <div>
-                <Label htmlFor="deliveredBy">Delivered By</Label>
-                <Input
-                  id="deliveredBy"
-                  name="deliveredBy"
-                  required
-                  placeholder="Driver name and contact"
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-3 gap-4">
-              <div>
-                <Label htmlFor="volumeLiters">Volume (Liters)</Label>
-                <Input
-                  id="volumeLiters"
-                  name="volumeLiters"
-                  type="number"
-                  required
-                  placeholder="1500"
-                />
-              </div>
-              
-              <div>
-                <Label htmlFor="costPerLiter">Cost per Liter</Label>
-                <Input
-                  id="costPerLiter"
-                  name="costPerLiter"
-                  type="number"
-                  step="0.01"
-                  required
-                  placeholder="0.8"
-                />
-              </div>
-              
-              <div>
-                <Label htmlFor="totalCost">Total Cost</Label>
-                <Input
-                  id="totalCost"
-                  name="totalCost"
-                  type="number"
-                  step="0.01"
-                  required
-                  placeholder="1200"
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="emergencyType">Emergency Type</Label>
-                <Select name="emergencyType" required>
+                <Label htmlFor="property">Property *</Label>
+                <Select onValueChange={(value) => setNewDelivery(prev => ({ ...prev, propertyId: parseInt(value) }))}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Select emergency type" />
+                    <SelectValue placeholder="Select property" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="outage">Water Outage</SelectItem>
-                    <SelectItem value="quality">Water Quality Issue</SelectItem>
-                    <SelectItem value="pressure">Low Pressure</SelectItem>
-                    <SelectItem value="maintenance">Maintenance Work</SelectItem>
-                    <SelectItem value="equipment_failure">Equipment Failure</SelectItem>
-                    <SelectItem value="other">Other</SelectItem>
+                    <SelectItem value="1">Villa Samui Breeze</SelectItem>
+                    <SelectItem value="2">Villa Tropical Paradise</SelectItem>
+                    <SelectItem value="3">Villa Aruna</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
-              
+              <div>
+                <Label htmlFor="deliveryDate">Delivery Date *</Label>
+                <Input
+                  type="date"
+                  value={newDelivery.deliveryDate}
+                  onChange={(e) => setNewDelivery(prev => ({ ...prev, deliveryDate: e.target.value }))}
+                />
+              </div>
+              <div>
+                <Label htmlFor="volumeLiters">Volume (Liters) *</Label>
+                <Input
+                  type="number"
+                  value={newDelivery.volumeLiters}
+                  onChange={(e) => setNewDelivery(prev => ({ ...prev, volumeLiters: parseInt(e.target.value) }))}
+                />
+              </div>
+              <div>
+                <Label htmlFor="costTHB">Cost (THB) *</Label>
+                <Input
+                  type="number"
+                  value={newDelivery.costTHB}
+                  onChange={(e) => setNewDelivery(prev => ({ ...prev, costTHB: e.target.value }))}
+                />
+              </div>
+              <div>
+                <Label htmlFor="emergencyReason">Emergency Reason *</Label>
+                <Textarea
+                  placeholder="Describe the emergency situation..."
+                  value={newDelivery.emergencyReason || ""}
+                  onChange={(e) => setNewDelivery(prev => ({ ...prev, emergencyReason: e.target.value }))}
+                />
+              </div>
               <div>
                 <Label htmlFor="urgencyLevel">Urgency Level</Label>
-                <Select name="urgencyLevel" required>
+                <Select value={newDelivery.urgencyLevel} onValueChange={(value) => setNewDelivery(prev => ({ ...prev, urgencyLevel: value }))}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Select urgency" />
+                    <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="low">Low</SelectItem>
@@ -594,153 +350,445 @@ export function EmergencyWaterTruck({ propertyId, userRole }: EmergencyWaterTruc
                 </Select>
               </div>
             </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button onClick={handleCreateDelivery} disabled={createDeliveryMutation.isPending}>
+                {createDeliveryMutation.isPending ? "Creating..." : "Create Delivery"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
 
-            <div className="grid grid-cols-2 gap-4">
+      {/* Analytics Cards */}
+      {analytics && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Total Deliveries</p>
+                  <p className="text-2xl font-bold">{analytics.totalDeliveries}</p>
+                </div>
+                <Truck className="h-8 w-8 text-blue-600" />
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Total Cost</p>
+                  <p className="text-2xl font-bold">{analytics.totalCost.toLocaleString()} THB</p>
+                </div>
+                <DollarSign className="h-8 w-8 text-green-600" />
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Avg Cost/Liter</p>
+                  <p className="text-2xl font-bold">{analytics.averageCostPerLiter.toFixed(2)} THB</p>
+                </div>
+                <Droplets className="h-8 w-8 text-blue-600" />
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Active Alerts</p>
+                  <p className="text-2xl font-bold text-red-600">{analytics.activeAlerts}</p>
+                </div>
+                <AlertTriangle className="h-8 w-8 text-red-600" />
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Main Content Tabs */}
+      <Tabs defaultValue="deliveries" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="deliveries">Delivery History</TabsTrigger>
+          <TabsTrigger value="alerts">AI Alerts</TabsTrigger>
+          <TabsTrigger value="suggestions">Upgrade Suggestions</TabsTrigger>
+          <TabsTrigger value="analytics">Analytics</TabsTrigger>
+        </TabsList>
+
+        {/* Delivery History Tab */}
+        <TabsContent value="deliveries">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Calendar className="h-5 w-5" />
+                Emergency Water Deliveries
+              </CardTitle>
+              <CardDescription>
+                Track and manage all emergency water deliveries
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {isLoadingDeliveries ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                </div>
+              ) : deliveries.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  No emergency water deliveries found
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {deliveries.map((delivery: EmergencyWaterDelivery) => (
+                    <div key={delivery.id} className="border rounded-lg p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <Droplets className="h-5 w-5 text-blue-600" />
+                          <div>
+                            <p className="font-semibold">{delivery.supplierName}</p>
+                            <p className="text-sm text-gray-600">
+                              {format(new Date(delivery.deliveryDate), "MMM dd, yyyy")}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Badge className={getStatusColor(delivery.status)}>
+                            {delivery.status}
+                          </Badge>
+                          <div className="flex items-center gap-1">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setSelectedDelivery(delivery);
+                                setIsEditDialogOpen(true);
+                              }}
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => deleteDeliveryMutation.mutate(delivery.id)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                        <div>
+                          <span className="font-medium">Volume:</span> {delivery.volumeLiters.toLocaleString()} L
+                        </div>
+                        <div>
+                          <span className="font-medium">Cost:</span> {delivery.costTHB} THB
+                        </div>
+                        <div>
+                          <span className="font-medium">Per Liter:</span> {delivery.costPerLiter} THB/L
+                        </div>
+                      </div>
+                      {delivery.emergencyReason && (
+                        <div className="bg-gray-50 p-3 rounded text-sm">
+                          <span className="font-medium">Emergency Reason:</span> {delivery.emergencyReason}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* AI Alerts Tab */}
+        <TabsContent value="alerts">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <AlertTriangle className="h-5 w-5" />
+                AI Water Management Alerts
+              </CardTitle>
+              <CardDescription>
+                Intelligent alerts for frequent deliveries and infrastructure recommendations
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {isLoadingAlerts ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                </div>
+              ) : alerts.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  No active alerts found
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {alerts.map((alert: WaterDeliveryAlert) => (
+                    <div key={alert.id} className={`border rounded-lg p-4 ${getSeverityColor(alert.severity)}`}>
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                          <AlertTriangle className="h-5 w-5" />
+                          <h3 className="font-semibold">{alert.alertTitle}</h3>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline">{alert.severity}</Badge>
+                          {!alert.isAcknowledged && (
+                            <Button
+                              size="sm"
+                              onClick={() => acknowledgeAlertMutation.mutate(alert.id)}
+                            >
+                              Acknowledge
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                      <p className="text-sm mb-3">{alert.alertMessage}</p>
+                      <div className="bg-white/50 p-3 rounded text-sm">
+                        <p className="font-medium">AI Recommendation:</p>
+                        <p>{alert.recommendationAI}</p>
+                      </div>
+                      <div className="flex items-center justify-between mt-3 text-xs text-gray-600">
+                        <span>
+                          {alert.triggerCount} deliveries in {alert.triggerPeriodDays} days
+                        </span>
+                        <span>Total cost: {alert.totalCost} THB</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Upgrade Suggestions Tab */}
+        <TabsContent value="suggestions">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Zap className="h-5 w-5" />
+                Water Infrastructure Upgrade Suggestions
+              </CardTitle>
+              <CardDescription>
+                AI-generated recommendations for long-term water management solutions
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {isLoadingSuggestions ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                </div>
+              ) : suggestions.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  No upgrade suggestions available
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {suggestions.map((suggestion: WaterUpgradeSuggestion) => (
+                    <div key={suggestion.id} className="border rounded-lg p-6 space-y-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h3 className="font-semibold text-lg">{suggestion.upgradeType.replace('_', ' ').toUpperCase()}</h3>
+                          <Badge className={`${suggestion.priority === 'high' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800'}`}>
+                            {suggestion.priority} priority
+                          </Badge>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline">{suggestion.status}</Badge>
+                          {suggestion.status === 'new' && (
+                            <div className="flex gap-1">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => reviewSuggestionMutation.mutate({ id: suggestion.id, status: 'approved' })}
+                              >
+                                Approve
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => reviewSuggestionMutation.mutate({ id: suggestion.id, status: 'rejected' })}
+                              >
+                                Reject
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <h4 className="font-medium mb-2">Current Issue</h4>
+                          <p className="text-sm text-gray-600">{suggestion.currentIssue}</p>
+                        </div>
+                        <div>
+                          <h4 className="font-medium mb-2">Suggested Solution</h4>
+                          <p className="text-sm text-gray-600">{suggestion.suggestedSolution}</p>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-gray-50 p-4 rounded">
+                        <div className="text-center">
+                          <p className="text-2xl font-bold text-green-600">
+                            {parseInt(suggestion.estimatedCost).toLocaleString()} THB
+                          </p>
+                          <p className="text-sm text-gray-600">Estimated Cost</p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-2xl font-bold text-blue-600">
+                            {parseInt(suggestion.estimatedSavingsPerYear).toLocaleString()} THB
+                          </p>
+                          <p className="text-sm text-gray-600">Annual Savings</p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-2xl font-bold text-purple-600">
+                            {suggestion.paybackPeriodMonths} months
+                          </p>
+                          <p className="text-sm text-gray-600">Payback Period</p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between text-sm text-gray-600">
+                        <span>Based on {suggestion.basedOnDeliveries} deliveries</span>
+                        <span>Confidence: {(parseFloat(suggestion.confidenceScore) * 100).toFixed(0)}%</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Analytics Tab */}
+        <TabsContent value="analytics">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Delivery Types Chart */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <BarChart3 className="h-5 w-5" />
+                  Deliveries by Type
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {analytics?.deliveriesByType && analytics.deliveriesByType.length > 0 ? (
+                  <div className="space-y-3">
+                    {analytics.deliveriesByType.map((item, index) => (
+                      <div key={index} className="flex items-center justify-between">
+                        <span className="capitalize">{item.type}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm text-gray-600">{item.count} deliveries</span>
+                          <span className="font-semibold">{item.totalCost.toLocaleString()} THB</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-gray-500 text-center py-4">No data available</p>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Monthly Trend */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <TrendingUp className="h-5 w-5" />
+                  Monthly Trend
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {analytics?.monthlyTrend && analytics.monthlyTrend.length > 0 ? (
+                  <div className="space-y-3">
+                    {analytics.monthlyTrend.slice(-6).map((item, index) => (
+                      <div key={index} className="flex items-center justify-between">
+                        <span>{item.month}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm text-gray-600">{item.deliveries} deliveries</span>
+                          <span className="font-semibold">{item.cost.toLocaleString()} THB</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-gray-500 text-center py-4">No trend data available</p>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+      </Tabs>
+
+      {/* Edit Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit Water Delivery</DialogTitle>
+            <DialogDescription>
+              Update delivery information
+            </DialogDescription>
+          </DialogHeader>
+          {selectedDelivery && (
+            <div className="space-y-4">
               <div>
-                <Label htmlFor="paymentStatus">Payment Status</Label>
-                <Select name="paymentStatus" required>
+                <Label htmlFor="status">Status</Label>
+                <Select
+                  value={selectedDelivery.status}
+                  onValueChange={(value) => setSelectedDelivery(prev => prev ? ({ ...prev, status: value }) : null)}
+                >
                   <SelectTrigger>
-                    <SelectValue placeholder="Select payment status" />
+                    <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="paid">Paid</SelectItem>
+                    <SelectItem value="scheduled">Scheduled</SelectItem>
+                    <SelectItem value="delivered">Delivered</SelectItem>
+                    <SelectItem value="completed">Completed</SelectItem>
+                    <SelectItem value="cancelled">Cancelled</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="paymentStatus">Payment Status</Label>
+                <Select
+                  value={selectedDelivery.paymentStatus}
+                  onValueChange={(value) => setSelectedDelivery(prev => prev ? ({ ...prev, paymentStatus: value }) : null)}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
                     <SelectItem value="pending">Pending</SelectItem>
+                    <SelectItem value="paid">Paid</SelectItem>
                     <SelectItem value="overdue">Overdue</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
-              
               <div>
-                <Label htmlFor="paymentMethod">Payment Method</Label>
-                <Select name="paymentMethod" required>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select payment method" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="cash">Cash</SelectItem>
-                    <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
-                    <SelectItem value="credit_card">Credit Card</SelectItem>
-                    <SelectItem value="company_account">Company Account</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div>
-              <Label htmlFor="billingAssignment">Billing Assignment</Label>
-              <Select name="billingAssignment" required>
-                <SelectTrigger>
-                  <SelectValue placeholder="Who should be billed?" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="owner">Property Owner</SelectItem>
-                  <SelectItem value="management">Management Company</SelectItem>
-                  <SelectItem value="guest">Guest (if applicable)</SelectItem>
-                  <SelectItem value="insurance">Insurance Claim</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <Label htmlFor="deliveryNotes">Delivery Notes</Label>
-              <Textarea
-                id="deliveryNotes"
-                name="deliveryNotes"
-                placeholder="Additional notes about the emergency delivery..."
-                rows={3}
-              />
-            </div>
-
-            <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-2">
-                <input
-                  type="checkbox"
-                  id="followUpRequired"
-                  name="followUpRequired"
-                  value="true"
-                  className="rounded border-gray-300"
+                <Label htmlFor="notes">Notes</Label>
+                <Textarea
+                  placeholder="Add delivery notes..."
+                  value={selectedDelivery.notes || ""}
+                  onChange={(e) => setSelectedDelivery(prev => prev ? ({ ...prev, notes: e.target.value }) : null)}
                 />
-                <Label htmlFor="followUpRequired" className="text-sm">Follow-up required</Label>
-              </div>
-              
-              <div className="flex items-center space-x-2">
-                <input
-                  type="checkbox"
-                  id="waterSystemRestored"
-                  name="waterSystemRestored"
-                  value="true"
-                  className="rounded border-gray-300"
-                />
-                <Label htmlFor="waterSystemRestored" className="text-sm">Water system restored</Label>
               </div>
             </div>
-
-            <div className="flex justify-end space-x-2 pt-4">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setShowCreateDelivery(false)}
-              >
-                Cancel
-              </Button>
-              <Button
-                type="submit"
-                disabled={createDeliveryMutation.isPending}
-              >
-                {createDeliveryMutation.isPending ? 'Recording...' : 'Record Delivery'}
-              </Button>
-            </div>
-          </form>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleUpdateDelivery} disabled={updateDeliveryMutation.isPending}>
+              {updateDeliveryMutation.isPending ? "Updating..." : "Update Delivery"}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      {/* Alert Resolution Dialog */}
-      {showAlertDetails && (
-        <Dialog open={true} onOpenChange={() => setShowAlertDetails(null)}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Resolve Alert</DialogTitle>
-            </DialogHeader>
-            
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                const formData = new FormData(e.target as HTMLFormElement);
-                const notes = formData.get('notes') as string;
-                resolveAlertMutation.mutate({ alertId: showAlertDetails, notes });
-              }}
-              className="space-y-4"
-            >
-              <div>
-                <Label htmlFor="notes">Resolution Notes</Label>
-                <Textarea
-                  id="notes"
-                  name="notes"
-                  placeholder="Describe how this alert was resolved..."
-                  required
-                  rows={4}
-                />
-              </div>
-
-              <div className="flex justify-end space-x-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setShowAlertDetails(null)}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  type="submit"
-                  disabled={resolveAlertMutation.isPending}
-                >
-                  {resolveAlertMutation.isPending ? 'Resolving...' : 'Resolve Alert'}
-                </Button>
-              </div>
-            </form>
-          </DialogContent>
-        </Dialog>
-      )}
     </div>
   );
 }
