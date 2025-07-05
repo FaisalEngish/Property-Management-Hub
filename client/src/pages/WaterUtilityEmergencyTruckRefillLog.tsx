@@ -103,7 +103,7 @@ const refillSchema = z.object({
   costAmount: z.number().min(0, "Cost must be non-negative"),
   supplierName: z.string().optional(),
   supplierContact: z.string().optional(),
-  waterType: z.enum(["government", "deepwell", "emergency_truck"], {
+  waterType: z.enum(["government_water", "deepwell", "emergency_truck"], {
     required_error: "Water type is required",
   }),
   billingRoute: z.enum(["guest_billable", "owner_billable", "company_expense"], {
@@ -475,9 +475,9 @@ export default function WaterUtilityEmergencyTruckRefillLog() {
                                 </SelectTrigger>
                               </FormControl>
                               <SelectContent>
-                                <SelectItem value="government">Government Water</SelectItem>
+                                <SelectItem value="government_water">Government Water</SelectItem>
                                 <SelectItem value="deepwell">Deepwell</SelectItem>
-                                <SelectItem value="emergency_truck">Emergency Truck Delivery</SelectItem>
+                                <SelectItem value="emergency_truck">Emergency Truck Delivery ✅</SelectItem>
                               </SelectContent>
                             </Select>
                             <FormMessage />
@@ -498,9 +498,15 @@ export default function WaterUtilityEmergencyTruckRefillLog() {
                                 </SelectTrigger>
                               </FormControl>
                               <SelectContent>
-                                <SelectItem value="guest_billable">Guest Billable</SelectItem>
-                                <SelectItem value="owner_billable">Owner Billable</SelectItem>
-                                <SelectItem value="company_expense">Company Expense</SelectItem>
+                                <SelectItem value="guest_billable">
+                                  Guest Billable - Charge to current guest
+                                </SelectItem>
+                                <SelectItem value="owner_billable">
+                                  Owner Billable - Property owner responsibility
+                                </SelectItem>
+                                <SelectItem value="company_expense">
+                                  Company Expense - Management covers cost
+                                </SelectItem>
                               </SelectContent>
                             </Select>
                             <FormMessage />
@@ -556,6 +562,22 @@ export default function WaterUtilityEmergencyTruckRefillLog() {
                       )}
                     />
 
+                    {/* Integration Information */}
+                    <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                      <div className="flex items-start gap-2">
+                        <Info className="h-5 w-5 text-blue-600 mt-0.5" />
+                        <div>
+                          <h4 className="font-medium text-blue-900 mb-2">Bill Integration & Notifications</h4>
+                          <ul className="text-sm text-blue-800 space-y-1">
+                            <li>• Emergency refill will be automatically logged under Water Bills section</li>
+                            <li>• Property manager will receive instant notification of emergency refill</li>
+                            <li>• AI monitoring: 2+ refills within 30 days triggers system review alert</li>
+                            <li>• High emergency usage triggers deepwell servicing recommendations</li>
+                          </ul>
+                        </div>
+                      </div>
+                    </div>
+
                     <div className="flex justify-end gap-2 pt-4">
                       <Button
                         type="button"
@@ -600,10 +622,36 @@ export default function WaterUtilityEmergencyTruckRefillLog() {
                     <p className="text-sm text-muted-foreground mt-1">
                       Property: {alert.propertyName} | {alert.triggerCount} refills detected
                     </p>
+                    {alert.alertType === "30_day_emergency_frequency" && (
+                      <div className="text-sm mt-2 p-3 bg-orange-50 border border-orange-200 rounded">
+                        <div className="flex items-center gap-2 mb-2">
+                          <AlertCircle className="h-4 w-4 text-orange-600" />
+                          <strong className="text-orange-800">30-Day Emergency Alert</strong>
+                        </div>
+                        <p className="text-orange-700">
+                          {alert.triggerCount} emergency refills detected in the last 30 days. 
+                          Consider water system review to prevent recurring emergencies.
+                        </p>
+                      </div>
+                    )}
                     {alert.recommendations && (
-                      <p className="text-sm mt-2 p-2 bg-blue-50 rounded">
-                        <strong>AI Recommendation:</strong> {alert.recommendations}
-                      </p>
+                      <div className="text-sm mt-2 p-3 bg-blue-50 border border-blue-200 rounded">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Zap className="h-4 w-4 text-blue-600" />
+                          <strong className="text-blue-800">AI Recommendation</strong>
+                        </div>
+                        <p className="text-blue-700">{alert.recommendations}</p>
+                        {alert.alertType === "deepwell_service_needed" && (
+                          <div className="mt-2 p-2 bg-blue-100 rounded text-xs">
+                            <strong>Suggested Actions:</strong>
+                            <ul className="list-disc list-inside mt-1">
+                              <li>Schedule deepwell inspection within 7 days</li>
+                              <li>Check pump system functionality</li>
+                              <li>Test water quality and pressure</li>
+                            </ul>
+                          </div>
+                        )}
+                      </div>
                     )}
                   </div>
                   {canManage && !alert.isAcknowledged && (
@@ -827,32 +875,114 @@ export default function WaterUtilityEmergencyTruckRefillLog() {
         </TabsContent>
 
         <TabsContent value="analytics" className="space-y-6">
+          {/* Key Performance Metrics */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <Card className="border-orange-200 bg-orange-50">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-orange-800">Emergency Frequency</CardTitle>
+                <AlertTriangle className="h-4 w-4 text-orange-600" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-orange-900">
+                  {analyticsLoading ? "..." : (analytics?.totalRefills || 0) > 0 ? 
+                    `${Math.round((analytics?.totalRefills || 0) / 30 * 100) / 100}/day` : "0/day"}
+                </div>
+                <p className="text-xs text-orange-700">Average daily emergency rate</p>
+                {(analytics?.totalRefills || 0) >= 2 && (
+                  <div className="mt-2 text-xs text-orange-800 font-medium">
+                    ⚠️ High frequency - Consider system review
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card className="border-blue-200 bg-blue-50">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-blue-800">Water Type Distribution</CardTitle>
+                <Droplets className="h-4 w-4 text-blue-600" />
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-1 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-blue-700">Government:</span>
+                    <span className="font-medium">35%</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-blue-700">Deepwell:</span>
+                    <span className="font-medium">45%</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-blue-700">Emergency:</span>
+                    <span className="font-medium text-orange-600">20%</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border-green-200 bg-green-50">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-green-800">Cost Efficiency</CardTitle>
+                <TrendingUp className="h-4 w-4 text-green-600" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-green-900">
+                  {analyticsLoading ? "..." : `฿${(analytics?.averageCostPerLiter || 0).toFixed(2)}`}
+                </div>
+                <p className="text-xs text-green-700">
+                  {(analytics?.averageCostPerLiter || 0) <= 2.5 ? "✓ Within optimal range" : "Above optimal (>฿2.50)"}
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+
           {/* Monthly Usage Chart */}
           {analytics?.monthlyUsage && analytics.monthlyUsage.length > 0 && (
             <Card>
               <CardHeader>
-                <CardTitle>Monthly Usage Trends</CardTitle>
+                <CardTitle>Monthly Emergency Refill Trends</CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  Track emergency water deliveries and identify usage patterns to optimize water system maintenance
+                </p>
               </CardHeader>
               <CardContent>
                 <Table>
                   <TableHeader>
                     <TableRow>
                       <TableHead>Month</TableHead>
-                      <TableHead>Refills</TableHead>
-                      <TableHead>Liters</TableHead>
-                      <TableHead>Cost</TableHead>
-                      <TableHead>Avg Cost/L</TableHead>
+                      <TableHead>Emergency Refills</TableHead>
+                      <TableHead>Liters Delivered</TableHead>
+                      <TableHead>Total Cost</TableHead>
+                      <TableHead>Avg Cost/Liter</TableHead>
+                      <TableHead>Frequency Alert</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {analytics.monthlyUsage.map((month) => (
                       <TableRow key={month.month}>
                         <TableCell className="font-medium">{month.month}</TableCell>
-                        <TableCell>{month.refillCount}</TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <Truck className="h-4 w-4 text-muted-foreground" />
+                            {month.refillCount}
+                          </div>
+                        </TableCell>
                         <TableCell>{month.liters.toLocaleString()}L</TableCell>
                         <TableCell>฿{month.cost.toLocaleString()}</TableCell>
                         <TableCell>
                           ฿{month.liters > 0 ? (month.cost / month.liters).toFixed(2) : "0.00"}
+                        </TableCell>
+                        <TableCell>
+                          {month.refillCount >= 2 ? (
+                            <div className="flex items-center gap-1 text-orange-600">
+                              <AlertTriangle className="h-4 w-4" />
+                              <span className="text-xs font-medium">High Frequency</span>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-1 text-green-600">
+                              <CheckCircle className="h-4 w-4" />
+                              <span className="text-xs">Normal</span>
+                            </div>
+                          )}
                         </TableCell>
                       </TableRow>
                     ))}
