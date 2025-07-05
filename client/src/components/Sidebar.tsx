@@ -55,7 +55,8 @@ import {
   PanelLeftOpen,
   Calculator,
   Droplets,
-  Target
+  Target,
+  Filter
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
@@ -573,8 +574,9 @@ export default function Sidebar({ className }: SidebarProps) {
       )}
 
       {/* Navigation Menu with Collapsible Sections */}
-      <ScrollArea className="flex-1 min-h-0 px-2 overflow-y-auto" style={{ maxHeight: 'calc(100vh - 250px)' }}>
-        <div className="py-4 space-y-2">
+      <div className="flex-1 overflow-hidden px-2">
+        <ScrollArea className="h-full overflow-y-auto">
+          <div className="py-4 space-y-2" style={{ minHeight: 'calc(100vh - 200px)' }}>
           {menuSections.map((section, sectionIndex) => (
             <Collapsible
               key={sectionIndex}
@@ -607,8 +609,8 @@ export default function Sidebar({ className }: SidebarProps) {
                       <Button
                         variant={isActive ? "secondary" : "ghost"}
                         className={cn(
-                          "w-full justify-start text-left h-auto py-2 px-2",
-                          isActive && "bg-primary/10 text-primary"
+                          "w-full justify-start text-left h-auto py-2 px-2 hover:bg-muted/80 transition-colors",
+                          isActive && "bg-primary/15 text-primary border-l-2 border-primary hover:bg-primary/20"
                         )}
                       >
                         <Icon className="h-4 w-4 mr-3 flex-shrink-0" />
@@ -634,8 +636,9 @@ export default function Sidebar({ className }: SidebarProps) {
               </CollapsibleContent>
             </Collapsible>
           ))}
-        </div>
-      </ScrollArea>
+          </div>
+        </ScrollArea>
+      </div>
 
       {/* Footer */}
       <div className="p-4 border-t">
@@ -662,7 +665,7 @@ export default function Sidebar({ className }: SidebarProps) {
               <Menu className="h-4 w-4" />
             </Button>
           </SheetTrigger>
-          <SheetContent side="left" className="w-80 p-0">
+          <SheetContent side="left" className="w-80 p-0 flex flex-col">
             <SheetHeader className="p-4 border-b">
               <SheetTitle className="flex items-center gap-2">
                 <RoleIcon className="h-5 w-5" />
