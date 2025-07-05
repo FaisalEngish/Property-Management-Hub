@@ -9,6 +9,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Plus } from "lucide-react";
+import GlobalFilters, { useGlobalFilters, applyGlobalFilters } from "@/components/GlobalFilters";
 
 // [MERGED] This module has been consolidated into MaintenanceTaskSystem.tsx
 // Basic task functionality is now available in the comprehensive task management system
@@ -16,6 +17,7 @@ export default function Tasks() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
+  const [globalFilters, setGlobalFilters] = useGlobalFilters("tasks-filters");
 
   const { data: tasks = [], isLoading } = useQuery({
     queryKey: ["/api/tasks"],
@@ -25,7 +27,13 @@ export default function Tasks() {
     queryKey: ["/api/properties"],
   });
 
-  const filteredTasks = tasks.filter((task: any) => {
+  // Apply global filters first, then local filters
+  const globalFilteredTasks = applyGlobalFilters(tasks, globalFilters, {
+    propertyIdField: "propertyId",
+    searchFields: ["title", "description", "type"],
+  });
+
+  const filteredTasks = globalFilteredTasks.filter((task: any) => {
     const statusMatch = statusFilter === "all" || task.status === statusFilter;
     const typeMatch = typeFilter === "all" || task.type === typeFilter;
     return statusMatch && typeMatch;
@@ -47,7 +55,23 @@ export default function Tasks() {
         />
         
         <main className="flex-1 overflow-auto p-6">
-          {/* Filters */}
+          {/* Global Filters */}
+          <GlobalFilters
+            filters={globalFilters}
+            onFiltersChange={setGlobalFilters}
+            placeholder="Search tasks..."
+            showFilters={{
+              property: true,
+              owner: true,
+              portfolioManager: true,
+              area: true,
+              bedrooms: false,
+              status: false,
+              search: true,
+            }}
+          />
+          
+          {/* Local Filters */}
           <Card className="mb-6">
             <CardContent className="p-4">
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4">

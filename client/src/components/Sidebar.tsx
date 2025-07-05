@@ -108,6 +108,7 @@ const getRoleBasedMenus = (role: string): MenuSection[] => {
         title: "Finances",
         items: [
           { label: "Finances", icon: DollarSign, href: "/finances" },
+          { label: "Filtered Financial Dashboard", icon: BarChart3, href: "/filtered-financial-dashboard", badge: "Filtered" },
           { label: "Enhanced Financial Controls", icon: Shield, href: "/enhanced-financial-controls" },
           { label: "Booking Revenue Transparency", icon: BarChart3, href: "/booking-revenue-transparency", badge: "New" },
           { label: "OTA Revenue & Net Payout", icon: BarChart3, href: "/ota-revenue-net-payout-calculation", badge: "New" },
@@ -159,6 +160,7 @@ const getRoleBasedMenus = (role: string): MenuSection[] => {
       {
         title: "Tools / Modules",
         items: [
+          { label: "Filtered Property Dashboard", icon: Building, href: "/filtered-property-dashboard", badge: "Filtered" },
           { label: "Document Center", icon: FolderOpen, href: "/document-center" },
           { label: "Property Access", icon: Key, href: "/property-access" },
           { label: "Welcome Packs", icon: Package, href: "/welcome-packs" },

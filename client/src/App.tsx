@@ -132,6 +132,8 @@ import EnhancedAdminDashboard from "@/pages/EnhancedAdminDashboard";
 import FixedGuestCheckInTracker from "@/pages/FixedGuestCheckInTracker";
 import UserAccessManager from "@/pages/UserAccessManager";
 import PropertyVisibilityControl from "@/pages/PropertyVisibilityControl";
+import FilteredFinancialDashboard from "@/pages/FilteredFinancialDashboard";
+import FilteredPropertyDashboard from "@/pages/FilteredPropertyDashboard";
 
 function Router() {
   const [location, setLocation] = useLocation();
@@ -221,6 +223,8 @@ function Router() {
         <Route path="/guest-checkin-checkout-tracker" component={GuestCheckInCheckOutTracker} />
         <Route path="/fixed-guest-checkin-tracker" component={FixedGuestCheckInTracker} />
         <Route path="/enhanced-admin-dashboard" component={EnhancedAdminDashboard} />
+        <Route path="/filtered-financial-dashboard" component={FilteredFinancialDashboard} />
+        <Route path="/filtered-property-dashboard" component={FilteredPropertyDashboard} />
         <Route path="/auto-scheduling-recurring-task-generator" component={AutoSchedulingRecurringTaskGenerator} />
         <Route path="/maintenance-log-warranty-tracker" component={MaintenanceLogWarrantyTracker} />
         <Route path="/smart-inventory-dashboard" component={SmartInventoryDashboard} />
