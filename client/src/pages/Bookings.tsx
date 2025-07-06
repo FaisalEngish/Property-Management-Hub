@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import Sidebar from "@/components/Sidebar";
+
 import TopBar from "@/components/TopBar";
 import BookingCalendar from "@/components/BookingCalendar";
 import CreateBookingDialog from "@/components/CreateBookingDialog";
@@ -16,7 +16,7 @@ export default function Bookings() {
 
   return (
     <div className="min-h-screen flex bg-background">
-      <Sidebar />
+
       
       <div className="flex-1 flex flex-col lg:ml-0">
         <TopBar 

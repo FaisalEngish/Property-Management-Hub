@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import Sidebar from "@/components/Sidebar";
+
 import TopBar from "@/components/TopBar";
 import TaskTable from "@/components/TaskTable";
 import CreateTaskDialog from "@/components/CreateTaskDialog";
@@ -41,7 +41,7 @@ export default function Tasks() {
 
   return (
     <div className="min-h-screen flex bg-background">
-      <Sidebar />
+
       
       <div className="flex-1 flex flex-col lg:ml-0">
         <TopBar 

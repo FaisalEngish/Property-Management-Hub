@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import Sidebar from "@/components/Sidebar";
+
 import TopBar from "@/components/TopBar";
 import PropertyCard from "@/components/PropertyCard";
 import CreatePropertyDialog from "@/components/CreatePropertyDialog";
@@ -46,7 +46,7 @@ export default function Properties() {
 
   return (
     <div className="min-h-screen flex bg-background">
-      <Sidebar />
+
       
       <div className="flex-1 flex flex-col lg:ml-0">
         <TopBar 

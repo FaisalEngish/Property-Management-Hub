@@ -18,7 +18,7 @@ import {
   Settings
 } from "lucide-react";
 import GlobalFilters, { useGlobalFilters, applyGlobalFilters } from "@/components/GlobalFilters";
-import Sidebar from "@/components/Sidebar";
+
 import TopBar from "@/components/TopBar";
 
 export default function FilteredPropertyDashboard() {
@@ -78,7 +78,7 @@ export default function FilteredPropertyDashboard() {
   if (loadingProperties) {
     return (
       <div className="min-h-screen flex bg-background">
-        <Sidebar />
+
         <div className="flex-1 flex flex-col lg:ml-0">
           <TopBar title="Property Dashboard" />
           <main className="flex-1 overflow-auto p-6">
@@ -93,7 +93,7 @@ export default function FilteredPropertyDashboard() {
 
   return (
     <div className="min-h-screen flex bg-background">
-      <Sidebar />
+
       
       <div className="flex-1 flex flex-col lg:ml-0">
         <TopBar title="Property Dashboard" />

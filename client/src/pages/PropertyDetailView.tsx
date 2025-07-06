@@ -23,7 +23,7 @@ import {
   Wrench,
   Home
 } from "lucide-react";
-import Sidebar from "@/components/Sidebar";
+
 import TopBar from "@/components/TopBar";
 
 export default function PropertyDetailView() {
@@ -131,7 +131,7 @@ export default function PropertyDetailView() {
 
   return (
     <div className="min-h-screen flex bg-background">
-      <Sidebar />
+
       <div className="flex-1 flex flex-col overflow-hidden">
         <TopBar />
         <main className="flex-1 overflow-y-auto p-6">

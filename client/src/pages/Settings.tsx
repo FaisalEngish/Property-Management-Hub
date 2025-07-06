@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
-import Sidebar from "@/components/Sidebar";
+
 import TopBar from "@/components/TopBar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -58,7 +58,7 @@ export default function Settings() {
   if ((user as any)?.role !== 'admin') {
     return (
       <div className="min-h-screen flex bg-background">
-        <Sidebar />
+
         <div className="flex-1 flex flex-col">
           <TopBar 
             title="Access Denied" 
@@ -214,7 +214,7 @@ export default function Settings() {
 
   return (
     <div className="min-h-screen flex bg-background">
-      <Sidebar />
+
       
       <div className="flex-1 flex flex-col">
         <TopBar 
