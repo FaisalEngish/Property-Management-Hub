@@ -318,6 +318,19 @@ export default function EnhancedGuestDashboard() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
+      {/* Emergency Logout Button - Fixed at top */}
+      <div className="fixed top-4 right-4 z-50">
+        <Button 
+          onClick={handleLogout}
+          variant="destructive"
+          size="sm"
+          className="bg-red-600 hover:bg-red-700 text-white font-medium px-4 py-2 shadow-lg"
+        >
+          <LogOut className="h-4 w-4 mr-2" />
+          Emergency Logout
+        </Button>
+      </div>
+
       <UnifiedTopBar 
         title={`${guestBooking.property?.name} - Guest Portal`}
         showBackButton={false}
@@ -329,6 +342,16 @@ export default function EnhancedGuestDashboard() {
             <Badge variant="secondary">
               {formatStayDuration()}
             </Badge>
+            {/* Working Logout Button in TopBar */}
+            <Button 
+              onClick={handleLogout}
+              variant="outline"
+              size="sm"
+              className="ml-2"
+            >
+              <LogOut className="h-4 w-4 mr-1" />
+              Logout
+            </Button>
           </div>
         }
       />
