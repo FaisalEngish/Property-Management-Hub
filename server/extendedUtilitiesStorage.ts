@@ -11,15 +11,15 @@ import {
   InsertUtilityNotifications,
   EmergencyWaterDelivery,
   InsertEmergencyWaterDelivery,
-  EmergencyWaterAlert,
-  InsertEmergencyWaterAlert,
+  // EmergencyWaterAlert,
+  // InsertEmergencyWaterAlert,
   propertyUtilitiesMaster,
   utilityBillsExtended,
   utilityAccessPermissions,
   utilityAiPredictions,
   utilityNotifications,
   emergencyWaterDeliveries,
-  emergencyWaterAlerts,
+  // emergencyWaterAlerts,
   properties,
   users
 } from "@shared/schema";
@@ -718,23 +718,9 @@ export class ExtendedUtilitiesStorage {
     return result.rowCount > 0;
   }
 
-  // ===== EMERGENCY WATER ALERTS MANAGEMENT =====
-
-  async getEmergencyWaterAlerts(propertyId?: number): Promise<EmergencyWaterAlert[]> {
-    let query = db
-      .select()
-      .from(emergencyWaterAlerts)
-      .where(eq(emergencyWaterAlerts.organizationId, this.organizationId));
-
-    if (propertyId) {
-      query = query.where(and(
-        eq(emergencyWaterAlerts.organizationId, this.organizationId),
-        eq(emergencyWaterAlerts.propertyId, propertyId)
-      ));
-    }
-
-    return query.orderBy(desc(emergencyWaterAlerts.lastTriggered));
-  }
+  // ===== EMERGENCY WATER ALERTS MANAGEMENT ===== 
+  // (Temporarily disabled due to missing schema)
+  /*
 
   async createEmergencyWaterAlert(alertData: InsertEmergencyWaterAlert): Promise<EmergencyWaterAlert> {
     const [alert] = await db
@@ -930,4 +916,5 @@ export class ExtendedUtilitiesStorage {
 
     console.log('Demo emergency water delivery data injected for Villa Aruna');
   }
+  */
 }

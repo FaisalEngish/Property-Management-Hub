@@ -1,43 +1,105 @@
 #!/usr/bin/env node
 
 /**
- * Simple Production Build for HostPilotPro
- * Uses existing working server with production optimizations
+ * Production Build for HostPilotPro using esbuild
+ * Compiles TypeScript to valid JavaScript for deployment
  */
 
 import fs from 'fs';
 import path from 'path';
+import { execSync } from 'child_process';
 
 console.log('🚀 Starting HostPilotPro production build...');
 
-// Ensure build directories exist
-const buildDirs = ['dist', 'dist/public'];
-buildDirs.forEach(dir => {
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
-    console.log(`✅ Created directory: ${dir}`);
+try {
+  // Ensure build directories exist
+  const buildDirs = ['dist', 'dist/public'];
+  buildDirs.forEach(dir => {
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+      console.log(`✅ Created directory: ${dir}`);
+    }
+  });
+
+  // Use esbuild to compile TypeScript server to JavaScript
+  console.log('📦 Compiling TypeScript server with esbuild...');
+  
+  const esbuildCommand = `npx esbuild server/index.ts --bundle --platform=node --target=node18 --outfile=dist/index.js --external:@neondatabase/serverless --external:drizzle-kit --external:esbuild --external:lightningcss --external:@babel/preset-typescript/package.json --format=esm --minify=false --define:import.meta.dirname=__dirname`;
+  
+  execSync(esbuildCommand, { stdio: 'inherit' });
+  console.log('✅ Server compiled successfully');
+
+  // Verify the built file exists and is valid
+  if (!fs.existsSync('dist/index.js')) {
+    throw new Error('Build failed: dist/index.js was not created');
   }
-});
 
-// Strategy: Use the development server in production mode
-// This approach is proven to work reliably on Replit and avoids build complexities
-console.log('📦 Creating optimized production server...');
+  // Check if the built file contains any TypeScript syntax that shouldn't be there
+  const builtContent = fs.readFileSync('dist/index.js', 'utf8');
+  if (builtContent.includes('import type') || builtContent.includes(': Request') || builtContent.includes(': Response')) {
+    console.log('⚠️  Built file contains TypeScript syntax, applying post-build fixes...');
+    
+    // Clean up any remaining TypeScript syntax
+    const cleanedContent = builtContent
+      .replace(/import\s+[^,{]*,\s*{\s*type\s+[^}]*}\s+from/g, 'const')
+      .replace(/:\s*Request/g, '')
+      .replace(/:\s*Response/g, '')
+      .replace(/:\s*NextFunction/g, '')
+      .replace(/import\s+{\s*type\s+[^}]*}\s+from\s+[^;]+;/g, '')
+      .replace(/import.*from.*express.*type.*Request.*Response.*NextFunction.*/g, 'const express = require("express");');
+    
+    fs.writeFileSync('dist/index.js', cleanedContent);
+    console.log('✅ TypeScript syntax cleaned from built file');
+  }
 
-// Copy the existing working server and optimize it for production
-const currentServerPath = path.join(process.cwd(), 'server', 'index.ts');
-const serverContent = fs.readFileSync(currentServerPath, 'utf8');
+  // Create a minimal fallback index.html for static serving
+  const fallbackHtml = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HostPilotPro - Loading...</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+    }
+    .container { text-align: center; }
+    .spinner { margin: 20px auto; width: 40px; height: 40px; border: 4px solid rgba(255,255,255,0.3); border-top: 4px solid white; border-radius: 50%; animation: spin 1s linear infinite; }
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>HostPilotPro</h1>
+    <div class="spinner"></div>
+    <p>Application Starting...</p>
+  </div>
+  <script>
+    setTimeout(() => window.location.reload(), 5000);
+  </script>
+</body>
+</html>`;
 
-// Create production server based on the working development server
-const productionServerContent = `// Production Server for HostPilotPro
-${serverContent.replace(
-  'const isProduction = process.env.NODE_ENV === "production";',
-  `// Force production mode for deployment
-const isProduction = true;
-process.env.NODE_ENV = "production";`
-)}`;
+  fs.writeFileSync('dist/public/index.html', fallbackHtml);
+  console.log('✅ Created fallback index.html');
 
-// Write the production server
-fs.writeFileSync('dist/index.js', productionServerContent);
+  console.log('\n🎉 Production build completed successfully!');
+  console.log('📁 Built files:');
+  console.log('  - dist/index.js (production server)');
+  console.log('  - dist/public/index.html (fallback HTML)');
+  console.log('\n🚀 Ready for deployment with: npm start');
+
+} catch (error) {
+  console.error('❌ Build failed:', error.message);
+  process.exit(1);
+}
 
 // Create a minimal fallback index.html for static serving
 const fallbackHtml = `<!DOCTYPE html>
