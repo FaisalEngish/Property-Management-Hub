@@ -54,37 +54,6 @@ export default function Settings() {
   const [activeTab, setActiveTab] = useState("currency");
   const [showSecrets, setShowSecrets] = useState<Record<string, boolean>>({});
 
-  // Redirect non-admin users
-  if ((user as any)?.role !== 'admin') {
-    return (
-      <div className="min-h-screen flex bg-background">
-
-        <div className="flex-1 flex flex-col">
-          <TopBar 
-            title="Access Denied" 
-            subtitle="Admin privileges required"
-            onMobileMenuToggle={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-          />
-          <main className="flex-1 flex items-center justify-center p-6">
-            <Card className="w-full max-w-md">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Shield className="h-5 w-5 text-red-500" />
-                  Access Restricted
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground">
-                  This area is restricted to administrators only. Contact your system admin for access.
-                </p>
-              </CardContent>
-            </Card>
-          </main>
-        </div>
-      </div>
-    );
-  }
-
   const { data: settings = [], isLoading } = useQuery({
     queryKey: ["/api/admin/settings"],
     retry: (failureCount, error) => {
@@ -207,6 +176,36 @@ export default function Settings() {
       }
     }
   };
+
+  // Redirect non-admin users after hooks are defined
+  if ((user as any)?.role !== 'admin') {
+    return (
+      <div className="min-h-screen flex bg-background">
+        <div className="flex-1 flex flex-col">
+          <TopBar 
+            title="Access Denied" 
+            subtitle="Admin privileges required"
+            onMobileMenuToggle={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+          />
+          <main className="flex-1 flex items-center justify-center p-6">
+            <Card className="w-full max-w-md">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Shield className="h-5 w-5 text-red-500" />
+                  Access Restricted
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-muted-foreground">
+                  This area is restricted to administrators only. Contact your system admin for access.
+                </p>
+              </CardContent>
+            </Card>
+          </main>
+        </div>
+      </div>
+    );
+  }
 
   if (settings.length === 0 && !isLoading) {
     ensureDefaultSettings();

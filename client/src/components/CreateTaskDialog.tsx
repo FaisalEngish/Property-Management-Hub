@@ -24,6 +24,7 @@ export default function CreateTaskDialog({ open, onOpenChange }: CreateTaskDialo
     propertyId: "",
     dueDate: "",
     estimatedCost: "",
+    costAssignment: "owner",
     isRecurring: false,
     recurringType: "",
     recurringInterval: "1",
@@ -57,6 +58,7 @@ export default function CreateTaskDialog({ open, onOpenChange }: CreateTaskDialo
         propertyId: "",
         dueDate: "",
         estimatedCost: "",
+        costAssignment: "owner",
         isRecurring: false,
         recurringType: "",
         recurringInterval: "1",
@@ -84,7 +86,7 @@ export default function CreateTaskDialog({ open, onOpenChange }: CreateTaskDialo
     createMutation.mutate(data);
   };
 
-  const handleChange = (field: string, value: string) => {
+  const handleChange = (field: string, value: string | boolean) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
@@ -197,7 +199,7 @@ export default function CreateTaskDialog({ open, onOpenChange }: CreateTaskDialo
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <Label htmlFor="estimatedCost">Estimated Cost</Label>
               <Input
@@ -208,6 +210,20 @@ export default function CreateTaskDialog({ open, onOpenChange }: CreateTaskDialo
                 onChange={(e) => handleChange("estimatedCost", e.target.value)}
                 placeholder="0.00"
               />
+            </div>
+            
+            <div>
+              <Label htmlFor="costAssignment">Charge Cost To</Label>
+              <Select value={formData.costAssignment} onValueChange={(value) => handleChange("costAssignment", value)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="owner">Owner</SelectItem>
+                  <SelectItem value="guest">Guest</SelectItem>
+                  <SelectItem value="company">Company</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             
             <div className="flex items-center space-x-2 mt-6">
