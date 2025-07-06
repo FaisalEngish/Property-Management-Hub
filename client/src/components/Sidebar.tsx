@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
+import { queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Separator } from "@/components/ui/separator";
@@ -254,14 +255,24 @@ export default function Sidebar({ className }: SidebarProps) {
 
   const handleLogout = async () => {
     try {
-      await fetch("/api/auth/demo-logout", { method: "POST" });
-      localStorage.clear(); // Clear all user/session tokens
-      sessionStorage.clear(); // Clear session-only storage
-      window.location.href = "/"; // Redirect to main login selector
-    } catch (error) {
-      console.error("Logout error:", error);
+      // Call the proper logout endpoint
+      await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
+      
+      // Clear all local storage and session data
       localStorage.clear();
       sessionStorage.clear();
+      
+      // Clear React Query cache to remove any cached user data
+      queryClient.clear();
+      
+      // Force reload to completely reset application state
+      window.location.href = "/";
+    } catch (error) {
+      console.error("Logout error:", error);
+      // Even if server logout fails, clear local state
+      localStorage.clear();
+      sessionStorage.clear();
+      queryClient.clear();
       window.location.href = "/";
     }
   };
