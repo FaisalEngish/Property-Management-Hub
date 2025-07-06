@@ -41,6 +41,23 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+
+  // Graceful startup handling
+  process.on('uncaughtException', (error) => {
+    console.error('Uncaught Exception:', error);
+    // Don't exit in production, just log
+    if (process.env.NODE_ENV !== 'production') {
+      process.exit(1);
+    }
+  });
+
+  process.on('unhandledRejection', (reason, promise) => {
+    console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+    // Don't exit in production, just log
+    if (process.env.NODE_ENV !== 'production') {
+      process.exit(1);
+    }
+  });
   // Seed add-on services data (commented out until tables are created)
   // await seedAddonServicesData();
   

@@ -24,6 +24,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Also setup production auth (fallback)
   await setupAuth(app);
 
+  // Notification API routes - deployment safe fallbacks
+  app.get("/api/notifications", (req, res) => {
+    res.json([]);
+  });
+
+  app.get("/api/notifications/unread", (req, res) => {
+    res.json([]);
+  });
+
   // Seed Thailand utility providers on startup
   await seedThailandUtilityProviders("default-org");
   
@@ -2127,16 +2136,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Notification API routes with simple fallback handling
-  app.get("/api/notifications", async (req, res) => {
-    // Always return empty array to prevent errors during deployment
-    res.json([]);
-  });
-
-  app.get("/api/notifications/unread", async (req, res) => {
-    // Always return empty array to prevent errors during deployment
-    res.json([]);
-  });
+  // Notification API routes - removed duplicates to prevent conflicts
 
   app.post("/api/notifications/:id/read", authenticatedTenantMiddleware, async (req, res) => {
     try {
