@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Emergency Logout Tool</title>
+    <style>
+        body { font-family: Arial; margin: 40px; background: #f5f5f5; }
+        .container { max-width: 600px; background: white; padding: 30px; border-radius: 8px; }
+        .button { background: #dc2626; color: white; padding: 12px 24px; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; }
+        .button:hover { background: #b91c1c; }
+        .bookmarklet { background: #f3f4f6; padding: 15px; border-radius: 4px; margin: 20px 0; }
+        code { background: #e5e7eb; padding: 2px 6px; border-radius: 3px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Emergency Logout Tool</h1>
+        <p>If you get stuck in any dashboard with broken buttons/dropdowns, use one of these methods:</p>
+        
+        <h2>Method 1: Direct Button</h2>
+        <button class="button" onclick="forceLogout()">🚨 FORCE LOGOUT NOW</button>
+        
+        <h2>Method 2: Manual URL</h2>
+        <p>Type this in your browser address bar:</p>
+        <div class="bookmarklet">
+            <code>your-replit-url/force-logout</code>
+        </div>
+        
+        <h2>Method 3: Bookmarklet</h2>
+        <p>Drag this link to your bookmarks bar, then click it on any stuck page:</p>
+        <div class="bookmarklet">
+            <a href="javascript:(function(){localStorage.clear();sessionStorage.clear();document.cookie.split(';').forEach(c=>{const eqPos=c.indexOf('=');const name=eqPos>-1?c.substr(0,eqPos):c;document.cookie=name+'=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/';});fetch('/api/auth/logout',{method:'POST'}).catch(()=>{});fetch('/api/auth/demo-logout',{method:'POST'}).catch(()=>{});setTimeout(()=>window.location.href='/login',1000);})();">🚨 Emergency Logout</a>
+        </div>
+        
+        <h2>Method 4: Console Command</h2>
+        <p>Open browser console (F12) and paste:</p>
+        <div class="bookmarklet">
+            <code>localStorage.clear(); sessionStorage.clear(); window.location.href = '/login';</code>
+        </div>
+    </div>
+
+    <script>
+        function forceLogout() {
+            try {
+                // Clear all storage
+                localStorage.clear();
+                sessionStorage.clear();
+                
+                // Clear cookies
+                document.cookie.split(";").forEach((c) => {
+                    const eqPos = c.indexOf("=");
+                    const name = eqPos > -1 ? c.substr(0, eqPos) : c;
+                    document.cookie = name + "=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/";
+                });
+
+                // Call logout endpoints
+                fetch('/api/auth/logout', { method: 'POST' }).catch(() => {});
+                fetch('/api/auth/demo-logout', { method: 'POST' }).catch(() => {});
+
+                // Redirect
+                setTimeout(() => {
+                    window.location.href = '/login';
+                }, 1000);
+                
+                alert('Logging out... You will be redirected to login page.');
+            } catch (error) {
+                console.error('Logout error:', error);
+                window.location.href = '/login';
+            }
+        }
+    </script>
+</body>
+</html>

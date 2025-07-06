@@ -184,6 +184,7 @@ function Router() {
     return (
       <Switch>
         <Route path="/login" component={LoginPage} />
+        <Route path="/force-logout" component={ForceLogout} />
         <Route path="/guest-portal" component={GuestPortal} />
         <Route path="/guest-communication-center" component={GuestCommunicationCenter} />
         <Route path="/enhanced-guest-dashboard" component={EnhancedGuestDashboard} />
