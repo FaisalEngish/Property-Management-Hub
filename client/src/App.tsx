@@ -135,6 +135,7 @@ import UserAccessManager from "@/pages/UserAccessManager";
 import PropertyVisibilityControl from "@/pages/PropertyVisibilityControl";
 import FilteredFinancialDashboard from "@/pages/FilteredFinancialDashboard";
 import FilteredPropertyDashboard from "@/pages/FilteredPropertyDashboard";
+import ForceLogout from "@/pages/ForceLogout";
 
 function Router() {
   const [location, setLocation] = useLocation();
@@ -210,6 +211,7 @@ function Router() {
             return <DashboardComponent />;
           }}
         </Route>
+        <Route path="/force-logout" component={ForceLogout} />
         <Route path="/properties" component={Properties} />
         <Route path="/tasks" component={Tasks} />
         <Route path="/staff-tasks" component={StaffTasks} />
