@@ -5,6 +5,7 @@ import { seedAddonServicesData } from "./seedAddonServicesData";
 import { seedInvoiceData } from "./seedInvoiceData";
 import { seedServiceMarketplaceData } from "./seedServiceMarketplaceData";
 import { seedOwnerOnboardingData } from "./seedOwnerOnboardingData";
+import { setupDemoAuth } from "./demoAuth";
 
 const app = express();
 app.use(express.json());
@@ -64,8 +65,8 @@ app.use((req, res, next) => {
   // Seed invoice data (commented out until tables are created)
   // await seedInvoiceData();
   
-  // Seed Service Marketplace data (temporarily disabled to fix schema mismatch)
-  await seedServiceMarketplaceData();
+  // Temporarily disable seeding to isolate database connection issues
+  console.log("Skipping seeding during debugging...");
   
   // Seed Owner Onboarding data (temporarily disabled due to schema mismatch)
   // await seedOwnerOnboardingData();

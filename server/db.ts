@@ -1,17 +1,9 @@
-import { Pool, neonConfig } from '@neondatabase/serverless';
-import { drizzle } from 'drizzle-orm/neon-serverless';
-import ws from "ws";
+import { neon } from '@neondatabase/serverless';
+import { drizzle } from 'drizzle-orm/neon-http';
 import * as schema from "@shared/schema";
 
-// Configure WebSocket for both development and production
-if (typeof globalThis.WebSocket === 'undefined') {
-  neonConfig.webSocketConstructor = ws;
-} else {
-  neonConfig.webSocketConstructor = globalThis.WebSocket;
-}
-
-// Set pipelineConnect to false for better compatibility in production
-neonConfig.pipelineConnect = false;
+// Use HTTP connection instead of WebSocket to avoid connection issues
+// This is more stable for server environments
 
 if (!process.env.DATABASE_URL) {
   throw new Error(
@@ -19,15 +11,15 @@ if (!process.env.DATABASE_URL) {
   );
 }
 
-// Create pool with production-optimized settings
-export const pool = new Pool({ 
-  connectionString: process.env.DATABASE_URL,
-  max: 10,
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 10000,
-});
+// Create HTTP connection client - more stable than WebSocket
+const sql = neon(process.env.DATABASE_URL);
 
-export const db = drizzle({ client: pool, schema });
+// Create drizzle instance with HTTP client
+export const db = drizzle(sql, { schema });
 
-// Ensure compatibility with deployment scripts
-export { db as default } from "./db.js";
+// For backward compatibility with existing code
+export const pool = {
+  query: sql,
+  end: () => Promise.resolve(),
+  on: () => {},
+};
