@@ -40,6 +40,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const { seedVillaArunaDemo } = await import("./seedVillaArunaDemo");
   await seedVillaArunaDemo();
 
+  // Force logout API endpoint - MUST be before other routes
+  app.post("/api/force-logout", (req: any, res) => {
+    console.log("Force logout called");
+    // Destroy session completely
+    if (req.session) {
+      req.session.destroy((err: any) => {
+        if (err) {
+          console.error('Session destruction error:', err);
+        }
+      });
+    }
+    
+    // Clear all cookies
+    res.clearCookie('connect.sid');
+    res.clearCookie('session');
+    res.clearCookie('user');
+    
+    res.json({ message: "Force logout successful" });
+  });
+
   // Seed Extended Utilities demo data
   // const { seedExtendedUtilitiesDemo } = await import("./seedExtendedUtilitiesDemo");
   // await seedExtendedUtilitiesDemo();
@@ -54,6 +74,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       environment: process.env.NODE_ENV || "development"
     });
   });
+
+
 
   // Emergency logout page - bypasses React routing
   app.get("/emergency-logout", (req, res) => {
@@ -105,6 +127,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               });
 
               // Call logout endpoints
+              await fetch('/api/force-logout', { method: 'POST' }).catch(() => {});
               await fetch('/api/auth/logout', { method: 'POST' }).catch(() => {});
               await fetch('/api/auth/demo-logout', { method: 'POST' }).catch(() => {});
 
