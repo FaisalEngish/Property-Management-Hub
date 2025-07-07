@@ -136,17 +136,10 @@ export const DEMO_USERS = [
 // Demo session configuration
 export function getDemoSession() {
   const sessionTtl = 7 * 24 * 60 * 60 * 1000; // 1 week
-  const pgStore = connectPg(session);
-  const sessionStore = new pgStore({
-    conString: process.env.DATABASE_URL,
-    createTableIfMissing: false,
-    ttl: sessionTtl,
-    tableName: "sessions",
-  });
   
+  // Use memory store to avoid database timeout issues
   return session({
     secret: process.env.SESSION_SECRET || "demo-secret-key",
-    store: sessionStore,
     resave: false,
     saveUninitialized: false,
     cookie: {
