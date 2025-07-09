@@ -9,13 +9,14 @@ import { Loader2, Building2, Shield, Users, CheckCircle } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 
 const DEMO_CREDENTIALS = [
-  { email: "admin@demo.com", role: "Admin", password: "123456", permissions: "Full system access, User management, God Mode" },
-  { email: "manager@demo.com", role: "Portfolio Manager", password: "123456", permissions: "Property management, Financial oversight" },
-  { email: "owner@demo.com", role: "Property Owner", password: "123456", permissions: "Own properties, Financial reports" },
-  { email: "staff@demo.com", role: "Staff Member", password: "123456", permissions: "Task management, Property operations" },
+  { email: "admin@test.com", role: "Admin", password: "admin123", permissions: "Full system access, User management, God Mode" },
+  { email: "manager@test.com", role: "Portfolio Manager", password: "manager123", permissions: "Property management, Financial oversight" },
+  { email: "owner@test.com", role: "Property Owner", password: "owner123", permissions: "Own properties, Financial reports" },
+  { email: "staff@test.com", role: "Staff Member", password: "staff123", permissions: "Task management, Property operations" },
+  { email: "test_pool@example.com", role: "Pool Staff", password: "test123", permissions: "Pool maintenance, Water testing" },
+  { email: "test_garden@example.com", role: "Garden Staff", password: "test123", permissions: "Garden maintenance, Landscaping" },
   { email: "retail@demo.com", role: "Retail Agent", password: "123456", permissions: "Booking management, Commission tracking" },
-  { email: "referral@demo.com", role: "Referral Agent", password: "123456", permissions: "Property referrals, Commission tracking" },
-  { email: "guest@demo.com", role: "Guest", password: "123456", permissions: "Guest portal, Service requests" }
+  { email: "referral@demo.com", role: "Referral Agent", password: "123456", permissions: "Property referrals, Commission tracking" }
 ];
 
 export default function LoginPage() {
@@ -50,14 +51,14 @@ export default function LoginPage() {
     }
   };
 
-  const handleDemoLogin = async (demoEmail: string) => {
+  const handleDemoLogin = async (demoEmail: string, demoPassword: string) => {
     setEmail(demoEmail);
-    setPassword("123456");
+    setPassword(demoPassword);
     setIsLoading(true);
     setError("");
 
     try {
-      await login(demoEmail, "123456");
+      await login(demoEmail, demoPassword);
       setLocation("/");
     } catch (err: any) {
       setError(err.message || "Demo login failed.");
@@ -205,7 +206,7 @@ export default function LoginPage() {
                       key={demo.email}
                       variant="outline"
                       size="sm"
-                      onClick={() => handleDemoLogin(demo.email)}
+                      onClick={() => handleDemoLogin(demo.email, demo.password)}
                       disabled={isLoading}
                       className="justify-start text-left"
                     >
@@ -224,7 +225,7 @@ export default function LoginPage() {
                       key={demo.email}
                       variant="outline"
                       size="sm"
-                      onClick={() => handleDemoLogin(demo.email)}
+                      onClick={() => handleDemoLogin(demo.email, demo.password)}
                       disabled={isLoading}
                       className="justify-start text-left"
                     >
@@ -240,7 +241,7 @@ export default function LoginPage() {
 
               <div className="text-center">
                 <p className="text-xs text-gray-500 dark:text-gray-400">
-                  All demo accounts use password: <code className="bg-gray-100 dark:bg-gray-700 px-1 rounded">123456</code>
+                  Click any demo account button to login instantly
                 </p>
               </div>
             </CardContent>

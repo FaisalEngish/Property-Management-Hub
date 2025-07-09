@@ -186,7 +186,6 @@ export async function setupDemoAuth(app: Express) {
   app.post("/api/auth/login", async (req: any, res) => {
     try {
       const { email, password } = req.body;
-      
       // Check against database users directly
       const { db } = await import("./db");
       const { users: usersTable } = await import("@shared/schema");
