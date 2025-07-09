@@ -28,13 +28,11 @@ export default function LoginPage() {
   const [error, setError] = useState("");
 
   // Redirect if already logged in
-  if (user && !authLoading) {
-    // Use useEffect to avoid setting location during render
-    React.useEffect(() => {
+  React.useEffect(() => {
+    if (user && !authLoading) {
       setLocation("/");
-    }, [setLocation]);
-    return null;
-  }
+    }
+  }, [user, authLoading, setLocation]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
