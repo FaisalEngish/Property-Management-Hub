@@ -49,8 +49,8 @@ export default function LoginPage() {
       
       if (response.ok) {
         const data = await response.json();
-        // Redirect to role-specific dashboard
-        setLocation(data.redirectUrl || "/");
+        // Force full page reload to refresh auth state
+        window.location.href = data.redirectUrl || "/";
       } else {
         throw new Error('Login failed');
       }
@@ -77,8 +77,8 @@ export default function LoginPage() {
       
       if (response.ok) {
         const data = await response.json();
-        // Redirect to role-specific dashboard
-        setLocation(data.redirectUrl || "/");
+        // Force full page reload to refresh auth state
+        window.location.href = data.redirectUrl || "/";
       } else {
         throw new Error('Demo login failed');
       }

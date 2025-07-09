@@ -27,6 +27,7 @@ export default function QuickLoginFix() {
       
       if (response.ok) {
         const data = await response.json();
+        // Direct redirect to dashboard
         window.location.href = data.redirectUrl || '/';
       } else {
         alert('Login failed');

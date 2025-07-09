@@ -1,11 +1,12 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 export function useAuth() {
   const [user, setUser] = useState(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Simple auth check without infinite loops - DON'T call automatically
+  // Check auth once on component mount
   const checkAuth = async () => {
+    setIsLoading(true);
     try {
       const response = await fetch('/api/auth/user', { 
         credentials: 'include',
@@ -15,14 +16,22 @@ export function useAuth() {
         const userData = await response.json();
         setUser(userData);
         return userData;
+      } else {
+        setUser(null);
       }
     } catch (error) {
       console.log('Auth check failed');
+      setUser(null);
     }
+    setIsLoading(false);
     return null;
   };
 
-  // Return minimal auth state to stop the loop
+  // Check auth on mount only
+  useEffect(() => {
+    checkAuth();
+  }, []);
+
   return {
     user,
     isLoading,
