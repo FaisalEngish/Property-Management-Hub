@@ -187,9 +187,11 @@ export async function setupDemoAuth(app: Express) {
     try {
       const { email, password } = req.body;
       
-      // Check against database users
-      const users = await storage.getUsers();
-      const user = users.find(u => u.email === email && u.password === password && u.organizationId === 'default-org');
+      // Check against database users directly
+      const { db } = await import("./db");
+      const { users: usersTable } = await import("@shared/schema");
+      const dbUsers = await db.select().from(usersTable);
+      const user = dbUsers.find(u => u.email === email && u.password === password && u.organizationId === 'default-org');
       
       if (!user) {
         return res.status(401).json({ message: "Invalid credentials" });
