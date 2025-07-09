@@ -59,7 +59,7 @@ import {
   Target,
   Filter
 } from "lucide-react";
-import { useAuth } from "@/hooks/useAuth";
+import { useAuth } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 
 interface SidebarProps {

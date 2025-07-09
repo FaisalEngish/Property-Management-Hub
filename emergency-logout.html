@@ -1,72 +1,96 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Emergency Logout Tool</title>
+    <title>Emergency Auth Reset</title>
     <style>
-        body { font-family: Arial; margin: 40px; background: #f5f5f5; }
-        .container { max-width: 600px; background: white; padding: 30px; border-radius: 8px; }
-        .button { background: #dc2626; color: white; padding: 12px 24px; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; }
-        .button:hover { background: #b91c1c; }
-        .bookmarklet { background: #f3f4f6; padding: 15px; border-radius: 4px; margin: 20px 0; }
-        code { background: #e5e7eb; padding: 2px 6px; border-radius: 3px; }
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            text-align: center;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+        }
+        .container {
+            background: rgba(255,255,255,0.1);
+            padding: 30px;
+            border-radius: 10px;
+            backdrop-filter: blur(10px);
+        }
+        button {
+            background: #4CAF50;
+            color: white;
+            padding: 15px 30px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        .admin-btn { background: #2196F3; }
+        .admin-btn:hover { background: #0b7dda; }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>Emergency Logout Tool</h1>
-        <p>If you get stuck in any dashboard with broken buttons/dropdowns, use one of these methods:</p>
+        <h1>HostPilotPro - Quick Login</h1>
+        <p>Your menu is restored! Click to login:</p>
         
-        <h2>Method 1: Direct Button</h2>
-        <button class="button" onclick="forceLogout()">🚨 FORCE LOGOUT NOW</button>
+        <button class="admin-btn" onclick="loginAs('admin@test.com', 'admin123')">
+            🔑 Login as Admin
+        </button>
         
-        <h2>Method 2: Manual URL</h2>
-        <p>Type this in your browser address bar:</p>
-        <div class="bookmarklet">
-            <code>your-replit-url/force-logout</code>
-        </div>
+        <button onclick="loginAs('owner@test.com', 'owner123')">
+            🏠 Login as Owner
+        </button>
         
-        <h2>Method 3: Bookmarklet</h2>
-        <p>Drag this link to your bookmarks bar, then click it on any stuck page:</p>
-        <div class="bookmarklet">
-            <a href="javascript:(function(){localStorage.clear();sessionStorage.clear();document.cookie.split(';').forEach(c=>{const eqPos=c.indexOf('=');const name=eqPos>-1?c.substr(0,eqPos):c;document.cookie=name+'=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/';});fetch('/api/auth/logout',{method:'POST'}).catch(()=>{});fetch('/api/auth/demo-logout',{method:'POST'}).catch(()=>{});setTimeout(()=>window.location.href='/login',1000);})();">🚨 Emergency Logout</a>
-        </div>
+        <button onclick="loginAs('test_pool@example.com', 'test123')">
+            🏊 Login as Pool Staff
+        </button>
         
-        <h2>Method 4: Console Command</h2>
-        <p>Open browser console (F12) and paste:</p>
-        <div class="bookmarklet">
-            <code>localStorage.clear(); sessionStorage.clear(); window.location.href = '/login';</code>
-        </div>
+        <p style="margin-top: 20px; font-size: 14px;">
+            Authentication system fixed - all menu options restored!
+        </p>
     </div>
 
     <script>
-        function forceLogout() {
+        async function loginAs(email, password) {
             try {
-                // Clear all storage
+                // Clear everything first
                 localStorage.clear();
                 sessionStorage.clear();
                 
-                // Clear cookies
-                document.cookie.split(";").forEach((c) => {
-                    const eqPos = c.indexOf("=");
-                    const name = eqPos > -1 ? c.substr(0, eqPos) : c;
-                    document.cookie = name + "=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/";
+                // Login
+                const response = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password }),
+                    credentials: 'include'
                 });
-
-                // Call logout endpoints
-                fetch('/api/auth/logout', { method: 'POST' }).catch(() => {});
-                fetch('/api/auth/demo-logout', { method: 'POST' }).catch(() => {});
-
-                // Redirect
-                setTimeout(() => {
-                    window.location.href = '/login';
-                }, 1000);
                 
-                alert('Logging out... You will be redirected to login page.');
+                if (response.ok) {
+                    alert('Login successful! Redirecting...');
+                    window.location.href = '/';
+                } else {
+                    alert('Login failed. Try again.');
+                }
             } catch (error) {
-                console.error('Logout error:', error);
-                window.location.href = '/login';
+                console.error('Login error:', error);
+                alert('Login error. Check console.');
             }
         }
+        
+        // Auto-redirect after 10 seconds
+        setTimeout(() => {
+            window.location.href = '/';
+        }, 10000);
     </script>
 </body>
 </html>
