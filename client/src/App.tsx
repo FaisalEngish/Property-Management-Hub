@@ -18,6 +18,15 @@ import Landing from "@/pages/Landing";
 import NotFound from "@/pages/not-found";
 import FilteredFinancialDashboard from "@/pages/FilteredFinancialDashboard";
 import FilteredPropertyDashboard from "@/pages/FilteredPropertyDashboard";
+import SimpleEnhancedAdminDashboard from "./pages/SimpleEnhancedAdminDashboard";
+import SimpleLiveBookingCalendar from "./pages/SimpleLiveBookingCalendar";
+import SimpleMaintenanceSuggestions from "./pages/SimpleMaintenanceSuggestions";
+import CheckInCheckOutWorkflow from "@/pages/CheckInCheckOutWorkflow";
+import DailyOperationsDashboard from "@/pages/DailyOperationsDashboard";
+import SandboxTestingDashboard from "@/pages/SandboxTestingDashboard";
+import GuestPortalSmartRequests from "@/pages/GuestPortalSmartRequests";
+import GuestActivityRecommendations from "@/pages/GuestActivityRecommendations";
+import SimpleHelp from "./pages/SimpleHelp";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -85,9 +94,25 @@ function AppRoutes() {
         <Route path="/bookings" component={Bookings} />
         <Route path="/services" component={Services} />
         <Route path="/finances" component={Finances} />
+        <Route path="/settings" component={Settings} />
+        <Route path="/help" component={SimpleHelp} />
+        
+        {/* Enhanced Dashboards */}
+        <Route path="/enhanced-admin-dashboard" component={SimpleEnhancedAdminDashboard} />
         <Route path="/filtered-financial-dashboard" component={FilteredFinancialDashboard} />
         <Route path="/filtered-property-dashboard" component={FilteredPropertyDashboard} />
-        <Route path="/settings" component={Settings} />
+        
+        {/* Core Management */}
+        <Route path="/booking-calendar" component={SimpleLiveBookingCalendar} />
+        <Route path="/maintenance-suggestions" component={SimpleMaintenanceSuggestions} />
+        <Route path="/checkin-checkout-workflow" component={CheckInCheckOutWorkflow} />
+        <Route path="/daily-operations" component={DailyOperationsDashboard} />
+        <Route path="/sandbox-testing" component={SandboxTestingDashboard} />
+        
+        {/* Communication & Guest Services */}
+        <Route path="/guest-portal-smart-requests" component={GuestPortalSmartRequests} />
+        <Route path="/guest-activity-recommendations" component={GuestActivityRecommendations} />
+        
         <Route component={NotFound} />
       </Switch>
     </Layout>
