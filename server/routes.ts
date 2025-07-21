@@ -79,16 +79,158 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Emergency login page - bypasses React routing  
   app.get("/emergency-login", (req, res) => {
-    const fs = require('fs');
-    const path = require('path');
-    const filePath = path.join(process.cwd(), 'emergency-login.html');
-    
-    if (fs.existsSync(filePath)) {
-      const html = fs.readFileSync(filePath, 'utf8');
-      res.send(html);
-    } else {
-      res.status(404).send('Emergency login page not found');
-    }
+    res.send(`<!DOCTYPE html>
+<html>
+<head>
+    <title>Emergency Login - HostPilotPro</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            margin: 0; 
+            padding: 20px; 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .container { 
+            background: white; 
+            padding: 40px; 
+            border-radius: 12px; 
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            max-width: 500px; 
+            width: 100%;
+        }
+        h1 { 
+            color: #333; 
+            text-align: center; 
+            margin-bottom: 30px;
+            font-size: 28px;
+        }
+        .role-btn { 
+            background: #4CAF50; 
+            color: white; 
+            padding: 15px 20px; 
+            border: none; 
+            border-radius: 8px; 
+            cursor: pointer; 
+            font-size: 16px; 
+            margin: 8px 0; 
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            transition: all 0.3s ease;
+        }
+        .role-btn:hover { 
+            background: #45a049; 
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+        .role-btn:disabled { 
+            background: #ccc; 
+            cursor: not-allowed; 
+            transform: none;
+        }
+        .status { 
+            margin-top: 20px; 
+            padding: 15px; 
+            border-radius: 8px; 
+            text-align: center;
+            font-weight: bold;
+        }
+        .success { 
+            background: #d4edda; 
+            color: #155724; 
+            border: 1px solid #c3e6cb;
+        }
+        .error { 
+            background: #f8d7da; 
+            color: #721c24; 
+            border: 1px solid #f5c6cb;
+        }
+        .loading { 
+            background: #fff3cd; 
+            color: #856404; 
+            border: 1px solid #ffeaa7;
+        }
+        .email { 
+            color: #666; 
+            font-size: 14px; 
+            font-weight: normal;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 Emergency Login Access</h1>
+        
+        <button class="role-btn" onclick="emergencyLogin('admin@test.com', 'admin123', '/admin-dashboard')">
+            🛡️ Admin Dashboard
+            <span class="email">admin@test.com</span>
+        </button>
+        
+        <button class="role-btn" onclick="emergencyLogin('manager@test.com', 'manager123', '/portfolio-dashboard')">
+            🏢 Portfolio Manager
+            <span class="email">manager@test.com</span>
+        </button>
+        
+        <button class="role-btn" onclick="emergencyLogin('owner@test.com', 'owner123', '/owner-dashboard')">
+            🏠 Property Owner  
+            <span class="email">owner@test.com</span>
+        </button>
+        
+        <button class="role-btn" onclick="emergencyLogin('staff@test.com', 'staff123', '/staff-dashboard')">
+            👥 Staff Member
+            <span class="email">staff@test.com</span>
+        </button>
+        
+        <button class="role-btn" onclick="emergencyLogin('retail@demo.com', '123456', '/retail-agent-dashboard')">
+            💼 Retail Agent
+            <span class="email">retail@demo.com</span>
+        </button>
+        
+        <button class="role-btn" onclick="emergencyLogin('referral@demo.com', '123456', '/referral-agent-dashboard')">
+            🤝 Referral Agent
+            <span class="email">referral@demo.com</span>
+        </button>
+        
+        <div id="status"></div>
+    </div>
+
+    <script>
+        async function emergencyLogin(email, password, dashboard) {
+            const status = document.getElementById('status');
+            const buttons = document.querySelectorAll('.role-btn');
+            
+            buttons.forEach(btn => btn.disabled = true);
+            status.innerHTML = '<div class="loading">🔄 Logging in...</div>';
+            
+            try {
+                const response = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password }),
+                    credentials: 'include'
+                });
+                
+                if (response.ok) {
+                    status.innerHTML = '<div class="success">✅ Login successful! Redirecting...</div>';
+                    setTimeout(() => {
+                        window.location.href = dashboard;
+                    }, 1000);
+                } else {
+                    throw new Error('Login failed');
+                }
+            } catch (error) {
+                status.innerHTML = '<div class="error">❌ Login failed. Please try again.</div>';
+                buttons.forEach(btn => btn.disabled = false);
+            }
+        }
+    </script>
+</body>
+</html>`);
   });
 
   // Emergency logout page - bypasses React routing
