@@ -27,6 +27,7 @@ import SandboxTestingDashboard from "@/pages/SandboxTestingDashboard";
 import GuestPortalSmartRequests from "@/pages/GuestPortalSmartRequests";
 import GuestActivityRecommendations from "@/pages/GuestActivityRecommendations";
 import SimpleHelp from "./pages/SimpleHelp";
+import UserManagement from "./pages/UserManagement";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -112,6 +113,10 @@ function AppRoutes() {
         {/* Communication & Guest Services */}
         <Route path="/guest-portal-smart-requests" component={GuestPortalSmartRequests} />
         <Route path="/guest-activity-recommendations" component={GuestActivityRecommendations} />
+        
+        {/* Administration */}
+        <Route path="/admin/user-management" component={UserManagement} />
+        <Route path="/user-management" component={UserManagement} />
         
         <Route component={NotFound} />
       </Switch>

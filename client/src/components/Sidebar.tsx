@@ -155,11 +155,7 @@ const getRoleBasedMenus = (role: string): MenuSection[] => {
         title: "Administration",
         items: [
           { label: "Enhanced Admin Dashboard", icon: BarChart3, href: "/enhanced-admin-dashboard", badge: "Enhanced" },
-          { label: "User Management", icon: Users, href: "/admin/user-management", badge: "New" },
-          { label: "User Permission Control Panel", icon: Shield, href: "/user-permission-control-panel", badge: "NEW" },
-          { label: "User Access Manager", icon: Shield, href: "/admin/user-access-manager", badge: "Admin" },
-          { label: "User Access & Visibility", icon: Eye, href: "/admin/user-access", badge: "New" },
-          { label: "Property Visibility Control", icon: Shield, href: "/property-visibility-control", badge: "New" },
+          { label: "User Management", icon: Users, href: "/admin/user-management", description: "Manage users, permissions & access controls" },
           { label: "System Integrity Check", icon: Shield, href: "/admin/system-integrity-check", badge: "QA" },
           { label: "Activity Logs", icon: Activity, href: "/admin/activity-log" },
           { label: "Finance Reset", icon: Shield, href: "/admin/finance-reset" },
