@@ -202,7 +202,7 @@ export class AuthSessionManager {
 
 // Authentication API functions
 export async function loginUser(email: string, password: string): Promise<AuthUser> {
-  const response = await fetch('/api/auth/login', {
+  const response = await fetch('/api/auth/demo-login', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -238,7 +238,7 @@ export async function loginUser(email: string, password: string): Promise<AuthUs
 
 export async function logoutUser(): Promise<void> {
   try {
-    await fetch('/api/auth/logout', {
+    await fetch('/api/auth/demo-logout', {
       method: 'POST',
       credentials: 'include'
     });
