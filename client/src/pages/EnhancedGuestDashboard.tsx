@@ -126,31 +126,6 @@ export default function EnhancedGuestDashboard() {
   const queryClient = useQueryClient();
   const [activeFilter, setActiveFilter] = useState<TimelineFilter>("this_week");
 
-  // Proper logout function with comprehensive session cleanup
-  const handleLogout = async () => {
-    try {
-      // Call the proper logout endpoint
-      await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
-      
-      // Clear all local storage and session data
-      localStorage.clear();
-      sessionStorage.clear();
-      
-      // Clear React Query cache to remove any cached user data
-      queryClient.clear();
-      
-      // Force reload to completely reset application state
-      window.location.href = "/";
-    } catch (error) {
-      console.error("Logout error:", error);
-      // Even if server logout fails, clear local state
-      localStorage.clear();
-      sessionStorage.clear();
-      queryClient.clear();
-      window.location.href = "/";
-    }
-  };
-
   // Fetch current guest booking
   const { data: guestBooking, isLoading: loadingBooking } = useQuery<GuestBooking>({
     queryKey: ["/api/guest-dashboard/current-booking"],
@@ -304,7 +279,7 @@ export default function EnhancedGuestDashboard() {
             </p>
             <Button 
               variant="outline" 
-              onClick={handleLogout}
+              onClick={() => window.location.href = '/api/auth/demo-logout'}
               className="flex items-center gap-2"
             >
               <LogOut className="h-4 w-4" />
@@ -318,19 +293,6 @@ export default function EnhancedGuestDashboard() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
-      {/* Emergency Logout Button - Fixed at top */}
-      <div className="fixed top-4 right-4 z-50">
-        <Button 
-          onClick={handleLogout}
-          variant="destructive"
-          size="sm"
-          className="bg-red-600 hover:bg-red-700 text-white font-medium px-4 py-2 shadow-lg"
-        >
-          <LogOut className="h-4 w-4 mr-2" />
-          Emergency Logout
-        </Button>
-      </div>
-
       <UnifiedTopBar 
         title={`${guestBooking.property?.name} - Guest Portal`}
         showBackButton={false}
@@ -342,16 +304,6 @@ export default function EnhancedGuestDashboard() {
             <Badge variant="secondary">
               {formatStayDuration()}
             </Badge>
-            {/* Working Logout Button in TopBar */}
-            <Button 
-              onClick={handleLogout}
-              variant="outline"
-              size="sm"
-              className="ml-2"
-            >
-              <LogOut className="h-4 w-4 mr-1" />
-              Logout
-            </Button>
           </div>
         }
       />
@@ -1291,7 +1243,7 @@ export default function EnhancedGuestDashboard() {
         <div className="flex justify-center pt-6">
           <Button 
             variant="outline" 
-            onClick={handleLogout}
+            onClick={() => window.location.href = '/api/auth/demo-logout'}
             className="flex items-center gap-2"
           >
             <LogOut className="h-4 w-4" />

@@ -289,28 +289,8 @@ export default function EnhancedAgentBookingDemo() {
     return (totalAmount * commissionRate) / 100;
   };
 
-  const handleLogout = async () => {
-    try {
-      // Call the proper logout endpoint
-      await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
-      
-      // Clear all local storage and session data
-      localStorage.clear();
-      sessionStorage.clear();
-      
-      // Clear React Query cache to remove any cached user data
-      queryClient.clear();
-      
-      // Force reload to completely reset application state
-      window.location.href = "/";
-    } catch (error) {
-      console.error("Logout error:", error);
-      // Even if server logout fails, clear local state
-      localStorage.clear();
-      sessionStorage.clear();
-      queryClient.clear();
-      window.location.href = "/";
-    }
+  const handleLogout = () => {
+    window.location.href = "/api/auth/demo-logout";
   };
 
   const commissionSummary = getDemoCommissionSummary();

@@ -5,7 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { UIResetButton } from "@/components/UIResetButton";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
-import { useAuth } from "@/hooks/useAuth";
+import { AuthSessionManager, useAuth } from "@/lib/auth";
 import { useEffect } from "react";
 import NotFound from "@/pages/not-found";
 import LoginPage from "@/pages/LoginPage";
@@ -135,19 +135,17 @@ import UserAccessManager from "@/pages/UserAccessManager";
 import PropertyVisibilityControl from "@/pages/PropertyVisibilityControl";
 import FilteredFinancialDashboard from "@/pages/FilteredFinancialDashboard";
 import FilteredPropertyDashboard from "@/pages/FilteredPropertyDashboard";
-import ForceLogout from "@/pages/ForceLogout";
 
 function Router() {
   const [location, setLocation] = useLocation();
   const { user: currentUser, isLoading, isAuthenticated } = useAuth();
 
-  // AUTHENTICATION DISABLED - NO REDIRECTS TO LOGIN
-  // useEffect(() => {
-  //   if (!isAuthenticated && location !== '/login' && location !== '/force-logout' && !location.includes('emergency')) {
-  //     const timer = setTimeout(() => setLocation('/login'), 500);
-  //     return () => clearTimeout(timer);
-  //   }
-  // }, [isAuthenticated, location, setLocation]);
+  // Auto-redirect to login if not authenticated
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated && location !== '/login') {
+      setLocation('/login');
+    }
+  }, [isAuthenticated, isLoading, location, setLocation]);
 
   // Role-based dashboard component selector
   const getDashboardComponent = (role?: string) => {
@@ -171,29 +169,28 @@ function Router() {
     }
   };
 
-  // AUTHENTICATION DISABLED - SKIP ALL CHECKS
-  // if (isLoading) {
-  //   return (
-  //     <div className="flex items-center justify-center min-h-screen">
-  //       <div className="animate-spin w-8 h-8 border-4 border-gray-300 border-t-primary rounded-full" />
-  //     </div>
-  //   );
-  // }
+  // Show loading while checking authentication
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin w-8 h-8 border-4 border-gray-300 border-t-primary rounded-full" />
+      </div>
+    );
+  }
 
-  // DIRECT ACCESS - NO LOGIN REQUIRED
-  // if (!isAuthenticated) {
-  //   return (
-  //     <Switch>
-  //       <Route path="/login" component={LoginPage} />
-  //       <Route path="/force-logout" component={ForceLogout} />
-  //       <Route path="/guest-portal" component={GuestPortal} />
-  //       <Route path="/guest-communication-center" component={GuestCommunicationCenter} />
-  //       <Route path="/enhanced-guest-dashboard" component={EnhancedGuestDashboard} />
-  //       <Route path="/" component={LoginPage} />
-  //       <Route component={LoginPage} />
-  //     </Switch>
-  //   );
-  // }
+  // Show login page if not authenticated
+  if (!isAuthenticated) {
+    return (
+      <Switch>
+        <Route path="/login" component={LoginPage} />
+        <Route path="/guest-portal" component={GuestPortal} />
+        <Route path="/guest-communication-center" component={GuestCommunicationCenter} />
+        <Route path="/enhanced-guest-dashboard" component={EnhancedGuestDashboard} />
+        <Route path="/" component={LoginPage} />
+        <Route component={LoginPage} />
+      </Switch>
+    );
+  }
 
   // Render authenticated routes with layout
   return (
@@ -207,22 +204,12 @@ function Router() {
             return <DashboardComponent />;
           }}
         </Route>
-        
-        {/* Role-specific dashboard routes */}
-        <Route path="/admin-dashboard" component={Dashboard} />
-        <Route path="/portfolio-dashboard" component={PortfolioManagerDashboard} />
-        <Route path="/owner-dashboard" component={OwnerDashboard} />
-        <Route path="/retail-agent-dashboard" component={RetailAgentDashboard} />
-        <Route path="/referral-agent-dashboard" component={ReferralAgentDashboard} />
-        <Route path="/staff-dashboard" component={StaffDashboard} />
-        <Route path="/guest-dashboard" component={EnhancedGuestDashboard} />
         <Route path="/dashboard/:role">
           {({ role }) => {
             const DashboardComponent = getDashboardComponent(role);
             return <DashboardComponent />;
           }}
         </Route>
-        <Route path="/force-logout" component={ForceLogout} />
         <Route path="/properties" component={Properties} />
         <Route path="/tasks" component={Tasks} />
         <Route path="/staff-tasks" component={StaffTasks} />

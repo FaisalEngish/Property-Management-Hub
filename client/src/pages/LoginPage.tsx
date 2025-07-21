@@ -6,33 +6,34 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Loader2, Building2, Shield, Users, CheckCircle } from "lucide-react";
-import { useAuth } from "@/hooks/useAuth";
+import { useAuth } from "@/lib/auth";
 
 const DEMO_CREDENTIALS = [
-  { email: "admin@test.com", role: "Admin", password: "admin123", permissions: "Full system access, User management, God Mode" },
-  { email: "manager@test.com", role: "Portfolio Manager", password: "manager123", permissions: "Property management, Financial oversight" },
-  { email: "owner@test.com", role: "Property Owner", password: "owner123", permissions: "Own properties, Financial reports" },
-  { email: "staff@test.com", role: "Staff Member", password: "staff123", permissions: "Task management, Property operations" },
-  { email: "test_pool@example.com", role: "Pool Staff", password: "test123", permissions: "Pool maintenance, Water testing" },
-  { email: "test_garden@example.com", role: "Garden Staff", password: "test123", permissions: "Garden maintenance, Landscaping" },
+  { email: "admin@demo.com", role: "Admin", password: "123456", permissions: "Full system access, User management, God Mode" },
+  { email: "manager@demo.com", role: "Portfolio Manager", password: "123456", permissions: "Property management, Financial oversight" },
+  { email: "owner@demo.com", role: "Property Owner", password: "123456", permissions: "Own properties, Financial reports" },
+  { email: "staff@demo.com", role: "Staff Member", password: "123456", permissions: "Task management, Property operations" },
   { email: "retail@demo.com", role: "Retail Agent", password: "123456", permissions: "Booking management, Commission tracking" },
-  { email: "referral@demo.com", role: "Referral Agent", password: "123456", permissions: "Property referrals, Commission tracking" }
+  { email: "referral@demo.com", role: "Referral Agent", password: "123456", permissions: "Property referrals, Commission tracking" },
+  { email: "guest@demo.com", role: "Guest", password: "123456", permissions: "Guest portal, Service requests" }
 ];
 
 export default function LoginPage() {
   const [, setLocation] = useLocation();
-  const { user, isLoading: authLoading } = useAuth();
+  const { login, user, isLoading: authLoading } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
 
   // Redirect if already logged in
-  React.useEffect(() => {
-    if (user && !authLoading) {
+  if (user && !authLoading) {
+    // Use useEffect to avoid setting location during render
+    React.useEffect(() => {
       setLocation("/");
-    }
-  }, [user, authLoading, setLocation]);
+    }, [setLocation]);
+    return null;
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -40,20 +41,8 @@ export default function LoginPage() {
     setError("");
 
     try {
-      const response = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
-        credentials: 'include'
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        // Force full page reload to refresh auth state
-        window.location.href = data.redirectUrl || "/";
-      } else {
-        throw new Error('Login failed');
-      }
+      await login(email, password);
+      setLocation("/");
     } catch (err: any) {
       setError(err.message || "Login failed. Please check your credentials.");
     } finally {
@@ -61,27 +50,15 @@ export default function LoginPage() {
     }
   };
 
-  const handleDemoLogin = async (demoEmail: string, demoPassword: string) => {
+  const handleDemoLogin = async (demoEmail: string) => {
     setEmail(demoEmail);
-    setPassword(demoPassword);
+    setPassword("123456");
     setIsLoading(true);
     setError("");
 
     try {
-      const response = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: demoEmail, password: demoPassword }),
-        credentials: 'include'
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        // Force full page reload to refresh auth state
-        window.location.href = data.redirectUrl || "/";
-      } else {
-        throw new Error('Demo login failed');
-      }
+      await login(demoEmail, "123456");
+      setLocation("/");
     } catch (err: any) {
       setError(err.message || "Demo login failed.");
     } finally {
@@ -228,7 +205,7 @@ export default function LoginPage() {
                       key={demo.email}
                       variant="outline"
                       size="sm"
-                      onClick={() => handleDemoLogin(demo.email, demo.password)}
+                      onClick={() => handleDemoLogin(demo.email)}
                       disabled={isLoading}
                       className="justify-start text-left"
                     >
@@ -247,7 +224,7 @@ export default function LoginPage() {
                       key={demo.email}
                       variant="outline"
                       size="sm"
-                      onClick={() => handleDemoLogin(demo.email, demo.password)}
+                      onClick={() => handleDemoLogin(demo.email)}
                       disabled={isLoading}
                       className="justify-start text-left"
                     >
@@ -263,7 +240,7 @@ export default function LoginPage() {
 
               <div className="text-center">
                 <p className="text-xs text-gray-500 dark:text-gray-400">
-                  Click any demo account button to login instantly
+                  All demo accounts use password: <code className="bg-gray-100 dark:bg-gray-700 px-1 rounded">123456</code>
                 </p>
               </div>
             </CardContent>

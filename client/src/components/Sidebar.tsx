@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
-import { queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Separator } from "@/components/ui/separator";
@@ -255,24 +254,10 @@ export default function Sidebar({ className }: SidebarProps) {
 
   const handleLogout = async () => {
     try {
-      // Call the proper logout endpoint
-      await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
-      
-      // Clear all local storage and session data
-      localStorage.clear();
-      sessionStorage.clear();
-      
-      // Clear React Query cache to remove any cached user data
-      queryClient.clear();
-      
-      // Force reload to completely reset application state
+      await fetch("/api/auth/demo-logout", { method: "POST" });
       window.location.href = "/";
     } catch (error) {
       console.error("Logout error:", error);
-      // Even if server logout fails, clear local state
-      localStorage.clear();
-      sessionStorage.clear();
-      queryClient.clear();
       window.location.href = "/";
     }
   };
@@ -288,9 +273,9 @@ export default function Sidebar({ className }: SidebarProps) {
   const menuSections = getRoleBasedMenus(userRole);
   const RoleIcon = roleIcons[userRole as keyof typeof roleIcons] || User;
 
-  // For now, show sidebar regardless of auth state to fix the infinite loop
-  // This will allow the Quick Login Fix to work
-  console.log("Sidebar auth check:", { user, isAuthenticated, userRole });
+  if (!isAuthenticated) {
+    return null;
+  }
 
   const SidebarContent = () => (
     <div className="flex flex-col h-full max-h-screen bg-background">
