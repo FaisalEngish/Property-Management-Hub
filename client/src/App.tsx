@@ -11,12 +11,12 @@ import Properties from "@/pages/Properties";
 import Tasks from "@/pages/Tasks";
 import Bookings from "@/pages/Bookings";
 import Services from "@/pages/Services";
-import Finances from "@/pages/Finances";
+import SimpleFinances from "./pages/SimpleFinances";
 import SimpleSettings from "./pages/SimpleSettings";
 import LoginPage from "@/pages/LoginPage";
 import Landing from "@/pages/Landing";
 import NotFound from "@/pages/not-found";
-import FilteredFinancialDashboard from "@/pages/FilteredFinancialDashboard";
+import SimpleFilteredFinancialDashboard from "./pages/SimpleFilteredFinancialDashboard";
 import FilteredPropertyDashboard from "@/pages/FilteredPropertyDashboard";
 import SimpleEnhancedAdminDashboard from "./pages/SimpleEnhancedAdminDashboard";
 import SimpleLiveBookingCalendar from "./pages/SimpleLiveBookingCalendar";
@@ -93,13 +93,13 @@ function AppRoutes() {
         <Route path="/tasks" component={Tasks} />
         <Route path="/bookings" component={Bookings} />
         <Route path="/services" component={Services} />
-        <Route path="/finances" component={Finances} />
+        <Route path="/finances" component={SimpleFinances} />
         <Route path="/settings" component={SimpleSettings} />
         <Route path="/help" component={SimpleHelp} />
         
         {/* Enhanced Dashboards */}
         <Route path="/enhanced-admin-dashboard" component={SimpleEnhancedAdminDashboard} />
-        <Route path="/filtered-financial-dashboard" component={FilteredFinancialDashboard} />
+        <Route path="/filtered-financial-dashboard" component={SimpleFilteredFinancialDashboard} />
         <Route path="/filtered-property-dashboard" component={FilteredPropertyDashboard} />
         
         {/* Core Management */}
