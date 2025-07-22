@@ -1,3 +1,5 @@
+import { formatCurrency } from "@/lib/currency";
+
 export default function SimpleFilteredFinancialDashboard() {
   return (
     <div className="p-6">
@@ -9,19 +11,19 @@ export default function SimpleFilteredFinancialDashboard() {
           <div className="space-y-2">
             <div className="flex justify-between">
               <span>Airbnb</span>
-              <span className="font-medium">$18,240 (40%)</span>
+              <span className="font-medium">{formatCurrency(656640)} (40%)</span>
             </div>
             <div className="flex justify-between">
               <span>VRBO</span>
-              <span className="font-medium">$13,620 (30%)</span>
+              <span className="font-medium">{formatCurrency(490320)} (30%)</span>
             </div>
             <div className="flex justify-between">
               <span>Direct Bookings</span>
-              <span className="font-medium">$9,080 (20%)</span>
+              <span className="font-medium">{formatCurrency(326880)} (20%)</span>
             </div>
             <div className="flex justify-between">
               <span>Booking.com</span>
-              <span className="font-medium">$4,340 (10%)</span>
+              <span className="font-medium">{formatCurrency(156240)} (10%)</span>
             </div>
           </div>
         </div>
@@ -31,19 +33,19 @@ export default function SimpleFilteredFinancialDashboard() {
           <div className="space-y-2">
             <div className="flex justify-between">
               <span>Management (15%)</span>
-              <span className="font-medium">$6,792</span>
+              <span className="font-medium">{formatCurrency(244512)}</span>
             </div>
             <div className="flex justify-between">
               <span>Portfolio Manager (50%)</span>
-              <span className="font-medium">$3,396</span>
+              <span className="font-medium">{formatCurrency(122256)}</span>
             </div>
             <div className="flex justify-between">
               <span>Referral Agent (10%)</span>
-              <span className="font-medium">$679</span>
+              <span className="font-medium">{formatCurrency(24444)}</span>
             </div>
             <div className="flex justify-between">
               <span>Retail Agent</span>
-              <span className="font-medium">$340</span>
+              <span className="font-medium">{formatCurrency(12240)}</span>
             </div>
           </div>
         </div>

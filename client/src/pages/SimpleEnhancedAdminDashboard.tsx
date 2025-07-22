@@ -1,3 +1,5 @@
+import { formatCurrency } from "@/lib/currency";
+
 export default function SimpleEnhancedAdminDashboard() {
   return (
     <div className="p-6">
@@ -11,15 +13,15 @@ export default function SimpleEnhancedAdminDashboard() {
         </div>
         <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
           <h2 className="text-xl font-semibold mb-4">Financial Summary</h2>
-          <p>Monthly Revenue: $12,500</p>
-          <p>Pending Payouts: $3,200</p>
-          <p>Commission Earned: $1,875</p>
+          <p>Monthly Revenue: <strong>{formatCurrency(450000)}</strong></p>
+          <p>Pending Payouts: <strong>{formatCurrency(115200)}</strong></p>
+          <p>Commission Earned: <strong>{formatCurrency(67500)}</strong></p>
         </div>
         <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
           <h2 className="text-xl font-semibold mb-4">Recent Activity</h2>
-          <p>New Booking: Villa Samui</p>
-          <p>Maintenance Complete: Pool Cleaning</p>
-          <p>Payout Requested: $2,500</p>
+          <p>New Booking: <strong>Villa Samui</strong></p>
+          <p>Maintenance Complete: <strong>Pool Cleaning</strong></p>
+          <p>Payout Requested: <strong>{formatCurrency(90000)}</strong></p>
         </div>
       </div>
     </div>

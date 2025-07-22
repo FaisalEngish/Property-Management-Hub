@@ -1,3 +1,5 @@
+import { formatCurrency } from "@/lib/currency";
+
 export default function SimpleFinances() {
   return (
     <div className="p-6">
@@ -6,22 +8,22 @@ export default function SimpleFinances() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
           <h3 className="text-sm font-medium text-gray-500 mb-2">Total Revenue</h3>
-          <p className="text-2xl font-bold text-green-600">$45,280</p>
+          <p className="text-2xl font-bold text-green-600">{formatCurrency(1630080)}</p>
           <p className="text-xs text-gray-500">+12% from last month</p>
         </div>
         <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
           <h3 className="text-sm font-medium text-gray-500 mb-2">Total Expenses</h3>
-          <p className="text-2xl font-bold text-red-600">$18,750</p>
+          <p className="text-2xl font-bold text-red-600">{formatCurrency(675000)}</p>
           <p className="text-xs text-gray-500">+5% from last month</p>
         </div>
         <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
           <h3 className="text-sm font-medium text-gray-500 mb-2">Net Profit</h3>
-          <p className="text-2xl font-bold text-blue-600">$26,530</p>
+          <p className="text-2xl font-bold text-blue-600">{formatCurrency(955080)}</p>
           <p className="text-xs text-gray-500">+18% from last month</p>
         </div>
         <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
           <h3 className="text-sm font-medium text-gray-500 mb-2">Pending Payouts</h3>
-          <p className="text-2xl font-bold text-orange-600">$8,920</p>
+          <p className="text-2xl font-bold text-orange-600">{formatCurrency(321120)}</p>
           <p className="text-xs text-gray-500">3 requests pending</p>
         </div>
       </div>
@@ -35,21 +37,21 @@ export default function SimpleFinances() {
                 <p className="font-medium">Villa Samui - Guest Payment</p>
                 <p className="text-sm text-gray-600">Jan 15, 2025</p>
               </div>
-              <span className="text-green-600 font-medium">+$2,800</span>
+              <span className="text-green-600 font-medium">+{formatCurrency(100800)}</span>
             </div>
             <div className="flex justify-between items-center p-3 bg-gray-50 dark:bg-gray-700 rounded">
               <div>
                 <p className="font-medium">Maintenance - Villa Aruna</p>
                 <p className="text-sm text-gray-600">Jan 14, 2025</p>
               </div>
-              <span className="text-red-600 font-medium">-$450</span>
+              <span className="text-red-600 font-medium">-{formatCurrency(16200)}</span>
             </div>
             <div className="flex justify-between items-center p-3 bg-gray-50 dark:bg-gray-700 rounded">
               <div>
                 <p className="font-medium">Commission - Agent John</p>
                 <p className="text-sm text-gray-600">Jan 13, 2025</p>
               </div>
-              <span className="text-red-600 font-medium">-$280</span>
+              <span className="text-red-600 font-medium">-{formatCurrency(10080)}</span>
             </div>
           </div>
         </div>
