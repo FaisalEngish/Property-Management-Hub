@@ -35,6 +35,15 @@ export default function UtilityTracker() {
   const [selectedProperty, setSelectedProperty] = useState("all");
   const [selectedUtilityType, setSelectedUtilityType] = useState("all");
   const [selectedMonth, setSelectedMonth] = useState("current");
+  const [setupDialogOpen, setSetupDialogOpen] = useState(false);
+  const [setupData, setSetupData] = useState({
+    property: "",
+    utilityType: "",
+    provider: "",
+    accountNumber: "",
+    rate: "",
+    autoPayEnabled: false
+  });
 
   const properties = [
     { id: 1, name: "Villa Samui Breeze", location: "Koh Samui" },
@@ -518,7 +527,23 @@ export default function UtilityTracker() {
                               <IconComponent className={`w-4 h-4 ${type.color}`} />
                               <span className="text-sm">{type.name}</span>
                             </div>
-                            <Button variant="outline" size="sm">Setup</Button>
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={() => {
+                                setSetupData({
+                                  property: property.name,
+                                  utilityType: type.name,
+                                  provider: "",
+                                  accountNumber: "",
+                                  rate: "",
+                                  autoPayEnabled: false
+                                });
+                                setSetupDialogOpen(true);
+                              }}
+                            >
+                              Setup
+                            </Button>
                           </div>
                         );
                       })}
@@ -677,6 +702,92 @@ export default function UtilityTracker() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Setup Dialog */}
+      <Dialog open={setupDialogOpen} onOpenChange={setSetupDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Setup Utility Account</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Property</Label>
+              <Input 
+                value={setupData.property} 
+                disabled 
+                className="bg-gray-50"
+              />
+            </div>
+            <div>
+              <Label>Utility Type</Label>
+              <Input 
+                value={setupData.utilityType} 
+                disabled 
+                className="bg-gray-50"
+              />
+            </div>
+            <div>
+              <Label>Provider Name</Label>
+              <Input 
+                placeholder="e.g., PEA, Metropolitan Waterworks"
+                value={setupData.provider}
+                onChange={(e) => setSetupData({...setupData, provider: e.target.value})}
+              />
+            </div>
+            <div>
+              <Label>Account Number</Label>
+              <Input 
+                placeholder="Enter account number"
+                value={setupData.accountNumber}
+                onChange={(e) => setSetupData({...setupData, accountNumber: e.target.value})}
+              />
+            </div>
+            <div>
+              <Label>Rate per Unit (THB)</Label>
+              <Input 
+                type="number"
+                placeholder="e.g., 7.50"
+                value={setupData.rate}
+                onChange={(e) => setSetupData({...setupData, rate: e.target.value})}
+              />
+            </div>
+            <div className="flex items-center space-x-2">
+              <Switch 
+                checked={setupData.autoPayEnabled}
+                onCheckedChange={(checked) => setSetupData({...setupData, autoPayEnabled: checked})}
+              />
+              <Label>Enable Auto-pay Notifications</Label>
+            </div>
+            <div className="flex gap-2">
+              <Button 
+                className="flex-1"
+                onClick={() => {
+                  console.log('Setting up utility account:', setupData);
+                  // Here you would typically save to backend
+                  setSetupDialogOpen(false);
+                  // Reset form
+                  setSetupData({
+                    property: "",
+                    utilityType: "",
+                    provider: "",
+                    accountNumber: "",
+                    rate: "",
+                    autoPayEnabled: false
+                  });
+                }}
+              >
+                Save Account Setup
+              </Button>
+              <Button 
+                variant="outline" 
+                onClick={() => setSetupDialogOpen(false)}
+              >
+                Cancel
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
