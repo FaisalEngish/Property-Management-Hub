@@ -18,7 +18,7 @@ import Landing from "@/pages/Landing";
 import NotFound from "@/pages/not-found";
 import SimpleFilteredFinancialDashboard from "./pages/SimpleFilteredFinancialDashboard";
 import FilteredPropertyDashboard from "@/pages/FilteredPropertyDashboard";
-import SimpleEnhancedAdminDashboard from "./pages/SimpleEnhancedAdminDashboard";
+
 import SimpleLiveBookingCalendar from "./pages/SimpleLiveBookingCalendar";
 import SimpleMaintenanceSuggestions from "./pages/SimpleMaintenanceSuggestions";
 import CheckInCheckOutWorkflow from "@/pages/CheckInCheckOutWorkflow";
@@ -42,6 +42,7 @@ import SystemIntegrityCheck from "./pages/SystemIntegrityCheck";
 import UtilityTracker from "./pages/UtilityTracker";
 import AiNotificationsReminders from "./pages/AiNotificationsReminders";
 import FinanceEngine from "./pages/FinanceEngine";
+import PropertyDetailView from "./pages/PropertyDetailView";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -105,6 +106,7 @@ function AppRoutes() {
       <Switch>
         <Route path="/" component={Dashboard} />
         <Route path="/properties" component={Properties} />
+        <Route path="/property/:id" component={PropertyDetailView} />
         <Route path="/tasks" component={Tasks} />
         <Route path="/bookings" component={Bookings} />
         <Route path="/services" component={Services} />
@@ -113,7 +115,6 @@ function AppRoutes() {
         <Route path="/help" component={SimpleHelp} />
         
         {/* Enhanced Dashboards */}
-        <Route path="/enhanced-admin-dashboard" component={SimpleEnhancedAdminDashboard} />
         <Route path="/filtered-financial-dashboard" component={SimpleFilteredFinancialDashboard} />
         <Route path="/filtered-property-dashboard" component={FilteredPropertyDashboard} />
         

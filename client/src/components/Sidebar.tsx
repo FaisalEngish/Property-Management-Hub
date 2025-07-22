@@ -84,8 +84,7 @@ const getRoleBasedMenus = (role: string): MenuSection[] => {
       {
         title: "📊 Dashboards",
         items: [
-          { label: "Admin Dashboard", icon: Home, href: "/", description: "Main overview and insights" },
-          { label: "Enhanced Admin Dashboard", icon: BarChart3, href: "/enhanced-admin-dashboard", badge: "Enhanced" },
+          { label: "Admin Dashboard", icon: Home, href: "/", description: "Comprehensive admin overview and insights" },
           { label: "Financial Dashboard", icon: DollarSign, href: "/filtered-financial-dashboard", badge: "New" },
           { label: "Property Dashboard", icon: Building, href: "/filtered-property-dashboard", badge: "New" },
         ]
