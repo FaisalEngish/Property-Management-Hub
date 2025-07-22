@@ -1,8 +1,12 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRoute, useLocation } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { useState } from "react";
 import { 
   ArrowLeft, 
   MapPin, 
@@ -19,11 +23,15 @@ import {
   Settings,
   Info,
   TrendingUp,
-  Building
+  Building,
+  Edit,
+  ExternalLink
 } from "lucide-react";
 import { formatCurrency } from "@/lib/currency";
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { useAuth } from "@/hooks/useAuth";
+import { apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 
 // Mock booking source data - in real app this would come from API
 const mockBookingSources = [
@@ -32,6 +40,16 @@ const mockBookingSources = [
   { name: 'VRBO', value: 20, color: '#FFD700' },
   { name: 'Direct', value: 10, color: '#4CAF50' }
 ];
+
+// Helper function to extract URL from iframe HTML
+function extractUrlFromIframe(iframeHtml: string): string {
+  const srcMatch = iframeHtml.match(/src="([^"]+)"/);
+  if (srcMatch && srcMatch[1]) {
+    return srcMatch[1];
+  }
+  // If we can't extract URL, return the original string
+  return iframeHtml;
+}
 
 // Mock property descriptions
 const mockDescriptions = {
@@ -62,6 +80,88 @@ function ActionButton({ label, href, icon: Icon, variant = "default" }: ActionBu
       <Icon className="w-4 h-4" />
       {label}
     </Button>
+  );
+}
+
+interface EditMapLinkDialogProps {
+  property: any;
+  onUpdate: () => void;
+}
+
+function EditMapLinkDialog({ property, onUpdate }: EditMapLinkDialogProps) {
+  const [mapLink, setMapLink] = useState(property.googleMapsLink || "");
+  const [isOpen, setIsOpen] = useState(false);
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  const updatePropertyMutation = useMutation({
+    mutationFn: async (data: { googleMapsLink: string }) => {
+      return apiRequest(`/api/properties/${property.id}`, {
+        method: "PATCH",
+        body: JSON.stringify(data),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/properties/${property.id}`] });
+      toast({
+        title: "Success",
+        description: "Google Maps link updated successfully",
+      });
+      setIsOpen(false);
+      onUpdate();
+    },
+    onError: (error) => {
+      toast({
+        title: "Error", 
+        description: `Failed to update map link: ${error.message}`,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleSave = () => {
+    updatePropertyMutation.mutate({ googleMapsLink: mapLink });
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+      <DialogTrigger asChild>
+        <Button variant="ghost" size="sm" className="ml-2 p-1 h-6 w-6">
+          <Edit className="w-3 h-3" />
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>Edit Google Maps Link</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div>
+            <Label htmlFor="mapLink">Google Maps Link or Embed HTML</Label>
+            <Textarea
+              id="mapLink"
+              value={mapLink}
+              onChange={(e) => setMapLink(e.target.value)}
+              placeholder="Paste Google Maps share link or embed HTML code here..."
+              className="mt-2 min-h-[100px]"
+            />
+            <p className="text-xs text-muted-foreground mt-2">
+              You can paste either a Google Maps share link (https://maps.google.com/...) or full embed HTML code
+            </p>
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setIsOpen(false)}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleSave}
+              disabled={updatePropertyMutation.isPending}
+            >
+              {updatePropertyMutation.isPending ? "Saving..." : "Save"}
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -210,12 +310,28 @@ export default function PropertyDetailView() {
             <div className="flex items-center gap-2 mb-4">
               <MapPin className="w-5 h-5 text-muted-foreground" />
               <button 
-                onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(property.address)}`, '_blank')}
-                className="text-lg text-blue-600 hover:text-blue-800 hover:underline cursor-pointer transition-colors"
+                onClick={() => {
+                  const mapUrl = property.googleMapsLink 
+                    ? (property.googleMapsLink.includes('<iframe') 
+                        ? extractUrlFromIframe(property.googleMapsLink)
+                        : property.googleMapsLink)
+                    : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(property.address)}`;
+                  window.open(mapUrl, '_blank');
+                }}
+                className="text-lg text-blue-600 hover:text-blue-800 hover:underline cursor-pointer transition-colors flex items-center gap-1"
                 title="View on Google Maps"
               >
                 {property.address}
+                <ExternalLink className="w-4 h-4" />
               </button>
+              {userRole === 'admin' && (
+                <EditMapLinkDialog 
+                  property={property} 
+                  onUpdate={() => {
+                    // Refresh will happen via React Query invalidation
+                  }} 
+                />
+              )}
             </div>
             <div className="flex flex-wrap gap-4 text-sm">
               <div className="flex items-center gap-1">
@@ -308,7 +424,7 @@ export default function PropertyDetailView() {
               />
               <ActionButton 
                 label="Edit Property" 
-                href={`/property-profile/${propertyId}`} 
+                href="/settings" 
                 icon={Settings}
               />
               <ActionButton 
@@ -325,19 +441,19 @@ export default function PropertyDetailView() {
               />
               <ActionButton 
                 label="Important Info" 
-                href={`/property-profile/${propertyId}`} 
+                href="/settings" 
                 icon={Info}
                 variant="outline"
               />
               <ActionButton 
                 label="Documents" 
-                href={`/property-profile/${propertyId}`} 
+                href="/settings" 
                 icon={FileText}
                 variant="outline"
               />
               <ActionButton 
-                label="Full Profile" 
-                href={`/property-profile/${propertyId}`} 
+                label="View Calendar" 
+                href="/multi-property-calendar" 
                 icon={Star}
               />
             </div>

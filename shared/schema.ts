@@ -562,6 +562,7 @@ export const properties = pgTable("properties", {
   amenities: text("amenities").array(),
   images: text("images").array(),
   hostawayId: varchar("hostaway_id"),
+  googleMapsLink: text("google_maps_link"), // Custom Google Maps link or embed HTML
   ownerId: varchar("owner_id").references(() => users.id),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
