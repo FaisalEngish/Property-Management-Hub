@@ -1,19 +1,6 @@
-import OpenAI from "openai";
+// Client-side AI helper - makes API calls to server endpoints
+// OpenAI should be used on server-side for security
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
-
-export async function askAssistant(prompt: string) {
-  const response = await openai.chat.completions.create({
-    model: "gpt-4o", // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
-    messages: [{ role: "user", content: prompt }],
-  });
-
-  return response.choices[0].message.content;
-}
-
-// Additional AI helper functions for HostPilotPro
 export async function generatePropertyDescription(propertyDetails: {
   name: string;
   bedrooms: number;
@@ -21,52 +8,67 @@ export async function generatePropertyDescription(propertyDetails: {
   amenities: string[];
   location: string;
 }) {
-  const prompt = `Generate a compelling property description for a vacation rental with the following details:
-- Name: ${propertyDetails.name}
-- Bedrooms: ${propertyDetails.bedrooms}
-- Bathrooms: ${propertyDetails.bathrooms}
-- Location: ${propertyDetails.location}
-- Amenities: ${propertyDetails.amenities.join(', ')}
-
-Please write a professional, engaging description that would attract guests.`;
-
-  return await askAssistant(prompt);
+  const response = await fetch('/api/ai/generate-property-description', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(propertyDetails),
+  });
+  
+  if (!response.ok) {
+    throw new Error('Failed to generate property description');
+  }
+  
+  const data = await response.json();
+  return data.description;
 }
 
 export async function analyzeGuestReview(reviewText: string) {
-  const prompt = `Analyze this guest review and provide:
-1. Sentiment (positive/negative/neutral)
-2. Key issues mentioned (if any)
-3. Suggested improvements
-4. Overall rating prediction (1-5 stars)
-
-Review: "${reviewText}"
-
-Please respond in JSON format.`;
-
-  const response = await openai.chat.completions.create({
-    model: "gpt-4o",
-    messages: [{ role: "user", content: prompt }],
-    response_format: { type: "json_object" },
+  const response = await fetch('/api/ai/analyze-review', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ reviewText }),
   });
-
-  return JSON.parse(response.choices[0].message.content || "{}");
+  
+  if (!response.ok) {
+    throw new Error('Failed to analyze review');
+  }
+  
+  return await response.json();
 }
 
 export async function generateMaintenanceTaskSuggestion(propertyType: string, lastMaintenanceDate: string) {
-  const prompt = `Based on a ${propertyType} property with last maintenance done on ${lastMaintenanceDate}, suggest upcoming maintenance tasks that should be scheduled. Include:
-1. Task name
-2. Priority level (Low/Medium/High)
-3. Estimated timeframe
-4. Brief description
-
-Respond in JSON format with an array of tasks.`;
-
-  const response = await openai.chat.completions.create({
-    model: "gpt-4o",
-    messages: [{ role: "user", content: prompt }],
-    response_format: { type: "json_object" },
+  const response = await fetch('/api/ai/maintenance-suggestions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ propertyType, lastMaintenanceDate }),
   });
+  
+  if (!response.ok) {
+    throw new Error('Failed to generate maintenance suggestions');
+  }
+  
+  return await response.json();
+}
 
-  return JSON.parse(response.choices[0].message.content || "{}");
+export async function askAssistant(prompt: string) {
+  const response = await fetch('/api/ai/ask-assistant', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ prompt }),
+  });
+  
+  if (!response.ok) {
+    throw new Error('Failed to get AI response');
+  }
+  
+  const data = await response.json();
+  return data.response;
 }

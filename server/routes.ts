@@ -27516,6 +27516,127 @@ async function processGuestIssueForAI(issueReport: any) {
     });
   });
 
+  // ===== AI API ROUTES =====
+  // Import AI helper functions
+  const aiHelper = await import("./aiHelper");
+
+  app.post("/api/ai/generate-property-description", isDemoAuthenticated, async (req, res) => {
+    try {
+      if (!process.env.OPENAI_API_KEY) {
+        return res.status(503).json({ 
+          message: "AI service unavailable - OpenAI API key not configured" 
+        });
+      }
+
+      const { name, bedrooms, bathrooms, amenities, location } = req.body;
+      
+      if (!name || !bedrooms || !bathrooms || !location) {
+        return res.status(400).json({ message: "Missing required property details" });
+      }
+
+      const description = await aiHelper.generatePropertyDescription({
+        name,
+        bedrooms,
+        bathrooms,
+        amenities: amenities || [],
+        location
+      });
+
+      res.json({ description });
+    } catch (error) {
+      console.error("Error generating property description:", error);
+      res.status(500).json({ message: "Failed to generate property description" });
+    }
+  });
+
+  app.post("/api/ai/analyze-review", isDemoAuthenticated, async (req, res) => {
+    try {
+      if (!process.env.OPENAI_API_KEY) {
+        return res.status(503).json({ 
+          message: "AI service unavailable - OpenAI API key not configured" 
+        });
+      }
+
+      const { reviewText } = req.body;
+      
+      if (!reviewText) {
+        return res.status(400).json({ message: "Review text is required" });
+      }
+
+      const analysis = await aiHelper.analyzeGuestReview(reviewText);
+      res.json(analysis);
+    } catch (error) {
+      console.error("Error analyzing review:", error);
+      res.status(500).json({ message: "Failed to analyze review" });
+    }
+  });
+
+  app.post("/api/ai/maintenance-suggestions", isDemoAuthenticated, async (req, res) => {
+    try {
+      if (!process.env.OPENAI_API_KEY) {
+        return res.status(503).json({ 
+          message: "AI service unavailable - OpenAI API key not configured" 
+        });
+      }
+
+      const { propertyType, lastMaintenanceDate } = req.body;
+      
+      if (!propertyType || !lastMaintenanceDate) {
+        return res.status(400).json({ message: "Property type and last maintenance date are required" });
+      }
+
+      const suggestions = await aiHelper.generateMaintenanceTaskSuggestion(propertyType, lastMaintenanceDate);
+      res.json(suggestions);
+    } catch (error) {
+      console.error("Error generating maintenance suggestions:", error);
+      res.status(500).json({ message: "Failed to generate maintenance suggestions" });
+    }
+  });
+
+  app.post("/api/ai/ask-assistant", isDemoAuthenticated, async (req, res) => {
+    try {
+      if (!process.env.OPENAI_API_KEY) {
+        return res.status(503).json({ 
+          message: "AI service unavailable - OpenAI API key not configured" 
+        });
+      }
+
+      const { prompt } = req.body;
+      
+      if (!prompt) {
+        return res.status(400).json({ message: "Prompt is required" });
+      }
+
+      const response = await aiHelper.askAssistant(prompt);
+      res.json({ response });
+    } catch (error) {
+      console.error("Error asking assistant:", error);
+      res.status(500).json({ message: "Failed to get AI response" });
+    }
+  });
+
+  app.post("/api/ai/smart-guest-response", isDemoAuthenticated, async (req, res) => {
+    try {
+      if (!process.env.OPENAI_API_KEY) {
+        return res.status(503).json({ 
+          message: "AI service unavailable - OpenAI API key not configured" 
+        });
+      }
+
+      const { guestMessage, propertyInfo } = req.body;
+      
+      if (!guestMessage) {
+        return res.status(400).json({ message: "Guest message is required" });
+      }
+
+      const response = await aiHelper.generateSmartGuestResponse(guestMessage, propertyInfo || {});
+      res.json({ response });
+    } catch (error) {
+      console.error("Error generating smart guest response:", error);
+      res.status(500).json({ message: "Failed to generate response" });
+    }
+  });
+
   // API 404 handler - must be after all other API routes
   app.use("/api/*", (req, res) => {
     res.status(404).json({ 
