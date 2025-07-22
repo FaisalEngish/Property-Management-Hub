@@ -81,7 +81,6 @@ export default function Properties() {
                   key={property.id}
                   property={property}
                   onDelete={() => handleDeleteProperty(property.id)}
-                  showProfileButton={true}
                 />
               ))}
             </div>
