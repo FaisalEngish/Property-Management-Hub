@@ -43,6 +43,7 @@ import UtilityTracker from "./pages/UtilityTracker";
 import AiNotificationsReminders from "./pages/AiNotificationsReminders";
 import FinanceEngine from "./pages/FinanceEngine";
 import PropertyDetailView from "./pages/PropertyDetailView";
+import PropertyProfile from "./pages/PropertyProfile";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -107,6 +108,7 @@ function AppRoutes() {
         <Route path="/" component={Dashboard} />
         <Route path="/properties" component={Properties} />
         <Route path="/property/:id" component={PropertyDetailView} />
+        <Route path="/property-profile/:id" component={PropertyProfile} />
         <Route path="/tasks" component={Tasks} />
         <Route path="/bookings" component={Bookings} />
         <Route path="/services" component={Services} />

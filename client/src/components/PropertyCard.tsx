@@ -7,9 +7,10 @@ import { useLocation } from "wouter";
 interface PropertyCardProps {
   property: any;
   onDelete: () => void;
+  showProfileButton?: boolean;
 }
 
-export default function PropertyCard({ property, onDelete }: PropertyCardProps) {
+export default function PropertyCard({ property, onDelete, showProfileButton = false }: PropertyCardProps) {
   const [, setLocation] = useLocation();
   const statusColor = property.status === 'active' ? 'default' : 
                      property.status === 'maintenance' ? 'secondary' : 'destructive';
@@ -17,6 +18,11 @@ export default function PropertyCard({ property, onDelete }: PropertyCardProps) 
   const handleViewProperty = () => {
     // Navigate to property detail view
     setLocation(`/property/${property.id}`);
+  };
+
+  const handleViewProfile = () => {
+    // Navigate to enhanced property profile
+    setLocation(`/property-profile/${property.id}`);
   };
 
   const handleManageProperty = () => {
@@ -52,20 +58,27 @@ export default function PropertyCard({ property, onDelete }: PropertyCardProps) 
           <p>Price: ${property.pricePerNight}/night</p>
         </div>
         
-        <div className="flex space-x-2">
-          <Button variant="outline" className="flex-1" size="sm" onClick={handleViewProperty}>
-            View
-          </Button>
-          <Button variant="outline" className="flex-1" size="sm" onClick={handleManageProperty}>
-            Manage
-          </Button>
-          <Button 
-            variant="destructive" 
-            size="sm"
-            onClick={onDelete}
-          >
-            Delete
-          </Button>
+        <div className="space-y-2">
+          {showProfileButton && (
+            <Button variant="default" className="w-full" size="sm" onClick={handleViewProfile}>
+              View Profile
+            </Button>
+          )}
+          <div className="flex space-x-2">
+            <Button variant="outline" className="flex-1" size="sm" onClick={handleViewProperty}>
+              View
+            </Button>
+            <Button variant="outline" className="flex-1" size="sm" onClick={handleManageProperty}>
+              Manage
+            </Button>
+            <Button 
+              variant="destructive" 
+              size="sm"
+              onClick={onDelete}
+            >
+              Delete
+            </Button>
+          </div>
         </div>
       </CardContent>
     </Card>

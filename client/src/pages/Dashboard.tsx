@@ -122,14 +122,14 @@ export default function Dashboard() {
                   onChange={(e) => setActiveFilters(prev => ({ ...prev, searchText: e.target.value }))}
                 />
                 <Select 
-                  value={activeFilters.area || ""} 
-                  onValueChange={(value) => setActiveFilters(prev => ({ ...prev, area: value || undefined }))}
+                  value={activeFilters.area || "all"} 
+                  onValueChange={(value) => setActiveFilters(prev => ({ ...prev, area: value === "all" ? undefined : value }))}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="All Areas" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">All Areas</SelectItem>
+                    <SelectItem value="all">All Areas</SelectItem>
                     <SelectItem value="Chaweng">Chaweng</SelectItem>
                     <SelectItem value="Lamai">Lamai</SelectItem>
                     <SelectItem value="Bophut">Bophut</SelectItem>
@@ -137,14 +137,14 @@ export default function Dashboard() {
                   </SelectContent>
                 </Select>
                 <Select 
-                  value={activeFilters.bedroomCount?.toString() || ""} 
-                  onValueChange={(value) => setActiveFilters(prev => ({ ...prev, bedroomCount: value ? parseInt(value) : undefined }))}
+                  value={activeFilters.bedroomCount?.toString() || "all"} 
+                  onValueChange={(value) => setActiveFilters(prev => ({ ...prev, bedroomCount: value === "all" ? undefined : parseInt(value) }))}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="All Bedrooms" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">All Bedrooms</SelectItem>
+                    <SelectItem value="all">All Bedrooms</SelectItem>
                     <SelectItem value="2">2 Bedrooms</SelectItem>
                     <SelectItem value="3">3 Bedrooms</SelectItem>
                     <SelectItem value="4">4 Bedrooms</SelectItem>
