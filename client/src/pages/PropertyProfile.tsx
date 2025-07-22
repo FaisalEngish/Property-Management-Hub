@@ -17,14 +17,17 @@ const bookingSourceData = [
 const COLORS = ['#00bcd4', '#ff9800', '#4caf50', '#9e9e9e'];
 
 export default function PropertyProfile() {
-  const [, params] = useRoute("/property/:id");
+  const [, params] = useRoute("/property-profile/:id");
   const [, setLocation] = useLocation();
   const propertyId = params?.id;
 
-  const { data: property, isLoading } = useQuery({
+  const { data: property, isLoading, error } = useQuery({
     queryKey: [`/api/properties/${propertyId}`],
     enabled: !!propertyId,
   });
+
+  // Debug logging
+  console.log('PropertyProfile Debug:', { propertyId, property, isLoading, error });
 
   if (isLoading) {
     return (
