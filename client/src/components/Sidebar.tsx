@@ -93,9 +93,7 @@ const getRoleBasedMenus = (role: string): MenuSection[] => {
         title: "🏘️ Property Management",
         items: [
           { label: "Properties", icon: Building, href: "/properties", description: "Manage all properties" },
-          { label: "Bookings", icon: Calendar, href: "/bookings", description: "View and manage bookings" },
-          { label: "Live Booking Calendar", icon: Calendar, href: "/booking-calendar", badge: "Live" },
-          { label: "Multi Property Calendar", icon: Calendar, href: "/multi-property-calendar", badge: "New" },
+          { label: "Unified Calendar & Bookings", icon: Calendar, href: "/bookings", description: "All booking views and calendar management" },
           { label: "Tasks", icon: CheckSquare, href: "/tasks", description: "Track and assign tasks" },
           { label: "Check-in/Check-out Workflow", icon: CheckCircle, href: "/checkin-checkout-workflow" },
           { label: "Daily Operations", icon: Clock, href: "/daily-operations", badge: "New" },

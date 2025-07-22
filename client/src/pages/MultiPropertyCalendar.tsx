@@ -54,8 +54,8 @@ export default function MultiPropertyCalendar() {
   const filtered = sampleData.filter(
     p =>
       p.property.toLowerCase().includes(search.toLowerCase()) &&
-      (!filterArea || p.area === filterArea) &&
-      (!filterManager || p.manager === filterManager)
+      (filterArea === 'all' || !filterArea || p.area === filterArea) &&
+      (filterManager === 'all' || !filterManager || p.manager === filterManager)
   );
 
   const getStatusColor = (status: string) => {
@@ -105,7 +105,7 @@ export default function MultiPropertyCalendar() {
                     <SelectValue placeholder="All Areas" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">All Areas</SelectItem>
+                    <SelectItem value="all">All Areas</SelectItem>
                     <SelectItem value="Bophut">Bophut</SelectItem>
                     <SelectItem value="Lamai">Lamai</SelectItem>
                     <SelectItem value="Chaweng">Chaweng</SelectItem>
@@ -120,7 +120,7 @@ export default function MultiPropertyCalendar() {
                     <SelectValue placeholder="All Managers" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">All Managers</SelectItem>
+                    <SelectItem value="all">All Managers</SelectItem>
                     <SelectItem value="Dean">Dean</SelectItem>
                     <SelectItem value="Jane">Jane</SelectItem>
                   </SelectContent>
