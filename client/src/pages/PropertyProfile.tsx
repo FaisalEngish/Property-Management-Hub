@@ -223,7 +223,7 @@ export default function PropertyProfile() {
                               variant="outline" 
                               size="sm" 
                               className="h-8 px-3"
-                              onClick={() => handleEditOta(platform)}
+                              onClick={() => setEditingOta({ ...platform })}
                             >
                               <Edit className="w-3 h-3" />
                             </Button>
@@ -237,13 +237,17 @@ export default function PropertyProfile() {
                                 <Label htmlFor="platform-url">Platform URL</Label>
                                 <Input
                                   id="platform-url"
-                                  defaultValue={platform.url}
+                                  value={editingOta?.url || platform.url}
                                   placeholder="Enter platform URL"
                                   onChange={(e) => setEditingOta({ ...platform, url: e.target.value })}
                                 />
                               </div>
                               <Button 
-                                onClick={() => editingOta && handleSaveOta(editingOta)}
+                                onClick={() => {
+                                  if (editingOta) {
+                                    handleSaveOta(editingOta);
+                                  }
+                                }}
                                 className="w-full"
                               >
                                 Save Changes
@@ -300,7 +304,7 @@ export default function PropertyProfile() {
                                 variant="outline" 
                                 size="sm" 
                                 className="h-8 px-3"
-                                onClick={() => handleEditMedia(media)}
+                                onClick={() => setEditingMedia({ ...media })}
                               >
                                 <Edit className="w-3 h-3" />
                               </Button>
@@ -314,7 +318,7 @@ export default function PropertyProfile() {
                                   <Label htmlFor="media-url">Media URL</Label>
                                   <Input
                                     id="media-url"
-                                    defaultValue={media.url}
+                                    value={editingMedia?.url || media.url}
                                     placeholder="Enter media URL"
                                     onChange={(e) => setEditingMedia({ ...media, url: e.target.value })}
                                   />
@@ -323,13 +327,20 @@ export default function PropertyProfile() {
                                   <Label htmlFor="media-description">Description</Label>
                                   <Input
                                     id="media-description"
-                                    defaultValue={media.description}
+                                    value={editingMedia?.description || media.description}
                                     placeholder="Enter description"
-                                    onChange={(e) => setEditingMedia({ ...editingMedia, description: e.target.value })}
+                                    onChange={(e) => setEditingMedia({ 
+                                      ...(editingMedia || media), 
+                                      description: e.target.value 
+                                    })}
                                   />
                                 </div>
                                 <Button 
-                                  onClick={() => editingMedia && handleSaveMedia(editingMedia)}
+                                  onClick={() => {
+                                    if (editingMedia) {
+                                      handleSaveMedia(editingMedia);
+                                    }
+                                  }}
                                   className="w-full"
                                 >
                                   Save Changes
