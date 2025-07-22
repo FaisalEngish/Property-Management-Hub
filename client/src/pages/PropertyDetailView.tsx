@@ -209,7 +209,13 @@ export default function PropertyDetailView() {
             <h1 className="text-4xl font-bold mb-2">{property.name}</h1>
             <div className="flex items-center gap-2 mb-4">
               <MapPin className="w-5 h-5 text-muted-foreground" />
-              <p className="text-lg text-muted-foreground">{property.address}</p>
+              <button 
+                onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(property.address)}`, '_blank')}
+                className="text-lg text-blue-600 hover:text-blue-800 hover:underline cursor-pointer transition-colors"
+                title="View on Google Maps"
+              >
+                {property.address}
+              </button>
             </div>
             <div className="flex flex-wrap gap-4 text-sm">
               <div className="flex items-center gap-1">
