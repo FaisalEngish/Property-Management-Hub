@@ -2279,7 +2279,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/staff-wallet/:staffId/expenses", isDemoAuthenticated, async (req: any, res) => {
     try {
       const { staffId } = req.params;
-      const { amount, description, category, receipt } = req.body;
+      const { amount, description, category, property, receipt, receiptPhoto } = req.body;
       
       const transaction = staffWalletStorage.addTransaction({
         staffId,
@@ -2287,9 +2287,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         amount: parseFloat(amount),
         description,
         category,
+        propertyName: property,
         date: new Date().toISOString().split('T')[0],
         time: new Date().toTimeString().slice(0, 5),
         receipt,
+        receiptPhoto,
         status: 'pending'
       });
       
@@ -2339,7 +2341,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/staff-wallet/:staffId/cash-income", isDemoAuthenticated, async (req: any, res) => {
     try {
       const { staffId } = req.params;
-      const { amount, source, guestName, property, notes } = req.body;
+      const { amount, source, guestName, property, notes, receiptPhoto } = req.body;
       
       const transaction = staffWalletStorage.addTransaction({
         staffId,
@@ -2351,6 +2353,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         time: new Date().toTimeString().slice(0, 5),
         guestName,
         propertyName: property,
+        receiptPhoto,
         status: 'approved' // Cash collections are automatically approved
       });
       

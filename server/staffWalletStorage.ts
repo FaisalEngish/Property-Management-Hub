@@ -8,6 +8,7 @@ interface StaffWalletTransaction {
   date: string;
   time: string;
   receipt?: string;
+  receiptPhoto?: string;
   guestName?: string;
   propertyName?: string;
   status: 'pending' | 'approved' | 'rejected';

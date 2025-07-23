@@ -27,7 +27,8 @@ export default function StaffWalletPettyCash() {
       source: "",
       guestName: "",
       property: "",
-      notes: ""
+      notes: "",
+      receiptPhoto: ""
     }
   });
 
@@ -37,9 +38,28 @@ export default function StaffWalletPettyCash() {
       amount: "",
       description: "",
       category: "",
-      receipt: ""
+      property: "",
+      receipt: "",
+      receiptPhoto: ""
     }
   });
+
+  // Handle photo upload
+  const handlePhotoUpload = (event: React.ChangeEvent<HTMLInputElement>, formType: 'cash' | 'expense') => {
+    const file = event.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const base64 = e.target?.result as string;
+        if (formType === 'cash') {
+          cashForm.setValue("receiptPhoto", base64);
+        } else {
+          expenseForm.setValue("receiptPhoto", base64);
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   // Fetch wallet data from backend
   const { data: walletData } = useQuery({
@@ -270,6 +290,15 @@ export default function StaffWalletPettyCash() {
                   {...cashForm.register("notes")}
                 />
               </div>
+              <div>
+                <Label>Receipt Photo (Optional)</Label>
+                <Input 
+                  type="file" 
+                  accept="image/*"
+                  onChange={(e) => handlePhotoUpload(e, 'cash')}
+                />
+                <p className="text-xs text-gray-500 mt-1">Upload receipt photo or proof of collection</p>
+              </div>
               <div className="flex justify-end gap-2">
                 <Button variant="outline" type="button" onClick={() => setIsAddIncomeOpen(false)}>
                   Cancel
@@ -325,11 +354,34 @@ export default function StaffWalletPettyCash() {
                 />
               </div>
               <div>
-                <Label>Receipt (Optional)</Label>
+                <Label>Property</Label>
+                <Select onValueChange={(value) => expenseForm.setValue("property", value)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select property" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Villa Aruna">Villa Aruna</SelectItem>
+                    <SelectItem value="Villa Samui Breeze">Villa Samui Breeze</SelectItem>
+                    <SelectItem value="Villa Paradise">Villa Paradise</SelectItem>
+                    <SelectItem value="NA">N/A - General Expense</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Receipt Number/Details (Optional)</Label>
                 <Input 
-                  placeholder="Receipt number or photo URL"
+                  placeholder="Receipt number or store details"
                   {...expenseForm.register("receipt")}
                 />
+              </div>
+              <div>
+                <Label>Receipt Photo (Optional)</Label>
+                <Input 
+                  type="file" 
+                  accept="image/*"
+                  onChange={(e) => handlePhotoUpload(e, 'expense')}
+                />
+                <p className="text-xs text-gray-500 mt-1">Upload receipt photo for expense verification</p>
               </div>
               <div className="flex justify-end gap-2">
                 <Button variant="outline" type="button" onClick={() => setIsAddExpenseOpen(false)}>
@@ -436,6 +488,9 @@ export default function StaffWalletPettyCash() {
                     )}
                     {transaction.receipt && (
                       <p className="text-xs text-gray-500">Receipt: {transaction.receipt}</p>
+                    )}
+                    {transaction.receiptPhoto && (
+                      <p className="text-xs text-blue-600">📸 Photo attached</p>
                     )}
                   </div>
                 </div>
