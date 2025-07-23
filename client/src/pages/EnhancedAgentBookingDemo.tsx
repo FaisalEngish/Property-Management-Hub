@@ -44,75 +44,111 @@ import {
   FileText
 } from "lucide-react";
 
-// Demo Properties Data (replacing Hostaway API for now)
+// Demo Properties Data for Retail Agents
 const DEMO_PROPERTIES = [
   {
     id: 1,
     name: "Villa Samui Breeze",
     location: "Koh Samui, Thailand",
+    area: "Bophut Beach",
     bedrooms: 4,
     bathrooms: 3,
     maxGuests: 8,
     pricePerNight: 350,
     currency: "USD",
-    amenities: ["Pool", "WiFi", "Air Conditioning", "Kitchen", "Beachfront"],
+    amenities: ["Private Pool", "WiFi", "Air Conditioning", "Full Kitchen", "Beachfront Access", "Daily Housekeeping", "24/7 Security"],
     rating: 4.8,
     reviews: 156,
-    description: "Stunning beachfront villa with panoramic ocean views",
+    description: "Stunning beachfront villa with panoramic ocean views. Perfect for families seeking luxury and tranquility. Features modern amenities, private beach access, and breathtaking sunset views.",
+    checkInTime: "3:00 PM",
+    checkOutTime: "11:00 AM",
+    minStay: 3,
     image: "/api/placeholder/400/300",
     available: true,
-    commission: 10,
+    mediaLinks: {
+      photos: "https://dropbox.com/villa-samui-breeze-photos",
+      brochure: "https://dropbox.com/villa-samui-breeze-brochure.pdf",
+      floorPlan: "https://dropbox.com/villa-samui-breeze-floorplan.pdf"
+    },
+    policies: ["No smoking", "No pets", "No parties/events"],
   },
   {
     id: 2,
     name: "Villa Tropical Paradise",
-    location: "Phuket, Thailand", 
+    location: "Phuket, Thailand",
+    area: "Patong Beach", 
     bedrooms: 5,
     bathrooms: 4,
     maxGuests: 10,
     pricePerNight: 450,
     currency: "USD",
-    amenities: ["Pool", "WiFi", "Air Conditioning", "Kitchen", "Garden"],
+    amenities: ["Infinity Pool", "WiFi", "Air Conditioning", "Full Kitchen", "Tropical Garden", "BBQ Area", "Fitness Room"],
     rating: 4.9,
     reviews: 203,
-    description: "Luxury villa with private pool and tropical gardens",
+    description: "Luxurious villa surrounded by lush tropical gardens. Modern design meets tropical elegance with spacious living areas and premium amenities.",
+    checkInTime: "3:00 PM",
+    checkOutTime: "12:00 PM",
+    minStay: 2,
     image: "/api/placeholder/400/300",
     available: true,
-    commission: 10,
+    mediaLinks: {
+      photos: "https://dropbox.com/villa-tropical-paradise-photos",
+      brochure: "https://dropbox.com/villa-tropical-paradise-brochure.pdf",
+      floorPlan: "https://dropbox.com/villa-tropical-paradise-floorplan.pdf"
+    },
+    policies: ["No smoking", "No pets allowed", "Quiet hours 10 PM - 8 AM"],
   },
   {
     id: 3,
     name: "Villa Balinese Charm",
     location: "Canggu, Bali",
+    area: "Rice Field District",
     bedrooms: 3,
     bathrooms: 2,
     maxGuests: 6,
     pricePerNight: 280,
     currency: "USD",
-    amenities: ["Pool", "WiFi", "Air Conditioning", "Kitchen", "Rice Field View"],
+    amenities: ["Private Pool", "WiFi", "Air Conditioning", "Full Kitchen", "Rice Field Views", "Yoga Deck", "Garden"],
     rating: 4.7,
     reviews: 98,
-    description: "Traditional Balinese villa with modern amenities",
+    description: "Traditional Balinese villa with modern amenities. Peaceful retreat surrounded by emerald rice fields with authentic local experiences.",
+    checkInTime: "2:00 PM",
+    checkOutTime: "11:00 AM",
+    minStay: 2,
     image: "/api/placeholder/400/300",
     available: true,
-    commission: 10,
+    mediaLinks: {
+      photos: "https://dropbox.com/villa-balinese-charm-photos",
+      brochure: "https://dropbox.com/villa-balinese-charm-brochure.pdf",
+      floorPlan: "https://dropbox.com/villa-balinese-charm-floorplan.pdf"
+    },
+    policies: ["No smoking", "Pets welcome with fee", "Respectful of local culture"],
   },
   {
     id: 4,
     name: "Villa Gala",
     location: "Seminyak, Bali",
+    area: "Seminyak Beach",
     bedrooms: 6,
     bathrooms: 5,
     maxGuests: 12,
     pricePerNight: 600,
     currency: "USD",
-    amenities: ["Pool", "WiFi", "Air Conditioning", "Kitchen", "Staff", "Spa"],
+    amenities: ["Infinity Pool", "WiFi", "Air Conditioning", "Full Kitchen", "Private Staff", "In-Villa Spa", "Butler Service"],
     rating: 5.0,
     reviews: 87,
-    description: "Ultra-luxury villa with full staff and spa services",
+    description: "Ultra-luxury villa with full staff and spa services. Experience the pinnacle of Balinese hospitality with personalized service and world-class amenities.",
+    checkInTime: "3:00 PM",
+    checkOutTime: "12:00 PM",
+    minStay: 3,
     image: "/api/placeholder/400/300",
     available: true,
-    commission: 15,
+    mediaLinks: {
+      photos: "https://dropbox.com/villa-gala-photos",
+      brochure: "https://dropbox.com/villa-gala-brochure.pdf",
+      floorPlan: "https://dropbox.com/villa-gala-floorplan.pdf"
+    },
+    policies: ["No smoking", "No pets", "Formal dress for dinner service"],
   }
 ];
 
@@ -304,8 +340,8 @@ export default function EnhancedAgentBookingDemo() {
           {/* Header */}
           <div className="flex justify-between items-center mb-8">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">Agent Booking Engine</h1>
-              <p className="text-gray-600">Search and book properties with live commission tracking</p>
+              <h1 className="text-3xl font-bold text-gray-900">Property Booking Portal</h1>
+              <p className="text-gray-600">Browse properties, access media, and create client bookings</p>
             </div>
             <Button variant="outline" onClick={handleLogout} className="flex items-center gap-2">
               <LogOut className="h-4 w-4" />
@@ -317,19 +353,19 @@ export default function EnhancedAgentBookingDemo() {
             <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="booking" className="flex items-center gap-2">
                 <Search className="h-4 w-4" />
-                Live Booking Engine
+                Property Search
               </TabsTrigger>
               <TabsTrigger value="descriptions" className="flex items-center gap-2">
-                <FileText className="h-4 w-4" />
-                Villa Descriptions & Media
+                <Home className="h-4 w-4" />
+                Property Details & Info
               </TabsTrigger>
-              <TabsTrigger value="finance" className="flex items-center gap-2">
-                <DollarSign className="h-4 w-4" />
-                Finance & Commissions
+              <TabsTrigger value="media" className="flex items-center gap-2">
+                <Download className="h-4 w-4" />
+                Media & Resources
               </TabsTrigger>
             </TabsList>
 
-            {/* Live Booking Engine Tab */}
+            {/* Property Search Tab */}
             <TabsContent value="booking">
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Search Filters */}
@@ -582,15 +618,69 @@ export default function EnhancedAgentBookingDemo() {
                           <div>
                             <strong>Price:</strong> ${property.pricePerNight}/night
                           </div>
+                          {property.checkInTime && (
+                            <div>
+                              <strong>Check-in:</strong> {property.checkInTime}
+                            </div>
+                          )}
+                          {property.checkOutTime && (
+                            <div>
+                              <strong>Check-out:</strong> {property.checkOutTime}
+                            </div>
+                          )}
+                          {property.minStay && (
+                            <div>
+                              <strong>Min Stay:</strong> {property.minStay} nights
+                            </div>
+                          )}
+                          <div>
+                            <strong>Rating:</strong> {property.rating}/5.0
+                          </div>
                         </div>
+                        
+                        {/* Amenities */}
+                        <div>
+                          <strong className="text-sm">Amenities:</strong>
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {property.amenities.map((amenity) => (
+                              <Badge key={amenity} variant="outline" className="text-xs">
+                                {amenity}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+                        
+                        {/* Policies */}
+                        {property.policies && (
+                          <div>
+                            <strong className="text-sm">Property Policies:</strong>
+                            <ul className="text-sm text-gray-600 mt-1">
+                              {property.policies.map((policy, index) => (
+                                <li key={index} className="flex items-center">
+                                  <span className="w-1 h-1 bg-gray-400 rounded-full mr-2"></span>
+                                  {policy}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                        
                         <div className="flex gap-2">
-                          <Button variant="outline" size="sm">
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => window.open(property.mediaLinks.brochure, '_blank')}
+                          >
                             <Download className="h-4 w-4 mr-2" />
                             Fact Sheet
                           </Button>
-                          <Button variant="outline" size="sm">
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => window.open(property.mediaLinks.photos, '_blank')}
+                          >
                             <ExternalLink className="h-4 w-4 mr-2" />
-                            Google Drive
+                            Photo Gallery
                           </Button>
                         </div>
                       </div>
@@ -601,85 +691,100 @@ export default function EnhancedAgentBookingDemo() {
             </TabsContent>
 
             {/* Finance & Commissions Tab */}
-            <TabsContent value="finance">
-              {commissionSummary && (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                  <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                      <CardTitle className="text-sm font-medium">Total Earned</CardTitle>
-                      <DollarSign className="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-2xl font-bold">${commissionSummary.totalCommissionEarned.toLocaleString()}</div>
-                      <p className="text-xs text-muted-foreground">All-time commission earnings</p>
-                    </CardContent>
-                  </Card>
-                  <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                      <CardTitle className="text-sm font-medium">Pending</CardTitle>
-                      <Clock className="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-2xl font-bold">${commissionSummary.pendingCommission.toLocaleString()}</div>
-                      <p className="text-xs text-muted-foreground">Awaiting payment</p>
-                    </CardContent>
-                  </Card>
-                  <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                      <CardTitle className="text-sm font-medium">This Month</CardTitle>
-                      <TrendingUp className="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-2xl font-bold">${commissionSummary.thisMonthCommission.toLocaleString()}</div>
-                      <p className="text-xs text-muted-foreground">+12% from last month</p>
-                    </CardContent>
-                  </Card>
-                  <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                      <CardTitle className="text-sm font-medium">Average per Booking</CardTitle>
-                      <Target className="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-2xl font-bold">${commissionSummary.averageCommissionPerBooking}</div>
-                      <p className="text-xs text-muted-foreground">Commission per booking</p>
-                    </CardContent>
-                  </Card>
-                </div>
-              )}
+            <TabsContent value="media">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Property Media Downloads */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Download className="h-5 w-5" />
+                      Property Media Downloads
+                    </CardTitle>
+                    <CardDescription>
+                      Access high-quality photos, brochures, and floor plans for client presentations
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      {DEMO_PROPERTIES.map((property) => (
+                        <div key={property.id} className="border rounded-lg p-4">
+                          <h4 className="font-semibold mb-2">{property.name}</h4>
+                          <div className="space-y-2">
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              className="w-full justify-start"
+                              onClick={() => window.open(property.mediaLinks.photos, '_blank')}
+                            >
+                              <Download className="h-4 w-4 mr-2" />
+                              Download Photos (Dropbox)
+                            </Button>
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              className="w-full justify-start"
+                              onClick={() => window.open(property.mediaLinks.brochure, '_blank')}
+                            >
+                              <FileText className="h-4 w-4 mr-2" />
+                              Property Brochure (PDF)
+                            </Button>
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              className="w-full justify-start"
+                              onClick={() => window.open(property.mediaLinks.floorPlan, '_blank')}
+                            >
+                              <Home className="h-4 w-4 mr-2" />
+                              Floor Plan (PDF)
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
 
-              <Card>
-                <CardHeader>
-                  <CardTitle>Commission Logs & Payout Tracking</CardTitle>
-                  <CardDescription>Track your commission payments and request payouts</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    <div className="flex justify-between items-center p-4 border rounded-lg">
-                      <div>
-                        <h4 className="font-medium">Booking #2024-001</h4>
-                        <p className="text-sm text-gray-600">Villa Samui Breeze - Jan 15-22, 2024</p>
-                      </div>
-                      <div className="text-right">
-                        <div className="font-semibold">$315.00</div>
-                        <Badge className="bg-green-100 text-green-800">Paid</Badge>
+                {/* Client Resources */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Briefcase className="h-5 w-5" />
+                      Client Resources & Support
+                    </CardTitle>
+                    <CardDescription>
+                      Professional materials and support for client communications
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      <Button variant="outline" className="w-full justify-start">
+                        <FileText className="h-4 w-4 mr-2" />
+                        Company Booking Terms & Conditions
+                      </Button>
+                      <Button variant="outline" className="w-full justify-start">
+                        <Download className="h-4 w-4 mr-2" />
+                        Agent Presentation Template
+                      </Button>
+                      <Button variant="outline" className="w-full justify-start">
+                        <Mail className="h-4 w-4 mr-2" />
+                        Email Templates for Clients
+                      </Button>
+                      <Button variant="outline" className="w-full justify-start">
+                        <Phone className="h-4 w-4 mr-2" />
+                        Emergency Contact Directory
+                      </Button>
+                      <Separator />
+                      <div className="text-sm text-gray-600 bg-gray-50 p-3 rounded">
+                        <strong>Agent Support:</strong><br />
+                        Phone: +66 77 123 456<br />
+                        Email: agents@hostpilotpro.com<br />
+                        WhatsApp: +66 91 234 5678<br />
+                        Hours: 24/7 Support Available
                       </div>
                     </div>
-                    <div className="flex justify-between items-center p-4 border rounded-lg">
-                      <div>
-                        <h4 className="font-medium">Booking #2024-002</h4>
-                        <p className="text-sm text-gray-600">Villa Tropical Paradise - Jan 20-27, 2024</p>
-                      </div>
-                      <div className="text-right">
-                        <div className="font-semibold">$450.00</div>
-                        <Badge className="bg-yellow-100 text-yellow-800">Pending</Badge>
-                      </div>
-                    </div>
-                    <Button className="w-full">
-                      Request Payout
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
+                  </CardContent>
+                </Card>
+              </div>
             </TabsContent>
           </Tabs>
 
