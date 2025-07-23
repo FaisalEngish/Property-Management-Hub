@@ -56,6 +56,12 @@ const DEMO_PROPERTIES = [
     maxGuests: 8,
     pricePerNight: 350,
     currency: "USD",
+    commission: 10,
+    coordinates: { lat: 9.5312, lng: 100.0647 },
+    googleMapsLink: "https://maps.google.com/?q=9.5312,100.0647",
+    otaConnected: true,
+    hostawayId: "SAM001",
+    lastUpdated: "2025-01-23 17:30",
     amenities: ["Private Pool", "WiFi", "Air Conditioning", "Full Kitchen", "Beachfront Access", "Daily Housekeeping", "24/7 Security"],
     rating: 4.8,
     reviews: 156,
@@ -82,6 +88,12 @@ const DEMO_PROPERTIES = [
     maxGuests: 10,
     pricePerNight: 450,
     currency: "USD",
+    commission: 12,
+    coordinates: { lat: 7.8804, lng: 98.2967 },
+    googleMapsLink: "https://maps.google.com/?q=7.8804,98.2967",
+    otaConnected: true,
+    hostawayId: "PHU002",
+    lastUpdated: "2025-01-23 16:45",
     amenities: ["Infinity Pool", "WiFi", "Air Conditioning", "Full Kitchen", "Tropical Garden", "BBQ Area", "Fitness Room"],
     rating: 4.9,
     reviews: 203,
@@ -108,6 +120,12 @@ const DEMO_PROPERTIES = [
     maxGuests: 6,
     pricePerNight: 280,
     currency: "USD",
+    commission: 10,
+    coordinates: { lat: -8.6481, lng: 115.1376 },
+    googleMapsLink: "https://maps.google.com/?q=-8.6481,115.1376",
+    otaConnected: true,
+    hostawayId: "BAL003",
+    lastUpdated: "2025-01-23 15:20",
     amenities: ["Private Pool", "WiFi", "Air Conditioning", "Full Kitchen", "Rice Field Views", "Yoga Deck", "Garden"],
     rating: 4.7,
     reviews: 98,
@@ -134,6 +152,12 @@ const DEMO_PROPERTIES = [
     maxGuests: 12,
     pricePerNight: 600,
     currency: "USD",
+    commission: 15,
+    coordinates: { lat: -8.6905, lng: 115.1635 },
+    googleMapsLink: "https://maps.google.com/?q=-8.6905,115.1635",
+    otaConnected: true,
+    hostawayId: "BAL004",
+    lastUpdated: "2025-01-23 18:10",
     amenities: ["Infinity Pool", "WiFi", "Air Conditioning", "Full Kitchen", "Private Staff", "In-Villa Spa", "Butler Service"],
     rating: 5.0,
     reviews: 87,
@@ -514,15 +538,32 @@ export default function EnhancedAgentBookingDemo() {
                           <div className="flex-1">
                             <div className="flex items-center gap-2 mb-2">
                               <h4 className="text-xl font-semibold">{property.name}</h4>
-                              <Badge className="bg-green-100 text-green-800">
-                                {property.commission}% Commission
-                              </Badge>
+                              <div className="flex gap-2">
+                                <Badge className="bg-green-100 text-green-800">
+                                  {property.commission}% Commission
+                                </Badge>
+                                {property.otaConnected && (
+                                  <Badge variant="default" className="bg-blue-100 text-blue-800">
+                                    <span className="w-2 h-2 bg-green-500 rounded-full mr-1"></span>
+                                    API Synced
+                                  </Badge>
+                                )}
+                              </div>
                             </div>
                             <div className="flex items-center gap-4 text-gray-600 mb-3">
                               <span className="flex items-center gap-1">
                                 <MapPin className="h-4 w-4" />
                                 {property.location}
                               </span>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-6 px-2 text-xs"
+                                onClick={() => window.open(property.googleMapsLink, '_blank')}
+                              >
+                                <MapPin className="h-3 w-3 mr-1" />
+                                View Map
+                              </Button>
                               <span className="flex items-center gap-1">
                                 <Bed className="h-4 w-4" />
                                 {property.bedrooms} bed
@@ -553,23 +594,33 @@ export default function EnhancedAgentBookingDemo() {
                             </div>
                           </div>
                           <div className="text-right ml-6">
-                            <div className="text-2xl font-bold text-blue-600">
-                              ${property.pricePerNight}
+                            <div className="bg-blue-50 p-3 rounded-lg mb-3">
+                              <div className="text-2xl font-bold text-blue-600">
+                                ${property.pricePerNight}
+                              </div>
+                              <div className="text-gray-500">per night</div>
+                              <div className="text-xs text-gray-400 mt-1">
+                                Last updated: {property.lastUpdated}
+                              </div>
                             </div>
-                            <div className="text-gray-500">per night</div>
+                            
                             {searchParams.checkIn && searchParams.checkOut && (
-                              <div className="mt-2 p-2 bg-green-50 rounded">
-                                <div className="text-sm text-gray-600">Your Commission</div>
+                              <div className="p-3 bg-green-50 rounded-lg mb-3">
+                                <div className="text-sm text-gray-600">Your Commission ({property.commission}%)</div>
                                 <div className="font-semibold text-green-600">
                                   ${calculateCommission(
                                     property.pricePerNight * Math.ceil((new Date(searchParams.checkOut).getTime() - new Date(searchParams.checkIn).getTime()) / (1000 * 60 * 60 * 24)),
                                     property.commission
                                   ).toFixed(2)}
                                 </div>
+                                <div className="text-xs text-gray-500 mt-1">
+                                  Total stay: {Math.ceil((new Date(searchParams.checkOut).getTime() - new Date(searchParams.checkIn).getTime()) / (1000 * 60 * 60 * 24))} nights
+                                </div>
                               </div>
                             )}
+                            
                             <Button 
-                              className="mt-3 w-full" 
+                              className="w-full" 
                               onClick={() => handleBookProperty(property)}
                               disabled={!searchParams.checkIn || !searchParams.checkOut}
                             >
@@ -591,13 +642,38 @@ export default function EnhancedAgentBookingDemo() {
                   <Card key={property.id}>
                     <CardHeader>
                       <CardTitle className="flex items-center justify-between">
-                        {property.name}
-                        <Button variant="outline" size="sm">
-                          <ExternalLink className="h-4 w-4 mr-2" />
-                          Media Access
-                        </Button>
+                        <div className="flex items-center gap-2">
+                          {property.name}
+                          {property.otaConnected && (
+                            <Badge variant="default" className="bg-blue-100 text-blue-800 text-xs">
+                              <span className="w-2 h-2 bg-green-500 rounded-full mr-1"></span>
+                              API Synced
+                            </Badge>
+                          )}
+                        </div>
+                        <div className="flex gap-2">
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => window.open(property.googleMapsLink, '_blank')}
+                          >
+                            <MapPin className="h-4 w-4 mr-2" />
+                            Map
+                          </Button>
+                          <Button variant="outline" size="sm">
+                            <ExternalLink className="h-4 w-4 mr-2" />
+                            Media Access
+                          </Button>
+                        </div>
                       </CardTitle>
-                      <CardDescription>{property.location}</CardDescription>
+                      <CardDescription>
+                        {property.location} • {property.area}
+                        {property.lastUpdated && (
+                          <span className="block text-xs text-gray-400 mt-1">
+                            Last updated: {property.lastUpdated}
+                          </span>
+                        )}
+                      </CardDescription>
                     </CardHeader>
                     <CardContent>
                       <div className="space-y-4">
@@ -617,6 +693,9 @@ export default function EnhancedAgentBookingDemo() {
                           </div>
                           <div>
                             <strong>Price:</strong> ${property.pricePerNight}/night
+                          </div>
+                          <div>
+                            <strong>Your Commission:</strong> <span className="text-green-600 font-semibold">{property.commission}%</span>
                           </div>
                           {property.checkInTime && (
                             <div>
