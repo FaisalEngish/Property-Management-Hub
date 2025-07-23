@@ -43,6 +43,7 @@ import {
   Car,
   Coffee,
   FolderOpen,
+  Receipt,
   Key,
   Luggage,
   CheckCircle,
