@@ -49,6 +49,7 @@ import AITest from "./pages/AITest";
 import AIFeatureDashboard from "./pages/AIFeatureDashboard";
 import StaffWalletPettyCash from "./pages/StaffWalletPettyCash";
 import StaffCashCollection from "./pages/StaffCashCollection";
+import StaffExpenseManagement from "./pages/StaffExpenseManagement";
 import MrPilot from "@/components/MrPilot";
 
 const queryClient = new QueryClient({
@@ -149,6 +150,7 @@ function AppRoutes() {
         <Route path="/staff-advance-salary-overtime-tracker" component={StaffAdvanceSalaryOvertimeTracker} />
         <Route path="/staff-wallet-petty-cash" component={StaffWalletPettyCash} />
         <Route path="/staff-cash-collection" component={StaffCashCollection} />
+        <Route path="/staff-expense-management" component={StaffExpenseManagement} />
         <Route path="/system-wide-demo-integration" component={SystemWideDemoIntegration} />
         <Route path="/maintenance-log-warranty-tracker" component={MaintenanceLogWarrantyTracker} />
         <Route path="/staff-profile-payroll" component={StaffProfilePayroll} />

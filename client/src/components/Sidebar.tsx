@@ -134,6 +134,7 @@ const getRoleBasedMenus = (role: string): MenuSection[] => {
         title: "⚙️ System & Admin",
         items: [
           { label: "User Management", icon: Users, href: "/admin/user-management", description: "Manage users & permissions" },
+          { label: "Staff Expense Management", icon: Receipt, href: "/staff-expense-management", description: "Review staff expenses", badge: "New" },
           { label: "System Integrity Check", icon: Shield, href: "/admin/system-integrity-check", badge: "QA" },
           { label: "System-Wide Demo Integration", icon: Database, href: "/system-wide-demo-integration", badge: "Demo" },
           { label: "Activity Logs", icon: Activity, href: "/admin/activity-log" },
@@ -172,6 +173,7 @@ const getRoleBasedMenus = (role: string): MenuSection[] => {
           { label: "Maintenance Log & Warranty", icon: Wrench, href: "/maintenance-log-warranty-tracker" },
           { label: "Staff Profile & Payroll", icon: Users, href: "/staff-profile-payroll" },
           { label: "Staff Advance & Overtime", icon: Clock, href: "/staff-advance-salary-overtime-tracker" },
+          { label: "Staff Expense Management", icon: Receipt, href: "/staff-expense-management", description: "Review staff expenses", badge: "New" },
         ]
       },
       {
