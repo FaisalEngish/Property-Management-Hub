@@ -72,8 +72,19 @@ export default function StaffCashCollection() {
 
   const recordCollectionMutation = useMutation({
     mutationFn: async (data: any) => {
-      // Mock API call to record cash collection
-      return { success: true, data };
+      const response = await fetch(`/api/staff-wallet/cash-collection`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to record cash collection');
+      }
+      
+      return response.json();
     },
     onSuccess: () => {
       toast({ title: "Cash collection recorded and added to your wallet" });

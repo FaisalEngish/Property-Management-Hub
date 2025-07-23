@@ -81,8 +81,19 @@ export default function StaffWalletPettyCash() {
 
   const addExpenseMutation = useMutation({
     mutationFn: async (data: any) => {
-      // Mock API call
-      return { success: true, data };
+      const response = await fetch(`/api/staff-wallet/staff-pool/expenses`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to add expense');
+      }
+      
+      return response.json();
     },
     onSuccess: () => {
       toast({ title: "Expense added successfully" });

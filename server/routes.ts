@@ -13,6 +13,7 @@ import { seedThailandUtilityProviders } from "./seedThailandUtilityProviders";
 import { seedVillaSamuiDemo } from "./seedVillaSamuiDemo";
 import { userManagementStorage } from "./userManagementStorage";
 import { userPermissionsStorage } from "./userPermissionsStorage";
+import { staffWalletStorage } from "./staffWalletStorage";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Setup demo authentication (for development/testing)
@@ -2240,6 +2241,181 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error updating notification preferences:", error);
       res.status(500).json({ message: "Failed to update notification preferences" });
+    }
+  });
+
+  // ===== STAFF WALLET SYSTEM ROUTES =====
+  
+  // Get staff wallet information
+  app.get("/api/staff-wallet/:staffId", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { staffId } = req.params;
+      const wallet = staffWalletStorage.getWallet(staffId);
+      
+      if (!wallet) {
+        return res.status(404).json({ message: "Staff wallet not found" });
+      }
+      
+      res.json(wallet);
+    } catch (error) {
+      console.error("Error fetching staff wallet:", error);
+      res.status(500).json({ message: "Failed to fetch staff wallet" });
+    }
+  });
+
+  // Get staff transactions
+  app.get("/api/staff-wallet/:staffId/transactions", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { staffId } = req.params;
+      const transactions = staffWalletStorage.getTransactions(staffId);
+      res.json(transactions);
+    } catch (error) {
+      console.error("Error fetching staff transactions:", error);
+      res.status(500).json({ message: "Failed to fetch staff transactions" });
+    }
+  });
+
+  // Add expense transaction
+  app.post("/api/staff-wallet/:staffId/expenses", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { staffId } = req.params;
+      const { amount, description, category, receipt } = req.body;
+      
+      const transaction = staffWalletStorage.addTransaction({
+        staffId,
+        type: 'expense',
+        amount: parseFloat(amount),
+        description,
+        category,
+        date: new Date().toISOString().split('T')[0],
+        time: new Date().toTimeString().slice(0, 5),
+        receipt,
+        status: 'pending'
+      });
+      
+      res.status(201).json(transaction);
+    } catch (error) {
+      console.error("Error adding expense:", error);
+      res.status(500).json({ message: "Failed to add expense" });
+    }
+  });
+
+  // Get pending checkouts for cash collection
+  app.get("/api/staff-wallet/pending-checkouts", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const pendingCheckouts = staffWalletStorage.getPendingCheckouts();
+      res.json(pendingCheckouts);
+    } catch (error) {
+      console.error("Error fetching pending checkouts:", error);
+      res.status(500).json({ message: "Failed to fetch pending checkouts" });
+    }
+  });
+
+  // Record cash collection from checkout
+  app.post("/api/staff-wallet/cash-collection", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { checkoutId, actualAmount, collectionMethod, notes, receiptPhoto } = req.body;
+      
+      const success = staffWalletStorage.recordCashCollection(
+        checkoutId, 
+        parseFloat(actualAmount), 
+        collectionMethod, 
+        notes, 
+        receiptPhoto
+      );
+      
+      if (!success) {
+        return res.status(404).json({ message: "Checkout not found" });
+      }
+      
+      res.json({ success: true, message: "Cash collection recorded successfully" });
+    } catch (error) {
+      console.error("Error recording cash collection:", error);
+      res.status(500).json({ message: "Failed to record cash collection" });
+    }
+  });
+
+  // Clear wallet balance (admin only)
+  app.post("/api/staff-wallet/:staffId/clear-balance", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { staffId } = req.params;
+      const { reason } = req.body;
+      
+      // Check if user is admin or portfolio manager
+      if (!['admin', 'portfolio-manager'].includes(req.user?.role)) {
+        return res.status(403).json({ message: "Admin or Portfolio Manager access required" });
+      }
+      
+      staffWalletStorage.clearWalletBalance(staffId, reason);
+      res.json({ success: true, message: "Wallet balance cleared successfully" });
+    } catch (error) {
+      console.error("Error clearing wallet balance:", error);
+      res.status(500).json({ message: "Failed to clear wallet balance" });
+    }
+  });
+
+  // ===== STAFF EXPENSE MANAGEMENT ROUTES =====
+  
+  // Get all pending expenses for review (admin/PM only)
+  app.get("/api/staff-expenses/pending", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      // Check if user is admin or portfolio manager
+      if (!['admin', 'portfolio-manager'].includes(req.user?.role)) {
+        return res.status(403).json({ message: "Admin or Portfolio Manager access required" });
+      }
+      
+      const pendingExpenses = staffWalletStorage.getPendingTransactions();
+      res.json(pendingExpenses);
+    } catch (error) {
+      console.error("Error fetching pending expenses:", error);
+      res.status(500).json({ message: "Failed to fetch pending expenses" });
+    }
+  });
+
+  // Get all reviewed expenses (admin/PM only)
+  app.get("/api/staff-expenses/reviewed", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      // Check if user is admin or portfolio manager
+      if (!['admin', 'portfolio-manager'].includes(req.user?.role)) {
+        return res.status(403).json({ message: "Admin or Portfolio Manager access required" });
+      }
+      
+      const reviewedExpenses = staffWalletStorage.getReviewedTransactions();
+      res.json(reviewedExpenses);
+    } catch (error) {
+      console.error("Error fetching reviewed expenses:", error);
+      res.status(500).json({ message: "Failed to fetch reviewed expenses" });
+    }
+  });
+
+  // Review and categorize expense (admin/PM only)
+  app.patch("/api/staff-expenses/:transactionId/review", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      // Check if user is admin or portfolio manager
+      if (!['admin', 'portfolio-manager'].includes(req.user?.role)) {
+        return res.status(403).json({ message: "Admin or Portfolio Manager access required" });
+      }
+      
+      const { transactionId } = req.params;
+      const { finalCategory, property, reviewNotes } = req.body;
+      const reviewedBy = req.user?.email || req.user?.id || 'Admin';
+      
+      const success = staffWalletStorage.reviewTransaction(
+        transactionId, 
+        finalCategory, 
+        property, 
+        reviewNotes, 
+        reviewedBy
+      );
+      
+      if (!success) {
+        return res.status(404).json({ message: "Transaction not found" });
+      }
+      
+      res.json({ success: true, message: "Expense reviewed and categorized successfully" });
+    } catch (error) {
+      console.error("Error reviewing expense:", error);
+      res.status(500).json({ message: "Failed to review expense" });
     }
   });
 

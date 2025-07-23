@@ -109,8 +109,19 @@ export default function StaffExpenseManagement() {
 
   const reviewExpenseMutation = useMutation({
     mutationFn: async (data: any) => {
-      // Mock API call to review and categorize expense
-      return { success: true, data };
+      const response = await fetch(`/api/staff-expenses/${selectedExpense?.id}/review`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to review expense');
+      }
+      
+      return response.json();
     },
     onSuccess: () => {
       toast({ title: "Expense reviewed and categorized successfully" });
