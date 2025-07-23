@@ -2243,6 +2243,67 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ===== AI TEST ENDPOINTS =====
+  app.post("/api/ai/test", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { prompt } = req.body;
+      const { askAssistant } = await import("./aiHelper");
+      const result = await askAssistant(prompt);
+      res.json({ result });
+    } catch (error) {
+      console.error("AI test error:", error);
+      res.status(500).json({ message: "AI test failed", error: error.message });
+    }
+  });
+
+  app.post("/api/ai/property-description", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { propertyDetails } = req.body;
+      const { generatePropertyDescription } = await import("./aiHelper");
+      const description = await generatePropertyDescription(propertyDetails);
+      res.json({ description });
+    } catch (error) {
+      console.error("Property description error:", error);
+      res.status(500).json({ message: "Failed to generate property description", error: error.message });
+    }
+  });
+
+  app.post("/api/ai/analyze-review", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { reviewText } = req.body;
+      const { analyzeGuestReview } = await import("./aiHelper");
+      const analysis = await analyzeGuestReview(reviewText);
+      res.json({ analysis });
+    } catch (error) {
+      console.error("Review analysis error:", error);
+      res.status(500).json({ message: "Failed to analyze review", error: error.message });
+    }
+  });
+
+  app.post("/api/ai/maintenance-suggestions", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { propertyType, lastMaintenanceDate } = req.body;
+      const { generateMaintenanceTaskSuggestion } = await import("./aiHelper");
+      const suggestions = await generateMaintenanceTaskSuggestion(propertyType, lastMaintenanceDate);
+      res.json({ suggestions });
+    } catch (error) {
+      console.error("Maintenance suggestions error:", error);
+      res.status(500).json({ message: "Failed to generate maintenance suggestions", error: error.message });
+    }
+  });
+
+  app.post("/api/ai/custom", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { prompt } = req.body;
+      const { askAssistant } = await import("./aiHelper");
+      const result = await askAssistant(prompt);
+      res.json({ result });
+    } catch (error) {
+      console.error("Custom AI prompt error:", error);
+      res.status(500).json({ message: "Failed to process custom prompt", error: error.message });
+    }
+  });
+
   // ===== AI FEEDBACK SYSTEM ENDPOINTS =====
 
   // Guest feedback endpoints

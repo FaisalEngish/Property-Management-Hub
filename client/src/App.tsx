@@ -46,6 +46,7 @@ import PropertyDetailView from "./pages/PropertyDetailView";
 
 import MultiPropertyCalendar from "./pages/MultiPropertyCalendar";
 import AITest from "./pages/AITest";
+import AIFeatureDashboard from "./pages/AIFeatureDashboard";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -153,6 +154,7 @@ function AppRoutes() {
         
         {/* AI Testing */}
         <Route path="/ai-test" component={AITest} />
+        <Route path="/ai-features" component={AIFeatureDashboard} />
         
         <Route component={NotFound} />
       </Switch>
