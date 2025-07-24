@@ -5089,8 +5089,14 @@ export const agentBookings = pgTable("agent_bookings", {
   checkIn: date("check_in").notNull(),
   checkOut: date("check_out").notNull(),
   totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).notNull(),
+  
+  // Enhanced Commission System
+  commissionType: varchar("commission_type").default("fixed_percentage"), // fixed_percentage, custom_topup
+  netPrice: decimal("net_price", { precision: 10, scale: 2 }), // Net cost price from property
+  topupAmount: decimal("topup_amount", { precision: 10, scale: 2 }), // Custom amount topped up by agent
   commissionRate: decimal("commission_rate", { precision: 5, scale: 2 }).default("10.00"),
   commissionAmount: decimal("commission_amount", { precision: 10, scale: 2 }).notNull(),
+  
   bookingStatus: varchar("booking_status").default("confirmed"), // confirmed, cancelled, completed
   commissionStatus: varchar("commission_status").default("pending"), // pending, approved, paid
   hostawayBookingId: varchar("hostaway_booking_id"), // Integration with Hostaway

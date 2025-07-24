@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -39,6 +39,12 @@ const bookingFormSchema = z.object({
   checkOut: z.string().min(1, "Check-out date required"),
   guests: z.number().min(1, "At least 1 guest required"),
   totalAmount: z.number().min(1, "Amount required"),
+  
+  // Enhanced Commission Fields
+  commissionType: z.enum(["fixed_percentage", "custom_topup"]).default("fixed_percentage"),
+  netPrice: z.number().optional(),
+  topupAmount: z.number().optional(),
+  
   specialRequests: z.string().optional(),
   notes: z.string().optional(),
 });
@@ -80,6 +86,9 @@ export default function RetailAgentBooking() {
     defaultValues: {
       guests: 2,
       totalAmount: 0,
+      commissionType: "fixed_percentage",
+      netPrice: 0,
+      topupAmount: 0,
     },
   });
 
@@ -190,16 +199,44 @@ export default function RetailAgentBooking() {
 
   // Create booking mutation
   const createBookingMutation = useMutation({
-    mutationFn: (data: BookingForm) => apiRequest("POST", "/api/agent/bookings", data),
+    mutationFn: (data: BookingForm) => {
+      // Calculate commission based on selected type
+      let finalCommissionAmount = 0;
+      let finalCommissionRate = 10.00; // Default 10%
+      
+      if (data.commissionType === "fixed_percentage") {
+        finalCommissionAmount = data.totalAmount * 0.1; // 10% of total
+      } else if (data.commissionType === "custom_topup" && data.netPrice && data.totalAmount) {
+        finalCommissionAmount = data.totalAmount - data.netPrice; // Top-up amount
+        finalCommissionRate = (finalCommissionAmount / data.totalAmount) * 100; // Calculate effective rate
+      }
+
+      const enhancedData = {
+        ...data,
+        propertyId: selectedProperty?.id || 0,
+        commissionAmount: finalCommissionAmount,
+        commissionRate: finalCommissionRate,
+      };
+
+      return apiRequest("POST", "/api/agent/bookings", enhancedData);
+    },
     onSuccess: () => {
-      toast({ title: "Success", description: "Booking created successfully!" });
+      toast({ 
+        title: "Success", 
+        description: "Booking created successfully with commission calculated!" 
+      });
       setBookingDialogOpen(false);
       bookingForm.reset();
+      setSelectedProperty(null);
       queryClient.invalidateQueries({ queryKey: ["/api/agent/bookings"] });
       queryClient.invalidateQueries({ queryKey: ["/api/agent/commission-summary"] });
     },
-    onError: () => {
-      toast({ title: "Error", description: "Failed to create booking", variant: "destructive" });
+    onError: (error: any) => {
+      toast({ 
+        title: "Error", 
+        description: error?.message || "Failed to create booking", 
+        variant: "destructive" 
+      });
     },
   });
 
@@ -945,7 +982,7 @@ export default function RetailAgentBooking() {
                   name="totalAmount"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Total Amount</FormLabel>
+                      <FormLabel>Guest Total Amount</FormLabel>
                       <FormControl>
                         <Input 
                           type="number" 
@@ -959,6 +996,115 @@ export default function RetailAgentBooking() {
                   )}
                 />
               </div>
+
+              {/* Commission Configuration Section */}
+              <Card className="p-4 bg-blue-50 border-blue-200">
+                <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                  <DollarSign className="h-5 w-5 text-blue-600" />
+                  Commission Configuration
+                </h3>
+                
+                <div className="grid grid-cols-1 gap-4">
+                  <FormField
+                    control={bookingForm.control}
+                    name="commissionType"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Commission Type</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select commission type" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="fixed_percentage">Fixed 10% Commission</SelectItem>
+                            <SelectItem value="custom_topup">Custom Top-up Amount</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  {bookingForm.watch("commissionType") === "custom_topup" && (
+                    <div className="grid grid-cols-2 gap-4">
+                      <FormField
+                        control={bookingForm.control}
+                        name="netPrice"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Net Price (USD)</FormLabel>
+                            <FormControl>
+                              <Input 
+                                type="number" 
+                                step="0.01" 
+                                placeholder="1050.00"
+                                {...field} 
+                                onChange={(e) => {
+                                  field.onChange(parseFloat(e.target.value));
+                                  // Auto-calculate commission when net price changes
+                                  const netPrice = parseFloat(e.target.value) || 0;
+                                  const totalAmount = bookingForm.getValues("totalAmount") || 0;
+                                  if (netPrice && totalAmount > netPrice) {
+                                    const commission = totalAmount - netPrice;
+                                    bookingForm.setValue("topupAmount", commission);
+                                  }
+                                }}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <FormField
+                        control={bookingForm.control}
+                        name="topupAmount"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Your Commission (Auto-calculated)</FormLabel>
+                            <FormControl>
+                              <Input 
+                                type="number" 
+                                step="0.01" 
+                                readOnly
+                                className="bg-gray-100"
+                                {...field} 
+                              />
+                            </FormControl>
+                            <FormDescription>
+                              Total Amount - Net Price = Your Commission
+                            </FormDescription>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  )}
+
+                  {bookingForm.watch("commissionType") === "fixed_percentage" && (
+                    <div className="p-3 bg-white rounded-lg border">
+                      <p className="text-sm text-muted-foreground">
+                        <strong>Fixed 10% Commission:</strong> You'll earn 10% of the total booking amount as commission.
+                      </p>
+                      <p className="text-sm font-medium text-green-600 mt-1">
+                        Commission: ${((bookingForm.watch("totalAmount") || 0) * 0.1).toFixed(2)}
+                      </p>
+                    </div>
+                  )}
+
+                  {bookingForm.watch("commissionType") === "custom_topup" && bookingForm.watch("netPrice") && bookingForm.watch("totalAmount") && (
+                    <div className="p-3 bg-white rounded-lg border">
+                      <div className="text-sm space-y-1">
+                        <p><strong>Net Price:</strong> ${bookingForm.watch("netPrice")}</p>
+                        <p><strong>Guest Pays:</strong> ${bookingForm.watch("totalAmount")}</p>
+                        <p><strong>Your Commission:</strong> <span className="text-green-600 font-medium">${((bookingForm.watch("totalAmount") || 0) - (bookingForm.watch("netPrice") || 0)).toFixed(2)}</span></p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </Card>
               
               <FormField
                 control={bookingForm.control}
