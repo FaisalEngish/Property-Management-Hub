@@ -251,6 +251,30 @@ const getRoleBasedMenus = (role: string): MenuSection[] => {
           { label: "Services", icon: Coffee, href: "/services" },
         ]
       }
+    ],
+    "retail-agent": [
+      {
+        title: "🔧 Agent Tools",
+        items: [
+          { label: "Quote Generator", icon: Calculator, href: "/agent/quote-generator", description: "Generate property quotes for clients" },
+          { label: "Commission Tracker", icon: DollarSign, href: "/agent/commissions", description: "Track commission earnings" },
+          { label: "Proposals", icon: FileText, href: "/agent/proposals", description: "Manage client proposals" },
+          { label: "Media Download", icon: Camera, href: "/agent/media-download", description: "Download property photos and videos" },
+          { label: "Leaderboard", icon: Star, href: "/agent/leaderboard", description: "View agent performance rankings" },
+        ]
+      }
+    ],
+    "referral-agent": [
+      {
+        title: "🔧 Agent Tools",
+        items: [
+          { label: "Quote Generator", icon: Calculator, href: "/agent/quote-generator", description: "Generate property quotes for clients" },
+          { label: "Commission Tracker", icon: DollarSign, href: "/agent/commissions", description: "Track commission earnings" },
+          { label: "Proposals", icon: FileText, href: "/agent/proposals", description: "Manage client proposals" },
+          { label: "Media Download", icon: Camera, href: "/agent/media-download", description: "Download property photos and videos" },
+          { label: "Leaderboard", icon: Star, href: "/agent/leaderboard", description: "View agent performance rankings" },
+        ]
+      }
     ]
   };
 

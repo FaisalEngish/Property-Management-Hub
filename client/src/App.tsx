@@ -55,6 +55,13 @@ import StaffDashboard from "./pages/StaffDashboard";
 import StaffPermissionManagement from "./pages/StaffPermissionManagement";
 import MrPilot from "@/components/MrPilot";
 
+// Import new agent pages
+import QuoteGenerator from "@/pages/agent/QuoteGenerator";
+import Commissions from "@/pages/agent/Commissions";
+import Proposals from "@/pages/agent/Proposals";
+import MediaDownload from "@/pages/agent/MediaDownload";
+import Leaderboard from "@/pages/agent/Leaderboard";
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -166,6 +173,13 @@ function AppRoutes() {
         {/* AI Testing */}
         <Route path="/ai-test" component={AITest} />
         <Route path="/ai-features" component={AIFeatureDashboard} />
+        
+        {/* Agent Pages */}
+        <Route path="/agent/quote-generator" component={QuoteGenerator} />
+        <Route path="/agent/commissions" component={Commissions} />
+        <Route path="/agent/proposals" component={Proposals} />
+        <Route path="/agent/media-download" component={MediaDownload} />
+        <Route path="/agent/leaderboard" component={Leaderboard} />
         
         <Route component={NotFound} />
       </Switch>
