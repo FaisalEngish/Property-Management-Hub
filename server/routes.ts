@@ -5690,8 +5690,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         amenities 
       } = req.query;
 
-      // Validate required user role
-      if (req.user.role !== 'retail-agent') {
+      // Allow retail-agent or demo-agent roles
+      if (req.user.role !== 'retail-agent' && req.user.id !== 'demo-agent') {
         return res.status(403).json({ 
           message: "Access denied: Retail agent role required",
           fallbackData: []

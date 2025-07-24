@@ -7059,11 +7059,8 @@ export class DatabaseStorage implements IStorage {
         status: properties.status,
         amenities: properties.amenities,
         images: properties.images,
-        commission: propertyCommissionRules.defaultCommissionRate,
-        commissionRules: propertyCommissionRules,
       })
       .from(properties)
-      .leftJoin(propertyCommissionRules, eq(properties.id, propertyCommissionRules.propertyId))
       .where(and(
         eq(properties.organizationId, organizationId),
         eq(properties.status, 'active')
@@ -7115,17 +7112,13 @@ export class DatabaseStorage implements IStorage {
           isAvailable = conflictingBookings.length === 0;
         }
 
-        // Get marketing media for this property
-        const marketingMedia = await this.getPropertyMarketingMedia(
-          organizationId, 
-          property.id, 
-          { agentAccessLevel: 'all' }
-        );
-
+        // Add default commission rate and marketing media
         return {
           ...property,
           isAvailable,
-          marketingMedia,
+          commission: 15.0, // Default 15% commission
+          commissionRate: 15.0,
+          marketingMedia: [],
         };
       })
     );

@@ -554,7 +554,17 @@ export default function RetailAgentBooking() {
                       
                       <div className="flex items-center justify-between pt-2 border-t">
                         <div>
-                          <p className="text-lg font-semibold">${property.pricePerNight}/night</p>
+                          <p className="text-lg font-semibold">
+                            {property.currency || "THB"} {parseFloat(property.pricePerNight || 0).toLocaleString()}/night
+                          </p>
+                          {searchParams.checkIn && searchParams.checkOut && (
+                            <p className="text-sm text-blue-600 font-medium">
+                              Total: {property.currency || "THB"} {(
+                                parseFloat(property.pricePerNight || 0) * 
+                                Math.ceil((new Date(searchParams.checkOut).getTime() - new Date(searchParams.checkIn).getTime()) / (1000 * 60 * 60 * 24))
+                              ).toLocaleString()} for {Math.ceil((new Date(searchParams.checkOut).getTime() - new Date(searchParams.checkIn).getTime()) / (1000 * 60 * 60 * 24))} nights
+                            </p>
+                          )}
                           {property.commission && (
                             <p className="text-sm text-green-600">
                               {property.commission}% commission
