@@ -254,6 +254,12 @@ const getRoleBasedMenus = (role: string): MenuSection[] => {
     ],
     "retail-agent": [
       {
+        title: "📊 Booking Dashboard",
+        items: [
+          { label: "Booking Engine", icon: Calendar, href: "/retail-agent", description: "Create bookings and track commissions" },
+        ]
+      },
+      {
         title: "🔧 Agent Tools",
         items: [
           { label: "Quote Generator", icon: Calculator, href: "/agent/quote-generator", description: "Generate property quotes for clients" },
@@ -265,6 +271,12 @@ const getRoleBasedMenus = (role: string): MenuSection[] => {
       }
     ],
     "referral-agent": [
+      {
+        title: "📊 Referral Dashboard",
+        items: [
+          { label: "Referral Dashboard", icon: UserPlus, href: "/referral-agent", description: "Track referrals and commissions" },
+        ]
+      },
       {
         title: "🔧 Agent Tools",
         items: [
