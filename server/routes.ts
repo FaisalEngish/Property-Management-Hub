@@ -40,7 +40,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Seed Thailand utility providers on startup
   await seedThailandUtilityProviders("default-org");
   
-  // Seed main demo data (properties, users, tasks, bookings)
+  // Ensure standard DEMO properties exist first
+  const { ensureStandardDemoProperties } = await import("./standardDemoProperties");
+  await ensureStandardDemoProperties();
+  
+  // Seed main demo data (users, tasks, bookings)
   const { seedDemoData } = await import("./seedDemoData");
   await seedDemoData();
 

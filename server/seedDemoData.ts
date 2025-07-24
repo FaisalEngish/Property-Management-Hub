@@ -23,10 +23,10 @@ import type { Request } from "express";
 const DEMO_ORG_ID = 'default-org';
 
 export async function seedDemoData(): Promise<void> {
-  console.log("Regenerating demo data with Thai villa properties...");
+  console.log("Seeding demo data (users, tasks, bookings) - properties handled separately...");
   
   try {
-    // Force regeneration with Thai properties - skip existence check
+    // Skip property creation - handled by standardDemoProperties.ts
     // Create users: 3 owners, 4 staff, 2 agents
     console.log("Creating demo users...");
     
@@ -149,110 +149,8 @@ export async function seedDemoData(): Promise<void> {
     }
     console.log(`Created/updated ${allUsers.length} demo users`);
     
-    // Create 5 properties (assigned to different owners)
-    console.log("Creating demo properties...");
-    
-    const demoProperties: InsertProperty[] = [
-      {
-        organizationId: DEMO_ORG_ID,
-        externalId: '1001',
-        name: 'Villa Samui Breeze',
-        address: '123 Beach Road, Koh Samui, Thailand',
-        bedrooms: 3,
-        bathrooms: 3,
-        maxGuests: 6,
-        pricePerNight: 8000,
-        currency: 'THB',
-        status: 'active',
-        ownerId: 'owner-1',
-        description: 'Luxurious 3-bedroom villa with private pool and garden on Koh Samui. Perfect for couples and small families.',
-        amenities: ['Private Pool', 'Garden', 'WiFi', 'Air Conditioning', 'Kitchen', 'Beach Access'],
-      },
-      {
-        organizationId: DEMO_ORG_ID,
-        externalId: '1002',
-        name: 'Villa Tropical Paradise',
-        address: '456 Hillside Drive, Koh Samui, Thailand',
-        bedrooms: 4,
-        bathrooms: 4,
-        maxGuests: 8,
-        pricePerNight: 12000,
-        currency: 'THB',
-        status: 'active',
-        ownerId: 'owner-1',
-        description: 'Stunning hillside villa with panoramic ocean views and infinity pool. Ideal for families and groups.',
-        amenities: ['Infinity Pool', 'Ocean View', 'WiFi', 'Air Conditioning', 'Kitchen', 'Parking', 'Garden'],
-      },
-      {
-        organizationId: DEMO_ORG_ID,
-        externalId: '1003',
-        name: 'Villa Balinese Charm',
-        address: '789 Coconut Grove, Koh Samui, Thailand',
-        bedrooms: 2,
-        bathrooms: 2,
-        maxGuests: 4,
-        pricePerNight: 6500,
-        currency: 'THB',
-        status: 'active',
-        ownerId: 'owner-2',
-        description: 'Authentic Thai-style villa surrounded by tropical gardens. Perfect for romantic getaways.',
-        amenities: ['Traditional Design', 'Garden Pool', 'WiFi', 'Air Conditioning', 'Outdoor Kitchen'],
-      },
-      {
-        organizationId: DEMO_ORG_ID,
-        externalId: '1004',
-        name: 'Villa Gala Beachfront',
-        address: '321 Beachfront Road, Koh Samui, Thailand',
-        bedrooms: 5,
-        bathrooms: 5,
-        maxGuests: 10,
-        pricePerNight: 18000,
-        currency: 'THB',
-        status: 'active',
-        ownerId: 'owner-2',
-        description: 'Spectacular beachfront villa with direct beach access. Perfect for large groups and events.',
-        amenities: ['Beachfront', 'Large Pool', 'WiFi', 'Air Conditioning', 'Full Kitchen', 'BBQ Area', 'Parking'],
-      },
-      {
-        organizationId: DEMO_ORG_ID,
-        externalId: '1005',
-        name: 'Villa Sunset Heights',
-        address: '654 Mountain View Road, Koh Samui, Thailand',
-        bedrooms: 3,
-        bathrooms: 3,
-        maxGuests: 6,
-        pricePerNight: 9500,
-        currency: 'THB',
-        status: 'active',
-        ownerId: 'owner-3',
-        description: 'Elevated villa with spectacular sunset views and modern amenities. Great for families.',
-        amenities: ['Sunset Views', 'Modern Pool', 'WiFi', 'Air Conditioning', 'Kitchen', 'Parking'],
-      }
-    ];
-    
-    // Insert properties with conflict handling using name as unique key
-    for (const property of demoProperties) {
-      const existingProperty = await db.select().from(properties).where(eq(properties.name, property.name)).limit(1);
-      if (existingProperty.length === 0) {
-        await db.insert(properties).values(property);
-      } else {
-        // Update existing property
-        await db.update(properties)
-          .set({
-            address: property.address,
-            bedrooms: property.bedrooms,
-            bathrooms: property.bathrooms,
-            maxGuests: property.maxGuests,
-            pricePerNight: property.pricePerNight,
-            currency: property.currency,
-            status: property.status,
-            description: property.description,
-            amenities: property.amenities
-          })
-          .where(eq(properties.name, property.name));
-      }
-    }
-    console.log(`Created/updated ${demoProperties.length} demo properties`);
+    // Properties are handled by standardDemoProperties.ts - skip property creation here
+    console.log("Skipping property creation - using standardized DEMO properties...");
     
     // Get property IDs for task assignment
     const createdProperties = await db.query.properties.findMany({
