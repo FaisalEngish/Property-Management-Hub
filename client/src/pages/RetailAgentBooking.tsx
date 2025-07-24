@@ -17,7 +17,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import AdminBalanceResetCard from "@/components/ui/AdminBalanceResetCard";
-import { CalendarDays, Search, Filter, DollarSign, Users, Bed, MapPin, ExternalLink, Phone, Mail, Clock, CheckCircle, AlertCircle, TrendingUp, LogOut } from "lucide-react";
+import { CalendarDays, Search, Filter, DollarSign, Users, Bed, MapPin, ExternalLink, Phone, Mail, Clock, CheckCircle, AlertCircle, TrendingUp, LogOut, Info, FileText } from "lucide-react";
 
 // Form schemas
 const bookingSearchSchema = z.object({
@@ -69,6 +69,7 @@ export default function RetailAgentBooking() {
   const [selectedProperty, setSelectedProperty] = useState<any>(null);
   const [bookingDialogOpen, setBookingDialogOpen] = useState(false);
   const [payoutDialogOpen, setPayoutDialogOpen] = useState(false);
+  const [readMeDialogOpen, setReadMeDialogOpen] = useState(false);
 
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -1028,7 +1029,31 @@ export default function RetailAgentBooking() {
                   />
 
                   {bookingForm.watch("commissionType") === "custom_topup" && (
-                    <div className="grid grid-cols-2 gap-4">
+                    <>
+                      {/* Read Me Notice for Top-up Commission */}
+                      <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <Info className="h-4 w-4 text-amber-600" />
+                            <span className="text-sm font-medium text-amber-800">Important: Top-up Commission Guidelines</span>
+                          </div>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setReadMeDialogOpen(true)}
+                            className="flex items-center gap-1 text-amber-700 border-amber-300 hover:bg-amber-100"
+                          >
+                            <FileText className="h-3 w-3" />
+                            Read Me
+                          </Button>
+                        </div>
+                        <p className="text-xs text-amber-700 mt-1">
+                          Please read our guidelines before setting custom margins to ensure optimal customer experience.
+                        </p>
+                      </div>
+                      
+                      <div className="grid grid-cols-2 gap-4">
                       <FormField
                         control={bookingForm.control}
                         name="netPrice"
@@ -1080,7 +1105,8 @@ export default function RetailAgentBooking() {
                           </FormItem>
                         )}
                       />
-                    </div>
+                      </div>
+                    </>
                   )}
 
                   {bookingForm.watch("commissionType") === "fixed_percentage" && (
@@ -1150,6 +1176,78 @@ export default function RetailAgentBooking() {
               </div>
             </form>
           </Form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Read Me Dialog for Top-up Commission Guidelines */}
+      <Dialog open={readMeDialogOpen} onOpenChange={setReadMeDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Info className="h-5 w-5 text-blue-600" />
+              Top-up Commission Guidelines
+            </DialogTitle>
+            <DialogDescription>
+              Important information about setting custom margins for bookings
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <h3 className="font-semibold text-blue-800 mb-2">Market-Based Pricing Policy</h3>
+              <p className="text-blue-700 text-sm">
+                Our rates are calculated according to current market conditions and are close to real market values. 
+                This ensures fair pricing for both guests and property owners while maintaining competitive positioning.
+              </p>
+            </div>
+
+            <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
+              <h3 className="font-semibold text-amber-800 mb-2 flex items-center gap-2">
+                <AlertCircle className="h-4 w-4" />
+                Warning: Excessive Margins
+              </h3>
+              <p className="text-amber-700 text-sm mb-2">
+                <strong>Setting excessive margins may negatively impact customer experience.</strong>
+              </p>
+              <ul className="text-amber-700 text-sm space-y-1 list-disc list-inside">
+                <li>Higher prices create elevated guest expectations</li>
+                <li>Guests may expect premium services that exceed actual property offerings</li>
+                <li>This disconnect can lead to negative reviews and customer dissatisfaction</li>
+                <li>Poor reviews affect property reputation and future bookings</li>
+              </ul>
+            </div>
+
+            <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+              <h3 className="font-semibold text-green-800 mb-2">Recommended Practice</h3>
+              <ul className="text-green-700 text-sm space-y-1 list-disc list-inside">
+                <li>Keep margins reasonable (typically 10-15% above net price)</li>
+                <li>Consider property amenities and market positioning</li>
+                <li>Ensure guest expectations align with actual offerings</li>
+                <li>Focus on long-term customer satisfaction over short-term profits</li>
+                <li>Use the fixed 10% commission option for standard bookings</li>
+              </ul>
+            </div>
+
+            <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg">
+              <h3 className="font-semibold text-gray-800 mb-2">Example Scenarios</h3>
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-green-600">✓ Reasonable:</span>
+                  <span>Net $1000 → Guest Pays $1150 (15% margin)</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-red-600">✗ Excessive:</span>
+                  <span>Net $1000 → Guest Pays $1400 (40% margin)</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex justify-end pt-4">
+            <Button onClick={() => setReadMeDialogOpen(false)}>
+              I Understand
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
