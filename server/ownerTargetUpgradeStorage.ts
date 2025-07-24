@@ -1,20 +1,30 @@
 import { eq, and, desc, sql, gte, lte } from "drizzle-orm";
 import { db } from "./db";
 import {
-  propertyRevenueTargets,
-  propertyUpgradeWishlist,
-  targetUpgradeSuggestions,
-  targetProgressTracking,
+  // propertyRevenueTargets, // Schema removed - commenting out
+  // propertyUpgradeWishlist,
+  // targetUpgradeSuggestions,
+  // targetProgressTracking,
   properties,
-  type PropertyRevenueTarget,
-  type InsertPropertyRevenueTarget,
-  type PropertyUpgradeWishlist,
-  type InsertPropertyUpgradeWishlist,
-  type TargetUpgradeSuggestion,
-  type InsertTargetUpgradeSuggestion,
-  type TargetProgressTracking,
-  type InsertTargetProgressTracking,
+  // type PropertyRevenueTarget,
+  // type InsertPropertyRevenueTarget,
+  // type PropertyUpgradeWishlist,
+  // type InsertPropertyUpgradeWishlist,
+  // type TargetUpgradeSuggestion,
+  // type InsertTargetUpgradeSuggestion,
+  // type TargetProgressTracking,
+  // type InsertTargetProgressTracking,
 } from "@shared/schema";
+
+// Temporary types until schemas are restored
+type PropertyRevenueTarget = any;
+type InsertPropertyRevenueTarget = any;
+type PropertyUpgradeWishlist = any;
+type InsertPropertyUpgradeWishlist = any;
+type TargetUpgradeSuggestion = any;
+type InsertTargetUpgradeSuggestion = any;
+type TargetProgressTracking = any;
+type InsertTargetProgressTracking = any;
 
 export class OwnerTargetUpgradeStorage {
   private organizationId: string;
