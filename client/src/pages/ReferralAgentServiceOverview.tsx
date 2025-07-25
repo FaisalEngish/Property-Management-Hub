@@ -7,44 +7,28 @@ import { Badge } from "@/components/ui/badge";
 import { Download, Building, DollarSign, Users, Star, Calendar, TrendingUp, FileText, Eye } from "lucide-react";
 
 const ReferralAgentServiceOverview = () => {
-  const [location, setLocation] = useLocation();
-  
-  // Use state to manage active tab
-  const [activeTab, setActiveTab] = useState(() => {
-    const urlParams = new URLSearchParams(location.split('?')[1] || '');
-    return urlParams.get('tab') || 'services';
-  });
+  // Simple state-based tab management - no URL complications
+  const [activeTab, setActiveTab] = useState('services');
 
-  // Listen for location changes to update active tab
+  // Initialize tab from URL on component mount
   useEffect(() => {
-    const urlParams = new URLSearchParams(location.split('?')[1] || '');
+    const urlParams = new URLSearchParams(window.location.search);
     const tab = urlParams.get('tab') || 'services';
-    console.log('Location changed to:', location, 'Setting active tab to:', tab);
     setActiveTab(tab);
-  }, [location]);
 
-  // Listen for popstate events (browser back/forward or manual pushState)
-  useEffect(() => {
-    const handlePopState = () => {
-      const urlParams = new URLSearchParams(window.location.search);
-      const tab = urlParams.get('tab') || 'services';
-      console.log('PopState event - updating tab to:', tab);
-      setActiveTab(tab);
+    // Listen for custom tab change events from sidebar
+    const handleTabChange = (event: CustomEvent) => {
+      console.log('Received tab change event:', event.detail.tab);
+      setActiveTab(event.detail.tab);
     };
 
-    window.addEventListener('popstate', handlePopState);
-    return () => window.removeEventListener('popstate', handlePopState);
+    window.addEventListener('changeReferralTab', handleTabChange as EventListener);
+    return () => window.removeEventListener('changeReferralTab', handleTabChange as EventListener);
   }, []);
 
   const handleTabChange = (tab: string) => {
-    console.log('Tab change requested:', tab);
+    console.log('Changing to tab:', tab);
     setActiveTab(tab);
-    
-    // Update URL using wouter navigation
-    const baseUrl = location.split('?')[0];
-    const newUrl = tab === 'services' ? baseUrl : `${baseUrl}?tab=${tab}`;
-    console.log('Navigating to:', newUrl);
-    setLocation(newUrl);
   };
 
   // Sample data for referred properties
@@ -160,6 +144,42 @@ const ReferralAgentServiceOverview = () => {
             Real Estate Agent
           </Badge>
         </div>
+      </div>
+
+      {/* Manual tab navigation buttons */}
+      <div className="flex flex-wrap gap-2 mb-6">
+        <Button 
+          variant={activeTab === 'services' ? 'default' : 'outline'}
+          onClick={() => handleTabChange('services')}
+          className="flex items-center gap-2"
+        >
+          <FileText className="h-4 w-4" />
+          Service Overview
+        </Button>
+        <Button 
+          variant={activeTab === 'properties' ? 'default' : 'outline'}
+          onClick={() => handleTabChange('properties')}
+          className="flex items-center gap-2"
+        >
+          <Building className="h-4 w-4" />
+          Property Browse
+        </Button>
+        <Button 
+          variant={activeTab === 'referred' ? 'default' : 'outline'}
+          onClick={() => handleTabChange('referred')}
+          className="flex items-center gap-2"
+        >
+          <Users className="h-4 w-4" />
+          My Referrals
+        </Button>
+        <Button 
+          variant={activeTab === 'finances' ? 'default' : 'outline'}
+          onClick={() => handleTabChange('finances')}
+          className="flex items-center gap-2"
+        >
+          <DollarSign className="h-4 w-4" />
+          Commission Tracking
+        </Button>
       </div>
 
       <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">

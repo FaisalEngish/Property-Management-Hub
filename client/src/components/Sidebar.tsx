@@ -556,21 +556,24 @@ export default function Sidebar({ className }: SidebarProps) {
                         return false;
                       })();
                       return (
-                        <Link 
-                          key={itemIndex} 
-                          href={item.href}
-                          onClick={(e) => {
+                        <div 
+                          key={itemIndex}
+                          onClick={() => {
                             console.log('Sidebar link clicked:', item.href);
                             setIsOpen(false);
-                            // Force navigation by updating window location as fallback
-                            setTimeout(() => {
-                              if (window.location.pathname + window.location.search !== item.href) {
-                                console.log('Fallback navigation to:', item.href);
-                                window.history.pushState({}, '', item.href);
-                                window.dispatchEvent(new PopStateEvent('popstate'));
-                              }
-                            }, 100);
+                            // Direct navigation for referral agent tabs
+                            if (item.href.includes('/referral-agent')) {
+                              const urlParams = new URLSearchParams(item.href.split('?')[1] || '');
+                              const tab = urlParams.get('tab') || 'services';
+                              console.log('Setting tab to:', tab);
+                              // Dispatch custom event to trigger tab change
+                              window.dispatchEvent(new CustomEvent('changeReferralTab', { detail: { tab } }));
+                            } else {
+                              // Normal navigation for other links
+                              window.location.href = item.href;
+                            }
                           }}
+                          className="cursor-pointer"
                         >
                           <Button
                             variant={isActive ? "secondary" : "ghost"}
@@ -615,7 +618,7 @@ export default function Sidebar({ className }: SidebarProps) {
                               )}
                             </div>
                           </Button>
-                        </Link>
+                        </div>
                       );
                     })}
                   </CollapsibleContent>
