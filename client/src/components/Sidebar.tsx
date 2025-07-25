@@ -285,7 +285,7 @@ const getRoleBasedMenus = (role: string): MenuSection[] => {
         items: [
           { label: "Referred Properties", icon: UserPlus, href: "/referral-agent?tab=referred", description: "Track your referred properties" },
           { label: "Financial Updates", icon: DollarSign, href: "/referral-agent?tab=finances", description: "10% commission tracking" },
-          { label: "Performance Reports", icon: BarChart3, href: "/referral-agent?tab=reports", description: "Occupancy, bookings, reviews" },
+          { label: "Performance Reports", icon: BarChart3, href: "/referral-agent?tab=finances", description: "Occupancy, bookings, reviews" },
         ]
       }
     ]
@@ -533,7 +533,11 @@ export default function Sidebar({ className }: SidebarProps) {
                       const Icon = item.icon;
                       const isActive = location === item.href;
                       return (
-                        <Link key={itemIndex} href={item.href}>
+                        <Link 
+                          key={itemIndex} 
+                          href={item.href}
+                          onClick={() => setIsOpen(false)}
+                        >
                           <Button
                             variant={isActive ? "secondary" : "ghost"}
                             className={cn(
@@ -618,7 +622,7 @@ export default function Sidebar({ className }: SidebarProps) {
               <Menu className="h-4 w-4" />
             </Button>
           </SheetTrigger>
-          <SheetContent side="left" className="w-80 sm:w-96 p-0 flex flex-col overflow-y-auto" style={{ maxHeight: '100vh' }}>
+          <SheetContent side="left" className="w-[90vw] sm:w-80 md:w-96 p-0 flex flex-col overflow-y-auto" style={{ maxHeight: '100vh' }}>
             <SheetHeader className="p-4 border-b flex-shrink-0">
               <SheetTitle className="flex items-center gap-2">
                 <RoleIcon className="h-5 w-5" />

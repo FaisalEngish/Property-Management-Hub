@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -7,9 +7,19 @@ import { Download, Building, DollarSign, Users, Star, Calendar, TrendingUp, File
 
 const ReferralAgentServiceOverview = () => {
   // Get tab from URL or default to services
-  const urlParams = new URLSearchParams(window.location.search);
-  const initialTab = urlParams.get('tab') || 'services';
-  const [activeTab, setActiveTab] = useState(initialTab);
+  const [activeTab, setActiveTab] = useState(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    return urlParams.get('tab') || 'services';
+  });
+
+  // Listen for URL changes to update tab
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const tab = urlParams.get('tab') || 'services';
+    if (tab !== activeTab) {
+      setActiveTab(tab);
+    }
+  }, [activeTab]);
 
   // Sample data for referred properties
   const referredProperties = [
@@ -112,7 +122,7 @@ const ReferralAgentServiceOverview = () => {
   };
 
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-6">
+    <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-6 pt-20 lg:pt-6">
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold">Referral Agent Portal</h1>
@@ -154,7 +164,7 @@ const ReferralAgentServiceOverview = () => {
               </div>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {managementServices.map((service, index) => (
                   <Card key={index} className="border border-gray-200">
                     <CardHeader className="pb-3">
