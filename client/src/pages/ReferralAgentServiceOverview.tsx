@@ -12,13 +12,16 @@ const ReferralAgentServiceOverview = () => {
   // Get tab from URL or default to services
   const activeTab = (() => {
     const urlParams = new URLSearchParams(location.split('?')[1] || '');
-    return urlParams.get('tab') || 'services';
+    const tab = urlParams.get('tab') || 'services';
+    console.log('Current location:', location, 'Active tab:', tab);
+    return tab;
   })();
 
   const handleTabChange = (tab: string) => {
     // Update URL with new tab parameter using wouter navigation
     const baseUrl = location.split('?')[0];
     const newUrl = tab === 'services' ? baseUrl : `${baseUrl}?tab=${tab}`;
+    console.log('Changing tab to:', tab, 'New URL:', newUrl);
     setLocation(newUrl);
   };
 

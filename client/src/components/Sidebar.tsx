@@ -531,7 +531,30 @@ export default function Sidebar({ className }: SidebarProps) {
                   <CollapsibleContent className="space-y-1 pl-3 pr-2 pb-2">
                     {section.items.map((item, itemIndex) => {
                       const Icon = item.icon;
-                      const isActive = location === item.href;
+                      // Better active state detection for URLs with parameters
+                      const isActive = (() => {
+                        const currentPath = location.split('?')[0];
+                        const itemPath = item.href.split('?')[0];
+                        
+                        // For exact match (no parameters)
+                        if (location === item.href) return true;
+                        
+                        // For parameter-based URLs, check if base path matches and parameters are correct
+                        if (currentPath === itemPath && item.href.includes('?')) {
+                          const currentParams = new URLSearchParams(location.split('?')[1] || '');
+                          const itemParams = new URLSearchParams(item.href.split('?')[1] || '');
+                          const itemTab = itemParams.get('tab');
+                          const currentTab = currentParams.get('tab');
+                          return itemTab === currentTab;
+                        }
+                        
+                        // Default case - check base path for default tab
+                        if (currentPath === itemPath && !item.href.includes('?') && !location.includes('?')) {
+                          return true;
+                        }
+                        
+                        return false;
+                      })();
                       return (
                         <Link 
                           key={itemIndex} 
