@@ -84,28 +84,32 @@ export default function AiTaskManager() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Fetch AI suggestions
+  // Fetch AI suggestions with longer cache
   const { data: aiSuggestions = [], isLoading: suggestionsLoading } = useQuery({
     queryKey: ['/api/enhanced-ai-suggestions', selectedProperty],
-    refetchInterval: 30000, // Refresh every 30 seconds
+    refetchInterval: false, // Disable automatic polling
+    staleTime: 10 * 60 * 1000, // 10 minutes cache for AI suggestions
   });
 
-  // Fetch property timeline
+  // Fetch property timeline with longer cache
   const { data: timeline = [], isLoading: timelineLoading } = useQuery({
     queryKey: [`/api/property-timeline/${selectedProperty}`],
-    refetchInterval: 30000,
+    refetchInterval: false, // Disable automatic polling
+    staleTime: 5 * 60 * 1000, // 5 minutes cache
   });
 
-  // Fetch smart notifications
+  // Fetch smart notifications with much longer intervals
   const { data: notifications = [], isLoading: notificationsLoading } = useQuery({
     queryKey: ['/api/smart-notifications'],
-    refetchInterval: 10000, // Refresh every 10 seconds for real-time feel
+    refetchInterval: false, // Disable automatic polling - notifications should be event-driven
+    staleTime: 2 * 60 * 1000, // 2 minutes cache
   });
 
-  // Fetch fast action suggestions
+  // Fetch fast action suggestions with optimized caching
   const { data: fastActions = [], isLoading: fastActionsLoading } = useQuery({
     queryKey: ['/api/fast-action-suggestions', selectedProperty],
-    refetchInterval: 30000,
+    refetchInterval: false, // Disable automatic polling
+    staleTime: 5 * 60 * 1000, // 5 minutes cache
   });
 
   // Process review feedback mutation

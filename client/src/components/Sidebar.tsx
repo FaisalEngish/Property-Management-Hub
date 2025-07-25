@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
@@ -79,6 +79,7 @@ interface MenuSection {
   items: MenuItem[];
 }
 
+// Memoized role-based menu generation for performance
 const getRoleBasedMenus = (role: string): MenuSection[] => {
   const roleSpecificMenus: Record<string, MenuSection[]> = {
     admin: [
@@ -386,8 +387,9 @@ export default function Sidebar({ className }: SidebarProps) {
     }
   };
 
-  const menuSections = getRoleBasedMenus(userRole);
-  const RoleIcon = roleIcons[userRole as keyof typeof roleIcons] || User;
+  // Memoize menu sections to prevent recreation on every render
+  const menuSections = useMemo(() => getRoleBasedMenus(userRole), [userRole]);
+  const RoleIcon = useMemo(() => roleIcons[userRole as keyof typeof roleIcons] || User, [userRole]);
 
   if (!isAuthenticated) {
     return null;
