@@ -62,15 +62,19 @@ export default function StaffWalletPettyCash() {
   };
 
   // Fetch wallet data from backend
-  const { data: walletData } = useQuery({
+  const { data: walletData, isLoading: walletLoading, error: walletError } = useQuery({
     queryKey: ["/api/staff-wallet/staff-pool"],
-    enabled: true
+    enabled: true,
+    retry: 3,
+    staleTime: 30000 // 30 seconds
   });
 
   // Fetch transactions from backend
-  const { data: recentTransactions = [] } = useQuery({
+  const { data: recentTransactions = [], isLoading: transactionsLoading } = useQuery({
     queryKey: ["/api/staff-wallet/staff-pool/transactions"],
-    enabled: true
+    enabled: true,
+    retry: 3,
+    staleTime: 30000 // 30 seconds
   });
 
   const expenseCategories = [
@@ -153,6 +157,53 @@ export default function StaffWalletPettyCash() {
       queryClient.invalidateQueries({ queryKey: ["/api/staff-wallet/staff-pool/transactions"] });
     }
   });
+
+  // Handle loading and error states
+  if (walletLoading || transactionsLoading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold">My Wallet & Petty Cash</h1>
+            <p className="text-gray-600">Loading your wallet data...</p>
+          </div>
+          <Badge variant="outline" className="text-green-600 border-green-200">
+            <Wallet className="w-4 h-4 mr-1" />
+            Staff Wallet
+          </Badge>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          {[1, 2, 3, 4].map((i) => (
+            <Card key={i}>
+              <CardContent className="p-6">
+                <div className="animate-pulse space-y-2">
+                  <div className="h-4 bg-gray-200 rounded w-20"></div>
+                  <div className="h-8 bg-gray-200 rounded w-24"></div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (walletError) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold">My Wallet & Petty Cash</h1>
+            <p className="text-red-600">Error loading wallet data. Please try again.</p>
+          </div>
+          <Badge variant="outline" className="text-red-600 border-red-200">
+            <AlertCircle className="w-4 h-4 mr-1" />
+            Error
+          </Badge>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
