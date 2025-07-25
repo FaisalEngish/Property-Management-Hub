@@ -1,12 +1,13 @@
 import { Route, Switch } from "wouter";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider } from "@tanstack/react-query";
+import { queryClient } from "@/lib/queryClient";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import Layout from "@/components/Layout";
 import { useAuth } from "@/hooks/useAuth";
 
-// Import existing pages
-import Dashboard from "@/pages/Dashboard";
+// Import existing pages with lazy loading for performance
+import { LazyDashboard, LazyFinancialDashboard, LazyPropertyDashboard } from "@/components/LazyDashboard";
 import RoleBasedDashboard from "@/components/RoleBasedDashboard";
 import Properties from "@/pages/Properties";
 import Tasks from "@/pages/Tasks";
@@ -17,8 +18,6 @@ import SimpleSettings from "./pages/SimpleSettings";
 import LoginPage from "@/pages/LoginPage";
 import Landing from "@/pages/Landing";
 import NotFound from "@/pages/not-found";
-import SimpleFilteredFinancialDashboard from "./pages/SimpleFilteredFinancialDashboard";
-import FilteredPropertyDashboard from "@/pages/FilteredPropertyDashboard";
 
 import SimpleLiveBookingCalendar from "./pages/SimpleLiveBookingCalendar";
 import SimpleMaintenanceSuggestions from "./pages/SimpleMaintenanceSuggestions";
@@ -67,40 +66,7 @@ import Leaderboard from "@/pages/agent/Leaderboard";
 import RetailAgentBooking from "@/pages/RetailAgentBooking";
 import ReferralAgentDashboard from "@/pages/ReferralAgentDashboard";
 
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      queryFn: async ({ queryKey }) => {
-        const response = await fetch(queryKey[0] as string, {
-          credentials: "include",
-        });
-        
-        if (!response.ok) {
-          if (response.status >= 500) {
-            throw new Error(`Server error: ${response.status}`);
-          }
-          if (response.status === 404) {
-            throw new Error(`Not found: ${queryKey[0]}`);
-          }
-          if (response.status === 401) {
-            throw new Error(`401: Unauthorized`);
-          }
-          throw new Error(`Request failed: ${response.status}`);
-        }
-        
-        return response.json();
-      },
-      retry: (failureCount, error) => {
-        if (error.message.includes('401: Unauthorized')) {
-          return false;
-        }
-        return failureCount < 3;
-      },
-      staleTime: 5 * 60 * 1000,
-      refetchOnWindowFocus: false,
-    },
-  },
-});
+// QueryClient is now imported from lib/queryClient for better performance
 
 function AppRoutes() {
   const { user, isLoading } = useAuth();
@@ -138,8 +104,8 @@ function AppRoutes() {
         <Route path="/help" component={SimpleHelp} />
         
         {/* Enhanced Dashboards */}
-        <Route path="/filtered-financial-dashboard" component={SimpleFilteredFinancialDashboard} />
-        <Route path="/filtered-property-dashboard" component={FilteredPropertyDashboard} />
+        <Route path="/filtered-financial-dashboard" component={LazyFinancialDashboard} />
+        <Route path="/filtered-property-dashboard" component={LazyPropertyDashboard} />
         
         {/* Core Management */}
         <Route path="/maintenance-suggestions" component={SimpleMaintenanceSuggestions} />

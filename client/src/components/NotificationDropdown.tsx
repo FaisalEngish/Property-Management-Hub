@@ -35,12 +35,17 @@ export function NotificationDropdown() {
 
   const { data: notifications = [] } = useQuery<Notification[]>({
     queryKey: ["/api/notifications"],
+    staleTime: 10 * 60 * 1000, // 10 minutes cache
+    refetchOnMount: false,
+    enabled: isOpen, // Only fetch when dropdown is open
   });
 
   const { data: unreadNotifications = [] } = useQuery<Notification[]>({
     queryKey: ["/api/notifications/unread"],
     refetchInterval: isOpen ? 60000 : false, // Only poll when dropdown is open, reduce to 1 minute
-    staleTime: 2 * 60 * 1000, // 2 minutes cache
+    staleTime: 5 * 60 * 1000, // 5 minutes cache
+    refetchOnMount: false,
+    enabled: isOpen, // Only fetch when dropdown is open
   });
 
   const markReadMutation = useMutation({

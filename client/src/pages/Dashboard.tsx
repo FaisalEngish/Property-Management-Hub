@@ -36,18 +36,26 @@ export default function Dashboard() {
 
   const { data: stats } = useQuery({
     queryKey: ["/api/dashboard/stats"],
+    staleTime: 15 * 60 * 1000, // 15 minutes cache for stats
+    refetchOnMount: false, // Don't refetch on mount if data exists
   });
 
   const { data: properties = [] } = useQuery({
     queryKey: ["/api/properties"],
+    staleTime: 20 * 60 * 1000, // 20 minutes cache for properties
+    refetchOnMount: false,
   });
 
   const { data: tasks = [] } = useQuery({
     queryKey: ["/api/tasks"],
+    staleTime: 10 * 60 * 1000, // 10 minutes cache for tasks
+    refetchOnMount: false,
   });
 
   const { data: bookings = [] } = useQuery({
     queryKey: ["/api/bookings"],
+    staleTime: 15 * 60 * 1000, // 15 minutes cache for bookings
+    refetchOnMount: false,
   });
 
   // Enhanced demo data for better dashboard experience

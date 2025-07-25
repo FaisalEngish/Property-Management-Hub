@@ -47,12 +47,13 @@ export const queryClient = new QueryClient({
       queryFn: getQueryFn({ on401: "throw" }),
       refetchInterval: false,
       refetchOnWindowFocus: false,
-      refetchOnReconnect: false, // Disable auto-refetch on reconnect
-      staleTime: 5 * 60 * 1000, // 5 minutes cache
-      gcTime: 10 * 60 * 1000, // 10 minutes garbage collection
-      retry: 1, // Reduce retries
-      networkMode: 'online', // Skip queries when offline
-      notifyOnChangeProps: ['data', 'error'], // Only notify on data/error changes
+      refetchOnReconnect: false,
+      refetchOnMount: false, // Don't refetch on mount if cache exists
+      staleTime: 20 * 60 * 1000, // Increase to 20 minutes for aggressive caching
+      gcTime: 60 * 60 * 1000, // Increase to 1 hour garbage collection  
+      retry: 0, // Disable retries completely for speed
+      networkMode: 'online',
+      notifyOnChangeProps: ['data', 'error'],
     },
     mutations: {
       retry: false,
