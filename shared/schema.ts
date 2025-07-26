@@ -12103,3 +12103,26 @@ export const insertPropertyStatusSchema = createInsertSchema(propertyStatus).omi
 
 export type PropertyStatus = typeof propertyStatus.$inferSelect;
 export type InsertPropertyStatus = z.infer<typeof insertPropertyStatusSchema>;
+
+// ===== STAFF SKILLS SYSTEM =====
+
+export const staffSkills = pgTable("staff_skills", {
+  id: serial("id").primaryKey(),
+  staffId: varchar("staff_id").references(() => users.id).notNull(),
+  skillName: varchar("skill_name").notNull(),
+  certificationUrl: text("certification_url"),
+  expiryDate: date("expiry_date"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("IDX_staff_skills_staff").on(table.staffId),
+  index("IDX_staff_skills_skill").on(table.skillName),
+  index("IDX_staff_skills_expiry").on(table.expiryDate),
+]);
+
+export const insertStaffSkillSchema = createInsertSchema(staffSkills).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type StaffSkill = typeof staffSkills.$inferSelect;
+export type InsertStaffSkill = z.infer<typeof insertStaffSkillSchema>;

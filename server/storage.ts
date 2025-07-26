@@ -78,6 +78,8 @@ import {
   legalTemplates,
   // Property Status
   propertyStatus,
+  // Staff Skills
+  staffSkills,
   // Property Utilities & Maintenance Enhanced
   propertyUtilityAccountsEnhanced,
   utilityBillLogsEnhanced,
@@ -36145,6 +36147,101 @@ Plant Care:
     .from(propertyStatus)
     .where(eq(propertyStatus.organizationId, this.organizationId))
     .groupBy(propertyStatus.status);
+    
+    return analytics;
+  }
+
+  // ===== Staff Skills Management Methods =====
+  
+  async getStaffSkills(staffId?: string): Promise<any[]> {
+    let query = db.select().from(staffSkills);
+    
+    if (staffId) {
+      query = query.where(eq(staffSkills.staffId, staffId));
+    }
+    
+    return query.orderBy(staffSkills.createdAt);
+  }
+
+  async getStaffSkillById(id: number): Promise<any> {
+    const [skill] = await db.select().from(staffSkills).where(eq(staffSkills.id, id));
+    return skill;
+  }
+
+  async createStaffSkill(skillData: any): Promise<any> {
+    const [created] = await db.insert(staffSkills).values({
+      ...skillData,
+      createdAt: new Date(),
+    }).returning();
+    return created;
+  }
+
+  async updateStaffSkill(id: number, updates: any): Promise<any> {
+    const [updated] = await db.update(staffSkills)
+      .set(updates)
+      .where(eq(staffSkills.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteStaffSkill(id: number): Promise<boolean> {
+    const result = await db.delete(staffSkills).where(eq(staffSkills.id, id));
+    return result.rowCount > 0;
+  }
+
+  async getStaffSkillsBySkillName(skillName: string): Promise<any[]> {
+    const skills = await db.select({
+      id: staffSkills.id,
+      staffId: staffSkills.staffId,
+      skillName: staffSkills.skillName,
+      certificationUrl: staffSkills.certificationUrl,
+      expiryDate: staffSkills.expiryDate,
+      createdAt: staffSkills.createdAt,
+      staffName: users.username,
+    })
+    .from(staffSkills)
+    .leftJoin(users, eq(staffSkills.staffId, users.id))
+    .where(eq(staffSkills.skillName, skillName))
+    .orderBy(staffSkills.createdAt);
+    
+    return skills;
+  }
+
+  async getExpiringCertifications(daysAhead: number = 30): Promise<any[]> {
+    const futureDate = new Date();
+    futureDate.setDate(futureDate.getDate() + daysAhead);
+    
+    const expiring = await db.select({
+      id: staffSkills.id,
+      staffId: staffSkills.staffId,
+      skillName: staffSkills.skillName,
+      certificationUrl: staffSkills.certificationUrl,
+      expiryDate: staffSkills.expiryDate,
+      createdAt: staffSkills.createdAt,
+      staffName: users.username,
+      staffEmail: users.email,
+    })
+    .from(staffSkills)
+    .leftJoin(users, eq(staffSkills.staffId, users.id))
+    .where(and(
+      isNotNull(staffSkills.expiryDate),
+      lte(staffSkills.expiryDate, futureDate.toISOString().split('T')[0])
+    ))
+    .orderBy(staffSkills.expiryDate);
+    
+    return expiring;
+  }
+
+  async getSkillsAnalytics(): Promise<any> {
+    const analytics = await db.select({
+      skillName: staffSkills.skillName,
+      count: sql<number>`count(*)`,
+      certified: sql<number>`count(CASE WHEN certification_url IS NOT NULL THEN 1 END)`,
+      expiring: sql<number>`count(CASE WHEN expiry_date <= CURRENT_DATE + INTERVAL '30 days' THEN 1 END)`,
+    })
+    .from(staffSkills)
+    .groupBy(staffSkills.skillName)
+    .orderBy(sql<number>`count(*) DESC`);
     
     return analytics;
   }

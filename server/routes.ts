@@ -30512,6 +30512,100 @@ async function processGuestIssueForAI(issueReport: any) {
     }
   });
 
+  // ===== Staff Skills Management Routes =====
+  
+  app.get("/api/staff-skills", isDemoAuthenticated, async (req, res) => {
+    try {
+      const { staffId } = req.query;
+      const skills = await storage.getStaffSkills(staffId as string);
+      res.json(skills);
+    } catch (error) {
+      console.error("Error fetching staff skills:", error);
+      res.status(500).json({ error: "Failed to fetch staff skills" });
+    }
+  });
+
+  app.get("/api/staff-skills/:id", isDemoAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const skill = await storage.getStaffSkillById(id);
+      if (!skill) {
+        return res.status(404).json({ error: "Staff skill not found" });
+      }
+      res.json(skill);
+    } catch (error) {
+      console.error("Error fetching staff skill:", error);
+      res.status(500).json({ error: "Failed to fetch staff skill" });
+    }
+  });
+
+  app.post("/api/staff-skills", isDemoAuthenticated, async (req, res) => {
+    try {
+      const skill = await storage.createStaffSkill(req.body);
+      res.json(skill);
+    } catch (error) {
+      console.error("Error creating staff skill:", error);
+      res.status(500).json({ error: "Failed to create staff skill" });
+    }
+  });
+
+  app.put("/api/staff-skills/:id", isDemoAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const skill = await storage.updateStaffSkill(id, req.body);
+      if (!skill) {
+        return res.status(404).json({ error: "Staff skill not found" });
+      }
+      res.json(skill);
+    } catch (error) {
+      console.error("Error updating staff skill:", error);
+      res.status(500).json({ error: "Failed to update staff skill" });
+    }
+  });
+
+  app.delete("/api/staff-skills/:id", isDemoAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const success = await storage.deleteStaffSkill(id);
+      res.json({ success });
+    } catch (error) {
+      console.error("Error deleting staff skill:", error);
+      res.status(500).json({ error: "Failed to delete staff skill" });
+    }
+  });
+
+  app.get("/api/staff-skills/by-skill/:skillName", isDemoAuthenticated, async (req, res) => {
+    try {
+      const { skillName } = req.params;
+      const skills = await storage.getStaffSkillsBySkillName(skillName);
+      res.json(skills);
+    } catch (error) {
+      console.error("Error fetching skills by name:", error);
+      res.status(500).json({ error: "Failed to fetch skills" });
+    }
+  });
+
+  app.get("/api/staff-skills/expiring/:days", isDemoAuthenticated, async (req, res) => {
+    try {
+      const days = parseInt(req.params.days) || 30;
+      const expiring = await storage.getExpiringCertifications(days);
+      res.json(expiring);
+    } catch (error) {
+      console.error("Error fetching expiring certifications:", error);
+      res.status(500).json({ error: "Failed to fetch expiring certifications" });
+    }
+  });
+
+  app.get("/api/staff-skills/analytics", isDemoAuthenticated, async (req, res) => {
+    try {
+      const analytics = await storage.getSkillsAnalytics();
+      res.json(analytics);
+    } catch (error) {
+      console.error("Error fetching skills analytics:", error);
+      res.status(500).json({ error: "Failed to fetch analytics" });
+    }
+  });
+
   // API 404 handler - must be after all other API routes
   app.use("/api/*", (req, res) => {
     res.status(404).json({ 
