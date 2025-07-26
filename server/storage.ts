@@ -64,6 +64,8 @@ import {
   taskAiScanResults,
   // Property Investments
   propertyInvestments,
+  // Dynamic Pricing Recommendations
+  dynamicPricingRecommendations,
   // Property Utilities & Maintenance Enhanced
   propertyUtilityAccountsEnhanced,
   utilityBillLogsEnhanced,
@@ -34440,6 +34442,293 @@ Plant Care:
       };
     } catch (error) {
       console.error("Error calculating ROI actuals:", error);
+      throw error;
+    }
+  }
+
+  // ===== DYNAMIC PRICING RECOMMENDATIONS METHODS =====
+
+  async getDynamicPricingRecommendations(organizationId: string, filters?: { propertyId?: number; marketSource?: string; startDate?: Date; endDate?: Date }) {
+    try {
+      let query = this.db
+        .select({
+          id: dynamicPricingRecommendations.id,
+          organizationId: dynamicPricingRecommendations.organizationId,
+          propertyId: dynamicPricingRecommendations.propertyId,
+          currentRate: dynamicPricingRecommendations.currentRate,
+          recommendedRate: dynamicPricingRecommendations.recommendedRate,
+          marketSource: dynamicPricingRecommendations.marketSource,
+          confidenceScore: dynamicPricingRecommendations.confidenceScore,
+          generatedAt: dynamicPricingRecommendations.generatedAt,
+          propertyName: properties.name,
+          priceDifference: sql<number>`${dynamicPricingRecommendations.recommendedRate} - ${dynamicPricingRecommendations.currentRate}`,
+          percentageChange: sql<number>`ROUND(((${dynamicPricingRecommendations.recommendedRate} - ${dynamicPricingRecommendations.currentRate}) / ${dynamicPricingRecommendations.currentRate} * 100), 2)`,
+        })
+        .from(dynamicPricingRecommendations)
+        .leftJoin(properties, eq(dynamicPricingRecommendations.propertyId, properties.id))
+        .where(eq(dynamicPricingRecommendations.organizationId, organizationId));
+
+      if (filters?.propertyId) {
+        query = query.where(eq(dynamicPricingRecommendations.propertyId, filters.propertyId));
+      }
+
+      if (filters?.marketSource) {
+        query = query.where(eq(dynamicPricingRecommendations.marketSource, filters.marketSource));
+      }
+
+      if (filters?.startDate) {
+        query = query.where(gte(dynamicPricingRecommendations.generatedAt, filters.startDate));
+      }
+
+      if (filters?.endDate) {
+        query = query.where(lte(dynamicPricingRecommendations.generatedAt, filters.endDate));
+      }
+
+      return await query.orderBy(desc(dynamicPricingRecommendations.generatedAt));
+    } catch (error) {
+      console.error("Error fetching dynamic pricing recommendations:", error);
+      throw error;
+    }
+  }
+
+  async createDynamicPricingRecommendation(organizationId: string, recommendationData: any) {
+    try {
+      // Verify property belongs to organization if propertyId provided
+      if (recommendationData.propertyId) {
+        const [property] = await this.db
+          .select()
+          .from(properties)
+          .where(
+            and(
+              eq(properties.id, recommendationData.propertyId),
+              eq(properties.organizationId, organizationId)
+            )
+          );
+
+        if (!property) {
+          throw new Error("Property not found or unauthorized");
+        }
+      }
+
+      const [created] = await this.db
+        .insert(dynamicPricingRecommendations)
+        .values({
+          organizationId,
+          propertyId: recommendationData.propertyId,
+          currentRate: recommendationData.currentRate,
+          recommendedRate: recommendationData.recommendedRate,
+          marketSource: recommendationData.marketSource,
+          confidenceScore: recommendationData.confidenceScore,
+        })
+        .returning();
+
+      return created;
+    } catch (error) {
+      console.error("Error creating dynamic pricing recommendation:", error);
+      throw error;
+    }
+  }
+
+  async getLatestRecommendationsByProperty(organizationId: string, propertyId: number) {
+    try {
+      // Get the most recent recommendation for each market source
+      const latestRecommendations = await this.db
+        .select({
+          id: dynamicPricingRecommendations.id,
+          propertyId: dynamicPricingRecommendations.propertyId,
+          currentRate: dynamicPricingRecommendations.currentRate,
+          recommendedRate: dynamicPricingRecommendations.recommendedRate,
+          marketSource: dynamicPricingRecommendations.marketSource,
+          confidenceScore: dynamicPricingRecommendations.confidenceScore,
+          generatedAt: dynamicPricingRecommendations.generatedAt,
+          propertyName: properties.name,
+          priceDifference: sql<number>`${dynamicPricingRecommendations.recommendedRate} - ${dynamicPricingRecommendations.currentRate}`,
+          percentageChange: sql<number>`ROUND(((${dynamicPricingRecommendations.recommendedRate} - ${dynamicPricingRecommendations.currentRate}) / ${dynamicPricingRecommendations.currentRate} * 100), 2)`,
+        })
+        .from(dynamicPricingRecommendations)
+        .leftJoin(properties, eq(dynamicPricingRecommendations.propertyId, properties.id))
+        .where(
+          and(
+            eq(dynamicPricingRecommendations.organizationId, organizationId),
+            eq(dynamicPricingRecommendations.propertyId, propertyId)
+          )
+        )
+        .orderBy(desc(dynamicPricingRecommendations.generatedAt))
+        .limit(10);
+
+      return latestRecommendations;
+    } catch (error) {
+      console.error("Error fetching latest recommendations by property:", error);
+      throw error;
+    }
+  }
+
+  async getPricingAnalytics(organizationId: string, filters?: { propertyId?: number; startDate?: Date; endDate?: Date }) {
+    try {
+      let query = this.db
+        .select({
+          totalRecommendations: sql<number>`COUNT(*)`,
+          avgCurrentRate: sql<number>`AVG(${dynamicPricingRecommendations.currentRate})`,
+          avgRecommendedRate: sql<number>`AVG(${dynamicPricingRecommendations.recommendedRate})`,
+          avgConfidenceScore: sql<number>`AVG(${dynamicPricingRecommendations.confidenceScore})`,
+          avgPriceIncrease: sql<number>`AVG(${dynamicPricingRecommendations.recommendedRate} - ${dynamicPricingRecommendations.currentRate})`,
+          avgPercentageChange: sql<number>`AVG(((${dynamicPricingRecommendations.recommendedRate} - ${dynamicPricingRecommendations.currentRate}) / ${dynamicPricingRecommendations.currentRate} * 100))`,
+          highConfidenceCount: sql<number>`SUM(CASE WHEN ${dynamicPricingRecommendations.confidenceScore} >= 0.8 THEN 1 ELSE 0 END)`,
+          priceIncreaseCount: sql<number>`SUM(CASE WHEN ${dynamicPricingRecommendations.recommendedRate} > ${dynamicPricingRecommendations.currentRate} THEN 1 ELSE 0 END)`,
+          priceDecreaseCount: sql<number>`SUM(CASE WHEN ${dynamicPricingRecommendations.recommendedRate} < ${dynamicPricingRecommendations.currentRate} THEN 1 ELSE 0 END)`,
+        })
+        .from(dynamicPricingRecommendations)
+        .where(eq(dynamicPricingRecommendations.organizationId, organizationId));
+
+      if (filters?.propertyId) {
+        query = query.where(eq(dynamicPricingRecommendations.propertyId, filters.propertyId));
+      }
+
+      if (filters?.startDate) {
+        query = query.where(gte(dynamicPricingRecommendations.generatedAt, filters.startDate));
+      }
+
+      if (filters?.endDate) {
+        query = query.where(lte(dynamicPricingRecommendations.generatedAt, filters.endDate));
+      }
+
+      const [result] = await query;
+      return result || {
+        totalRecommendations: 0,
+        avgCurrentRate: 0,
+        avgRecommendedRate: 0,
+        avgConfidenceScore: 0,
+        avgPriceIncrease: 0,
+        avgPercentageChange: 0,
+        highConfidenceCount: 0,
+        priceIncreaseCount: 0,
+        priceDecreaseCount: 0,
+      };
+    } catch (error) {
+      console.error("Error fetching pricing analytics:", error);
+      throw error;
+    }
+  }
+
+  async getMarketSourceAnalytics(organizationId: string) {
+    try {
+      const results = await this.db
+        .select({
+          marketSource: dynamicPricingRecommendations.marketSource,
+          recommendationCount: sql<number>`COUNT(*)`,
+          avgConfidenceScore: sql<number>`AVG(${dynamicPricingRecommendations.confidenceScore})`,
+          avgCurrentRate: sql<number>`AVG(${dynamicPricingRecommendations.currentRate})`,
+          avgRecommendedRate: sql<number>`AVG(${dynamicPricingRecommendations.recommendedRate})`,
+          avgPriceChange: sql<number>`AVG(${dynamicPricingRecommendations.recommendedRate} - ${dynamicPricingRecommendations.currentRate})`,
+        })
+        .from(dynamicPricingRecommendations)
+        .where(eq(dynamicPricingRecommendations.organizationId, organizationId))
+        .groupBy(dynamicPricingRecommendations.marketSource)
+        .orderBy(desc(sql<number>`COUNT(*)`));
+
+      return results;
+    } catch (error) {
+      console.error("Error fetching market source analytics:", error);
+      throw error;
+    }
+  }
+
+  async generateMarketBasedRecommendations(organizationId: string, propertyId: number, currentRate: number): Promise<any> {
+    try {
+      // Simulate market-based pricing recommendations from different sources
+      const marketSources = ['Airbnb', 'Booking.com', 'VRBO', 'Agoda'];
+      const recommendations = [];
+
+      for (const source of marketSources) {
+        // Simulate market analysis with different pricing strategies
+        let recommendedRate: number;
+        let confidenceScore: number;
+
+        switch (source) {
+          case 'Airbnb':
+            // Airbnb typically suggests higher rates for unique properties
+            recommendedRate = currentRate * (1 + (Math.random() * 0.3 - 0.1)); // -10% to +20%
+            confidenceScore = 0.85 + Math.random() * 0.15;
+            break;
+          case 'Booking.com':
+            // Booking.com focuses on competitive pricing
+            recommendedRate = currentRate * (1 + (Math.random() * 0.2 - 0.1)); // -10% to +10%
+            confidenceScore = 0.80 + Math.random() * 0.15;
+            break;
+          case 'VRBO':
+            // VRBO targets family/group bookings with moderate pricing
+            recommendedRate = currentRate * (1 + (Math.random() * 0.25 - 0.05)); // -5% to +20%
+            confidenceScore = 0.75 + Math.random() * 0.20;
+            break;
+          case 'Agoda':
+            // Agoda focuses on Asian markets with competitive rates
+            recommendedRate = currentRate * (1 + (Math.random() * 0.15 - 0.08)); // -8% to +7%
+            confidenceScore = 0.78 + Math.random() * 0.17;
+            break;
+          default:
+            recommendedRate = currentRate;
+            confidenceScore = 0.5;
+        }
+
+        // Round to 2 decimal places
+        recommendedRate = Math.round(recommendedRate * 100) / 100;
+        confidenceScore = Math.round(confidenceScore * 100) / 100;
+
+        // Create recommendation
+        const recommendation = await this.createDynamicPricingRecommendation(organizationId, {
+          propertyId,
+          currentRate,
+          recommendedRate,
+          marketSource: source,
+          confidenceScore,
+        });
+
+        recommendations.push({
+          ...recommendation,
+          priceDifference: recommendedRate - currentRate,
+          percentageChange: Math.round(((recommendedRate - currentRate) / currentRate * 100) * 100) / 100,
+        });
+      }
+
+      return recommendations;
+    } catch (error) {
+      console.error("Error generating market-based recommendations:", error);
+      throw error;
+    }
+  }
+
+  async getDailyPricingTrends(organizationId: string, propertyId?: number, days: number = 30) {
+    try {
+      const startDate = new Date();
+      startDate.setDate(startDate.getDate() - days);
+
+      let query = this.db
+        .select({
+          date: sql<string>`DATE(${dynamicPricingRecommendations.generatedAt})`,
+          avgCurrentRate: sql<number>`AVG(${dynamicPricingRecommendations.currentRate})`,
+          avgRecommendedRate: sql<number>`AVG(${dynamicPricingRecommendations.recommendedRate})`,
+          avgConfidenceScore: sql<number>`AVG(${dynamicPricingRecommendations.confidenceScore})`,
+          recommendationCount: sql<number>`COUNT(*)`,
+        })
+        .from(dynamicPricingRecommendations)
+        .where(
+          and(
+            eq(dynamicPricingRecommendations.organizationId, organizationId),
+            gte(dynamicPricingRecommendations.generatedAt, startDate)
+          )
+        );
+
+      if (propertyId) {
+        query = query.where(eq(dynamicPricingRecommendations.propertyId, propertyId));
+      }
+
+      const results = await query
+        .groupBy(sql<string>`DATE(${dynamicPricingRecommendations.generatedAt})`)
+        .orderBy(sql<string>`DATE(${dynamicPricingRecommendations.generatedAt})`);
+
+      return results;
+    } catch (error) {
+      console.error("Error fetching daily pricing trends:", error);
       throw error;
     }
   }

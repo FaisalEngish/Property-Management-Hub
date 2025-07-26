@@ -3633,6 +3633,34 @@ export const insertPropertyInvestmentSchema = createInsertSchema(propertyInvestm
 export type InsertPropertyInvestment = z.infer<typeof insertPropertyInvestmentSchema>;
 export type PropertyInvestment = typeof propertyInvestments.$inferSelect;
 
+// ===== DYNAMIC PRICING RECOMMENDATIONS SYSTEM =====
+
+// Dynamic pricing recommendations for intelligent rate optimization
+export const dynamicPricingRecommendations = pgTable("dynamic_pricing_recommendations", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").notNull(),
+  propertyId: integer("property_id").references(() => properties.id),
+  currentRate: decimal("current_rate", { precision: 10, scale: 2 }),
+  recommendedRate: decimal("recommended_rate", { precision: 10, scale: 2 }),
+  marketSource: varchar("market_source"),
+  confidenceScore: decimal("confidence_score", { precision: 4, scale: 2 }),
+  generatedAt: timestamp("generated_at").defaultNow(),
+}, (table) => [
+  index("IDX_dynamic_pricing_org").on(table.organizationId),
+  index("IDX_dynamic_pricing_property").on(table.propertyId),
+  index("IDX_dynamic_pricing_source").on(table.marketSource),
+  index("IDX_dynamic_pricing_generated").on(table.generatedAt),
+]);
+
+// Dynamic pricing recommendations schemas
+export const insertDynamicPricingRecommendationSchema = createInsertSchema(dynamicPricingRecommendations).omit({
+  id: true,
+  generatedAt: true,
+});
+
+export type InsertDynamicPricingRecommendation = z.infer<typeof insertDynamicPricingRecommendationSchema>;
+export type DynamicPricingRecommendation = typeof dynamicPricingRecommendations.$inferSelect;
+
 // Financial & Invoice Toolkit schemas and types
 
 export const insertCommissionEarningSchema = createInsertSchema(commissionEarnings).omit({

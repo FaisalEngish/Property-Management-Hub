@@ -29262,6 +29262,137 @@ async function processGuestIssueForAI(issueReport: any) {
     }
   });
 
+  // ===== DYNAMIC PRICING RECOMMENDATIONS ENDPOINTS =====
+
+  // Get dynamic pricing recommendations with optional filtering
+  app.get("/api/dynamic-pricing", async (req, res) => {
+    try {
+      const organizationId = req.user?.organizationId || "default-org";
+      const { propertyId, marketSource, startDate, endDate } = req.query;
+      
+      const filters = {
+        propertyId: propertyId ? parseInt(propertyId as string) : undefined,
+        marketSource: marketSource as string,
+        startDate: startDate ? new Date(startDate as string) : undefined,
+        endDate: endDate ? new Date(endDate as string) : undefined,
+      };
+      
+      const recommendations = await storage.getDynamicPricingRecommendations(organizationId, filters);
+      res.json(recommendations);
+    } catch (error) {
+      console.error("Error fetching dynamic pricing recommendations:", error);
+      res.status(500).json({ message: "Failed to fetch dynamic pricing recommendations" });
+    }
+  });
+
+  // Generate new pricing recommendations for a property
+  app.post("/api/dynamic-pricing/generate", async (req, res) => {
+    try {
+      const organizationId = req.user?.organizationId || "default-org";
+      const { propertyId, currentRate } = req.body;
+      
+      if (!propertyId || !currentRate) {
+        return res.status(400).json({ message: "Property ID and current rate are required" });
+      }
+
+      const recommendations = await storage.generateMarketBasedRecommendations(
+        organizationId, 
+        parseInt(propertyId), 
+        parseFloat(currentRate)
+      );
+      res.json(recommendations);
+    } catch (error) {
+      console.error("Error generating pricing recommendations:", error);
+      res.status(500).json({ message: "Failed to generate pricing recommendations" });
+    }
+  });
+
+  // Get latest recommendations for a specific property
+  app.get("/api/dynamic-pricing/property/:propertyId/latest", async (req, res) => {
+    try {
+      const { propertyId } = req.params;
+      const organizationId = req.user?.organizationId || "default-org";
+      
+      const recommendations = await storage.getLatestRecommendationsByProperty(
+        organizationId, 
+        parseInt(propertyId)
+      );
+      res.json(recommendations);
+    } catch (error) {
+      console.error("Error fetching latest recommendations:", error);
+      res.status(500).json({ message: "Failed to fetch latest recommendations" });
+    }
+  });
+
+  // Get pricing analytics dashboard
+  app.get("/api/dynamic-pricing/analytics", requireAdmin, async (req, res) => {
+    try {
+      const organizationId = req.user?.organizationId || "default-org";
+      const { propertyId, startDate, endDate } = req.query;
+      
+      const filters = {
+        propertyId: propertyId ? parseInt(propertyId as string) : undefined,
+        startDate: startDate ? new Date(startDate as string) : undefined,
+        endDate: endDate ? new Date(endDate as string) : undefined,
+      };
+      
+      const analytics = await storage.getPricingAnalytics(organizationId, filters);
+      res.json(analytics);
+    } catch (error) {
+      console.error("Error fetching pricing analytics:", error);
+      res.status(500).json({ message: "Failed to fetch pricing analytics" });
+    }
+  });
+
+  // Get market source performance analytics
+  app.get("/api/dynamic-pricing/market-sources", async (req, res) => {
+    try {
+      const organizationId = req.user?.organizationId || "default-org";
+      
+      const marketAnalytics = await storage.getMarketSourceAnalytics(organizationId);
+      res.json(marketAnalytics);
+    } catch (error) {
+      console.error("Error fetching market source analytics:", error);
+      res.status(500).json({ message: "Failed to fetch market source analytics" });
+    }
+  });
+
+  // Get daily pricing trends
+  app.get("/api/dynamic-pricing/trends", async (req, res) => {
+    try {
+      const organizationId = req.user?.organizationId || "default-org";
+      const { propertyId, days } = req.query;
+      
+      const trends = await storage.getDailyPricingTrends(
+        organizationId,
+        propertyId ? parseInt(propertyId as string) : undefined,
+        days ? parseInt(days as string) : 30
+      );
+      res.json(trends);
+    } catch (error) {
+      console.error("Error fetching pricing trends:", error);
+      res.status(500).json({ message: "Failed to fetch pricing trends" });
+    }
+  });
+
+  // Create custom pricing recommendation
+  app.post("/api/dynamic-pricing", requireAdmin, async (req, res) => {
+    try {
+      const organizationId = req.user?.organizationId || "default-org";
+      const recommendationData = req.body;
+      
+      if (!recommendationData.propertyId || !recommendationData.currentRate || !recommendationData.recommendedRate) {
+        return res.status(400).json({ message: "Property ID, current rate, and recommended rate are required" });
+      }
+
+      const created = await storage.createDynamicPricingRecommendation(organizationId, recommendationData);
+      res.json(created);
+    } catch (error) {
+      console.error("Error creating pricing recommendation:", error);
+      res.status(500).json({ message: "Failed to create pricing recommendation" });
+    }
+  });
+
   // ===== CURRENCY AND TAX MANAGEMENT ENDPOINTS =====
 
   // Get all currency rates
