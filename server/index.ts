@@ -91,8 +91,9 @@ app.use((req, res, next) => {
     serveStatic(app);
   }
 
-  const httpServer = app.listen(process.env.PORT || 5000, '0.0.0.0', () => {
-    console.log("Server started");
+  const port = process.env.PORT || 5000;
+  const httpServer = app.listen(port, '0.0.0.0', () => {
+    console.log(`Server started on port ${port}`);
   });
 
   // Graceful shutdown handling for production deployment
