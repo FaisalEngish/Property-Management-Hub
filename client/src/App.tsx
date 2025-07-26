@@ -64,6 +64,7 @@ import SaasManagement from "@/pages/admin/SaasManagement";
 import PropertyAppliancesManagement from "@/pages/PropertyAppliancesManagement";
 import AlertManagement from "@/pages/AlertManagement";
 import AutomationManagement from "@/pages/AutomationManagement";
+import CurrencyTaxManagement from "@/pages/CurrencyTaxManagement";
 
 // Import new agent pages
 import QuoteGenerator from "@/pages/agent/QuoteGenerator";
@@ -156,6 +157,7 @@ function AppRoutes() {
         <Route path="/property-appliances-management" component={PropertyAppliancesManagement} />
         <Route path="/alert-management" component={AlertManagement} />
         <Route path="/automation-management" component={AutomationManagement} />
+        <Route path="/currency-tax-management" component={CurrencyTaxManagement} />
         
         {/* AI Testing */}
         <Route path="/ai-test" component={AITest} />

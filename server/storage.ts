@@ -52,6 +52,9 @@ import {
   emergencyWaterDeliveries,
   waterDeliveryAlerts,
   waterUpgradeSuggestions,
+  // Currency and Tax tables
+  currencyRates,
+  taxRules,
   // Property Utilities & Maintenance Enhanced
   propertyUtilityAccountsEnhanced,
   utilityBillLogsEnhanced,

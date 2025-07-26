@@ -3440,6 +3440,31 @@ export type OtaPlatformSettings = typeof otaPlatformSettings.$inferSelect;
 export type InsertOwnerPayout = z.infer<typeof insertOwnerPayoutSchema>;
 export type OwnerPayout = typeof ownerPayouts.$inferSelect;
 
+// ===== CURRENCY AND TAX MANAGEMENT TABLES =====
+
+// Currency rates table for exchange rate management
+export const currencyRates = pgTable("currency_rates", {
+  id: serial("id").primaryKey(),
+  baseCurrency: varchar("base_currency", { length: 3 }).notNull(),
+  targetCurrency: varchar("target_currency", { length: 3 }).notNull(),
+  rate: decimal("rate", { precision: 10, scale: 6 }).notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("IDX_currency_rates_base_target").on(table.baseCurrency, table.targetCurrency),
+]);
+
+// Tax rules table for VAT/GST/WHT rates by region
+export const taxRules = pgTable("tax_rules", {
+  id: serial("id").primaryKey(),
+  region: varchar("region").notNull(),
+  vatRate: decimal("vat_rate", { precision: 5, scale: 2 }),
+  gstRate: decimal("gst_rate", { precision: 5, scale: 2 }),
+  whtRate: decimal("wht_rate", { precision: 5, scale: 2 }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("IDX_tax_rules_region").on(table.region),
+]);
+
 // Task History schemas and types
 export const insertTaskHistorySchema = createInsertSchema(taskHistory);
 export type InsertTaskHistory = z.infer<typeof insertTaskHistorySchema>;
@@ -3461,6 +3486,22 @@ export type InsertNotification = z.infer<typeof insertNotificationSchema>;
 export type Notification = typeof notifications.$inferSelect;
 export type InsertNotificationPreference = z.infer<typeof insertNotificationPreferenceSchema>;
 export type NotificationPreference = typeof notificationPreferences.$inferSelect;
+
+// Currency and Tax schemas
+export const insertCurrencyRateSchema = createInsertSchema(currencyRates).omit({
+  id: true,
+  updatedAt: true,
+});
+
+export const insertTaxRuleSchema = createInsertSchema(taxRules).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertCurrencyRate = z.infer<typeof insertCurrencyRateSchema>;
+export type CurrencyRate = typeof currencyRates.$inferSelect;
+export type InsertTaxRule = z.infer<typeof insertTaxRuleSchema>;
+export type TaxRule = typeof taxRules.$inferSelect;
 
 // Financial & Invoice Toolkit schemas and types
 

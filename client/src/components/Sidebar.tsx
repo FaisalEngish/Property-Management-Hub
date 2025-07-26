@@ -138,6 +138,7 @@ const getRoleBasedMenus = (role: string): MenuSection[] => {
         title: "⚙️ System & Admin",
         items: [
           { label: "Automation Management", icon: Settings, href: "/automation-management", description: "Commission & utility automation controls", badge: "Live" },
+          { label: "Currency & Tax Management", icon: DollarSign, href: "/currency-tax-management", description: "Multi-currency rates and international tax compliance", badge: "Global" },
           { label: "API Connections", icon: Key, href: "/admin/api-connections", description: "Configure Hostaway, Stripe, and OpenAI integrations", badge: "SaaS" },
           { label: "SaaS Management", icon: Building2, href: "/admin/saas-management", description: "Manage signup requests and client organizations", badge: "Framework" },
           { label: "User Management", icon: Users, href: "/admin/user-management", description: "Manage users & permissions" },

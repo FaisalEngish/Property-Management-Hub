@@ -28794,6 +28794,178 @@ async function processGuestIssueForAI(issueReport: any) {
     }
   });
 
+  // ===== CURRENCY AND TAX MANAGEMENT ENDPOINTS =====
+
+  // Get all currency rates
+  app.get("/api/currency/rates", requireAdmin, async (req, res) => {
+    try {
+      const rates = await storage.db.select().from(currencyRates);
+      res.json(rates);
+    } catch (error) {
+      console.error("Error fetching currency rates:", error);
+      res.status(500).json({ message: "Failed to fetch currency rates" });
+    }
+  });
+
+  // Update currency rate
+  app.put("/api/currency/rates/:from/:to", requireAdmin, async (req, res) => {
+    try {
+      const { from, to } = req.params;
+      const { rate } = req.body;
+      
+      if (!rate || isNaN(rate)) {
+        return res.status(400).json({ message: "Valid rate is required" });
+      }
+
+      await storage.db
+        .insert(currencyRates)
+        .values({
+          baseCurrency: from,
+          targetCurrency: to,
+          rate: rate.toString(),
+        })
+        .onConflictDoUpdate({
+          target: [currencyRates.baseCurrency, currencyRates.targetCurrency],
+          set: {
+            rate: rate.toString(),
+            updatedAt: new Date(),
+          },
+        });
+
+      res.json({ message: "Currency rate updated successfully" });
+    } catch (error) {
+      console.error("Error updating currency rate:", error);
+      res.status(500).json({ message: "Failed to update currency rate" });
+    }
+  });
+
+  // Convert currency
+  app.post("/api/currency/convert", requireAdmin, async (req, res) => {
+    try {
+      const { amount, from, to } = req.body;
+      
+      if (!amount || !from || !to) {
+        return res.status(400).json({ message: "Amount, from, and to currencies are required" });
+      }
+
+      if (from === to) {
+        return res.json({ amount, convertedAmount: amount, rate: 1 });
+      }
+
+      const [rate] = await storage.db
+        .select()
+        .from(currencyRates)
+        .where(and(eq(currencyRates.baseCurrency, from), eq(currencyRates.targetCurrency, to)))
+        .limit(1);
+
+      if (!rate) {
+        return res.status(404).json({ message: `Currency conversion rate not found for ${from} to ${to}` });
+      }
+
+      const convertedAmount = amount * parseFloat(rate.rate);
+      res.json({ 
+        amount, 
+        convertedAmount, 
+        rate: parseFloat(rate.rate),
+        from,
+        to 
+      });
+    } catch (error) {
+      console.error("Error converting currency:", error);
+      res.status(500).json({ message: "Failed to convert currency" });
+    }
+  });
+
+  // Get all tax rules
+  app.get("/api/tax/rules", requireAdmin, async (req, res) => {
+    try {
+      const rules = await storage.db.select().from(taxRules);
+      res.json(rules);
+    } catch (error) {
+      console.error("Error fetching tax rules:", error);
+      res.status(500).json({ message: "Failed to fetch tax rules" });
+    }
+  });
+
+  // Update tax rule
+  app.put("/api/tax/rules/:region", requireAdmin, async (req, res) => {
+    try {
+      const { region } = req.params;
+      const { vatRate, gstRate, whtRate } = req.body;
+
+      await storage.db
+        .insert(taxRules)
+        .values({
+          region,
+          vatRate: vatRate?.toString(),
+          gstRate: gstRate?.toString(),
+          whtRate: whtRate?.toString(),
+        })
+        .onConflictDoUpdate({
+          target: [taxRules.region],
+          set: {
+            vatRate: vatRate?.toString(),
+            gstRate: gstRate?.toString(),
+            whtRate: whtRate?.toString(),
+          },
+        });
+
+      res.json({ message: "Tax rule updated successfully" });
+    } catch (error) {
+      console.error("Error updating tax rule:", error);
+      res.status(500).json({ message: "Failed to update tax rule" });
+    }
+  });
+
+  // Calculate tax
+  app.post("/api/tax/calculate", requireAdmin, async (req, res) => {
+    try {
+      const { amount, region, taxType } = req.body;
+      
+      if (!amount || !region || !taxType) {
+        return res.status(400).json({ message: "Amount, region, and tax type are required" });
+      }
+
+      const [rule] = await storage.db
+        .select()
+        .from(taxRules)
+        .where(eq(taxRules.region, region))
+        .limit(1);
+
+      if (!rule) {
+        return res.status(404).json({ message: `Tax rule not found for region: ${region}` });
+      }
+
+      let rate = 0;
+      switch (taxType) {
+        case 'vat':
+          rate = rule.vatRate ? parseFloat(rule.vatRate) : 0;
+          break;
+        case 'gst':
+          rate = rule.gstRate ? parseFloat(rule.gstRate) : 0;
+          break;
+        case 'wht':
+          rate = rule.whtRate ? parseFloat(rule.whtRate) : 0;
+          break;
+        default:
+          return res.status(400).json({ message: "Invalid tax type. Use 'vat', 'gst', or 'wht'" });
+      }
+
+      const taxAmount = amount * (rate / 100);
+      res.json({ 
+        amount, 
+        taxAmount, 
+        rate,
+        region,
+        taxType,
+        totalAmount: amount + taxAmount
+      });
+    } catch (error) {
+      console.error("Error calculating tax:", error);
+      res.status(500).json({ message: "Failed to calculate tax" });
+    }
+  });
+
   // API 404 handler - must be after all other API routes
   app.use("/api/*", (req, res) => {
     res.status(404).json({ 
