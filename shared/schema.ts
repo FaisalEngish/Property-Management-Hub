@@ -12077,3 +12077,26 @@ export const insertLegalTemplateSchema = createInsertSchema(legalTemplates).omit
 
 export type LegalTemplate = typeof legalTemplates.$inferSelect;
 export type InsertLegalTemplate = z.infer<typeof insertLegalTemplateSchema>;
+
+// ===== PROPERTY STATUS SYSTEM =====
+
+export const propertyStatus = pgTable("property_status", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").notNull(),
+  propertyId: integer("property_id").references(() => properties.id),
+  status: varchar("status").notNull(), // occupied, vacant, urgent-maintenance, cleaning-due
+  lastUpdate: timestamp("last_update").defaultNow(),
+  notes: text("notes"),
+}, (table) => [
+  index("IDX_property_status_org").on(table.organizationId),
+  index("IDX_property_status_property").on(table.propertyId),
+  index("IDX_property_status_status").on(table.status),
+]);
+
+export const insertPropertyStatusSchema = createInsertSchema(propertyStatus).omit({
+  id: true,
+  lastUpdate: true,
+});
+
+export type PropertyStatus = typeof propertyStatus.$inferSelect;
+export type InsertPropertyStatus = z.infer<typeof insertPropertyStatusSchema>;

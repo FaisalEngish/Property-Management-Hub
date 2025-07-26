@@ -76,6 +76,8 @@ import {
   organizations,
   // Legal Templates
   legalTemplates,
+  // Property Status
+  propertyStatus,
   // Property Utilities & Maintenance Enhanced
   propertyUtilityAccountsEnhanced,
   utilityBillLogsEnhanced,
@@ -36021,6 +36023,130 @@ Plant Care:
       console.error("Error updating organization branding:", error);
       throw error;
     }
+  }
+  // ===== Property Status Management Methods =====
+  
+  async getPropertyStatuses(): Promise<any[]> {
+    const statuses = await db.select({
+      id: propertyStatus.id,
+      organizationId: propertyStatus.organizationId,
+      propertyId: propertyStatus.propertyId,
+      status: propertyStatus.status,
+      lastUpdate: propertyStatus.lastUpdate,
+      notes: propertyStatus.notes,
+      propertyName: properties.name,
+    })
+    .from(propertyStatus)
+    .leftJoin(properties, eq(propertyStatus.propertyId, properties.id))
+    .where(eq(propertyStatus.organizationId, this.organizationId))
+    .orderBy(propertyStatus.lastUpdate);
+    
+    return statuses;
+  }
+
+  async getPropertyStatusById(id: number): Promise<any> {
+    const [status] = await db.select({
+      id: propertyStatus.id,
+      organizationId: propertyStatus.organizationId,
+      propertyId: propertyStatus.propertyId,
+      status: propertyStatus.status,
+      lastUpdate: propertyStatus.lastUpdate,
+      notes: propertyStatus.notes,
+      propertyName: properties.name,
+    })
+    .from(propertyStatus)
+    .leftJoin(properties, eq(propertyStatus.propertyId, properties.id))
+    .where(and(
+      eq(propertyStatus.id, id),
+      eq(propertyStatus.organizationId, this.organizationId)
+    ));
+    
+    return status;
+  }
+
+  async getPropertyStatusByPropertyId(propertyId: number): Promise<any> {
+    const [status] = await db.select({
+      id: propertyStatus.id,
+      organizationId: propertyStatus.organizationId,
+      propertyId: propertyStatus.propertyId,
+      status: propertyStatus.status,
+      lastUpdate: propertyStatus.lastUpdate,
+      notes: propertyStatus.notes,
+      propertyName: properties.name,
+    })
+    .from(propertyStatus)
+    .leftJoin(properties, eq(propertyStatus.propertyId, properties.id))
+    .where(and(
+      eq(propertyStatus.propertyId, propertyId),
+      eq(propertyStatus.organizationId, this.organizationId)
+    ));
+    
+    return status;
+  }
+
+  async createPropertyStatus(statusData: any): Promise<any> {
+    const [created] = await db.insert(propertyStatus).values({
+      ...statusData,
+      organizationId: this.organizationId,
+      lastUpdate: new Date(),
+    }).returning();
+    return created;
+  }
+
+  async updatePropertyStatus(id: number, updates: any): Promise<any> {
+    const [updated] = await db.update(propertyStatus)
+      .set({ 
+        ...updates, 
+        lastUpdate: new Date() 
+      })
+      .where(and(
+        eq(propertyStatus.id, id),
+        eq(propertyStatus.organizationId, this.organizationId)
+      ))
+      .returning();
+    return updated;
+  }
+
+  async deletePropertyStatus(id: number): Promise<boolean> {
+    const result = await db.delete(propertyStatus)
+      .where(and(
+        eq(propertyStatus.id, id),
+        eq(propertyStatus.organizationId, this.organizationId)
+      ));
+    return result.rowCount > 0;
+  }
+
+  async getPropertyStatusesByStatus(status: string): Promise<any[]> {
+    const statuses = await db.select({
+      id: propertyStatus.id,
+      organizationId: propertyStatus.organizationId,
+      propertyId: propertyStatus.propertyId,
+      status: propertyStatus.status,
+      lastUpdate: propertyStatus.lastUpdate,
+      notes: propertyStatus.notes,
+      propertyName: properties.name,
+    })
+    .from(propertyStatus)
+    .leftJoin(properties, eq(propertyStatus.propertyId, properties.id))
+    .where(and(
+      eq(propertyStatus.status, status),
+      eq(propertyStatus.organizationId, this.organizationId)
+    ))
+    .orderBy(propertyStatus.lastUpdate);
+    
+    return statuses;
+  }
+
+  async getPropertyStatusAnalytics(): Promise<any> {
+    const analytics = await db.select({
+      status: propertyStatus.status,
+      count: sql<number>`count(*)`,
+    })
+    .from(propertyStatus)
+    .where(eq(propertyStatus.organizationId, this.organizationId))
+    .groupBy(propertyStatus.status);
+    
+    return analytics;
   }
 }
 

@@ -30419,6 +30419,99 @@ async function processGuestIssueForAI(issueReport: any) {
     }
   });
 
+  // ===== Property Status Management Routes =====
+  
+  app.get("/api/property-status", isDemoAuthenticated, async (req, res) => {
+    try {
+      const statuses = await storage.getPropertyStatuses();
+      res.json(statuses);
+    } catch (error) {
+      console.error("Error fetching property statuses:", error);
+      res.status(500).json({ error: "Failed to fetch property statuses" });
+    }
+  });
+
+  app.get("/api/property-status/:id", isDemoAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const status = await storage.getPropertyStatusById(id);
+      if (!status) {
+        return res.status(404).json({ error: "Property status not found" });
+      }
+      res.json(status);
+    } catch (error) {
+      console.error("Error fetching property status:", error);
+      res.status(500).json({ error: "Failed to fetch property status" });
+    }
+  });
+
+  app.get("/api/property-status/property/:propertyId", isDemoAuthenticated, async (req, res) => {
+    try {
+      const propertyId = parseInt(req.params.propertyId);
+      const status = await storage.getPropertyStatusByPropertyId(propertyId);
+      res.json(status);
+    } catch (error) {
+      console.error("Error fetching property status by property:", error);
+      res.status(500).json({ error: "Failed to fetch property status" });
+    }
+  });
+
+  app.post("/api/property-status", isDemoAuthenticated, async (req, res) => {
+    try {
+      const status = await storage.createPropertyStatus(req.body);
+      res.json(status);
+    } catch (error) {
+      console.error("Error creating property status:", error);
+      res.status(500).json({ error: "Failed to create property status" });
+    }
+  });
+
+  app.put("/api/property-status/:id", isDemoAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const status = await storage.updatePropertyStatus(id, req.body);
+      if (!status) {
+        return res.status(404).json({ error: "Property status not found" });
+      }
+      res.json(status);
+    } catch (error) {
+      console.error("Error updating property status:", error);
+      res.status(500).json({ error: "Failed to update property status" });
+    }
+  });
+
+  app.delete("/api/property-status/:id", isDemoAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const success = await storage.deletePropertyStatus(id);
+      res.json({ success });
+    } catch (error) {
+      console.error("Error deleting property status:", error);
+      res.status(500).json({ error: "Failed to delete property status" });
+    }
+  });
+
+  app.get("/api/property-status/by-status/:status", isDemoAuthenticated, async (req, res) => {
+    try {
+      const { status } = req.params;
+      const statuses = await storage.getPropertyStatusesByStatus(status);
+      res.json(statuses);
+    } catch (error) {
+      console.error("Error fetching property statuses by status:", error);
+      res.status(500).json({ error: "Failed to fetch property statuses" });
+    }
+  });
+
+  app.get("/api/property-status/analytics", isDemoAuthenticated, async (req, res) => {
+    try {
+      const analytics = await storage.getPropertyStatusAnalytics();
+      res.json(analytics);
+    } catch (error) {
+      console.error("Error fetching property status analytics:", error);
+      res.status(500).json({ error: "Failed to fetch analytics" });
+    }
+  });
+
   // API 404 handler - must be after all other API routes
   app.use("/api/*", (req, res) => {
     res.status(404).json({ 
