@@ -159,9 +159,8 @@
           document.getElementById('success-msg').style.display = 'block';
           document.getElementById('success-msg').innerHTML = `${role.toUpperCase()} login successful! Loading your dashboard...`;
           
-          setTimeout(() => {
-            window.location.href = '/';
-          }, 1500);
+          // Force immediate redirect
+          window.location.replace('/');
         } else {
           throw new Error('Login failed');
         }
