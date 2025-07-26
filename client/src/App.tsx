@@ -3,8 +3,17 @@ import { Route, Switch } from "wouter";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "./lib/queryClient";
 
-// Simple minimal components to get app working
+// Import working components
 import SimpleSidebar from "./components/SimpleSidebar";
+
+// Import the working rich tabbed pages
+import WorkingPropertiesWithTabs from "./pages/WorkingPropertiesWithTabs";
+import WorkingFinanceRevenuePayouts from "./pages/WorkingFinanceRevenuePayouts";
+import WorkingSystemSettings from "./pages/WorkingSystemSettings";
+
+// Import other key pages - simplify for now
+// import FilteredFinancialDashboard from "./pages/FilteredFinancialDashboard";
+// import PortfolioManagerDashboard from "./pages/PortfolioManagerDashboard";
 
 function MinimalLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -126,19 +135,24 @@ function App() {
         <MinimalLayout>
           <Switch>
             <Route path="/" component={SimpleDashboard} />
+            
+            {/* Dashboard routes */}
             <Route path="/filtered-financial-dashboard" component={() => <SimplePage title="Financial Dashboard" />} />
             <Route path="/portfolio-manager-dashboard" component={() => <SimplePage title="Property Dashboard" />} />
             
-            <Route path="/properties-with-tabs" component={() => <SimplePage title="Properties (with tabs)" />} />
+            {/* Property routes with full tabbed functionality */}
+            <Route path="/properties-with-tabs" component={WorkingPropertiesWithTabs} />
             <Route path="/bookings" component={() => <SimplePage title="Calendar & Bookings" />} />
             <Route path="/tasks" component={() => <SimplePage title="Tasks" />} />
             <Route path="/checkin-checkout-workflow" component={() => <SimplePage title="Check-in/Check-out" />} />
             
-            <Route path="/finance-revenue-payouts" component={() => <SimplePage title="Revenue & Payouts" />} />
+            {/* Finance routes with full tabbed functionality */}
+            <Route path="/finance-revenue-payouts" component={WorkingFinanceRevenuePayouts} />
             <Route path="/finance-invoices-income" component={() => <SimplePage title="Invoices & Income" />} />
             <Route path="/utility-tracker" component={() => <SimplePage title="Utility Tracker" />} />
             
-            <Route path="/system-settings" component={() => <SimplePage title="System Settings" />} />
+            {/* System routes with full tabbed functionality */}
+            <Route path="/system-settings" component={WorkingSystemSettings} />
             <Route path="/user-management" component={() => <SimplePage title="User Management" />} />
             <Route path="/automation-management" component={() => <SimplePage title="Automation Management" />} />
             <Route path="/admin/activity-log" component={() => <SimplePage title="Activity Logs" />} />
