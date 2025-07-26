@@ -3465,6 +3465,24 @@ export const taxRules = pgTable("tax_rules", {
   index("IDX_tax_rules_region").on(table.region),
 ]);
 
+// ===== OFFLINE TASK CACHE FOR STAFF PRODUCTIVITY =====
+
+// Offline Task Cache for staff working without internet connectivity
+export const offlineTaskCache = pgTable("offline_task_cache", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").notNull(),
+  staffId: varchar("staff_id").notNull(),
+  propertyId: integer("property_id"),
+  taskData: json("task_data").notNull(),
+  synced: boolean("synced").default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+  syncedAt: timestamp("synced_at"),
+}, (table) => [
+  index("IDX_offline_task_cache_org").on(table.organizationId),
+  index("IDX_offline_task_cache_staff").on(table.staffId),
+  index("IDX_offline_task_cache_synced").on(table.synced),
+]);
+
 // Task History schemas and types
 export const insertTaskHistorySchema = createInsertSchema(taskHistory);
 export type InsertTaskHistory = z.infer<typeof insertTaskHistorySchema>;
@@ -3502,6 +3520,16 @@ export type InsertCurrencyRate = z.infer<typeof insertCurrencyRateSchema>;
 export type CurrencyRate = typeof currencyRates.$inferSelect;
 export type InsertTaxRule = z.infer<typeof insertTaxRuleSchema>;
 export type TaxRule = typeof taxRules.$inferSelect;
+
+// Offline Task Cache schemas
+export const insertOfflineTaskCacheSchema = createInsertSchema(offlineTaskCache).omit({
+  id: true,
+  createdAt: true,
+  syncedAt: true,
+});
+
+export type InsertOfflineTaskCache = z.infer<typeof insertOfflineTaskCacheSchema>;
+export type OfflineTaskCache = typeof offlineTaskCache.$inferSelect;
 
 // Financial & Invoice Toolkit schemas and types
 

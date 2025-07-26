@@ -55,6 +55,8 @@ import {
   // Currency and Tax tables
   currencyRates,
   taxRules,
+  // Offline Task Cache
+  offlineTaskCache,
   // Property Utilities & Maintenance Enhanced
   propertyUtilityAccountsEnhanced,
   utilityBillLogsEnhanced,
@@ -33654,6 +33656,102 @@ Plant Care:
         currency: 'THB'
       }
     ];
+  }
+
+  // ===== OFFLINE TASK CACHE METHODS =====
+
+  async getOfflineTasksForStaff(organizationId: string, staffId: string) {
+    try {
+      return await this.db
+        .select()
+        .from(offlineTaskCache)
+        .where(
+          and(
+            eq(offlineTaskCache.organizationId, organizationId),
+            eq(offlineTaskCache.staffId, staffId),
+            eq(offlineTaskCache.synced, false)
+          )
+        )
+        .orderBy(desc(offlineTaskCache.createdAt));
+    } catch (error) {
+      console.error("Error fetching offline tasks for staff:", error);
+      throw error;
+    }
+  }
+
+  async cacheOfflineTask(organizationId: string, staffId: string, propertyId: number | null, taskData: any) {
+    try {
+      const [cached] = await this.db
+        .insert(offlineTaskCache)
+        .values({
+          organizationId,
+          staffId,
+          propertyId,
+          taskData,
+          synced: false,
+        })
+        .returning();
+
+      return cached;
+    } catch (error) {
+      console.error("Error caching offline task:", error);
+      throw error;
+    }
+  }
+
+  async syncOfflineTask(organizationId: string, cacheId: number) {
+    try {
+      const [synced] = await this.db
+        .update(offlineTaskCache)
+        .set({ 
+          synced: true, 
+          syncedAt: new Date() 
+        })
+        .where(
+          and(
+            eq(offlineTaskCache.id, cacheId),
+            eq(offlineTaskCache.organizationId, organizationId)
+          )
+        )
+        .returning();
+
+      return synced;
+    } catch (error) {
+      console.error("Error syncing offline task:", error);
+      throw error;
+    }
+  }
+
+  async getAllOfflineTasksForOrganization(organizationId: string) {
+    try {
+      return await this.db
+        .select()
+        .from(offlineTaskCache)
+        .where(eq(offlineTaskCache.organizationId, organizationId))
+        .orderBy(desc(offlineTaskCache.createdAt));
+    } catch (error) {
+      console.error("Error fetching all offline tasks for organization:", error);
+      throw error;
+    }
+  }
+
+  async deleteOfflineTask(organizationId: string, cacheId: number) {
+    try {
+      const [deleted] = await this.db
+        .delete(offlineTaskCache)
+        .where(
+          and(
+            eq(offlineTaskCache.id, cacheId),
+            eq(offlineTaskCache.organizationId, organizationId)
+          )
+        )
+        .returning();
+
+      return deleted;
+    } catch (error) {
+      console.error("Error deleting offline task:", error);
+      throw error;
+    }
   }
 }
 

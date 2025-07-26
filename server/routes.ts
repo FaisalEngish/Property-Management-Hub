@@ -28794,6 +28794,81 @@ async function processGuestIssueForAI(issueReport: any) {
     }
   });
 
+  // ===== OFFLINE TASK CACHE ENDPOINTS =====
+
+  // Get offline tasks for staff member
+  app.get("/api/offline-tasks/:staffId", async (req, res) => {
+    try {
+      const { staffId } = req.params;
+      const organizationId = req.user?.organizationId || "default-org";
+      
+      const tasks = await storage.getOfflineTasksForStaff(organizationId, staffId);
+      res.json(tasks);
+    } catch (error) {
+      console.error("Error fetching offline tasks:", error);
+      res.status(500).json({ message: "Failed to fetch offline tasks" });
+    }
+  });
+
+  // Cache a task for offline use
+  app.post("/api/offline-tasks/cache", async (req, res) => {
+    try {
+      const { staffId, propertyId, taskData } = req.body;
+      const organizationId = req.user?.organizationId || "default-org";
+      
+      if (!staffId || !taskData) {
+        return res.status(400).json({ message: "Staff ID and task data are required" });
+      }
+
+      const cached = await storage.cacheOfflineTask(organizationId, staffId, propertyId, taskData);
+      res.json(cached);
+    } catch (error) {
+      console.error("Error caching offline task:", error);
+      res.status(500).json({ message: "Failed to cache task" });
+    }
+  });
+
+  // Sync offline task (mark as synchronized)
+  app.put("/api/offline-tasks/:cacheId/sync", async (req, res) => {
+    try {
+      const { cacheId } = req.params;
+      const organizationId = req.user?.organizationId || "default-org";
+      
+      const synced = await storage.syncOfflineTask(organizationId, parseInt(cacheId));
+      res.json(synced);
+    } catch (error) {
+      console.error("Error syncing offline task:", error);
+      res.status(500).json({ message: "Failed to sync task" });
+    }
+  });
+
+  // Get all offline tasks for organization (admin view)
+  app.get("/api/offline-tasks", requireAdmin, async (req, res) => {
+    try {
+      const organizationId = req.user?.organizationId || "default-org";
+      
+      const tasks = await storage.getAllOfflineTasksForOrganization(organizationId);
+      res.json(tasks);
+    } catch (error) {
+      console.error("Error fetching all offline tasks:", error);
+      res.status(500).json({ message: "Failed to fetch offline tasks" });
+    }
+  });
+
+  // Delete offline task
+  app.delete("/api/offline-tasks/:cacheId", async (req, res) => {
+    try {
+      const { cacheId } = req.params;
+      const organizationId = req.user?.organizationId || "default-org";
+      
+      const deleted = await storage.deleteOfflineTask(organizationId, parseInt(cacheId));
+      res.json(deleted);
+    } catch (error) {
+      console.error("Error deleting offline task:", error);
+      res.status(500).json({ message: "Failed to delete offline task" });
+    }
+  });
+
   // ===== CURRENCY AND TAX MANAGEMENT ENDPOINTS =====
 
   // Get all currency rates
