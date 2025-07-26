@@ -28,6 +28,9 @@ export const organizations = pgTable("organizations", {
   domain: varchar("domain").unique().notNull(), // company.hostpilotpro.com
   subdomain: varchar("subdomain").unique().notNull(), // company
   companyLogo: varchar("company_logo"),
+  customDomain: varchar("custom_domain"), // client's custom domain like myproperty.com
+  brandingLogoUrl: text("branding_logo_url"), // client's custom branding logo
+  themeColor: varchar("theme_color").default("#0066ff"), // client's custom theme color
   settings: jsonb("settings"), // Company-specific settings
   subscriptionTier: varchar("subscription_tier").default("basic"), // basic, pro, enterprise
   maxUsers: integer("max_users").default(10),

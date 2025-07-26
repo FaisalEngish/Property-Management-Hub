@@ -3274,6 +3274,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ===== ORGANIZATION BRANDING API ENDPOINTS =====
+
+  // Get current organization details
+  app.get("/api/organization/current", isDemoAuthenticated, async (req, res) => {
+    try {
+      const user = req.user as any;
+      if (!user?.organizationId) {
+        return res.status(400).json({ message: "User organization not found" });
+      }
+
+      const organization = await storage.getCurrentOrganization(user.organizationId);
+      if (!organization) {
+        return res.status(404).json({ message: "Organization not found" });
+      }
+
+      res.json(organization);
+    } catch (error: any) {
+      console.error("Error fetching current organization:", error);
+      res.status(500).json({ message: "Failed to fetch organization details" });
+    }
+  });
+
+  // Update organization branding
+  app.put("/api/organization/branding", isDemoAuthenticated, async (req, res) => {
+    try {
+      const user = req.user as any;
+      if (!user?.organizationId) {
+        return res.status(400).json({ message: "User organization not found" });
+      }
+
+      // Only allow admin role to update branding
+      if (user.role !== "admin") {
+        return res.status(403).json({ message: "Only administrators can update organization branding" });
+      }
+
+      const { customDomain, brandingLogoUrl, themeColor } = req.body;
+
+      const updatedOrganization = await storage.updateOrganizationBranding(user.organizationId, {
+        customDomain,
+        brandingLogoUrl,
+        themeColor,
+      });
+
+      res.json(updatedOrganization);
+    } catch (error: any) {
+      console.error("Error updating organization branding:", error);
+      res.status(500).json({ message: "Failed to update organization branding" });
+    }
+  });
+
   // ===== UPSELL RECOMMENDATIONS SYSTEM API ENDPOINTS =====
 
   // Get upsell recommendations with filters

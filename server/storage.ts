@@ -35433,11 +35433,43 @@ Plant Care:
     }
   }
 
+  // ===== ORGANIZATION BRANDING STORAGE METHODS =====
+
+  async getCurrentOrganization(organizationId: string) {
+    try {
+      const [org] = await db
+        .select()
+        .from(organizations)
+        .where(eq(organizations.id, organizationId));
+      return org;
+    } catch (error) {
+      console.error("Error fetching organization:", error);
+      throw error;
+    }
+  }
+
+  async updateOrganizationBranding(organizationId: string, branding: { customDomain?: string; brandingLogoUrl?: string; themeColor?: string }) {
+    try {
+      const [updatedOrg] = await db
+        .update(organizations)
+        .set({
+          ...branding,
+          updatedAt: new Date(),
+        })
+        .where(eq(organizations.id, organizationId))
+        .returning();
+      return updatedOrg;
+    } catch (error) {
+      console.error("Error updating organization branding:", error);
+      throw error;
+    }
+  }
+
   // ===== UPSELL RECOMMENDATIONS METHODS =====
 
   async getUpsellRecommendations(organizationId: string, filters?: { guestId?: string; propertyId?: number; recommendationType?: string; status?: string; startDate?: Date; endDate?: Date }) {
     try {
-      let query = this.db
+      let query = db
         .select({
           id: upsellRecommendations.id,
           organizationId: upsellRecommendations.organizationId,
@@ -35448,13 +35480,13 @@ Plant Care:
           status: upsellRecommendations.status,
           createdAt: upsellRecommendations.createdAt,
           propertyName: properties.name,
-          guestName: sql<string>`COALESCE(guest_users.username, ${upsellRecommendations.guestId})`,
+          guestName: sql<string>`COALESCE(users.name, ${upsellRecommendations.guestId})`,
           daysSinceCreated: sql<number>`DATE_PART('day', CURRENT_DATE - ${upsellRecommendations.createdAt}::date)`,
           isExpired: sql<boolean>`CASE WHEN ${upsellRecommendations.status} = 'pending' AND ${upsellRecommendations.createdAt} < CURRENT_DATE - INTERVAL '7 days' THEN TRUE ELSE FALSE END`,
         })
         .from(upsellRecommendations)
         .leftJoin(properties, eq(upsellRecommendations.propertyId, properties.id))
-        .leftJoin(users.as('guest_users'), eq(upsellRecommendations.guestId, users.id))
+        .leftJoin(users, eq(upsellRecommendations.guestId, users.id))
         .where(eq(upsellRecommendations.organizationId, organizationId));
 
       if (filters?.guestId) {
@@ -35492,7 +35524,7 @@ Plant Care:
     try {
       // Verify property belongs to organization if propertyId provided
       if (recommendationData.propertyId) {
-        const [property] = await this.db
+        const [property] = await db
           .select()
           .from(properties)
           .where(
@@ -35507,7 +35539,7 @@ Plant Care:
         }
       }
 
-      const [created] = await this.db
+      const [created] = await db
         .insert(upsellRecommendations)
         .values({
           organizationId,
@@ -35529,7 +35561,7 @@ Plant Care:
   async updateUpsellRecommendation(organizationId: string, recommendationId: number, updateData: any) {
     try {
       // Verify recommendation belongs to organization
-      const [existingRec] = await this.db
+      const [existingRec] = await db
         .select()
         .from(upsellRecommendations)
         .where(
@@ -35543,7 +35575,7 @@ Plant Care:
         throw new Error("Recommendation not found or unauthorized");
       }
 
-      const [updated] = await this.db
+      const [updated] = await db
         .update(upsellRecommendations)
         .set({
           recommendationType: updateData.recommendationType || existingRec.recommendationType,
@@ -35563,7 +35595,7 @@ Plant Care:
   async deleteUpsellRecommendation(organizationId: string, recommendationId: number) {
     try {
       // Verify recommendation belongs to organization
-      const [existingRec] = await this.db
+      const [existingRec] = await db
         .select()
         .from(upsellRecommendations)
         .where(
@@ -35577,7 +35609,7 @@ Plant Care:
         throw new Error("Recommendation not found or unauthorized");
       }
 
-      await this.db
+      await db
         .delete(upsellRecommendations)
         .where(eq(upsellRecommendations.id, recommendationId));
 
@@ -35590,7 +35622,7 @@ Plant Care:
 
   async getUpsellRecommendationsByGuest(organizationId: string, guestId: string) {
     try {
-      return await this.db
+      return await db
         .select({
           id: upsellRecommendations.id,
           propertyId: upsellRecommendations.propertyId,
@@ -35619,7 +35651,7 @@ Plant Care:
 
   async getUpsellRecommendationsByProperty(organizationId: string, propertyId: number) {
     try {
-      return await this.db
+      return await db
         .select({
           id: upsellRecommendations.id,
           guestId: upsellRecommendations.guestId,
@@ -35627,12 +35659,12 @@ Plant Care:
           message: upsellRecommendations.message,
           status: upsellRecommendations.status,
           createdAt: upsellRecommendations.createdAt,
-          guestName: sql<string>`COALESCE(guest_users.username, ${upsellRecommendations.guestId})`,
+          guestName: sql<string>`COALESCE(users.name, ${upsellRecommendations.guestId})`,
           daysSinceCreated: sql<number>`DATE_PART('day', CURRENT_DATE - ${upsellRecommendations.createdAt}::date)`,
           isExpired: sql<boolean>`CASE WHEN ${upsellRecommendations.status} = 'pending' AND ${upsellRecommendations.createdAt} < CURRENT_DATE - INTERVAL '7 days' THEN TRUE ELSE FALSE END`,
         })
         .from(upsellRecommendations)
-        .leftJoin(users.as('guest_users'), eq(upsellRecommendations.guestId, users.id))
+        .leftJoin(users, eq(upsellRecommendations.guestId, users.id))
         .where(
           and(
             eq(upsellRecommendations.organizationId, organizationId),
@@ -35646,12 +35678,11 @@ Plant Care:
     }
   }
 
-  async getUpsellAnalytics(organizationId: string, filters?: { propertyId?: number; startDate?: Date; endDate?: Date }) {
+  async getUpsellRecommendationAnalytics(organizationId: string, filters?: { propertyId?: number; startDate?: Date; endDate?: Date }) {
     try {
-      let query = this.db
+      let query = db
         .select({
           totalRecommendations: sql<number>`COUNT(*)`,
-          recommendationsByType: sql<any>`json_object_agg(${upsellRecommendations.recommendationType}, COUNT(*))`,
           pendingCount: sql<number>`SUM(CASE WHEN ${upsellRecommendations.status} = 'pending' THEN 1 ELSE 0 END)`,
           sentCount: sql<number>`SUM(CASE WHEN ${upsellRecommendations.status} = 'sent' THEN 1 ELSE 0 END)`,
           acceptedCount: sql<number>`SUM(CASE WHEN ${upsellRecommendations.status} = 'accepted' THEN 1 ELSE 0 END)`,
@@ -35659,8 +35690,6 @@ Plant Care:
           expiredCount: sql<number>`SUM(CASE WHEN ${upsellRecommendations.status} = 'pending' AND ${upsellRecommendations.createdAt} < CURRENT_DATE - INTERVAL '7 days' THEN 1 ELSE 0 END)`,
           uniqueGuests: sql<number>`COUNT(DISTINCT ${upsellRecommendations.guestId})`,
           uniqueProperties: sql<number>`COUNT(DISTINCT ${upsellRecommendations.propertyId})`,
-          conversionRate: sql<number>`ROUND((SUM(CASE WHEN ${upsellRecommendations.status} = 'accepted' THEN 1 ELSE 0 END)::numeric / GREATEST(SUM(CASE WHEN ${upsellRecommendations.status} IN ('accepted', 'declined') THEN 1 ELSE 0 END), 1)) * 100, 2)`,
-          avgRecommendationsPerGuest: sql<number>`ROUND(COUNT(*)::numeric / GREATEST(COUNT(DISTINCT ${upsellRecommendations.guestId}), 1), 2)`,
         })
         .from(upsellRecommendations)
         .where(eq(upsellRecommendations.organizationId, organizationId));
@@ -35699,7 +35728,7 @@ Plant Care:
 
   async getUpsellRecommendationTypes(organizationId: string) {
     try {
-      const results = await this.db
+      const results = await db
         .select({
           recommendationType: upsellRecommendations.recommendationType,
           recommendationCount: sql<number>`COUNT(*)`,
@@ -35722,7 +35751,7 @@ Plant Care:
 
   async searchUpsellRecommendations(organizationId: string, searchTerm: string, filters?: { propertyId?: number; recommendationType?: string; status?: string }) {
     try {
-      let query = this.db
+      let query = db
         .select({
           id: upsellRecommendations.id,
           guestId: upsellRecommendations.guestId,
@@ -35732,12 +35761,12 @@ Plant Care:
           status: upsellRecommendations.status,
           createdAt: upsellRecommendations.createdAt,
           propertyName: properties.name,
-          guestName: sql<string>`COALESCE(guest_users.username, ${upsellRecommendations.guestId})`,
+          guestName: sql<string>`COALESCE(users.name, ${upsellRecommendations.guestId})`,
           daysSinceCreated: sql<number>`DATE_PART('day', CURRENT_DATE - ${upsellRecommendations.createdAt}::date)`,
         })
         .from(upsellRecommendations)
         .leftJoin(properties, eq(upsellRecommendations.propertyId, properties.id))
-        .leftJoin(users.as('guest_users'), eq(upsellRecommendations.guestId, users.id))
+        .leftJoin(users, eq(upsellRecommendations.guestId, users.id))
         .where(
           and(
             eq(upsellRecommendations.organizationId, organizationId),
@@ -35831,6 +35860,46 @@ Plant Care:
       };
     } catch (error) {
       console.error("Error generating smart upsell recommendations:", error);
+      throw error;
+    }
+  }
+
+  // ===== ORGANIZATION BRANDING METHODS =====
+
+  async getCurrentOrganization(organizationId: string) {
+    try {
+      const [organization] = await db
+        .select()
+        .from(organizations)
+        .where(eq(organizations.id, organizationId));
+      
+      return organization || null;
+    } catch (error) {
+      console.error("Error fetching current organization:", error);
+      throw error;
+    }
+  }
+
+  async updateOrganizationBranding(organizationId: string, brandingData: {
+    customDomain?: string;
+    brandingLogoUrl?: string;
+    themeColor?: string;
+  }) {
+    try {
+      const [updated] = await db
+        .update(organizations)
+        .set({
+          customDomain: brandingData.customDomain,
+          brandingLogoUrl: brandingData.brandingLogoUrl,
+          themeColor: brandingData.themeColor,
+          updatedAt: new Date(),
+        })
+        .where(eq(organizations.id, organizationId))
+        .returning();
+
+      return updated;
+    } catch (error) {
+      console.error("Error updating organization branding:", error);
       throw error;
     }
   }
