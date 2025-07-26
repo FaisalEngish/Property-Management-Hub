@@ -28,6 +28,7 @@ import GuestPortalSmartRequests from "@/pages/GuestPortalSmartRequests";
 import GuestActivityRecommendations from "@/pages/GuestActivityRecommendations";
 import SimpleHelp from "./pages/SimpleHelp";
 import UserManagement from "./pages/UserManagement";
+import HostawayUserManagement from "./pages/HostawayUserManagement";
 import OwnerTargetUpgradeTracker from "./pages/OwnerTargetUpgradeTracker";
 import ActivityLogs from "./pages/ActivityLogs";
 import ApiConnections from "./pages/admin/ApiConnections";
@@ -141,7 +142,9 @@ function AppRoutes() {
         <Route path="/admin/marketing-pack-management" component={MarketingPackManagement} />
         <Route path="/admin/ai-ops-anomalies" component={AiOpsAnomaliesManagement} />
         <Route path="/admin/user-management" component={UserManagement} />
-        <Route path="/user-management" component={UserManagement} />
+        <Route path="/user-management" component={HostawayUserManagement} />
+        <Route path="/user-management/edit" component={HostawayUserManagement} />
+        <Route path="/legacy-user-management" component={UserManagement} />
         <Route path="/admin/activity-log" component={ActivityLogs} />
         <Route path="/owner-target-upgrade-tracker" component={OwnerTargetUpgradeTracker} />
         <Route path="/auto-scheduling-recurring-task-generator" component={AutoScheduleTaskGenerator} />
