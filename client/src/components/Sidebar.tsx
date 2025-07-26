@@ -87,73 +87,131 @@ const getRoleBasedMenus = (role: string): MenuSection[] => {
   const roleSpecificMenus: Record<string, MenuSection[]> = {
     admin: [
       {
-        title: "📊 Dashboard",
+        title: "📊 Dashboards",
         items: [
-          { label: "Admin Dashboard", icon: Home, href: "/", description: "Main management overview" },
-          { label: "Financial Dashboard", icon: DollarSign, href: "/filtered-financial-dashboard", description: "Revenue insights" },
-          { label: "Property Dashboard", icon: Building, href: "/portfolio-manager-dashboard", description: "Property portfolio overview" },
+          { label: "Admin Dashboard", icon: Home, href: "/", description: "Comprehensive admin overview and insights" },
+          { label: "Financial Dashboard", icon: DollarSign, href: "/filtered-financial-dashboard", badge: "New" },
+          { label: "Property Dashboard", icon: Building, href: "/filtered-property-dashboard", badge: "New" },
         ]
       },
       {
-        title: "🏘️ Property",
+        title: "🏘️ Property Management",
         items: [
-          { label: "Properties", icon: Building, href: "/properties-with-tabs", description: "Main property list with tabs for appliances, operations, guest services" },
-          { label: "Calendar & Bookings", icon: Calendar, href: "/bookings", description: "All booking views and calendar management" },
+          { label: "Properties", icon: Building, href: "/properties", description: "Manage all properties" },
+          { label: "Unified Calendar & Bookings", icon: Calendar, href: "/bookings", description: "All booking views and calendar management" },
           { label: "Tasks", icon: CheckSquare, href: "/tasks", description: "Track and assign tasks" },
-          { label: "Check-in/Check-out", icon: CheckCircle, href: "/checkin-checkout-workflow", description: "Guest workflow management" },
+          { label: "Property Appliances", icon: Wrench, href: "/property-appliances-management", description: "Manage property appliances and repairs", badge: "New" },
+          { label: "Check-in/Check-out Workflow", icon: CheckCircle, href: "/checkin-checkout-workflow" },
+          { label: "Daily Operations", icon: Clock, href: "/daily-operations", badge: "New" },
         ]
       },
       {
-        title: "💰 Finance",
+        title: "🧹 Operations",
         items: [
-          { label: "Revenue & Payouts", icon: BarChart3, href: "/finance-revenue-payouts", description: "Finance page with OTA revenue, smart pricing tabs" },
-          { label: "Invoices & Income", icon: FileText, href: "/finance-invoices-income", description: "Invoice generator and booking income" },
-          { label: "Utility Tracker", icon: Car, href: "/utility-tracker", description: "Property utilities management" },
+          { label: "Auto-Scheduling Rules", icon: Clock, href: "/auto-scheduling-recurring-task-generator" },
+          { label: "Maintenance Log & Warranty", icon: Wrench, href: "/maintenance-log-warranty-tracker" },
+          { label: "Staff Profile & Payroll", icon: Users, href: "/staff-profile-payroll" },
+          { label: "Staff Advance & Overtime", icon: Clock, href: "/staff-advance-salary-overtime-tracker" },
+          { label: "Maintenance Suggestions", icon: Wrench, href: "/maintenance-suggestions" },
         ]
       },
       {
-        title: "⚙️ System",
+        title: "💬 Guest Services",
         items: [
-          { label: "Settings", icon: Settings, href: "/system-settings", description: "API connections, branding, legal templates with tabs" },
-          { label: "User Management", icon: Users, href: "/user-management", description: "Users, staff permissions, expenses" },
-          { label: "Automation Management", icon: Bot, href: "/automation-management", description: "Auto-scheduling and system automation" },
-          { label: "Activity Logs", icon: FileText, href: "/admin/activity-log", description: "System activity and audit logs" },
+          { label: "Guest Portal Smart Requests", icon: MessageSquare, href: "/guest-portal-smart-requests", badge: "AI" },
+          { label: "Guest Activity Recommendations", icon: Star, href: "/guest-activity-recommendations", badge: "AI" },
+          { label: "Upsell Recommendations", icon: TrendingUp, href: "/upsell-recommendations-management", badge: "New" },
+          { label: "Loyalty Guest Tracker", icon: Users, href: "/loyalty-tracker", badge: "New" },
+        ]
+      },
+      {
+        title: "💰 Finance & Revenue",
+        items: [
+          { label: "Enhanced Financial Controls", icon: Shield, href: "/enhanced-financial-controls" },
+          { label: "OTA Revenue & Net Payout", icon: BarChart3, href: "/ota-revenue-net-payout-calculation", badge: "New" },
+          { label: "OTA Payout Logic — Smart Revenue", icon: Calculator, href: "/ota-payout-logic-smart-revenue", badge: "NEW" },
+          { label: "Smart Pricing & Performance", icon: Brain, href: "/smart-pricing-performance-toolkit", badge: "AI" },
+          { label: "Invoices", icon: FileText, href: "/invoice-generator" },
+          { label: "Booking Income", icon: BarChart3, href: "/booking-income-rules" },
+          { label: "Finance Engine", icon: Database, href: "/finance-engine" },
+          { label: "Utility Tracker", icon: Car, href: "/utility-tracker" },
+        ]
+      },
+      {
+        title: "⚙️ System & Admin",
+        items: [
+          { label: "Automation Management", icon: Settings, href: "/automation-management", description: "Commission & utility automation controls", badge: "Live" },
+          { label: "Currency & Tax Management", icon: DollarSign, href: "/currency-tax-management", description: "Multi-currency rates and international tax compliance", badge: "Global" },
+          { label: "API Connections", icon: Key, href: "/admin/api-connections", description: "Configure Hostaway, Stripe, and OpenAI integrations", badge: "SaaS" },
+          { label: "Organization Branding", icon: Palette, href: "/admin/organization-branding", description: "Custom domains, logos, and theme colors", badge: "Brand" },
+          { label: "Legal Templates", icon: FileText, href: "/admin/legal-templates", description: "Manage country-specific legal documents and contracts", badge: "Legal" },
+          { label: "Marketing Pack Management", icon: FileText, href: "/admin/marketing-pack-management", description: "AI-powered marketing content generation and management", badge: "New" },
+          { label: "AI Operations Anomalies", icon: Activity, href: "/admin/ai-ops-anomalies", description: "Monitor and auto-fix system anomalies with AI detection", badge: "AI" },
+          { label: "SaaS Management", icon: Building2, href: "/admin/saas-management", description: "Manage signup requests and client organizations", badge: "Framework" },
+          { label: "User Management", icon: Users, href: "/admin/user-management", description: "Manage users & permissions" },
+          { label: "Staff Permissions", icon: Shield, href: "/admin/staff-permission-management", description: "Manage staff task creation permissions" },
+          { label: "Staff Expense Management", icon: Receipt, href: "/staff-expense-management", description: "Review staff expenses", badge: "New" },
+          { label: "System Integrity Check", icon: Shield, href: "/admin/system-integrity-check", badge: "QA" },
+          { label: "System-Wide Demo Integration", icon: Database, href: "/system-wide-demo-integration", badge: "Demo" },
+          { label: "Activity Logs", icon: Activity, href: "/admin/activity-log" },
+          { label: "Finance Reset", icon: Shield, href: "/admin/finance-reset" },
+          { label: "AI Notifications & Reminders", icon: Brain, href: "/ai-notifications-reminders", badge: "New" },
+          { label: "AI Feature Dashboard", icon: Brain, href: "/ai-features", badge: "AI" },
+          { label: "Owner Targets & Upgrades", icon: Target, href: "/owner-target-upgrade-tracker", badge: "New" },
+          { label: "Sandbox Testing", icon: Activity, href: "/sandbox-testing", badge: "QA" },
+          { label: "System Settings", icon: Settings, href: "/settings" },
         ]
       }
     ],
     "portfolio-manager": [
       {
-        title: "📊 Dashboard",
+        title: "📊 Dashboards",
         items: [
-          { label: "Admin Dashboard", icon: Home, href: "/", description: "Main management overview" },
-          { label: "Financial Dashboard", icon: DollarSign, href: "/filtered-financial-dashboard", description: "Revenue insights" },
-          { label: "Property Dashboard", icon: Building, href: "/portfolio-manager-dashboard", description: "Property portfolio overview" },
+          { label: "Portfolio Manager Dashboard", icon: Home, href: "/", description: "Property portfolio overview" },
+          { label: "Financial Dashboard", icon: DollarSign, href: "/filtered-financial-dashboard", badge: "New" },
+          { label: "Property Dashboard", icon: Building, href: "/filtered-property-dashboard", badge: "New" },
         ]
       },
       {
-        title: "🏘️ Property",
+        title: "🏘️ Property Management",
         items: [
-          { label: "Properties", icon: Building, href: "/properties-with-tabs", description: "Main property list with tabs for appliances, operations, guest services" },
-          { label: "Calendar & Bookings", icon: Calendar, href: "/bookings", description: "All booking views and calendar management" },
+          { label: "Properties", icon: Building, href: "/properties", description: "Manage portfolio properties" },
+          { label: "Unified Calendar & Bookings", icon: Calendar, href: "/bookings", description: "All booking views and calendar management" },
           { label: "Tasks", icon: CheckSquare, href: "/tasks", description: "Track and assign tasks" },
-          { label: "Check-in/Check-out", icon: CheckCircle, href: "/checkin-checkout-workflow", description: "Guest workflow management" },
+          { label: "Property Appliances", icon: Wrench, href: "/property-appliances-management", description: "Manage property appliances and repairs", badge: "New" },
+          { label: "Check-in/Check-out Workflow", icon: CheckCircle, href: "/checkin-checkout-workflow" },
+          { label: "Daily Operations", icon: Clock, href: "/daily-operations", badge: "New" },
         ]
       },
       {
-        title: "💰 Finance",
+        title: "🧹 Operations",
         items: [
-          { label: "Revenue & Payouts", icon: BarChart3, href: "/finance-revenue-payouts", description: "Finance page with OTA revenue, smart pricing tabs" },
-          { label: "Invoices & Income", icon: FileText, href: "/finance-invoices-income", description: "Invoice generator and booking income" },
-          { label: "Utility Tracker", icon: Car, href: "/utility-tracker", description: "Property utilities management" },
+          { label: "Auto-Scheduling Rules", icon: Clock, href: "/auto-scheduling-recurring-task-generator" },
+          { label: "Maintenance Log & Warranty", icon: Wrench, href: "/maintenance-log-warranty-tracker" },
+          { label: "Staff Profile & Payroll", icon: Users, href: "/staff-profile-payroll" },
+          { label: "Staff Advance & Overtime", icon: Clock, href: "/staff-advance-salary-overtime-tracker" },
+          { label: "Staff Expense Management", icon: Receipt, href: "/staff-expense-management", description: "Review staff expenses", badge: "New" },
         ]
       },
       {
-        title: "⚙️ System",
+        title: "💬 Guest Services",
         items: [
-          { label: "Settings", icon: Settings, href: "/system-settings", description: "API connections, branding, legal templates with tabs" },
-          { label: "User Management", icon: Users, href: "/user-management", description: "Users, staff permissions, expenses" },
-          { label: "Automation Management", icon: Bot, href: "/automation-management", description: "Auto-scheduling and system automation" },
-          { label: "Activity Logs", icon: FileText, href: "/admin/activity-log", description: "System activity and audit logs" },
+          { label: "Guest Portal Smart Requests", icon: MessageSquare, href: "/guest-portal-smart-requests", badge: "AI" },
+          { label: "Guest Activity Recommendations", icon: Star, href: "/guest-activity-recommendations", badge: "AI" },
+          { label: "Upsell Recommendations", icon: TrendingUp, href: "/upsell-recommendations-management", badge: "New" },
+          { label: "Loyalty Guest Tracker", icon: Users, href: "/loyalty-tracker", badge: "New" },
+        ]
+      },
+      {
+        title: "💰 Finance & Revenue",
+        items: [
+          { label: "OTA Revenue & Net Payout", icon: BarChart3, href: "/ota-revenue-net-payout-calculation", badge: "New" },
+          { label: "OTA Payout Logic — Smart Revenue", icon: Calculator, href: "/ota-payout-logic-smart-revenue", badge: "NEW" },
+          { label: "Smart Pricing & Performance", icon: Brain, href: "/smart-pricing-performance-toolkit", badge: "AI" },
+          { label: "Invoices", icon: FileText, href: "/invoice-generator" },
+          { label: "Booking Income", icon: BarChart3, href: "/booking-income-rules" },
+          { label: "Finance Engine", icon: Database, href: "/finance-engine" },
+          { label: "Utility Tracker", icon: Car, href: "/utility-tracker" },
         ]
       }
     ],
@@ -291,10 +349,12 @@ export default function Sidebar({ className }: SidebarProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({
-    "📊 Dashboard": false,
-    "🏘️ Property": false,
-    "💰 Finance": false,
-    "⚙️ System": false,
+    "📊 Dashboards": false,
+    "🏘️ Property Management": false,
+    "🧹 Operations": false,
+    "💬 Guest Services": false,
+    "💰 Finance & Revenue": false,
+    "⚙️ System & Admin": false,
   });
   const [darkMode, setDarkMode] = useState(false);
   const [language, setLanguage] = useState("en");

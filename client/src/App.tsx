@@ -1,193 +1,211 @@
-import React from "react";
 import { Route, Switch } from "wouter";
 import { QueryClientProvider } from "@tanstack/react-query";
-import { queryClient } from "./lib/queryClient";
+import { queryClient } from "@/lib/queryClient";
+import { Toaster } from "@/components/ui/toaster";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import Layout from "@/components/Layout";
+import { useAuth } from "@/hooks/useAuth";
 
-// Import working components
-import SimpleSidebar from "./components/SimpleSidebar";
+// Import existing pages with lazy loading for performance
+import { LazyDashboard, LazyFinancialDashboard, LazyPropertyDashboard } from "@/components/LazyDashboard";
+import RoleBasedDashboard from "@/components/RoleBasedDashboard";
+import Properties from "@/pages/Properties";
+import Tasks from "@/pages/Tasks";
+import Bookings from "@/pages/Bookings";
+import Services from "@/pages/Services";
+import SimpleFinances from "./pages/SimpleFinances";
+import SimpleSettings from "./pages/SimpleSettings";
+import LoginPage from "@/pages/LoginPage";
+import Landing from "@/pages/Landing";
+import NotFound from "@/pages/not-found";
 
-// Import the working rich tabbed pages
-import WorkingPropertiesWithTabs from "./pages/WorkingPropertiesWithTabs";
-import WorkingFinanceRevenuePayouts from "./pages/WorkingFinanceRevenuePayouts";
-import WorkingSystemSettings from "./pages/WorkingSystemSettings";
+import SimpleLiveBookingCalendar from "./pages/SimpleLiveBookingCalendar";
+import SimpleMaintenanceSuggestions from "./pages/SimpleMaintenanceSuggestions";
+import CheckInCheckOutWorkflow from "@/pages/CheckInCheckOutWorkflow";
+import DailyOperationsDashboard from "@/pages/DailyOperationsDashboard";
+import SandboxTestingDashboard from "@/pages/SandboxTestingDashboard";
+import GuestPortalSmartRequests from "@/pages/GuestPortalSmartRequests";
+import GuestActivityRecommendations from "@/pages/GuestActivityRecommendations";
+import SimpleHelp from "./pages/SimpleHelp";
+import UserManagement from "./pages/UserManagement";
+import HostawayUserManagement from "./pages/HostawayUserManagement";
+import OwnerTargetUpgradeTracker from "./pages/OwnerTargetUpgradeTracker";
+import ActivityLogs from "./pages/ActivityLogs";
+import ApiConnections from "./pages/admin/ApiConnections";
+import OrganizationBranding from "./pages/admin/OrganizationBranding";
+import LegalTemplatesManagement from "./pages/admin/LegalTemplatesManagement";
+import MarketingPackManagement from "./pages/admin/MarketingPackManagement";
+import AiOpsAnomaliesManagement from "./pages/admin/AiOpsAnomaliesManagement";
+import AutoScheduleTaskGenerator from "./pages/AutoScheduleTaskGenerator";
+import OtaRevenueNetPayoutCalculation from "./pages/OtaRevenueNetPayoutCalculation";
+import LoyaltyGuestTracker from "./pages/LoyaltyGuestTracker";
+import InvoiceGenerator from "./pages/InvoiceGenerator";
+import StaffAdvanceSalaryOvertimeTracker from "./pages/StaffAdvanceSalaryOvertimeTracker";
+import SystemWideDemoIntegration from "./pages/SystemWideDemoIntegration";
+import MaintenanceLogWarrantyTracker from "./pages/MaintenanceLogWarrantyTracker";
+import StaffProfilePayroll from "./pages/StaffProfilePayroll";
+import SystemIntegrityCheck from "./pages/SystemIntegrityCheck";
+import UtilityTracker from "./pages/UtilityTracker";
+import AiNotificationsReminders from "./pages/AiNotificationsReminders";
+import FinanceEngine from "./pages/FinanceEngine";
+import PropertyDetailView from "./pages/PropertyDetailView";
 
-// Import other key pages - simplify for now
-// import FilteredFinancialDashboard from "./pages/FilteredFinancialDashboard";
-// import PortfolioManagerDashboard from "./pages/PortfolioManagerDashboard";
+import MultiPropertyCalendar from "./pages/MultiPropertyCalendar";
+import AITest from "./pages/AITest";
+import AIFeatureDashboard from "./pages/AIFeatureDashboard";
+import StaffWalletPettyCash from "./pages/StaffWalletPettyCash";
+import StaffCashCollection from "./pages/StaffCashCollection";
+import StaffExpenseManagement from "./pages/StaffExpenseManagement";
+import StaffDashboard from "./pages/StaffDashboard";
+import StaffPermissionManagement from "./pages/StaffPermissionManagement";
+import MrPilot from "@/components/MrPilot";
+import { InstantPageSwitcher } from "@/components/InstantPageSwitcher";
 
-function MinimalLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="min-h-screen bg-gray-50">
-      <SimpleSidebar />
-      <div className="lg:pl-80">
-        <div className="lg:hidden h-20"></div>
-        <main className="p-4 lg:p-6">
-          {children}
-        </main>
+// Import SaaS pages
+import SignupRequest from "@/pages/public/SignupRequest";
+import SaasManagement from "@/pages/admin/SaasManagement";
+
+// Import Property Appliances Management
+import PropertyAppliancesManagement from "@/pages/PropertyAppliancesManagement";
+import AlertManagement from "@/pages/AlertManagement";
+import AutomationManagement from "@/pages/AutomationManagement";
+import CurrencyTaxManagement from "@/pages/CurrencyTaxManagement";
+import UpsellRecommendationsManagement from "@/pages/UpsellRecommendationsManagement";
+
+// Import new agent pages
+import QuoteGenerator from "@/pages/agent/QuoteGenerator";
+import Commissions from "@/pages/agent/Commissions";
+import Proposals from "@/pages/agent/Proposals";
+import MediaDownload from "@/pages/agent/MediaDownload";
+import Leaderboard from "@/pages/agent/Leaderboard";
+
+// Import agent dashboards
+import RetailAgentBooking from "@/pages/RetailAgentBooking";
+import ReferralAgentDashboard from "@/pages/ReferralAgentDashboard";
+
+// QueryClient is now imported from lib/queryClient for better performance
+
+function AppRoutes() {
+  const { user, isLoading } = useAuth();
+  
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-lg">Loading...</div>
       </div>
-    </div>
+    );
+  }
+
+  // If user is not authenticated, show login page
+  if (!user) {
+    return (
+      <Switch>
+        <Route path="/login" component={LoginPage} />
+        <Route component={Landing} />
+      </Switch>
+    );
+  }
+
+  // User is authenticated, show the main app
+  return (
+    <Layout>
+      <Switch>
+        <Route path="/" component={RoleBasedDashboard} />
+        <Route path="/properties" component={Properties} />
+        <Route path="/property/:id" component={PropertyDetailView} />
+        <Route path="/tasks" component={Tasks} />
+        <Route path="/bookings" component={Bookings} />
+        <Route path="/services" component={Services} />
+        <Route path="/finances" component={SimpleFinances} />
+        <Route path="/settings" component={SimpleSettings} />
+        <Route path="/help" component={SimpleHelp} />
+        
+        {/* Enhanced Dashboards */}
+        <Route path="/filtered-financial-dashboard" component={LazyFinancialDashboard} />
+        <Route path="/filtered-property-dashboard" component={LazyPropertyDashboard} />
+        
+        {/* Core Management */}
+        <Route path="/maintenance-suggestions" component={SimpleMaintenanceSuggestions} />
+        <Route path="/checkin-checkout-workflow" component={CheckInCheckOutWorkflow} />
+        <Route path="/daily-operations" component={DailyOperationsDashboard} />
+        <Route path="/sandbox-testing" component={SandboxTestingDashboard} />
+        
+        {/* Communication & Guest Services */}
+        <Route path="/guest-portal-smart-requests" component={GuestPortalSmartRequests} />
+        <Route path="/guest-activity-recommendations" component={GuestActivityRecommendations} />
+        <Route path="/upsell-recommendations-management" component={UpsellRecommendationsManagement} />
+        
+        {/* Administration */}
+        <Route path="/admin/api-connections" component={ApiConnections} />
+        <Route path="/admin/organization-branding" component={OrganizationBranding} />
+        <Route path="/admin/legal-templates" component={LegalTemplatesManagement} />
+        <Route path="/admin/marketing-pack-management" component={MarketingPackManagement} />
+        <Route path="/admin/ai-ops-anomalies" component={AiOpsAnomaliesManagement} />
+        <Route path="/admin/user-management" component={UserManagement} />
+        <Route path="/user-management" component={HostawayUserManagement} />
+        <Route path="/user-management/edit" component={HostawayUserManagement} />
+        <Route path="/legacy-user-management" component={UserManagement} />
+        <Route path="/admin/activity-log" component={ActivityLogs} />
+        <Route path="/owner-target-upgrade-tracker" component={OwnerTargetUpgradeTracker} />
+        <Route path="/auto-scheduling-recurring-task-generator" component={AutoScheduleTaskGenerator} />
+        <Route path="/ota-revenue-net-payout-calculation" component={OtaRevenueNetPayoutCalculation} />
+        <Route path="/loyalty-guest-tracker" component={LoyaltyGuestTracker} />
+        <Route path="/loyalty-tracker" component={LoyaltyGuestTracker} />
+        <Route path="/invoice-generator" component={InvoiceGenerator} />
+        <Route path="/invoices" component={InvoiceGenerator} />
+        <Route path="/staff-advance-salary-overtime-tracker" component={StaffAdvanceSalaryOvertimeTracker} />
+        <Route path="/staff-wallet-petty-cash" component={StaffWalletPettyCash} />
+        <Route path="/staff-cash-collection" component={StaffCashCollection} />
+        <Route path="/staff-expense-management" component={StaffExpenseManagement} />
+        <Route path="/admin/staff-permission-management" component={StaffPermissionManagement} />
+        <Route path="/system-wide-demo-integration" component={SystemWideDemoIntegration} />
+        <Route path="/maintenance-log-warranty-tracker" component={MaintenanceLogWarrantyTracker} />
+        <Route path="/staff-profile-payroll" component={StaffProfilePayroll} />
+        <Route path="/admin/system-integrity-check" component={SystemIntegrityCheck} />
+        <Route path="/utility-tracker" component={UtilityTracker} />
+        <Route path="/ai-notifications-reminders" component={AiNotificationsReminders} />
+        <Route path="/finance-engine" component={FinanceEngine} />
+        
+        {/* Property Management */}
+        <Route path="/property-appliances-management" component={PropertyAppliancesManagement} />
+        <Route path="/alert-management" component={AlertManagement} />
+        <Route path="/automation-management" component={AutomationManagement} />
+        <Route path="/currency-tax-management" component={CurrencyTaxManagement} />
+        
+        {/* AI Testing */}
+        <Route path="/ai-test" component={AITest} />
+        <Route path="/ai-features" component={AIFeatureDashboard} />
+        
+        {/* Agent Dashboards */}
+        <Route path="/retail-agent" component={RetailAgentBooking} />
+        <Route path="/referral-agent" component={ReferralAgentDashboard} />
+        
+        {/* Agent Pages */}
+        <Route path="/agent/quote-generator" component={QuoteGenerator} />
+        <Route path="/agent/commissions" component={Commissions} />
+        <Route path="/agent/proposals" component={Proposals} />
+        <Route path="/agent/media-download" component={MediaDownload} />
+        <Route path="/agent/leaderboard" component={Leaderboard} />
+        
+        {/* SaaS Framework Routes */}
+        <Route path="/signup-request" component={SignupRequest} />
+        <Route path="/admin/saas-management" component={SaasManagement} />
+        
+        <Route component={NotFound} />
+      </Switch>
+    </Layout>
   );
 }
 
-// Simple dashboard component
-function SimpleDashboard() {
-  return (
-    <div className="max-w-7xl mx-auto">
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-900">Admin Dashboard</h1>
-        <p className="text-gray-600 mt-2">Welcome to HostPilotPro - Your complete property management solution</p>
-      </div>
-      
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <div className="bg-white p-6 rounded-lg shadow">
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">Total Properties</h3>
-          <p className="text-3xl font-bold text-blue-600">4</p>
-          <p className="text-sm text-gray-500">Active villa properties</p>
-        </div>
-        
-        <div className="bg-white p-6 rounded-lg shadow">
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">Active Bookings</h3>
-          <p className="text-3xl font-bold text-green-600">12</p>
-          <p className="text-sm text-gray-500">Current reservations</p>
-        </div>
-        
-        <div className="bg-white p-6 rounded-lg shadow">
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">Pending Tasks</h3>
-          <p className="text-3xl font-bold text-orange-600">8</p>
-          <p className="text-sm text-gray-500">Maintenance & cleaning</p>
-        </div>
-        
-        <div className="bg-white p-6 rounded-lg shadow">
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">Monthly Revenue</h3>
-          <p className="text-3xl font-bold text-purple-600">฿49,400</p>
-          <p className="text-sm text-gray-500">This month's income</p>
-        </div>
-      </div>
-      
-      <div className="bg-white rounded-lg shadow p-6">
-        <h2 className="text-xl font-semibold text-gray-900 mb-4">Navigation Structure</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="border rounded-lg p-4">
-            <h3 className="font-semibold text-blue-600 mb-2">Dashboard</h3>
-            <ul className="text-sm text-gray-600 space-y-1">
-              <li>• Admin Dashboard</li>
-              <li>• Financial Dashboard</li>
-              <li>• Property Dashboard</li>
-            </ul>
-          </div>
-          
-          <div className="border rounded-lg p-4">
-            <h3 className="font-semibold text-green-600 mb-2">Property</h3>
-            <ul className="text-sm text-gray-600 space-y-1">
-              <li>• Properties (with tabs)</li>
-              <li>• Calendar & Bookings</li>
-              <li>• Tasks</li>
-              <li>• Check-in/Check-out</li>
-            </ul>
-          </div>
-          
-          <div className="border rounded-lg p-4">
-            <h3 className="font-semibold text-orange-600 mb-2">Finance</h3>
-            <ul className="text-sm text-gray-600 space-y-1">
-              <li>• Revenue & Payouts (6 tabs)</li>
-              <li>• Invoices & Income (2 tabs)</li>
-              <li>• Utility Tracker</li>
-            </ul>
-          </div>
-          
-          <div className="border rounded-lg p-4">
-            <h3 className="font-semibold text-purple-600 mb-2">System</h3>
-            <ul className="text-sm text-gray-600 space-y-1">
-              <li>• Settings (comprehensive tabs)</li>
-              <li>• User Management</li>
-              <li>• Automation Management</li>
-              <li>• Activity Logs</li>
-            </ul>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// Simple placeholder for other pages
-function SimplePage({ title }: { title: string }) {
-  return (
-    <div className="max-w-7xl mx-auto">
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-900">{title}</h1>
-        <p className="text-gray-600 mt-2">This page is ready for navigation testing</p>
-      </div>
-      
-      <div className="bg-white rounded-lg shadow p-6">
-        <p className="text-gray-700">
-          The {title} page is working. Navigation structure has been successfully reorganized into 4 main menu items.
-        </p>
-      </div>
-    </div>
-  );
-}
-
-function App() {
+export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <div className="min-h-screen bg-gray-50">
-        <MinimalLayout>
-          <Switch>
-            <Route path="/" component={SimpleDashboard} />
-            
-            {/* Dashboard routes */}
-            <Route path="/filtered-financial-dashboard" component={() => <SimplePage title="Financial Dashboard" />} />
-            <Route path="/portfolio-manager-dashboard" component={() => <SimplePage title="Property Dashboard" />} />
-            
-            {/* Property routes with full tabbed functionality */}
-            <Route path="/properties-with-tabs" component={WorkingPropertiesWithTabs} />
-            <Route path="/bookings" component={() => <SimplePage title="Calendar & Bookings" />} />
-            <Route path="/tasks" component={() => <SimplePage title="Tasks" />} />
-            <Route path="/checkin-checkout-workflow" component={() => <SimplePage title="Check-in/Check-out" />} />
-            
-            {/* Finance routes with full tabbed functionality */}
-            <Route path="/finance-revenue-payouts" component={WorkingFinanceRevenuePayouts} />
-            <Route path="/finance-invoices-income" component={() => <SimplePage title="Invoices & Income" />} />
-            <Route path="/utility-tracker" component={() => <SimplePage title="Utility Tracker" />} />
-            
-            {/* System routes with full tabbed functionality */}
-            <Route path="/system-settings" component={WorkingSystemSettings} />
-            <Route path="/user-management" component={() => <SimplePage title="User Management" />} />
-            <Route path="/automation-management" component={() => <SimplePage title="Automation Management" />} />
-            <Route path="/admin/activity-log" component={() => <SimplePage title="Activity Logs" />} />
-            
-            {/* Additional preserved functionality routes */}
-            <Route path="/daily-operations" component={() => <SimplePage title="Daily Operations" />} />
-            <Route path="/maintenance-log-warranty-tracker" component={() => <SimplePage title="Maintenance Log & Warranty Tracker" />} />
-            <Route path="/property-appliances-management" component={() => <SimplePage title="Property Appliances Management" />} />
-            <Route path="/guest-portal-smart-requests" component={() => <SimplePage title="Guest Portal Smart Requests" />} />
-            <Route path="/booking-income-rules" component={() => <SimplePage title="Booking Income Rules" />} />
-            <Route path="/invoice-generator" component={() => <SimplePage title="Invoice Generator" />} />
-            <Route path="/staff-advance-salary-overtime-tracker" component={() => <SimplePage title="Staff Advance Salary & Overtime Tracker" />} />
-            <Route path="/staff-wallet-petty-cash" component={() => <SimplePage title="Staff Wallet & Petty Cash" />} />
-            <Route path="/staff-cash-collection" component={() => <SimplePage title="Staff Cash Collection Tracker" />} />
-            <Route path="/agent-tools" component={() => <SimplePage title="Agent Tools Hub" />} />
-            <Route path="/admin/saas-management" component={() => <SimplePage title="SaaS Management" />} />
-            <Route path="/admin/api-connections" component={() => <SimplePage title="API Connections" />} />
-            
-            {/* Agent-specific routes */}
-            <Route path="/agent/quote-generator" component={() => <SimplePage title="Quote Generator" />} />
-            <Route path="/agent/commissions" component={() => <SimplePage title="Commission Tracker" />} />
-            <Route path="/agent/proposals" component={() => <SimplePage title="Proposals Management" />} />
-            <Route path="/agent/media-download" component={() => <SimplePage title="Media Download Center" />} />
-            <Route path="/agent/leaderboard" component={() => <SimplePage title="Agent Leaderboard" />} />
-            
-            {/* Retail/Referral agent routes */}
-            <Route path="/retail-agent" component={() => <SimplePage title="Retail Agent Dashboard" />} />
-            <Route path="/referral-agent" component={() => <SimplePage title="Referral Agent Dashboard" />} />
-            
-            <Route component={() => <SimplePage title="Page Not Found" />} />
-          </Switch>
-        </MinimalLayout>
-      </div>
+      <TooltipProvider>
+        <InstantPageSwitcher />
+        <AppRoutes />
+        <MrPilot />
+        <Toaster />
+      </TooltipProvider>
     </QueryClientProvider>
   );
 }
-
-export default App;
