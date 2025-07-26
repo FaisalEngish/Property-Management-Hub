@@ -14,7 +14,9 @@ export default function WorkingSystemSettings() {
     { id: "security", name: "Security Settings", icon: "🛡️" },
     { id: "data-integration", name: "Data Integration", icon: "🔗" },
     { id: "owner-goals", name: "Owner Goals", icon: "🎯" },
-    { id: "activity-monitoring", name: "Activity Monitoring", icon: "📊" }
+    { id: "activity-monitoring", name: "Activity Monitoring", icon: "📊" },
+    { id: "preserved-modules", name: "All Legacy Features", icon: "🗂️" },
+    { id: "quick-access", name: "Quick Access Hub", icon: "⚡" }
   ];
 
   const renderTabContent = () => {
@@ -258,6 +260,99 @@ export default function WorkingSystemSettings() {
           </div>
         );
       
+      case "preserved-modules":
+        return (
+          <div className="space-y-6">
+            <div className="bg-white rounded-lg shadow p-6">
+              <h3 className="text-xl font-semibold text-gray-900 mb-4">All Legacy Features Preserved</h3>
+              <p className="text-gray-600 mb-6">All original comprehensive modules are preserved and accessible. Navigate to specific areas:</p>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {[
+                  { name: "Daily Operations", path: "/daily-operations", category: "Property", description: "Staff task dashboard" },
+                  { name: "Maintenance Log", path: "/maintenance-log-warranty-tracker", category: "Property", description: "Warranty tracking" },
+                  { name: "Property Appliances", path: "/property-appliances-management", category: "Property", description: "Appliance management" },
+                  { name: "Guest Services", path: "/guest-portal-smart-requests", category: "Property", description: "Smart guest requests" },
+                  { name: "Booking Income Rules", path: "/booking-income-rules", category: "Finance", description: "Revenue rules engine" },
+                  { name: "Invoice Generator", path: "/invoice-generator", category: "Finance", description: "Automated invoicing" },
+                  { name: "Staff Salary & OT", path: "/staff-advance-salary-overtime-tracker", category: "Finance", description: "Payroll management" },
+                  { name: "Staff Wallet", path: "/staff-wallet-petty-cash", category: "Finance", description: "Expense tracking" },
+                  { name: "Cash Collection", path: "/staff-cash-collection", category: "Finance", description: "Cash flow tracking" },
+                  { name: "Agent Tools Hub", path: "/agent-tools", category: "System", description: "Agent management center" },
+                  { name: "SaaS Management", path: "/admin/saas-management", category: "System", description: "Multi-tenant control" },
+                  { name: "API Connections", path: "/admin/api-connections", category: "System", description: "Integration management" }
+                ].map((module, index) => (
+                  <div key={index} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
+                    <div className="flex items-center justify-between mb-2">
+                      <h4 className="font-semibold text-gray-900">{module.name}</h4>
+                      <span className={`text-xs px-2 py-1 rounded-full ${
+                        module.category === 'Property' ? 'bg-green-100 text-green-800' :
+                        module.category === 'Finance' ? 'bg-blue-100 text-blue-800' :
+                        'bg-purple-100 text-purple-800'
+                      }`}>
+                        {module.category}
+                      </span>
+                    </div>
+                    <p className="text-sm text-gray-600 mb-3">{module.description}</p>
+                    <a 
+                      href={module.path} 
+                      className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                    >
+                      Access Module →
+                    </a>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        );
+      
+      case "quick-access":
+        return (
+          <div className="space-y-6">
+            <div className="bg-white rounded-lg shadow p-6">
+              <h3 className="text-xl font-semibold text-gray-900 mb-4">Quick Access Hub</h3>
+              <p className="text-gray-600 mb-6">Frequently used features and tools for efficient property management:</p>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-4">
+                  <h4 className="font-semibold text-gray-900">Staff Tools</h4>
+                  <div className="space-y-2">
+                    {[
+                      { name: "Staff Dashboard", path: "/", icon: "👥" },
+                      { name: "Daily Tasks", path: "/tasks", icon: "✓" },
+                      { name: "My Wallet", path: "/staff-wallet-petty-cash", icon: "💳" },
+                      { name: "Cash Collection", path: "/staff-cash-collection", icon: "💰" }
+                    ].map((tool, index) => (
+                      <a key={index} href={tool.path} className="flex items-center p-2 hover:bg-gray-50 rounded">
+                        <span className="mr-3">{tool.icon}</span>
+                        <span className="text-sm">{tool.name}</span>
+                      </a>
+                    ))}
+                  </div>
+                </div>
+                
+                <div className="space-y-4">
+                  <h4 className="font-semibold text-gray-900">Agent Tools</h4>
+                  <div className="space-y-2">
+                    {[
+                      { name: "Quote Generator", path: "/agent/quote-generator", icon: "📋" },
+                      { name: "Commission Tracker", path: "/agent/commissions", icon: "💵" },
+                      { name: "Media Download", path: "/agent/media-download", icon: "📸" },
+                      { name: "Performance Board", path: "/agent/leaderboard", icon: "🏆" }
+                    ].map((tool, index) => (
+                      <a key={index} href={tool.path} className="flex items-center p-2 hover:bg-gray-50 rounded">
+                        <span className="mr-3">{tool.icon}</span>
+                        <span className="text-sm">{tool.name}</span>
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+
       default:
         return (
           <div className="bg-white rounded-lg shadow p-6">
@@ -272,7 +367,7 @@ export default function WorkingSystemSettings() {
     <div className="max-w-7xl mx-auto">
       <div className="mb-6">
         <h1 className="text-3xl font-bold text-gray-900">System Settings</h1>
-        <p className="text-gray-600 mt-2">Comprehensive system configuration with 10 specialized tabs</p>
+        <p className="text-gray-600 mt-2">Comprehensive system configuration with 12 specialized tabs including preserved legacy features</p>
       </div>
 
       {/* Tab Navigation */}

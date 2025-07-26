@@ -157,6 +157,31 @@ function App() {
             <Route path="/automation-management" component={() => <SimplePage title="Automation Management" />} />
             <Route path="/admin/activity-log" component={() => <SimplePage title="Activity Logs" />} />
             
+            {/* Additional preserved functionality routes */}
+            <Route path="/daily-operations" component={() => <SimplePage title="Daily Operations" />} />
+            <Route path="/maintenance-log-warranty-tracker" component={() => <SimplePage title="Maintenance Log & Warranty Tracker" />} />
+            <Route path="/property-appliances-management" component={() => <SimplePage title="Property Appliances Management" />} />
+            <Route path="/guest-portal-smart-requests" component={() => <SimplePage title="Guest Portal Smart Requests" />} />
+            <Route path="/booking-income-rules" component={() => <SimplePage title="Booking Income Rules" />} />
+            <Route path="/invoice-generator" component={() => <SimplePage title="Invoice Generator" />} />
+            <Route path="/staff-advance-salary-overtime-tracker" component={() => <SimplePage title="Staff Advance Salary & Overtime Tracker" />} />
+            <Route path="/staff-wallet-petty-cash" component={() => <SimplePage title="Staff Wallet & Petty Cash" />} />
+            <Route path="/staff-cash-collection" component={() => <SimplePage title="Staff Cash Collection Tracker" />} />
+            <Route path="/agent-tools" component={() => <SimplePage title="Agent Tools Hub" />} />
+            <Route path="/admin/saas-management" component={() => <SimplePage title="SaaS Management" />} />
+            <Route path="/admin/api-connections" component={() => <SimplePage title="API Connections" />} />
+            
+            {/* Agent-specific routes */}
+            <Route path="/agent/quote-generator" component={() => <SimplePage title="Quote Generator" />} />
+            <Route path="/agent/commissions" component={() => <SimplePage title="Commission Tracker" />} />
+            <Route path="/agent/proposals" component={() => <SimplePage title="Proposals Management" />} />
+            <Route path="/agent/media-download" component={() => <SimplePage title="Media Download Center" />} />
+            <Route path="/agent/leaderboard" component={() => <SimplePage title="Agent Leaderboard" />} />
+            
+            {/* Retail/Referral agent routes */}
+            <Route path="/retail-agent" component={() => <SimplePage title="Retail Agent Dashboard" />} />
+            <Route path="/referral-agent" component={() => <SimplePage title="Referral Agent Dashboard" />} />
+            
             <Route component={() => <SimplePage title="Page Not Found" />} />
           </Switch>
         </MinimalLayout>

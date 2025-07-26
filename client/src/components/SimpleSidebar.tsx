@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Link, useLocation } from "wouter";
 
-// Simple navigation items for the 4-menu structure
+// Comprehensive navigation items preserving ALL original functionality
 const navigationItems = [
   {
     title: "Dashboard",
@@ -14,27 +14,39 @@ const navigationItems = [
   {
     title: "Property",
     items: [
-      { name: "Properties", href: "/properties-with-tabs", icon: "🏠" },
+      { name: "Properties (4 tabs)", href: "/properties-with-tabs", icon: "🏠", description: "Properties, Operations, Appliances, Maintenance" },
       { name: "Calendar & Bookings", href: "/bookings", icon: "📅" },
-      { name: "Tasks", href: "/tasks", icon: "✓" },
+      { name: "Tasks & Operations", href: "/tasks", icon: "✓" },
       { name: "Check-in/Check-out", href: "/checkin-checkout-workflow", icon: "🔑" },
+      { name: "Daily Operations", href: "/daily-operations", icon: "⚡", badge: "Staff" },
+      { name: "Maintenance Log", href: "/maintenance-log-warranty-tracker", icon: "🔧" },
+      { name: "Appliances Mgmt", href: "/property-appliances-management", icon: "🛠️", badge: "New" },
+      { name: "Guest Services", href: "/guest-portal-smart-requests", icon: "💬" },
     ]
   },
   {
     title: "Finance",
     items: [
-      { name: "Revenue & Payouts", href: "/finance-revenue-payouts", icon: "💵" },
-      { name: "Invoices & Income", href: "/finance-invoices-income", icon: "📄" },
+      { name: "Revenue & Payouts (6 tabs)", href: "/finance-revenue-payouts", icon: "💵", description: "Complete financial controls" },
+      { name: "Invoices & Income (2 tabs)", href: "/finance-invoices-income", icon: "📄" },
       { name: "Utility Tracker", href: "/utility-tracker", icon: "⚡" },
+      { name: "Booking Income Rules", href: "/booking-income-rules", icon: "📊", badge: "Owner" },
+      { name: "Invoice Generator", href: "/invoice-generator", icon: "📋" },
+      { name: "Staff Salary & OT", href: "/staff-advance-salary-overtime-tracker", icon: "⏰", badge: "Staff" },
+      { name: "Staff Wallet", href: "/staff-wallet-petty-cash", icon: "💳", badge: "Staff" },
+      { name: "Cash Collection", href: "/staff-cash-collection", icon: "💰", badge: "New" },
     ]
   },
   {
     title: "System",
     items: [
-      { name: "Settings", href: "/system-settings", icon: "⚙️" },
-      { name: "User Management", href: "/user-management", icon: "👥" },
+      { name: "Settings (10 tabs)", href: "/system-settings", icon: "⚙️", description: "API, Branding, Legal, Currency, AI" },
+      { name: "User Management", href: "/user-management", icon: "👥", description: "Users, permissions, staff" },
       { name: "Automation", href: "/automation-management", icon: "🤖" },
       { name: "Activity Logs", href: "/admin/activity-log", icon: "📊" },
+      { name: "Agent Tools", href: "/agent-tools", icon: "🔧", badge: "Agent", description: "Quote, Commission, Proposals, Media" },
+      { name: "SaaS Management", href: "/admin/saas-management", icon: "🏢", badge: "SaaS" },
+      { name: "API Connections", href: "/admin/api-connections", icon: "🔗", badge: "Multi-tenant" },
     ]
   }
 ];
