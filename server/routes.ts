@@ -28869,6 +28869,135 @@ async function processGuestIssueForAI(issueReport: any) {
     }
   });
 
+  // ===== SHARED COSTS MANAGEMENT ENDPOINTS =====
+
+  // Get shared costs with optional filtering
+  app.get("/api/shared-costs", requireAdmin, async (req, res) => {
+    try {
+      const organizationId = req.user?.organizationId || "default-org";
+      const { buildingId, costType } = req.query;
+      
+      const filters = {
+        buildingId: buildingId as string,
+        costType: costType as string,
+      };
+      
+      const costs = await storage.getSharedCosts(organizationId, filters);
+      res.json(costs);
+    } catch (error) {
+      console.error("Error fetching shared costs:", error);
+      res.status(500).json({ message: "Failed to fetch shared costs" });
+    }
+  });
+
+  // Create new shared cost
+  app.post("/api/shared-costs", requireAdmin, async (req, res) => {
+    try {
+      const organizationId = req.user?.organizationId || "default-org";
+      const costData = req.body;
+      
+      if (!costData.buildingId || !costData.totalAmount) {
+        return res.status(400).json({ message: "Building ID and total amount are required" });
+      }
+
+      const created = await storage.createSharedCost(organizationId, costData);
+      res.json(created);
+    } catch (error) {
+      console.error("Error creating shared cost:", error);
+      res.status(500).json({ message: "Failed to create shared cost" });
+    }
+  });
+
+  // Get shared costs by building
+  app.get("/api/shared-costs/building/:buildingId", requireAdmin, async (req, res) => {
+    try {
+      const { buildingId } = req.params;
+      const organizationId = req.user?.organizationId || "default-org";
+      
+      const costs = await storage.getSharedCostsByBuilding(organizationId, buildingId);
+      res.json(costs);
+    } catch (error) {
+      console.error("Error fetching shared costs by building:", error);
+      res.status(500).json({ message: "Failed to fetch shared costs" });
+    }
+  });
+
+  // Get splits for a shared cost
+  app.get("/api/shared-costs/:costId/splits", requireAdmin, async (req, res) => {
+    try {
+      const { costId } = req.params;
+      const organizationId = req.user?.organizationId || "default-org";
+      
+      const splits = await storage.getSharedCostSplits(organizationId, parseInt(costId));
+      res.json(splits);
+    } catch (error) {
+      console.error("Error fetching shared cost splits:", error);
+      res.status(500).json({ message: "Failed to fetch cost splits" });
+    }
+  });
+
+  // Create cost split
+  app.post("/api/shared-costs/:costId/splits", requireAdmin, async (req, res) => {
+    try {
+      const { costId } = req.params;
+      const organizationId = req.user?.organizationId || "default-org";
+      const splitData = { ...req.body, sharedCostId: parseInt(costId) };
+      
+      if (!splitData.splitAmount) {
+        return res.status(400).json({ message: "Split amount is required" });
+      }
+
+      const created = await storage.createSharedCostSplit(organizationId, splitData);
+      res.json(created);
+    } catch (error) {
+      console.error("Error creating shared cost split:", error);
+      res.status(500).json({ message: "Failed to create cost split" });
+    }
+  });
+
+  // Update cost split
+  app.put("/api/shared-costs/splits/:splitId", requireAdmin, async (req, res) => {
+    try {
+      const { splitId } = req.params;
+      const organizationId = req.user?.organizationId || "default-org";
+      const splitData = req.body;
+      
+      const updated = await storage.updateSharedCostSplit(organizationId, parseInt(splitId), splitData);
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating shared cost split:", error);
+      res.status(500).json({ message: "Failed to update cost split" });
+    }
+  });
+
+  // Delete cost split
+  app.delete("/api/shared-costs/splits/:splitId", requireAdmin, async (req, res) => {
+    try {
+      const { splitId } = req.params;
+      const organizationId = req.user?.organizationId || "default-org";
+      
+      const deleted = await storage.deleteSharedCostSplit(organizationId, parseInt(splitId));
+      res.json(deleted);
+    } catch (error) {
+      console.error("Error deleting shared cost split:", error);
+      res.status(500).json({ message: "Failed to delete cost split" });
+    }
+  });
+
+  // Calculate split totals for a shared cost
+  app.get("/api/shared-costs/:costId/totals", requireAdmin, async (req, res) => {
+    try {
+      const { costId } = req.params;
+      const organizationId = req.user?.organizationId || "default-org";
+      
+      const totals = await storage.calculateSplitTotals(organizationId, parseInt(costId));
+      res.json(totals);
+    } catch (error) {
+      console.error("Error calculating split totals:", error);
+      res.status(500).json({ message: "Failed to calculate split totals" });
+    }
+  });
+
   // ===== CURRENCY AND TAX MANAGEMENT ENDPOINTS =====
 
   // Get all currency rates

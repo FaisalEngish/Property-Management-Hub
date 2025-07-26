@@ -3531,6 +3531,53 @@ export const insertOfflineTaskCacheSchema = createInsertSchema(offlineTaskCache)
 export type InsertOfflineTaskCache = z.infer<typeof insertOfflineTaskCacheSchema>;
 export type OfflineTaskCache = typeof offlineTaskCache.$inferSelect;
 
+// ===== SHARED COSTS MANAGEMENT SYSTEM =====
+
+// Shared costs for multi-property buildings
+export const sharedCosts = pgTable("shared_costs", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").notNull(),
+  buildingId: varchar("building_id").notNull(),
+  description: text("description"),
+  totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).notNull(),
+  costType: varchar("cost_type").default("electricity"),
+  periodStart: date("period_start"),
+  periodEnd: date("period_end"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("IDX_shared_costs_org").on(table.organizationId),
+  index("IDX_shared_costs_building").on(table.buildingId),
+  index("IDX_shared_costs_type").on(table.costType),
+]);
+
+// Cost splits for individual properties/owners
+export const sharedCostSplits = pgTable("shared_cost_splits", {
+  id: serial("id").primaryKey(),
+  sharedCostId: integer("shared_cost_id").references(() => sharedCosts.id, { onDelete: "cascade" }).notNull(),
+  propertyId: integer("property_id").references(() => properties.id),
+  ownerId: varchar("owner_id"),
+  splitAmount: decimal("split_amount", { precision: 10, scale: 2 }).notNull(),
+}, (table) => [
+  index("IDX_shared_cost_splits_cost").on(table.sharedCostId),
+  index("IDX_shared_cost_splits_property").on(table.propertyId),
+  index("IDX_shared_cost_splits_owner").on(table.ownerId),
+]);
+
+// Shared costs schemas
+export const insertSharedCostSchema = createInsertSchema(sharedCosts).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertSharedCostSplitSchema = createInsertSchema(sharedCostSplits).omit({
+  id: true,
+});
+
+export type InsertSharedCost = z.infer<typeof insertSharedCostSchema>;
+export type SharedCost = typeof sharedCosts.$inferSelect;
+export type InsertSharedCostSplit = z.infer<typeof insertSharedCostSplitSchema>;
+export type SharedCostSplit = typeof sharedCostSplits.$inferSelect;
+
 // Financial & Invoice Toolkit schemas and types
 
 export const insertCommissionEarningSchema = createInsertSchema(commissionEarnings).omit({

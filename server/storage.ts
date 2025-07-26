@@ -57,6 +57,9 @@ import {
   taxRules,
   // Offline Task Cache
   offlineTaskCache,
+  // Shared Costs Management
+  sharedCosts,
+  sharedCostSplits,
   // Property Utilities & Maintenance Enhanced
   propertyUtilityAccountsEnhanced,
   utilityBillLogsEnhanced,
@@ -33750,6 +33753,186 @@ Plant Care:
       return deleted;
     } catch (error) {
       console.error("Error deleting offline task:", error);
+      throw error;
+    }
+  }
+
+  // ===== SHARED COSTS MANAGEMENT METHODS =====
+
+  async getSharedCosts(organizationId: string, filters?: { buildingId?: string; costType?: string }) {
+    try {
+      let query = this.db
+        .select()
+        .from(sharedCosts)
+        .where(eq(sharedCosts.organizationId, organizationId));
+
+      if (filters?.buildingId) {
+        query = query.where(eq(sharedCosts.buildingId, filters.buildingId));
+      }
+
+      if (filters?.costType) {
+        query = query.where(eq(sharedCosts.costType, filters.costType));
+      }
+
+      return await query.orderBy(desc(sharedCosts.createdAt));
+    } catch (error) {
+      console.error("Error fetching shared costs:", error);
+      throw error;
+    }
+  }
+
+  async createSharedCost(organizationId: string, costData: any) {
+    try {
+      const [created] = await this.db
+        .insert(sharedCosts)
+        .values({
+          organizationId,
+          buildingId: costData.buildingId,
+          description: costData.description,
+          totalAmount: costData.totalAmount,
+          costType: costData.costType || "electricity",
+          periodStart: costData.periodStart,
+          periodEnd: costData.periodEnd,
+        })
+        .returning();
+
+      return created;
+    } catch (error) {
+      console.error("Error creating shared cost:", error);
+      throw error;
+    }
+  }
+
+  async getSharedCostSplits(organizationId: string, sharedCostId: number) {
+    try {
+      return await this.db
+        .select({
+          id: sharedCostSplits.id,
+          sharedCostId: sharedCostSplits.sharedCostId,
+          propertyId: sharedCostSplits.propertyId,
+          ownerId: sharedCostSplits.ownerId,
+          splitAmount: sharedCostSplits.splitAmount,
+          propertyName: properties.name,
+        })
+        .from(sharedCostSplits)
+        .leftJoin(properties, eq(sharedCostSplits.propertyId, properties.id))
+        .leftJoin(sharedCosts, eq(sharedCostSplits.sharedCostId, sharedCosts.id))
+        .where(
+          and(
+            eq(sharedCostSplits.sharedCostId, sharedCostId),
+            eq(sharedCosts.organizationId, organizationId)
+          )
+        );
+    } catch (error) {
+      console.error("Error fetching shared cost splits:", error);
+      throw error;
+    }
+  }
+
+  async createSharedCostSplit(organizationId: string, splitData: any) {
+    try {
+      // Verify the shared cost belongs to the organization
+      const [sharedCost] = await this.db
+        .select()
+        .from(sharedCosts)
+        .where(
+          and(
+            eq(sharedCosts.id, splitData.sharedCostId),
+            eq(sharedCosts.organizationId, organizationId)
+          )
+        );
+
+      if (!sharedCost) {
+        throw new Error("Shared cost not found or unauthorized");
+      }
+
+      const [created] = await this.db
+        .insert(sharedCostSplits)
+        .values({
+          sharedCostId: splitData.sharedCostId,
+          propertyId: splitData.propertyId,
+          ownerId: splitData.ownerId,
+          splitAmount: splitData.splitAmount,
+        })
+        .returning();
+
+      return created;
+    } catch (error) {
+      console.error("Error creating shared cost split:", error);
+      throw error;
+    }
+  }
+
+  async updateSharedCostSplit(organizationId: string, splitId: number, splitData: any) {
+    try {
+      const [updated] = await this.db
+        .update(sharedCostSplits)
+        .set({
+          propertyId: splitData.propertyId,
+          ownerId: splitData.ownerId,
+          splitAmount: splitData.splitAmount,
+        })
+        .where(eq(sharedCostSplits.id, splitId))
+        .returning();
+
+      return updated;
+    } catch (error) {
+      console.error("Error updating shared cost split:", error);
+      throw error;
+    }
+  }
+
+  async deleteSharedCostSplit(organizationId: string, splitId: number) {
+    try {
+      const [deleted] = await this.db
+        .delete(sharedCostSplits)
+        .where(eq(sharedCostSplits.id, splitId))
+        .returning();
+
+      return deleted;
+    } catch (error) {
+      console.error("Error deleting shared cost split:", error);
+      throw error;
+    }
+  }
+
+  async getSharedCostsByBuilding(organizationId: string, buildingId: string) {
+    try {
+      return await this.db
+        .select()
+        .from(sharedCosts)
+        .where(
+          and(
+            eq(sharedCosts.organizationId, organizationId),
+            eq(sharedCosts.buildingId, buildingId)
+          )
+        )
+        .orderBy(desc(sharedCosts.createdAt));
+    } catch (error) {
+      console.error("Error fetching shared costs by building:", error);
+      throw error;
+    }
+  }
+
+  async calculateSplitTotals(organizationId: string, sharedCostId: number) {
+    try {
+      const [result] = await this.db
+        .select({
+          totalSplit: sql<number>`SUM(${sharedCostSplits.splitAmount})`,
+          splitCount: sql<number>`COUNT(*)`,
+        })
+        .from(sharedCostSplits)
+        .leftJoin(sharedCosts, eq(sharedCostSplits.sharedCostId, sharedCosts.id))
+        .where(
+          and(
+            eq(sharedCostSplits.sharedCostId, sharedCostId),
+            eq(sharedCosts.organizationId, organizationId)
+          )
+        );
+
+      return result || { totalSplit: 0, splitCount: 0 };
+    } catch (error) {
+      console.error("Error calculating split totals:", error);
       throw error;
     }
   }
