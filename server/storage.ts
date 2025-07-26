@@ -96,6 +96,8 @@ import {
   sustainabilityMetrics,
   // Portfolio Health Scoring
   portfolioHealthScores,
+  // Guest ID Verification
+  guestIdScans,
   // Property Utilities & Maintenance Enhanced
   propertyUtilityAccountsEnhanced,
   utilityBillLogsEnhanced,
@@ -38123,6 +38125,365 @@ Plant Care:
     }
     
     return results;
+  }
+
+  // ===== Guest ID Verification Methods =====
+  
+  async getGuestIdScans(bookingId?: number, documentType?: string, startDate?: string, endDate?: string): Promise<any[]> {
+    let query = db.select({
+      id: guestIdScans.id,
+      bookingId: guestIdScans.bookingId,
+      guestName: guestIdScans.guestName,
+      documentType: guestIdScans.documentType,
+      scanUrl: guestIdScans.scanUrl,
+      ocrData: guestIdScans.ocrData,
+      createdAt: guestIdScans.createdAt,
+      bookingReference: bookings.guestName,
+      propertyName: properties.name,
+    })
+    .from(guestIdScans)
+    .leftJoin(bookings, eq(guestIdScans.bookingId, bookings.id))
+    .leftJoin(properties, eq(bookings.propertyId, properties.id));
+
+    const conditions = [];
+    if (bookingId) conditions.push(eq(guestIdScans.bookingId, bookingId));
+    if (documentType) conditions.push(eq(guestIdScans.documentType, documentType));
+    if (startDate) conditions.push(sql`${guestIdScans.createdAt} >= ${startDate}`);
+    if (endDate) conditions.push(sql`${guestIdScans.createdAt} <= ${endDate}`);
+
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions));
+    }
+
+    return query.orderBy(desc(guestIdScans.createdAt));
+  }
+
+  async createGuestIdScan(scanData: any): Promise<any> {
+    const [created] = await db.insert(guestIdScans).values({
+      ...scanData,
+      createdAt: new Date(),
+    }).returning();
+    return created;
+  }
+
+  async getGuestIdScanById(id: number): Promise<any> {
+    const [scan] = await db.select({
+      id: guestIdScans.id,
+      bookingId: guestIdScans.bookingId,
+      guestName: guestIdScans.guestName,
+      documentType: guestIdScans.documentType,
+      scanUrl: guestIdScans.scanUrl,
+      ocrData: guestIdScans.ocrData,
+      createdAt: guestIdScans.createdAt,
+      bookingReference: bookings.guestName,
+      propertyName: properties.name,
+    })
+    .from(guestIdScans)
+    .leftJoin(bookings, eq(guestIdScans.bookingId, bookings.id))
+    .leftJoin(properties, eq(bookings.propertyId, properties.id))
+    .where(eq(guestIdScans.id, id));
+    return scan;
+  }
+
+  async updateGuestIdScan(id: number, updates: any): Promise<any> {
+    const [updated] = await db.update(guestIdScans)
+      .set(updates)
+      .where(eq(guestIdScans.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteGuestIdScan(id: number): Promise<boolean> {
+    const result = await db.delete(guestIdScans).where(eq(guestIdScans.id, id));
+    return result.rowCount > 0;
+  }
+
+  async getGuestIdScanAnalytics(): Promise<any> {
+    const overallStats = await db.select({
+      totalScans: sql<number>`count(*)`,
+      passportScans: sql<number>`count(*) filter (where ${guestIdScans.documentType} = 'passport')`,
+      idCardScans: sql<number>`count(*) filter (where ${guestIdScans.documentType} = 'id')`,
+      verifiedScans: sql<number>`count(*) filter (where ${guestIdScans.ocrData}->>'verificationStatus' = 'verified')`,
+      pendingScans: sql<number>`count(*) filter (where ${guestIdScans.ocrData}->>'verificationStatus' = 'pending')`,
+      failedScans: sql<number>`count(*) filter (where ${guestIdScans.ocrData}->>'verificationStatus' = 'failed')`,
+      uniqueBookings: sql<number>`count(DISTINCT ${guestIdScans.bookingId})`,
+    }).from(guestIdScans);
+
+    const byDocumentType = await db.select({
+      documentType: guestIdScans.documentType,
+      scanCount: sql<number>`count(*)`,
+      verifiedCount: sql<number>`count(*) filter (where ${guestIdScans.ocrData}->>'verificationStatus' = 'verified')`,
+      avgConfidence: sql<number>`round(avg(CAST(${guestIdScans.ocrData}->>'confidence' AS DECIMAL)), 2)`,
+      successRate: sql<number>`round((count(*) filter (where ${guestIdScans.ocrData}->>'verificationStatus' = 'verified') * 100.0 / count(*)), 1)`,
+    })
+    .from(guestIdScans)
+    .groupBy(guestIdScans.documentType)
+    .orderBy(sql<number>`count(*) DESC`);
+
+    const byProperty = await db.select({
+      propertyId: bookings.propertyId,
+      propertyName: properties.name,
+      scanCount: sql<number>`count(*)`,
+      verifiedCount: sql<number>`count(*) filter (where ${guestIdScans.ocrData}->>'verificationStatus' = 'verified')`,
+      uniqueGuests: sql<number>`count(DISTINCT ${guestIdScans.guestName})`,
+      avgConfidence: sql<number>`round(avg(CAST(${guestIdScans.ocrData}->>'confidence' AS DECIMAL)), 2)`,
+    })
+    .from(guestIdScans)
+    .leftJoin(bookings, eq(guestIdScans.bookingId, bookings.id))
+    .leftJoin(properties, eq(bookings.propertyId, properties.id))
+    .groupBy(bookings.propertyId, properties.name)
+    .orderBy(sql<number>`count(*) DESC`);
+
+    const dailyScans = await db.select({
+      date: sql<string>`date(${guestIdScans.createdAt})`,
+      scanCount: sql<number>`count(*)`,
+      verifiedCount: sql<number>`count(*) filter (where ${guestIdScans.ocrData}->>'verificationStatus' = 'verified')`,
+      passportCount: sql<number>`count(*) filter (where ${guestIdScans.documentType} = 'passport')`,
+      idCardCount: sql<number>`count(*) filter (where ${guestIdScans.documentType} = 'id')`,
+    })
+    .from(guestIdScans)
+    .groupBy(sql`date(${guestIdScans.createdAt})`)
+    .orderBy(sql`date(${guestIdScans.createdAt}) DESC`)
+    .limit(30);
+
+    const verificationDistribution = await db.select({
+      status: sql<string>`coalesce(${guestIdScans.ocrData}->>'verificationStatus', 'unknown')`,
+      count: sql<number>`count(*)`,
+      percentage: sql<number>`round((count(*) * 100.0 / (select count(*) from ${guestIdScans})), 1)`,
+    })
+    .from(guestIdScans)
+    .groupBy(sql`coalesce(${guestIdScans.ocrData}->>'verificationStatus', 'unknown')`)
+    .orderBy(sql<number>`count(*) DESC`);
+
+    return {
+      overall: overallStats[0] || { totalScans: 0, passportScans: 0, idCardScans: 0, verifiedScans: 0, pendingScans: 0, failedScans: 0, uniqueBookings: 0 },
+      byDocumentType,
+      byProperty,
+      dailyScans,
+      verificationDistribution,
+    };
+  }
+
+  async getScansByBooking(bookingId: number): Promise<any[]> {
+    return db.select({
+      id: guestIdScans.id,
+      guestName: guestIdScans.guestName,
+      documentType: guestIdScans.documentType,
+      scanUrl: guestIdScans.scanUrl,
+      ocrData: guestIdScans.ocrData,
+      createdAt: guestIdScans.createdAt,
+    })
+    .from(guestIdScans)
+    .where(eq(guestIdScans.bookingId, bookingId))
+    .orderBy(desc(guestIdScans.createdAt));
+  }
+
+  async processIdScanOCR(scanId: number, ocrText: string): Promise<any> {
+    // Simulate OCR processing with intelligent text extraction
+    const lines = ocrText.split('\n').map(line => line.trim()).filter(line => line.length > 0);
+    
+    const extractedData: any = {
+      extractedText: ocrText,
+      confidence: 0.85 + Math.random() * 0.14, // 85-99% confidence
+      verificationStatus: 'verified',
+      errors: [],
+    };
+
+    // Extract common document fields based on patterns
+    for (const line of lines) {
+      // Document number patterns
+      if (line.match(/^[A-Z]{1,2}\d{6,9}$/)) {
+        extractedData.documentNumber = line;
+      }
+      
+      // Date patterns (YYYY-MM-DD or DD/MM/YYYY)
+      const dateMatch = line.match(/(\d{4}-\d{2}-\d{2}|\d{2}\/\d{2}\/\d{4})/);
+      if (dateMatch) {
+        if (line.toLowerCase().includes('birth') || line.toLowerCase().includes('born')) {
+          extractedData.dateOfBirth = dateMatch[1];
+        } else if (line.toLowerCase().includes('expir') || line.toLowerCase().includes('valid')) {
+          extractedData.expiryDate = dateMatch[1];
+        } else if (line.toLowerCase().includes('issue')) {
+          extractedData.issueDate = dateMatch[1];
+        }
+      }
+
+      // Gender
+      if (line.toLowerCase().includes('male') || line.toLowerCase().includes('female')) {
+        extractedData.gender = line.toLowerCase().includes('female') ? 'Female' : 'Male';
+      }
+
+      // Nationality (common patterns)
+      const nationalityKeywords = ['thai', 'thailand', 'usa', 'american', 'british', 'uk', 'chinese', 'japanese', 'korean', 'german', 'french', 'australian'];
+      for (const keyword of nationalityKeywords) {
+        if (line.toLowerCase().includes(keyword)) {
+          extractedData.nationality = keyword.charAt(0).toUpperCase() + keyword.slice(1);
+          break;
+        }
+      }
+    }
+
+    // Validation and quality checks
+    if (!extractedData.documentNumber) {
+      extractedData.errors.push('Document number not clearly readable');
+      extractedData.confidence *= 0.7;
+    }
+
+    if (!extractedData.dateOfBirth) {
+      extractedData.errors.push('Date of birth not found');
+      extractedData.confidence *= 0.8;
+    }
+
+    if (!extractedData.nationality) {
+      extractedData.errors.push('Nationality not detected');
+      extractedData.confidence *= 0.9;
+    }
+
+    // Determine verification status based on confidence and errors
+    if (extractedData.confidence < 0.6 || extractedData.errors.length > 2) {
+      extractedData.verificationStatus = 'failed';
+    } else if (extractedData.confidence < 0.8 || extractedData.errors.length > 0) {
+      extractedData.verificationStatus = 'pending';
+    }
+
+    // Update the scan record with OCR data
+    const [updated] = await db.update(guestIdScans)
+      .set({ ocrData: extractedData })
+      .where(eq(guestIdScans.id, scanId))
+      .returning();
+
+    return { ...updated, ocrData: extractedData };
+  }
+
+  async searchGuestIdScans(searchTerm: string, documentType?: string): Promise<any[]> {
+    let query = db.select({
+      id: guestIdScans.id,
+      bookingId: guestIdScans.bookingId,
+      guestName: guestIdScans.guestName,
+      documentType: guestIdScans.documentType,
+      scanUrl: guestIdScans.scanUrl,
+      ocrData: guestIdScans.ocrData,
+      createdAt: guestIdScans.createdAt,
+      bookingReference: bookings.guestName,
+      propertyName: properties.name,
+    })
+    .from(guestIdScans)
+    .leftJoin(bookings, eq(guestIdScans.bookingId, bookings.id))
+    .leftJoin(properties, eq(bookings.propertyId, properties.id));
+
+    const conditions = [
+      sql`(
+        ${guestIdScans.guestName} ILIKE ${'%' + searchTerm + '%'} OR
+        ${guestIdScans.ocrData}->>'documentNumber' ILIKE ${'%' + searchTerm + '%'} OR
+        ${guestIdScans.ocrData}->>'nationality' ILIKE ${'%' + searchTerm + '%'} OR
+        ${bookings.guestName} ILIKE ${'%' + searchTerm + '%'} OR
+        ${properties.name} ILIKE ${'%' + searchTerm + '%'}
+      )`
+    ];
+
+    if (documentType) {
+      conditions.push(eq(guestIdScans.documentType, documentType));
+    }
+
+    return query
+      .where(and(...conditions))
+      .orderBy(desc(guestIdScans.createdAt))
+      .limit(50);
+  }
+
+  async getVerificationReport(propertyId?: number, startDate?: string, endDate?: string): Promise<any> {
+    let query = db.select({
+      totalScans: sql<number>`count(*)`,
+      verifiedScans: sql<number>`count(*) filter (where ${guestIdScans.ocrData}->>'verificationStatus' = 'verified')`,
+      pendingScans: sql<number>`count(*) filter (where ${guestIdScans.ocrData}->>'verificationStatus' = 'pending')`,
+      failedScans: sql<number>`count(*) filter (where ${guestIdScans.ocrData}->>'verificationStatus' = 'failed')`,
+      avgConfidence: sql<number>`round(avg(CAST(${guestIdScans.ocrData}->>'confidence' AS DECIMAL)), 2)`,
+      passportScans: sql<number>`count(*) filter (where ${guestIdScans.documentType} = 'passport')`,
+      idCardScans: sql<number>`count(*) filter (where ${guestIdScans.documentType} = 'id')`,
+    })
+    .from(guestIdScans)
+    .leftJoin(bookings, eq(guestIdScans.bookingId, bookings.id));
+
+    const conditions = [];
+    if (propertyId) conditions.push(eq(bookings.propertyId, propertyId));
+    if (startDate) conditions.push(sql`${guestIdScans.createdAt} >= ${startDate}`);
+    if (endDate) conditions.push(sql`${guestIdScans.createdAt} <= ${endDate}`);
+
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions));
+    }
+
+    const [report] = await query;
+    
+    const successRate = report.totalScans > 0 ? 
+      Math.round((report.verifiedScans / report.totalScans) * 100 * 100) / 100 : 0;
+
+    return {
+      ...report,
+      successRate,
+      complianceStatus: successRate >= 95 ? 'Excellent' : 
+                       successRate >= 85 ? 'Good' : 
+                       successRate >= 70 ? 'Fair' : 'Poor',
+    };
+  }
+
+  async getGuestComplianceCheck(bookingId: number): Promise<any> {
+    const scans = await this.getScansByBooking(bookingId);
+    const [booking] = await db.select({
+      id: bookings.id,
+      guestName: bookings.guestName,
+      checkInDate: bookings.checkInDate,
+      checkOutDate: bookings.checkOutDate,
+      propertyName: properties.name,
+    })
+    .from(bookings)
+    .leftJoin(properties, eq(bookings.propertyId, properties.id))
+    .where(eq(bookings.id, bookingId));
+
+    if (!booking) {
+      throw new Error('Booking not found');
+    }
+
+    const hasPassport = scans.some(scan => 
+      scan.documentType === 'passport' && 
+      scan.ocrData?.verificationStatus === 'verified'
+    );
+
+    const hasValidId = scans.some(scan => 
+      scan.documentType === 'id' && 
+      scan.ocrData?.verificationStatus === 'verified'
+    );
+
+    const complianceStatus = hasPassport || hasValidId ? 'Compliant' : 'Non-Compliant';
+    const recommendations = [];
+
+    if (!hasPassport && !hasValidId) {
+      recommendations.push('Guest must provide valid identification before check-in');
+      recommendations.push('Scan passport or national ID card for verification');
+    }
+
+    const pendingScans = scans.filter(scan => scan.ocrData?.verificationStatus === 'pending');
+    if (pendingScans.length > 0) {
+      recommendations.push(`${pendingScans.length} document(s) require manual review`);
+    }
+
+    const failedScans = scans.filter(scan => scan.ocrData?.verificationStatus === 'failed');
+    if (failedScans.length > 0) {
+      recommendations.push(`${failedScans.length} scan(s) failed - rescan required`);
+    }
+
+    return {
+      booking,
+      scans,
+      complianceStatus,
+      hasPassport,
+      hasValidId,
+      totalScans: scans.length,
+      verifiedScans: scans.filter(scan => scan.ocrData?.verificationStatus === 'verified').length,
+      pendingScans: pendingScans.length,
+      failedScans: failedScans.length,
+      recommendations,
+    };
   }
 }
 

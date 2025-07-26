@@ -12355,3 +12355,40 @@ export const insertPortfolioHealthScoreSchema = createInsertSchema(portfolioHeal
 
 export type PortfolioHealthScore = typeof portfolioHealthScores.$inferSelect;
 export type InsertPortfolioHealthScore = z.infer<typeof insertPortfolioHealthScoreSchema>;
+
+// ===== GUEST ID VERIFICATION SYSTEM =====
+
+export const guestIdScans = pgTable("guest_id_scans", {
+  id: serial("id").primaryKey(),
+  bookingId: integer("booking_id").references(() => bookings.id),
+  guestName: varchar("guest_name", { length: 255 }),
+  documentType: varchar("document_type", { length: 50 }),
+  scanUrl: text("scan_url"),
+  ocrData: json("ocr_data").$type<{
+    documentNumber?: string;
+    nationality?: string;
+    dateOfBirth?: string;
+    expiryDate?: string;
+    issueDate?: string;
+    placeOfBirth?: string;
+    issuePlace?: string;
+    gender?: string;
+    confidence?: number;
+    extractedText?: string;
+    verificationStatus?: string;
+    errors?: string[];
+  }>(),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("IDX_guest_id_scans_booking").on(table.bookingId),
+  index("IDX_guest_id_scans_document").on(table.documentType),
+  index("IDX_guest_id_scans_created").on(table.createdAt),
+]);
+
+export const insertGuestIdScanSchema = createInsertSchema(guestIdScans).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type GuestIdScan = typeof guestIdScans.$inferSelect;
+export type InsertGuestIdScan = z.infer<typeof insertGuestIdScanSchema>;

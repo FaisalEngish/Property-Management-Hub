@@ -31549,6 +31549,144 @@ async function processGuestIssueForAI(issueReport: any) {
     }
   });
 
+  // ===== Guest ID Verification Routes =====
+  
+  app.get("/api/guest-id-scans", isDemoAuthenticated, async (req, res) => {
+    try {
+      const { bookingId, documentType, startDate, endDate } = req.query;
+      const scans = await storage.getGuestIdScans(
+        bookingId ? parseInt(bookingId as string) : undefined,
+        documentType as string,
+        startDate as string,
+        endDate as string
+      );
+      res.json(scans);
+    } catch (error) {
+      console.error("Error fetching guest ID scans:", error);
+      res.status(500).json({ error: "Failed to fetch guest ID scans" });
+    }
+  });
+
+  app.get("/api/guest-id-scans/:id", isDemoAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const scan = await storage.getGuestIdScanById(id);
+      if (!scan) {
+        return res.status(404).json({ error: "Guest ID scan not found" });
+      }
+      res.json(scan);
+    } catch (error) {
+      console.error("Error fetching guest ID scan:", error);
+      res.status(500).json({ error: "Failed to fetch guest ID scan" });
+    }
+  });
+
+  app.post("/api/guest-id-scans", isDemoAuthenticated, async (req, res) => {
+    try {
+      const scan = await storage.createGuestIdScan(req.body);
+      res.json(scan);
+    } catch (error) {
+      console.error("Error creating guest ID scan:", error);
+      res.status(500).json({ error: "Failed to create guest ID scan" });
+    }
+  });
+
+  app.put("/api/guest-id-scans/:id", isDemoAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const scan = await storage.updateGuestIdScan(id, req.body);
+      if (!scan) {
+        return res.status(404).json({ error: "Guest ID scan not found" });
+      }
+      res.json(scan);
+    } catch (error) {
+      console.error("Error updating guest ID scan:", error);
+      res.status(500).json({ error: "Failed to update guest ID scan" });
+    }
+  });
+
+  app.delete("/api/guest-id-scans/:id", isDemoAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const success = await storage.deleteGuestIdScan(id);
+      res.json({ success });
+    } catch (error) {
+      console.error("Error deleting guest ID scan:", error);
+      res.status(500).json({ error: "Failed to delete guest ID scan" });
+    }
+  });
+
+  app.get("/api/guest-id-scans/analytics", isDemoAuthenticated, async (req, res) => {
+    try {
+      const analytics = await storage.getGuestIdScanAnalytics();
+      res.json(analytics);
+    } catch (error) {
+      console.error("Error fetching guest ID scan analytics:", error);
+      res.status(500).json({ error: "Failed to fetch analytics" });
+    }
+  });
+
+  app.get("/api/guest-id-scans/booking/:bookingId", isDemoAuthenticated, async (req, res) => {
+    try {
+      const bookingId = parseInt(req.params.bookingId);
+      const scans = await storage.getScansByBooking(bookingId);
+      res.json(scans);
+    } catch (error) {
+      console.error("Error fetching scans by booking:", error);
+      res.status(500).json({ error: "Failed to fetch scans by booking" });
+    }
+  });
+
+  app.post("/api/guest-id-scans/:id/process-ocr", isDemoAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { ocrText } = req.body;
+      const result = await storage.processIdScanOCR(id, ocrText);
+      res.json(result);
+    } catch (error) {
+      console.error("Error processing OCR:", error);
+      res.status(500).json({ error: "Failed to process OCR" });
+    }
+  });
+
+  app.get("/api/guest-id-scans/search/:searchTerm", isDemoAuthenticated, async (req, res) => {
+    try {
+      const searchTerm = req.params.searchTerm;
+      const { documentType } = req.query;
+      const results = await storage.searchGuestIdScans(searchTerm, documentType as string);
+      res.json(results);
+    } catch (error) {
+      console.error("Error searching guest ID scans:", error);
+      res.status(500).json({ error: "Failed to search guest ID scans" });
+    }
+  });
+
+  app.get("/api/guest-id-scans/report/verification", isDemoAuthenticated, async (req, res) => {
+    try {
+      const { propertyId, startDate, endDate } = req.query;
+      const report = await storage.getVerificationReport(
+        propertyId ? parseInt(propertyId as string) : undefined,
+        startDate as string,
+        endDate as string
+      );
+      res.json(report);
+    } catch (error) {
+      console.error("Error generating verification report:", error);
+      res.status(500).json({ error: "Failed to generate verification report" });
+    }
+  });
+
+  app.get("/api/guest-id-scans/compliance/:bookingId", isDemoAuthenticated, async (req, res) => {
+    try {
+      const bookingId = parseInt(req.params.bookingId);
+      const compliance = await storage.getGuestComplianceCheck(bookingId);
+      res.json(compliance);
+    } catch (error) {
+      console.error("Error checking guest compliance:", error);
+      res.status(500).json({ error: "Failed to check guest compliance" });
+    }
+  });
+
   // API 404 handler - must be after all other API routes
   app.use("/api/*", (req, res) => {
     res.status(404).json({ 
