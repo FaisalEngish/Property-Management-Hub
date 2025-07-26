@@ -647,6 +647,9 @@ export const tasks: any = pgTable("tasks", {
   rescheduledDate: timestamp("rescheduled_date"),
   evidencePhotos: text("evidence_photos").array().default([]),
   issuesFound: text("issues_found").array().default([]),
+  // AI and Auto-assignment fields
+  autoAssigned: boolean("auto_assigned").default(false),
+  aiConfidence: decimal("ai_confidence", { precision: 4, scale: 2 }),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
