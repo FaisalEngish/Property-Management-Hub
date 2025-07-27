@@ -542,99 +542,99 @@ export default function Sidebar({ className }: SidebarProps) {
                       </div>
                     </Button>
                   </CollapsibleTrigger>
-                  <CollapsibleContent className="space-y-2 pl-2 pr-2 pb-3">
-                    <div className="grid gap-2">
-                      {section.items.map((item, itemIndex) => {
-                        const Icon = item.icon;
-                        // Better active state detection for URLs with parameters
-                        const isActive = (() => {
-                          const currentPath = location.split('?')[0];
-                          const itemPath = item.href.split('?')[0];
-                          
-                          // For exact match (no parameters)
-                          if (location === item.href) return true;
-                          
-                          // For parameter-based URLs, check if base path matches and parameters are correct
-                          if (currentPath === itemPath && item.href.includes('?')) {
-                            const currentParams = new URLSearchParams(location.split('?')[1] || '');
-                            const itemParams = new URLSearchParams(item.href.split('?')[1] || '');
-                            const itemTab = itemParams.get('tab');
-                            const currentTab = currentParams.get('tab');
-                            return itemTab === currentTab;
-                          }
-                          
-                          // Default case - check base path for default tab
-                          if (currentPath === itemPath && !item.href.includes('?') && !location.includes('?')) {
-                            return true;
-                          }
-                          
-                          return false;
-                        })();
+                  <CollapsibleContent className="space-y-1 pl-3 pr-2 pb-2">
+                    {section.items.map((item, itemIndex) => {
+                      const Icon = item.icon;
+                      // Better active state detection for URLs with parameters
+                      const isActive = (() => {
+                        const currentPath = location.split('?')[0];
+                        const itemPath = item.href.split('?')[0];
                         
-                        return (
-                          <div
-                            key={itemIndex}
-                            onClick={() => {
-                              console.log('Sidebar link clicked:', item.href);
-                              setIsOpen(false);
-                              // Direct navigation for referral agent tabs
-                              if (item.href.includes('/referral-agent')) {
-                                const urlParams = new URLSearchParams(item.href.split('?')[1] || '');
-                                const tab = urlParams.get('tab') || 'services';
-                                console.log('Setting tab to:', tab);
-                                // Dispatch custom event to trigger tab change
-                                window.dispatchEvent(new CustomEvent('changeReferralTab', { detail: { tab } }));
-                              } else {
-                                // Normal navigation for other links
-                                window.location.href = item.href;
-                              }
-                            }}
+                        // For exact match (no parameters)
+                        if (location === item.href) return true;
+                        
+                        // For parameter-based URLs, check if base path matches and parameters are correct
+                        if (currentPath === itemPath && item.href.includes('?')) {
+                          const currentParams = new URLSearchParams(location.split('?')[1] || '');
+                          const itemParams = new URLSearchParams(item.href.split('?')[1] || '');
+                          const itemTab = itemParams.get('tab');
+                          const currentTab = currentParams.get('tab');
+                          return itemTab === currentTab;
+                        }
+                        
+                        // Default case - check base path for default tab
+                        if (currentPath === itemPath && !item.href.includes('?') && !location.includes('?')) {
+                          return true;
+                        }
+                        
+                        return false;
+                      })();
+                      return (
+                        <div 
+                          key={itemIndex}
+                          onClick={() => {
+                            console.log('Sidebar link clicked:', item.href);
+                            setIsOpen(false);
+                            // Direct navigation for referral agent tabs
+                            if (item.href.includes('/referral-agent')) {
+                              const urlParams = new URLSearchParams(item.href.split('?')[1] || '');
+                              const tab = urlParams.get('tab') || 'services';
+                              console.log('Setting tab to:', tab);
+                              // Dispatch custom event to trigger tab change
+                              window.dispatchEvent(new CustomEvent('changeReferralTab', { detail: { tab } }));
+                            } else {
+                              // Normal navigation for other links
+                              window.location.href = item.href;
+                            }
+                          }}
+                          className="cursor-pointer"
+                        >
+                          <Button
+                            variant={isActive ? "secondary" : "ghost"}
                             className={cn(
-                              "group cursor-pointer rounded-lg border transition-all duration-200 hover:shadow-md",
-                              isActive 
-                                ? "bg-primary/10 border-primary/50 shadow-sm" 
-                                : "bg-card hover:bg-muted/50 border-border"
+                              "w-full justify-start text-left h-auto py-2 px-3 hover:bg-muted/80 transition-all duration-200 relative group",
+                              isActive && "bg-primary/15 text-primary border-l-2 border-primary hover:bg-primary/20 shadow-sm"
                             )}
                           >
-                            <div className="p-3">
-                              <div className="flex items-start space-x-3">
-                                <div className={cn(
-                                  "p-2 rounded-md transition-colors flex-shrink-0",
-                                  isActive 
-                                    ? "bg-primary/20 text-primary" 
-                                    : "bg-muted text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary"
+                            {isActive && (
+                              <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-primary rounded-r" />
+                            )}
+                            <Icon className={cn(
+                              "h-4 w-4 mr-3 flex-shrink-0 transition-colors",
+                              isActive ? "text-primary" : "text-muted-foreground group-hover:text-foreground"
+                            )} />
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center justify-between">
+                                <span className={cn(
+                                  "text-sm truncate transition-colors",
+                                  isActive ? "font-medium" : "group-hover:text-foreground"
                                 )}>
-                                  <Icon className="h-4 w-4" />
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                  <div className="flex items-center justify-between mb-1">
-                                    <h4 className={cn(
-                                      "font-medium text-sm truncate transition-colors",
-                                      isActive ? "text-primary" : "text-foreground group-hover:text-primary"
-                                    )}>
-                                      {item.label}
-                                    </h4>
-                                    {item.badge && (
-                                      <Badge 
-                                        variant={item.badge === "NEW" || item.badge === "Enhanced" ? "destructive" : "secondary"}
-                                        className="text-xs ml-2 flex-shrink-0"
-                                      >
-                                        {item.badge}
-                                      </Badge>
-                                    )}
-                                  </div>
-                                  {item.description && (
-                                    <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">
-                                      {item.description}
-                                    </p>
+                                  {item.label}
+                                </span>
+                                <div className="flex items-center gap-1 ml-2">
+                                  {item.badge && (
+                                    <Badge 
+                                      variant={item.badge === "NEW" || item.badge === "Enhanced" ? "destructive" : "secondary"}
+                                      className="text-xs h-4 px-1.5"
+                                    >
+                                      {item.badge}
+                                    </Badge>
+                                  )}
+                                  {isActive && (
+                                    <ChevronRight className="h-3 w-3 text-primary" />
                                   )}
                                 </div>
                               </div>
+                              {item.description && (
+                                <p className="text-xs text-muted-foreground mt-0.5 truncate group-hover:text-muted-foreground/80">
+                                  {item.description}
+                                </p>
+                              )}
                             </div>
-                          </div>
-                        );
-                      })}
-                    </div>
+                          </Button>
+                        </div>
+                      );
+                    })}
                   </CollapsibleContent>
                 </Collapsible>
               );
