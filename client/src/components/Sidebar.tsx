@@ -54,6 +54,7 @@ import {
   Brain,
   ChevronRight,
   ChevronDown,
+  ChevronUp,
   PanelLeftClose,
   PanelLeftOpen,
   Calculator,
@@ -80,6 +81,7 @@ interface MenuItem {
 interface MenuSection {
   title: string;
   items: MenuItem[];
+  hotItems?: MenuItem[]; // Top 2-3 most important items to show initially
 }
 
 // Memoized role-based menu generation for performance
@@ -88,6 +90,10 @@ const getRoleBasedMenus = (role: string): MenuSection[] => {
     admin: [
       {
         title: "📊 Dashboards",
+        hotItems: [
+          { label: "Admin Dashboard", icon: Home, href: "/", description: "Comprehensive admin overview and insights" },
+          { label: "Financial Dashboard", icon: DollarSign, href: "/filtered-financial-dashboard", badge: "New" },
+        ],
         items: [
           { label: "Admin Dashboard", icon: Home, href: "/", description: "Comprehensive admin overview and insights" },
           { label: "Financial Dashboard", icon: DollarSign, href: "/filtered-financial-dashboard", badge: "New" },
@@ -96,6 +102,11 @@ const getRoleBasedMenus = (role: string): MenuSection[] => {
       },
       {
         title: "🏘️ Property Management",
+        hotItems: [
+          { label: "Properties", icon: Building, href: "/properties", description: "Manage all properties" },
+          { label: "Unified Calendar & Bookings", icon: Calendar, href: "/bookings", description: "All booking views and calendar management" },
+          { label: "Tasks", icon: CheckSquare, href: "/tasks", description: "Track and assign tasks" },
+        ],
         items: [
           { label: "Properties", icon: Building, href: "/properties", description: "Manage all properties" },
           { label: "Unified Calendar & Bookings", icon: Calendar, href: "/bookings", description: "All booking views and calendar management" },
@@ -107,6 +118,10 @@ const getRoleBasedMenus = (role: string): MenuSection[] => {
       },
       {
         title: "🧹 Operations",
+        hotItems: [
+          { label: "Auto-Scheduling Rules", icon: Clock, href: "/auto-scheduling-recurring-task-generator" },
+          { label: "Staff Profile & Payroll", icon: Users, href: "/staff-profile-payroll" },
+        ],
         items: [
           { label: "Auto-Scheduling Rules", icon: Clock, href: "/auto-scheduling-recurring-task-generator" },
           { label: "Maintenance Log & Warranty", icon: Wrench, href: "/maintenance-log-warranty-tracker" },
@@ -117,6 +132,10 @@ const getRoleBasedMenus = (role: string): MenuSection[] => {
       },
       {
         title: "💬 Guest Services",
+        hotItems: [
+          { label: "Guest Portal Smart Requests", icon: MessageSquare, href: "/guest-portal-smart-requests", badge: "AI" },
+          { label: "Upsell Recommendations", icon: TrendingUp, href: "/upsell-recommendations-management", badge: "New" },
+        ],
         items: [
           { label: "Guest Portal Smart Requests", icon: MessageSquare, href: "/guest-portal-smart-requests", badge: "AI" },
           { label: "Guest Activity Recommendations", icon: Star, href: "/guest-activity-recommendations", badge: "AI" },
@@ -126,6 +145,10 @@ const getRoleBasedMenus = (role: string): MenuSection[] => {
       },
       {
         title: "💰 Finance & Revenue",
+        hotItems: [
+          { label: "Finance Engine", icon: Database, href: "/finance-engine" },
+          { label: "OTA Revenue & Net Payout", icon: BarChart3, href: "/ota-revenue-net-payout-calculation", badge: "New" },
+        ],
         items: [
           { label: "Enhanced Financial Controls", icon: Shield, href: "/enhanced-financial-controls" },
           { label: "OTA Revenue & Net Payout", icon: BarChart3, href: "/ota-revenue-net-payout-calculation", badge: "New" },
@@ -139,6 +162,11 @@ const getRoleBasedMenus = (role: string): MenuSection[] => {
       },
       {
         title: "⚙️ System & Admin",
+        hotItems: [
+          { label: "User Management", icon: Users, href: "/admin/user-management", description: "Manage users & permissions" },
+          { label: "API Connections", icon: Key, href: "/admin/api-connections", description: "Configure Hostaway, Stripe, and OpenAI integrations", badge: "SaaS" },
+          { label: "Additional Settings", icon: Settings, href: "/admin/additional-settings", description: "Advanced admin tools and configuration", badge: "Tools" },
+        ],
         items: [
           { label: "Automation Management", icon: Settings, href: "/automation-management", description: "Commission & utility automation controls", badge: "Live" },
           { label: "Currency & Tax Management", icon: DollarSign, href: "/currency-tax-management", description: "Multi-currency rates and international tax compliance", badge: "Global" },
@@ -351,6 +379,7 @@ export default function Sidebar({ className }: SidebarProps) {
     "💰 Finance & Revenue": false,
     "⚙️ System & Admin": false,
   });
+  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
   const [darkMode, setDarkMode] = useState(false);
   const [language, setLanguage] = useState("en");
   const [notifications, setNotifications] = useState({
@@ -365,6 +394,13 @@ export default function Sidebar({ className }: SidebarProps) {
 
   const toggleSection = (sectionTitle: string) => {
     setCollapsedSections(prev => ({
+      ...prev,
+      [sectionTitle]: !prev[sectionTitle]
+    }));
+  };
+
+  const toggleExpanded = (sectionTitle: string) => {
+    setExpandedSections(prev => ({
       ...prev,
       [sectionTitle]: !prev[sectionTitle]
     }));
@@ -541,32 +577,39 @@ export default function Sidebar({ className }: SidebarProps) {
                     </Button>
                   </CollapsibleTrigger>
                   <CollapsibleContent className="space-y-1 pl-3 pr-2 pb-2">
-                    {section.items.map((item, itemIndex) => {
-                      const Icon = item.icon;
-                      // Better active state detection for URLs with parameters
-                      const isActive = (() => {
-                        const currentPath = location.split('?')[0];
-                        const itemPath = item.href.split('?')[0];
-                        
-                        // For exact match (no parameters)
-                        if (location === item.href) return true;
-                        
-                        // For parameter-based URLs, check if base path matches and parameters are correct
-                        if (currentPath === itemPath && item.href.includes('?')) {
-                          const currentParams = new URLSearchParams(location.split('?')[1] || '');
-                          const itemParams = new URLSearchParams(item.href.split('?')[1] || '');
-                          const itemTab = itemParams.get('tab');
-                          const currentTab = currentParams.get('tab');
-                          return itemTab === currentTab;
-                        }
-                        
-                        // Default case - check base path for default tab
-                        if (currentPath === itemPath && !item.href.includes('?') && !location.includes('?')) {
-                          return true;
-                        }
-                        
-                        return false;
-                      })();
+                    {(() => {
+                      const isExpanded = expandedSections[section.title];
+                      const itemsToShow = isExpanded || !section.hotItems ? section.items : section.hotItems;
+                      const hasMoreItems = section.hotItems && section.items.length > section.hotItems.length;
+                      
+                      return (
+                        <>
+                          {itemsToShow.map((item, itemIndex) => {
+                            const Icon = item.icon;
+                            // Better active state detection for URLs with parameters
+                            const isActive = (() => {
+                              const currentPath = location.split('?')[0];
+                              const itemPath = item.href.split('?')[0];
+                              
+                              // For exact match (no parameters)
+                              if (location === item.href) return true;
+                              
+                              // For parameter-based URLs, check if base path matches and parameters are correct
+                              if (currentPath === itemPath && item.href.includes('?')) {
+                                const currentParams = new URLSearchParams(location.split('?')[1] || '');
+                                const itemParams = new URLSearchParams(item.href.split('?')[1] || '');
+                                const itemTab = itemParams.get('tab');
+                                const currentTab = currentParams.get('tab');
+                                return itemTab === currentTab;
+                              }
+                              
+                              // Default case - check base path for default tab
+                              if (currentPath === itemPath && !item.href.includes('?') && !location.includes('?')) {
+                                return true;
+                              }
+                              
+                              return false;
+                            })();
                       return (
                         <div 
                           key={itemIndex}
@@ -631,8 +674,47 @@ export default function Sidebar({ className }: SidebarProps) {
                             </div>
                           </Button>
                         </div>
+                            );
+                          })}
+                          
+                          {/* "View More" Button for sections with hot items */}
+                          {hasMoreItems && !isExpanded && (
+                            <div className="mt-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  toggleExpanded(section.title);
+                                }}
+                                className="w-full h-8 text-xs text-muted-foreground hover:text-foreground border-dashed"
+                              >
+                                <Filter className="h-3 w-3 mr-1" />
+                                View More ({section.items.length - section.hotItems!.length} more)
+                              </Button>
+                            </div>
+                          )}
+                          
+                          {/* "Show Less" Button for expanded sections */}
+                          {hasMoreItems && isExpanded && (
+                            <div className="mt-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  toggleExpanded(section.title);
+                                }}
+                                className="w-full h-8 text-xs text-muted-foreground hover:text-foreground border-dashed"
+                              >
+                                <ChevronUp className="h-3 w-3 mr-1" />
+                                Show Less
+                              </Button>
+                            </div>
+                          )}
+                        </>
                       );
-                    })}
+                    })()}
                   </CollapsibleContent>
                 </Collapsible>
               );
