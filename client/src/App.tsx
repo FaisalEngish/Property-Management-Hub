@@ -97,6 +97,8 @@ import SmartPricingPerformanceToolkit from "@/pages/SmartPricingPerformanceToolk
 import OwnerInvoicingPayouts from "@/pages/OwnerInvoicingPayouts";
 import PortfolioManagerDashboard from "@/pages/PortfolioManagerDashboard";
 import OwnerDashboard from "@/pages/OwnerDashboard";
+import GuestPortal from "@/pages/GuestPortal";
+import PropertySettingsModule from "@/pages/PropertySettingsModule";
 
 // QueryClient is now imported from lib/queryClient for better performance
 
@@ -222,6 +224,18 @@ function AppRoutes() {
         <Route path="/owner-invoicing" component={OwnerInvoicingPayouts} />
         <Route path="/portfolio-manager-dashboard" component={PortfolioManagerDashboard} />
         <Route path="/owner-dashboard" component={OwnerDashboard} />
+        
+        {/* Additional Missing Routes - Second Batch */}
+        <Route path="/guest-services" component={GuestPortal} />
+        <Route path="/guest-portal" component={GuestPortal} />
+        <Route path="/property-settings" component={PropertySettingsModule} />
+        <Route path="/property-settings-module" component={PropertySettingsModule} />
+        <Route path="/staff-operations" component={StaffDashboard} />
+        <Route path="/staff-dashboard" component={StaffDashboard} />
+        <Route path="/check-in-check-out" component={CheckInCheckOutWorkflow} />
+        <Route path="/checkin-checkout" component={CheckInCheckOutWorkflow} />
+        <Route path="/activity-logs" component={ActivityLogs} />
+        <Route path="/daily-operations" component={DailyOperationsDashboard} />
         
         <Route component={NotFound} />
       </Switch>
