@@ -82,221 +82,74 @@ interface MenuSection {
   items: MenuItem[];
 }
 
-// Memoized role-based menu generation for performance
+// Simplified hub-based navigation for all roles
 const getRoleBasedMenus = (role: string): MenuSection[] => {
+  // All roles get the same simplified hub navigation
+  const commonMenus = [
+    {
+      title: "Main Navigation",
+      items: [
+        { label: "Dashboard", icon: BarChart3, href: "/dashboard-hub", description: "Access all dashboard views and analytics" },
+        { label: "Property", icon: Building2, href: "/property-hub", description: "Complete property management tools" },
+        { label: "Finance", icon: DollarSign, href: "/finance-hub", description: "Financial management and analytics" },
+        { label: "System", icon: Settings, href: "/system-hub", description: "System settings and administration" },
+      ]
+    }
+  ];
+
   const roleSpecificMenus: Record<string, MenuSection[]> = {
-    admin: [
-      {
-        title: "📊 Dashboards",
-        items: [
-          { label: "Admin Dashboard", icon: Home, href: "/", description: "Comprehensive admin overview and insights" },
-          { label: "Financial Dashboard", icon: DollarSign, href: "/filtered-financial-dashboard", badge: "New" },
-          { label: "Property Dashboard", icon: Building, href: "/filtered-property-dashboard", badge: "New" },
-        ]
-      },
-      {
-        title: "🏘️ Property Management",
-        items: [
-          { label: "Properties", icon: Building, href: "/properties", description: "Manage all properties" },
-          { label: "Unified Calendar & Bookings", icon: Calendar, href: "/bookings", description: "All booking views and calendar management" },
-          { label: "Tasks", icon: CheckSquare, href: "/tasks", description: "Track and assign tasks" },
-          { label: "Property Appliances", icon: Wrench, href: "/property-appliances-management", description: "Manage property appliances and repairs", badge: "New" },
-          { label: "Check-in/Check-out Workflow", icon: CheckCircle, href: "/checkin-checkout-workflow" },
-          { label: "Daily Operations", icon: Clock, href: "/daily-operations", badge: "New" },
-        ]
-      },
-      {
-        title: "🧹 Operations",
-        items: [
-          { label: "Auto-Scheduling Rules", icon: Clock, href: "/auto-scheduling-recurring-task-generator" },
-          { label: "Maintenance Log & Warranty", icon: Wrench, href: "/maintenance-log-warranty-tracker" },
-          { label: "Staff Profile & Payroll", icon: Users, href: "/staff-profile-payroll" },
-          { label: "Staff Advance & Overtime", icon: Clock, href: "/staff-advance-salary-overtime-tracker" },
-          { label: "Maintenance Suggestions", icon: Wrench, href: "/maintenance-suggestions" },
-        ]
-      },
-      {
-        title: "💬 Guest Services",
-        items: [
-          { label: "Guest Portal Smart Requests", icon: MessageSquare, href: "/guest-portal-smart-requests", badge: "AI" },
-          { label: "Guest Activity Recommendations", icon: Star, href: "/guest-activity-recommendations", badge: "AI" },
-          { label: "Upsell Recommendations", icon: TrendingUp, href: "/upsell-recommendations-management", badge: "New" },
-          { label: "Loyalty Guest Tracker", icon: Users, href: "/loyalty-tracker", badge: "New" },
-        ]
-      },
-      {
-        title: "💰 Finance & Revenue",
-        items: [
-          { label: "Enhanced Financial Controls", icon: Shield, href: "/enhanced-financial-controls" },
-          { label: "OTA Revenue & Net Payout", icon: BarChart3, href: "/ota-revenue-net-payout-calculation", badge: "New" },
-          { label: "OTA Payout Logic — Smart Revenue", icon: Calculator, href: "/ota-payout-logic-smart-revenue", badge: "NEW" },
-          { label: "Smart Pricing & Performance", icon: Brain, href: "/smart-pricing-performance-toolkit", badge: "AI" },
-          { label: "Invoices", icon: FileText, href: "/invoice-generator" },
-          { label: "Booking Income", icon: BarChart3, href: "/booking-income-rules" },
-          { label: "Finance Engine", icon: Database, href: "/finance-engine" },
-          { label: "Utility Tracker", icon: Car, href: "/utility-tracker" },
-        ]
-      },
-      {
-        title: "⚙️ System & Admin",
-        items: [
-          { label: "Automation Management", icon: Settings, href: "/automation-management", description: "Commission & utility automation controls", badge: "Live" },
-          { label: "Currency & Tax Management", icon: DollarSign, href: "/currency-tax-management", description: "Multi-currency rates and international tax compliance", badge: "Global" },
-          { label: "API Connections", icon: Key, href: "/admin/api-connections", description: "Configure Hostaway, Stripe, and OpenAI integrations", badge: "SaaS" },
-          { label: "Organization Branding", icon: Palette, href: "/admin/organization-branding", description: "Custom domains, logos, and theme colors", badge: "Brand" },
-          { label: "Legal Templates", icon: FileText, href: "/admin/legal-templates", description: "Manage country-specific legal documents and contracts", badge: "Legal" },
-          { label: "Marketing Pack Management", icon: FileText, href: "/admin/marketing-pack-management", description: "AI-powered marketing content generation and management", badge: "New" },
-          { label: "AI Operations Anomalies", icon: Activity, href: "/admin/ai-ops-anomalies", description: "Monitor and auto-fix system anomalies with AI detection", badge: "AI" },
-          { label: "SaaS Management", icon: Building2, href: "/admin/saas-management", description: "Manage signup requests and client organizations", badge: "Framework" },
-          { label: "User Management", icon: Users, href: "/admin/user-management", description: "Manage users & permissions" },
-          { label: "Staff Permissions", icon: Shield, href: "/admin/staff-permission-management", description: "Manage staff task creation permissions" },
-          { label: "Staff Expense Management", icon: Receipt, href: "/staff-expense-management", description: "Review staff expenses", badge: "New" },
-          { label: "AI Feature Dashboard", icon: Brain, href: "/ai-features", badge: "AI" },
-          { label: "Owner Targets & Upgrades", icon: Target, href: "/owner-target-upgrade-tracker", badge: "New" },
-          { label: "Additional Settings", icon: Settings, href: "/admin/additional-settings", description: "Advanced admin tools and configuration", badge: "Tools" },
-          { label: "System Settings", icon: Settings, href: "/settings" },
-        ]
-      }
-    ],
-    "portfolio-manager": [
-      {
-        title: "📊 Dashboards",
-        items: [
-          { label: "Portfolio Manager Dashboard", icon: Home, href: "/", description: "Property portfolio overview" },
-          { label: "Financial Dashboard", icon: DollarSign, href: "/filtered-financial-dashboard", badge: "New" },
-          { label: "Property Dashboard", icon: Building, href: "/filtered-property-dashboard", badge: "New" },
-        ]
-      },
-      {
-        title: "🏘️ Property Management",
-        items: [
-          { label: "Properties", icon: Building, href: "/properties", description: "Manage portfolio properties" },
-          { label: "Unified Calendar & Bookings", icon: Calendar, href: "/bookings", description: "All booking views and calendar management" },
-          { label: "Tasks", icon: CheckSquare, href: "/tasks", description: "Track and assign tasks" },
-          { label: "Property Appliances", icon: Wrench, href: "/property-appliances-management", description: "Manage property appliances and repairs", badge: "New" },
-          { label: "Check-in/Check-out Workflow", icon: CheckCircle, href: "/checkin-checkout-workflow" },
-          { label: "Daily Operations", icon: Clock, href: "/daily-operations", badge: "New" },
-        ]
-      },
-      {
-        title: "🧹 Operations",
-        items: [
-          { label: "Auto-Scheduling Rules", icon: Clock, href: "/auto-scheduling-recurring-task-generator" },
-          { label: "Maintenance Log & Warranty", icon: Wrench, href: "/maintenance-log-warranty-tracker" },
-          { label: "Staff Profile & Payroll", icon: Users, href: "/staff-profile-payroll" },
-          { label: "Staff Advance & Overtime", icon: Clock, href: "/staff-advance-salary-overtime-tracker" },
-          { label: "Staff Expense Management", icon: Receipt, href: "/staff-expense-management", description: "Review staff expenses", badge: "New" },
-        ]
-      },
-      {
-        title: "💬 Guest Services",
-        items: [
-          { label: "Guest Portal Smart Requests", icon: MessageSquare, href: "/guest-portal-smart-requests", badge: "AI" },
-          { label: "Guest Activity Recommendations", icon: Star, href: "/guest-activity-recommendations", badge: "AI" },
-          { label: "Upsell Recommendations", icon: TrendingUp, href: "/upsell-recommendations-management", badge: "New" },
-          { label: "Loyalty Guest Tracker", icon: Users, href: "/loyalty-tracker", badge: "New" },
-        ]
-      },
-      {
-        title: "💰 Finance & Revenue",
-        items: [
-          { label: "OTA Revenue & Net Payout", icon: BarChart3, href: "/ota-revenue-net-payout-calculation", badge: "New" },
-          { label: "OTA Payout Logic — Smart Revenue", icon: Calculator, href: "/ota-payout-logic-smart-revenue", badge: "NEW" },
-          { label: "Smart Pricing & Performance", icon: Brain, href: "/smart-pricing-performance-toolkit", badge: "AI" },
-          { label: "Invoices", icon: FileText, href: "/invoice-generator" },
-          { label: "Booking Income", icon: BarChart3, href: "/booking-income-rules" },
-          { label: "Finance Engine", icon: Database, href: "/finance-engine" },
-          { label: "Utility Tracker", icon: Car, href: "/utility-tracker" },
-        ]
-      }
-    ],
+    admin: commonMenus,
+    "portfolio-manager": commonMenus,
     staff: [
       {
-        title: "📊 Daily Tasks",
+        title: "Main Navigation",
         items: [
-          { label: "Staff Dashboard", icon: Home, href: "/", description: "Daily task overview" },
-          { label: "My Tasks", icon: CheckSquare, href: "/tasks", description: "Assigned tasks" },
-          { label: "Daily Operations", icon: Clock, href: "/daily-operations", badge: "New" },
-        ]
-      },
-      {
-        title: "🏘️ Property Operations",
-        items: [
-          { label: "Check-in/Check-out", icon: CheckCircle, href: "/checkin-checkout-workflow" },
-          { label: "Maintenance Requests", icon: Wrench, href: "/maintenance-log-warranty-tracker" },
-          { label: "Property Appliances", icon: Wrench, href: "/property-appliances-management", description: "Report appliance issues", badge: "New" },
-          { label: "Guest Services", icon: MessageSquare, href: "/guest-portal-smart-requests" },
-        ]
-      },
-      {
-        title: "💰 My Salary & Wallet",
-        items: [
-          { label: "My Salary & Overtime", icon: Clock, href: "/staff-advance-salary-overtime-tracker", description: "Track my hours and overtime" },
-          { label: "My Wallet & Petty Cash", icon: Calculator, href: "/staff-wallet-petty-cash", description: "Manage petty cash and expenses", badge: "Cash" },
-          { label: "Cash Collection Tracker", icon: DollarSign, href: "/staff-cash-collection", description: "Track cash from check-outs", badge: "New" },
+          { label: "Dashboard", icon: BarChart3, href: "/dashboard-hub", description: "Access all dashboard views and analytics" },
+          { label: "Property", icon: Building2, href: "/property-hub", description: "Complete property management tools" },
         ]
       }
     ],
     owner: [
       {
-        title: "📊 My Properties",
+        title: "Main Navigation", 
         items: [
-          { label: "Owner Dashboard", icon: Home, href: "/", description: "Property overview" },
-          { label: "My Properties", icon: Building, href: "/properties", description: "View my properties" },
-          { label: "Financial Reports", icon: DollarSign, href: "/filtered-financial-dashboard" },
-        ]
-      },
-      {
-        title: "💰 Finances",
-        items: [
-          { label: "Booking Income", icon: BarChart3, href: "/booking-income-rules" },
-          { label: "Invoices", icon: FileText, href: "/invoice-generator" },
-        ]
-      }
-    ],
-    guest: [
-      {
-        title: "Guest Services",
-        items: [
-          { label: "My Stay", icon: Home, href: "/", description: "Guest dashboard" },
-          { label: "Property Info", icon: Building, href: "/property-info" },
-          { label: "Services", icon: Coffee, href: "/services" },
+          { label: "Dashboard", icon: BarChart3, href: "/dashboard-hub", description: "Access all dashboard views and analytics" },
+          { label: "Property", icon: Building2, href: "/property-hub", description: "Complete property management tools" },
+          { label: "Finance", icon: DollarSign, href: "/finance-hub", description: "Financial management and analytics" },
         ]
       }
     ],
     "retail-agent": [
       {
-        title: "📊 Booking Dashboard",
-        items: [
-          { label: "Booking Engine", icon: Calendar, href: "/retail-agent", description: "Create bookings and track commissions" },
-          { label: "My Reservations", icon: BookOpen, href: "/retail-agent?tab=my-bookings", description: "View all my created reservations" },
-        ]
-      },
-      {
-        title: "🔧 Agent Tools",
+        title: "Agent Tools",
         items: [
           { label: "Quote Generator", icon: Calculator, href: "/agent/quote-generator", description: "Generate property quotes for clients" },
-          { label: "Commission Tracker", icon: DollarSign, href: "/agent/commissions", description: "Track commission earnings" },
-          { label: "Proposals", icon: FileText, href: "/agent/proposals", description: "Manage client proposals" },
-          { label: "Media Download", icon: Camera, href: "/agent/media-download", description: "Download property photos and videos" },
-          { label: "Leaderboard", icon: Star, href: "/agent/leaderboard", description: "View agent performance rankings" },
+          { label: "Commissions", icon: DollarSign, href: "/agent/commissions", description: "Track commission earnings" },
+          { label: "Proposals", icon: FileText, href: "/agent/proposals", description: "Create and manage proposals" },
+          { label: "Media Download", icon: Camera, href: "/agent/media-download", description: "Download property media files" },
+          { label: "Leaderboard", icon: Star, href: "/agent/leaderboard", description: "View performance rankings" },
         ]
       }
     ],
     "referral-agent": [
       {
-        title: "🏠 Property Management Services",
+        title: "Agent Tools",
         items: [
-          { label: "Service Overview", icon: FileText, href: "/referral-agent", description: "Our management services and downloadable PDF" },
-          { label: "Property Browse", icon: Building, href: "/referral-agent?tab=properties", description: "Browse available properties" },
+          { label: "Quote Generator", icon: Calculator, href: "/agent/quote-generator", description: "Generate property quotes for clients" },
+          { label: "Commissions", icon: DollarSign, href: "/agent/commissions", description: "Track commission earnings" },
+          { label: "Proposals", icon: FileText, href: "/agent/proposals", description: "Create and manage proposals" },
+          { label: "Media Download", icon: Camera, href: "/agent/media-download", description: "Download property media files" },
+          { label: "Leaderboard", icon: Star, href: "/agent/leaderboard", description: "View performance rankings" },
         ]
-      },
+      }
+    ],
+    guest: [
       {
-        title: "📊 My Referrals",
+        title: "Guest Portal",
         items: [
-          { label: "Referred Properties", icon: UserPlus, href: "/referral-agent?tab=referred", description: "Track your referred properties" },
-          { label: "Financial Updates", icon: DollarSign, href: "/referral-agent?tab=finances", description: "10% commission tracking" },
-          { label: "Performance Reports", icon: BarChart3, href: "/referral-agent?tab=finances", description: "Occupancy, bookings, reviews" },
+          { label: "My Stay", icon: Home, href: "/", description: "Guest dashboard and booking information" },
+          { label: "Property Info", icon: Building, href: "/property-info" },
+          { label: "Services", icon: Coffee, href: "/services" },
         ]
       }
     ]

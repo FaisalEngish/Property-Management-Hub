@@ -79,6 +79,12 @@ import Proposals from "@/pages/agent/Proposals";
 import MediaDownload from "@/pages/agent/MediaDownload";
 import Leaderboard from "@/pages/agent/Leaderboard";
 
+// Import new hub pages
+import DashboardHub from "@/pages/DashboardHub";
+import PropertyHub from "@/pages/PropertyHub";
+import FinanceHub from "@/pages/FinanceHub";
+import SystemHub from "@/pages/SystemHub";
+
 // Import agent dashboards
 import RetailAgentBooking from "@/pages/RetailAgentBooking";
 import ReferralAgentDashboard from "@/pages/ReferralAgentDashboard";
@@ -123,8 +129,14 @@ function AppRoutes() {
         <Route path="/settings" component={SimpleSettings} />
         <Route path="/help" component={SimpleHelp} />
         
+        {/* Hub Pages */}
+        <Route path="/dashboard-hub" component={DashboardHub} />
+        <Route path="/property-hub" component={PropertyHub} />
+        <Route path="/finance-hub" component={FinanceHub} />
+        <Route path="/system-hub" component={SystemHub} />
+        
         {/* Enhanced Dashboards */}
-        <Route path="/filtered-financial-dashboard" component={LazyFinancialDashboard} />
+        <Route path="/simple-filtered-financial-dashboard" component={LazyFinancialDashboard} />
         <Route path="/filtered-property-dashboard" component={LazyPropertyDashboard} />
         
         {/* Core Management */}
