@@ -83,6 +83,9 @@ import Leaderboard from "@/pages/agent/Leaderboard";
 import RetailAgentBooking from "@/pages/RetailAgentBooking";
 import ReferralAgentDashboard from "@/pages/ReferralAgentDashboard";
 
+// Import additional settings page
+import AdditionalSettings from "@/pages/AdditionalSettings";
+
 // QueryClient is now imported from lib/queryClient for better performance
 
 function AppRoutes() {
@@ -190,6 +193,9 @@ function AppRoutes() {
         {/* SaaS Framework Routes */}
         <Route path="/signup-request" component={SignupRequest} />
         <Route path="/admin/saas-management" component={SaasManagement} />
+        
+        {/* Additional Settings */}
+        <Route path="/admin/additional-settings" component={AdditionalSettings} />
         
         <Route component={NotFound} />
       </Switch>

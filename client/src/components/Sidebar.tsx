@@ -153,12 +153,9 @@ const getRoleBasedMenus = (role: string): MenuSection[] => {
           { label: "Staff Expense Management", icon: Receipt, href: "/staff-expense-management", description: "Review staff expenses", badge: "New" },
           { label: "System Integrity Check", icon: Shield, href: "/admin/system-integrity-check", badge: "QA" },
           { label: "System-Wide Demo Integration", icon: Database, href: "/system-wide-demo-integration", badge: "Demo" },
-          { label: "Activity Logs", icon: Activity, href: "/admin/activity-log" },
-          { label: "Finance Reset", icon: Shield, href: "/admin/finance-reset" },
-          { label: "AI Notifications & Reminders", icon: Brain, href: "/ai-notifications-reminders", badge: "New" },
           { label: "AI Feature Dashboard", icon: Brain, href: "/ai-features", badge: "AI" },
           { label: "Owner Targets & Upgrades", icon: Target, href: "/owner-target-upgrade-tracker", badge: "New" },
-          { label: "Sandbox Testing", icon: Activity, href: "/sandbox-testing", badge: "QA" },
+          { label: "Additional Settings", icon: Settings, href: "/admin/additional-settings", description: "Advanced admin tools and configuration", badge: "Tools" },
           { label: "System Settings", icon: Settings, href: "/settings" },
         ]
       }
