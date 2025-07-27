@@ -92,6 +92,12 @@ import ReferralAgentDashboard from "@/pages/ReferralAgentDashboard";
 // Import additional settings page
 import AdditionalSettings from "@/pages/AdditionalSettings";
 
+// Import missing components for 404 fixes
+import SmartPricingPerformanceToolkit from "@/pages/SmartPricingPerformanceToolkit";
+import OwnerInvoicingPayouts from "@/pages/OwnerInvoicingPayouts";
+import PortfolioManagerDashboard from "@/pages/PortfolioManagerDashboard";
+import OwnerDashboard from "@/pages/OwnerDashboard";
+
 // QueryClient is now imported from lib/queryClient for better performance
 
 function AppRoutes() {
@@ -208,6 +214,14 @@ function AppRoutes() {
         
         {/* Additional Settings */}
         <Route path="/admin/additional-settings" component={AdditionalSettings} />
+        
+        {/* Missing Routes - Fix 404 Errors */}
+        <Route path="/smart-pricing-performance-toolkit" component={SmartPricingPerformanceToolkit} />
+        <Route path="/smart-pricing" component={SmartPricingPerformanceToolkit} />
+        <Route path="/owner-invoicing-payouts" component={OwnerInvoicingPayouts} />
+        <Route path="/owner-invoicing" component={OwnerInvoicingPayouts} />
+        <Route path="/portfolio-manager-dashboard" component={PortfolioManagerDashboard} />
+        <Route path="/owner-dashboard" component={OwnerDashboard} />
         
         <Route component={NotFound} />
       </Switch>
