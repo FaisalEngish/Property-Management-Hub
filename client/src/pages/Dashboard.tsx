@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -58,26 +58,26 @@ export default function Dashboard() {
     refetchOnMount: false,
   });
 
-  // Enhanced demo data for better dashboard experience
+  // Enhanced demo data for better dashboard experience with null safety
   const enhancedProperties = [
     { id: "demo-1", name: "Villa Samui Breeze", owner: "John Smith", portfolioManager: "Alex Thompson", area: "Chaweng", bedrooms: 3, status: "active", revenue: 125000 },
     { id: "demo-2", name: "Villa Tropical Paradise", owner: "Sarah Johnson", portfolioManager: "Jessica Wilson", area: "Lamai", bedrooms: 4, status: "active", revenue: 145000 },
     { id: "demo-3", name: "Villa Balinese Charm", owner: "Michael Brown", portfolioManager: "Alex Thompson", area: "Bophut", bedrooms: 2, status: "maintenance", revenue: 105000 },
-    ...properties.map(p => ({ ...p, key: `api-${p.id}` }))
+    ...(Array.isArray(properties) ? properties.map(p => ({ ...p, key: `api-${p.id}` })) : [])
   ];
 
   const enhancedTasks = [
     { id: "task-1", title: "Pool Cleaning", property: "Villa Samui Breeze", assignedTo: "Pool Team", priority: "high", status: "pending", dueDate: "2025-01-06" },
     { id: "task-2", title: "AC Maintenance", property: "Villa Tropical Paradise", assignedTo: "Maintenance Team", priority: "medium", status: "in-progress", dueDate: "2025-01-07" },
     { id: "task-3", title: "Garden Service", property: "Villa Balinese Charm", assignedTo: "Garden Team", priority: "low", status: "completed", dueDate: "2025-01-05" },
-    ...tasks.map(t => ({ ...t, key: `api-${t.id}` }))
+    ...(Array.isArray(tasks) ? tasks.map(t => ({ ...t, key: `api-${t.id}` })) : [])
   ];
 
   const enhancedBookings = [
     { id: "booking-1", guestName: "Robert Wilson", property: "Villa Samui Breeze", checkIn: "2025-01-10", checkOut: "2025-01-17", status: "confirmed", totalAmount: 35000 },
     { id: "booking-2", guestName: "Lisa Chen", property: "Villa Tropical Paradise", checkIn: "2025-01-12", checkOut: "2025-01-19", status: "pending", totalAmount: 43500 },
     { id: "booking-3", guestName: "James Miller", property: "Villa Ocean View", checkIn: "2025-01-15", checkOut: "2025-01-22", status: "confirmed", totalAmount: 52500 },
-    ...bookings.map(b => ({ ...b, key: `api-${b.id}` }))
+    ...(Array.isArray(bookings) ? bookings.map(b => ({ ...b, key: `api-${b.id}` })) : [])
   ];
 
   const recentBookings = enhancedBookings.slice(0, 3);
