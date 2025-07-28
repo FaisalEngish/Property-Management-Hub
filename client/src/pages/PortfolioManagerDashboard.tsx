@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -164,6 +164,7 @@ export default function PortfolioManagerDashboard() {
   });
   
   const [selectedProperty, setSelectedProperty] = useState<string>("all");
+  const [selectedPortfolioManager, setSelectedPortfolioManager] = useState<string>(""); // For admin to select PM
   const [showPayoutDialog, setShowPayoutDialog] = useState(false);
   const [showInvoiceDialog, setShowInvoiceDialog] = useState(false);
   const [taskFilters, setTaskFilters] = useState({
@@ -172,34 +173,67 @@ export default function PortfolioManagerDashboard() {
     search: "",
   });
 
+  // Check if current user is admin
+  const isAdmin = (user as any)?.role === 'admin';
+  
+  // Portfolio Managers Query (for admin dropdown)
+  const { data: portfolioManagers = [] } = useQuery({
+    queryKey: ["/api/users", "portfolio-manager"],
+    queryFn: () => apiRequest("GET", "/api/users?role=portfolio-manager"),
+    enabled: isAdmin,
+  });
+
+  // Set default selected PM for admin (first PM in list) or current user for PM
+  useEffect(() => {
+    if (isAdmin && portfolioManagers.length > 0 && !selectedPortfolioManager) {
+      setSelectedPortfolioManager(portfolioManagers[0]?.id);
+    } else if (!isAdmin && (user as any)?.id) {
+      setSelectedPortfolioManager((user as any)?.id);
+    }
+  }, [isAdmin, portfolioManagers, user, selectedPortfolioManager]);
+
   // Financial Overview Query
   const { data: financialOverview, isLoading: financialLoading } = useQuery<FinancialOverview>({
-    queryKey: ["/api/pm/dashboard/financial-overview", dateRange.startDate, dateRange.endDate, selectedProperty],
+    queryKey: ["/api/pm/dashboard/financial-overview", dateRange.startDate, dateRange.endDate, selectedProperty, selectedPortfolioManager],
     queryFn: async () => {
       const params = new URLSearchParams({
         startDate: dateRange.startDate,
         endDate: dateRange.endDate,
         ...(selectedProperty !== "all" && { propertyId: selectedProperty }),
+        ...(selectedPortfolioManager && { portfolioManagerId: selectedPortfolioManager }),
       });
       return apiRequest("GET", `/api/pm/dashboard/financial-overview?${params}`);
     },
+    enabled: !!selectedPortfolioManager,
   });
 
   // Commission Balance Query
   const { data: balance, isLoading: balanceLoading } = useQuery<CommissionBalance>({
-    queryKey: ["/api/pm/dashboard/balance"],
-    queryFn: () => apiRequest("GET", "/api/pm/dashboard/balance"),
+    queryKey: ["/api/pm/dashboard/balance", selectedPortfolioManager],
+    queryFn: () => {
+      const params = new URLSearchParams({
+        ...(selectedPortfolioManager && { portfolioManagerId: selectedPortfolioManager }),
+      });
+      return apiRequest("GET", `/api/pm/dashboard/balance?${params}`);
+    },
+    enabled: !!selectedPortfolioManager,
   });
 
   // Payout Requests Query
   const { data: payouts, isLoading: payoutsLoading } = useQuery<PayoutRequest[]>({
-    queryKey: ["/api/pm/dashboard/payouts"],
-    queryFn: () => apiRequest("GET", "/api/pm/dashboard/payouts"),
+    queryKey: ["/api/pm/dashboard/payouts", selectedPortfolioManager],
+    queryFn: () => {
+      const params = new URLSearchParams({
+        ...(selectedPortfolioManager && { portfolioManagerId: selectedPortfolioManager }),
+      });
+      return apiRequest("GET", `/api/pm/dashboard/payouts?${params}`);
+    },
+    enabled: !!selectedPortfolioManager,
   });
 
   // Task Logs Query
   const { data: taskLogs, isLoading: taskLogsLoading } = useQuery<TaskLog[]>({
-    queryKey: ["/api/pm/dashboard/task-logs", taskFilters.department, taskFilters.status, dateRange.startDate, dateRange.endDate],
+    queryKey: ["/api/pm/dashboard/task-logs", taskFilters.department, taskFilters.status, dateRange.startDate, dateRange.endDate, selectedPortfolioManager],
     queryFn: async () => {
       const params = new URLSearchParams({
         startDate: dateRange.startDate,
@@ -207,21 +241,36 @@ export default function PortfolioManagerDashboard() {
         limit: "100",
         ...(taskFilters.department !== "all" && { department: taskFilters.department }),
         ...(taskFilters.status !== "all" && { status: taskFilters.status }),
+        ...(selectedPortfolioManager && { portfolioManagerId: selectedPortfolioManager }),
       });
       return apiRequest("GET", `/api/pm/dashboard/task-logs?${params}`);
     },
+    enabled: !!selectedPortfolioManager,
   });
 
   // Portfolio Properties Query
   const { data: portfolioProperties = [] } = useQuery({
-    queryKey: ["/api/pm/dashboard/portfolio"],
-    queryFn: () => apiRequest("GET", "/api/pm/dashboard/portfolio"),
+    queryKey: ["/api/pm/dashboard/portfolio", selectedPortfolioManager],
+    queryFn: () => {
+      const params = new URLSearchParams({
+        ...(selectedPortfolioManager && { portfolioManagerId: selectedPortfolioManager }),
+      });
+      return apiRequest("GET", `/api/pm/dashboard/portfolio?${params}`);
+    },
+    enabled: !!selectedPortfolioManager,
   });
 
   // PM Notifications Query
   const { data: notifications, isLoading: notificationsLoading } = useQuery<PMNotification[]>({
-    queryKey: ["/api/pm/dashboard/notifications"],
-    queryFn: () => apiRequest("GET", "/api/pm/dashboard/notifications?limit=20"),
+    queryKey: ["/api/pm/dashboard/notifications", selectedPortfolioManager],
+    queryFn: () => {
+      const params = new URLSearchParams({
+        limit: "20",
+        ...(selectedPortfolioManager && { portfolioManagerId: selectedPortfolioManager }),
+      });
+      return apiRequest("GET", `/api/pm/dashboard/notifications?${params}`);
+    },
+    enabled: !!selectedPortfolioManager,
   });
 
   // Invoices Query
@@ -376,13 +425,45 @@ export default function PortfolioManagerDashboard() {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Portfolio Manager Dashboard</h1>
-          <p className="text-muted-foreground">
-            Manage your portfolio, track commissions, and create invoices
-          </p>
+          <div className="flex items-center gap-2 mt-1">
+            <p className="text-muted-foreground">
+              {isAdmin ? "Viewing data for:" : "Manage your portfolio, track commissions, and create invoices"}
+            </p>
+            {isAdmin && selectedPortfolioManager && (
+              <Badge variant="outline" className="bg-blue-50 text-blue-700">
+                <User className="h-3 w-3 mr-1" />
+                {portfolioManagers.find(pm => pm.id === selectedPortfolioManager)?.name || "Portfolio Manager"}
+              </Badge>
+            )}
+          </div>
         </div>
         
         {/* Filters */}
         <div className="flex gap-4">
+          {/* Portfolio Manager Selection (Admin Only) */}
+          {isAdmin && (
+            <Select value={selectedPortfolioManager} onValueChange={setSelectedPortfolioManager}>
+              <SelectTrigger className="w-56">
+                <SelectValue placeholder="Select Portfolio Manager">
+                  <div className="flex items-center gap-2">
+                    <User className="h-4 w-4" />
+                    {portfolioManagers.find(pm => pm.id === selectedPortfolioManager)?.name || "Select Portfolio Manager"}
+                  </div>
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {portfolioManagers.map((pm: any) => (
+                  <SelectItem key={pm.id} value={pm.id}>
+                    <div className="flex items-center gap-2">
+                      <User className="h-4 w-4" />
+                      {pm.name} ({pm.email})
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+          
           <div className="flex gap-2">
             <Input
               type="date"
