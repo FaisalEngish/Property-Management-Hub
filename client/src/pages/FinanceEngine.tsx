@@ -6,6 +6,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
 import { 
   Database, 
   DollarSign, 
@@ -30,6 +32,15 @@ import {
 export default function FinanceEngine() {
   const [selectedProperty, setSelectedProperty] = useState("all");
   const [selectedPeriod, setSelectedPeriod] = useState("month");
+  const [showReportDialog, setShowReportDialog] = useState(false);
+  const [reportSettings, setReportSettings] = useState({
+    reportType: "comprehensive",
+    includeRevenue: true,
+    includeExpenses: true,
+    includeOwnerBalances: true,
+    includeTransactions: true,
+    format: "pdf"
+  });
 
   const properties = [
     { id: 1, name: "Villa Samui Breeze", location: "Koh Samui" },
@@ -230,7 +241,7 @@ export default function FinanceEngine() {
               <SelectItem value="year">This Year</SelectItem>
             </SelectContent>
           </Select>
-          <Button>Generate Report</Button>
+          <Button onClick={() => setShowReportDialog(true)}>Generate Report</Button>
         </div>
       </div>
 

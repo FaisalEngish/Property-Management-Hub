@@ -31,33 +31,6 @@ export default function InvoiceGenerator() {
     amount: ""
   });
 
-  // Filter invoices based on selected filters
-  const filteredInvoices = invoices.filter(invoice => {
-    const statusMatch = selectedStatus === "all" || invoice.status === selectedStatus;
-    const clientMatch = selectedClient === "all" || invoice.clientType === selectedClient;
-    
-    // Period filtering logic
-    const invoiceDate = new Date(invoice.issueDate);
-    const now = new Date();
-    let periodMatch = true;
-    
-    if (selectedPeriod === "week") {
-      const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-      periodMatch = invoiceDate >= weekAgo;
-    } else if (selectedPeriod === "month") {
-      const monthAgo = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
-      periodMatch = invoiceDate >= monthAgo;
-    } else if (selectedPeriod === "quarter") {
-      const quarterAgo = new Date(now.getFullYear(), now.getMonth() - 3, now.getDate());
-      periodMatch = invoiceDate >= quarterAgo;
-    } else if (selectedPeriod === "year") {
-      const yearAgo = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate());
-      periodMatch = invoiceDate >= yearAgo;
-    }
-    
-    return statusMatch && clientMatch && periodMatch;
-  });
-
   const invoices = [
     {
       id: "INV-2025-001",
@@ -124,6 +97,33 @@ export default function InvoiceGenerator() {
       ]
     }
   ];
+
+  // Filter invoices based on selected filters
+  const filteredInvoices = invoices.filter(invoice => {
+    const statusMatch = selectedStatus === "all" || invoice.status === selectedStatus;
+    const clientMatch = selectedClient === "all" || invoice.clientType === selectedClient;
+    
+    // Period filtering logic
+    const invoiceDate = new Date(invoice.issueDate);
+    const now = new Date();
+    let periodMatch = true;
+    
+    if (selectedPeriod === "week") {
+      const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      periodMatch = invoiceDate >= weekAgo;
+    } else if (selectedPeriod === "month") {
+      const monthAgo = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
+      periodMatch = invoiceDate >= monthAgo;
+    } else if (selectedPeriod === "quarter") {
+      const quarterAgo = new Date(now.getFullYear(), now.getMonth() - 3, now.getDate());
+      periodMatch = invoiceDate >= quarterAgo;
+    } else if (selectedPeriod === "year") {
+      const yearAgo = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate());
+      periodMatch = invoiceDate >= yearAgo;
+    }
+    
+    return statusMatch && clientMatch && periodMatch;
+  });
 
   const invoiceTemplates = [
     {
