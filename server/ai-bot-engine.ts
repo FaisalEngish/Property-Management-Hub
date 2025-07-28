@@ -114,10 +114,11 @@ Return only valid JSON.`;
       // Always fetch properties for reference
       data.properties = await this.storage.getProperties();
 
-      // Fetch specific data based on query type
+      // Fetch specific data based on query type and filter by organization
       switch (query.type) {
         case 'tasks':
-          data.tasks = await this.storage.getTasks();
+          const allTasks = await this.storage.getTasks();
+          data.tasks = allTasks.filter((task: any) => task.organizationId === context.organizationId);
           if (query.filters.dateRange) {
             data.tasks = this.filterByDateRange(data.tasks, query.filters.dateRange, 'dueDate');
           }
@@ -125,7 +126,8 @@ Return only valid JSON.`;
 
         case 'revenue':
         case 'expenses':
-          data.finance = await this.storage.getFinances();
+          const allFinances = await this.storage.getFinances();
+          data.finance = allFinances.filter((finance: any) => finance.organizationId === context.organizationId);
           if (query.filters.property) {
             const property = this.findPropertyByName(data.properties, query.filters.property);
             if (property) {
@@ -148,7 +150,8 @@ Return only valid JSON.`;
           break;
 
         case 'bookings':
-          data.bookings = await this.storage.getBookings();
+          const allBookings = await this.storage.getBookings();
+          data.bookings = allBookings.filter((booking: any) => booking.organizationId === context.organizationId);
           if (query.filters.property) {
             const property = this.findPropertyByName(data.properties, query.filters.property);
             if (property) {
@@ -161,10 +164,15 @@ Return only valid JSON.`;
           break;
 
         case 'general':
-          // Fetch all data for general questions
-          data.tasks = await this.storage.getTasks();
-          data.finance = await this.storage.getFinances();
-          data.bookings = await this.storage.getBookings();
+          // Fetch all data for general questions and filter by organization
+          const allTasksGeneral = await this.storage.getTasks();
+          data.tasks = allTasksGeneral.filter((task: any) => task.organizationId === context.organizationId);
+          
+          const allFinancesGeneral = await this.storage.getFinances();
+          data.finance = allFinancesGeneral.filter((finance: any) => finance.organizationId === context.organizationId);
+          
+          const allBookingsGeneral = await this.storage.getBookings();
+          data.bookings = allBookingsGeneral.filter((booking: any) => booking.organizationId === context.organizationId);
           break;
       }
 
