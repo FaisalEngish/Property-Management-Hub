@@ -31,6 +31,33 @@ export default function InvoiceGenerator() {
     amount: ""
   });
 
+  // Filter invoices based on selected filters
+  const filteredInvoices = invoices.filter(invoice => {
+    const statusMatch = selectedStatus === "all" || invoice.status === selectedStatus;
+    const clientMatch = selectedClient === "all" || invoice.clientType === selectedClient;
+    
+    // Period filtering logic
+    const invoiceDate = new Date(invoice.issueDate);
+    const now = new Date();
+    let periodMatch = true;
+    
+    if (selectedPeriod === "week") {
+      const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      periodMatch = invoiceDate >= weekAgo;
+    } else if (selectedPeriod === "month") {
+      const monthAgo = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
+      periodMatch = invoiceDate >= monthAgo;
+    } else if (selectedPeriod === "quarter") {
+      const quarterAgo = new Date(now.getFullYear(), now.getMonth() - 3, now.getDate());
+      periodMatch = invoiceDate >= quarterAgo;
+    } else if (selectedPeriod === "year") {
+      const yearAgo = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate());
+      periodMatch = invoiceDate >= yearAgo;
+    }
+    
+    return statusMatch && clientMatch && periodMatch;
+  });
+
   const invoices = [
     {
       id: "INV-2025-001",
@@ -359,11 +386,31 @@ export default function InvoiceGenerator() {
           {/* Invoice List */}
           <Card>
             <CardHeader>
-              <CardTitle>Recent Invoices</CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle>Recent Invoices</CardTitle>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-muted-foreground">
+                    Showing {filteredInvoices.length} of {invoices.length} invoices
+                  </span>
+                  {(selectedStatus !== "all" || selectedClient !== "all" || selectedPeriod !== "month") && (
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => {
+                        setSelectedStatus("all");
+                        setSelectedClient("all");
+                        setSelectedPeriod("month");
+                      }}
+                    >
+                      Clear Filters
+                    </Button>
+                  )}
+                </div>
+              </div>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {invoices.map((invoice) => (
+                {filteredInvoices.map((invoice) => (
                   <div key={invoice.id} className="border rounded-lg p-4">
                     <div className="flex items-start justify-between mb-3">
                       <div className="flex items-start gap-3">
