@@ -64,26 +64,26 @@ export class SaasStorage {
   }
 
   // ===== TENANT ORGANIZATIONS =====
-  async createTenantOrganization(tenant: NewTenantOrganization): Promise<TenantOrganization> {
-    const [created] = await masterDb.insert(tenantOrganizations).values(tenant).returning();
+  async createTenantOrganization(tenant: NewClientOrganization): Promise<ClientOrganization> {
+    const [created] = await masterDb.insert(clientOrganizations).values(tenant).returning();
     return created;
   }
 
-  async getTenantOrganizations(): Promise<TenantOrganization[]> {
-    return await masterDb.select().from(tenantOrganizations).orderBy(desc(tenantOrganizations.createdAt));
+  async getTenantOrganizations(): Promise<ClientOrganization[]> {
+    return await masterDb.select().from(clientOrganizations).orderBy(desc(clientOrganizations.createdAt));
   }
 
-  async getTenantBySubdomain(subdomain: string): Promise<TenantOrganization | null> {
-    const [tenant] = await masterDb.select().from(tenantOrganizations).where(eq(tenantOrganizations.subdomain, subdomain));
+  async getTenantBySubdomain(subdomain: string): Promise<ClientOrganization | null> {
+    const [tenant] = await masterDb.select().from(clientOrganizations).where(eq(clientOrganizations.subdomain, subdomain));
     return tenant || null;
   }
 
-  async getTenantByOrganizationId(organizationId: string): Promise<TenantOrganization | null> {
-    const [tenant] = await masterDb.select().from(tenantOrganizations).where(eq(tenantOrganizations.organizationId, organizationId));
+  async getTenantByOrganizationId(organizationId: string): Promise<ClientOrganization | null> {
+    const [tenant] = await masterDb.select().from(clientOrganizations).where(eq(clientOrganizations.organizationId, organizationId));
     return tenant || null;
   }
 
-  async updateTenantStatus(organizationId: string, status: "active" | "suspended" | "terminated"): Promise<TenantOrganization> {
+  async updateTenantStatus(organizationId: string, status: "active" | "suspended" | "terminated"): Promise<ClientOrganization> {
     const updateData: any = { status };
     
     if (status === "suspended") updateData.suspendedAt = new Date();
@@ -94,9 +94,9 @@ export class SaasStorage {
     }
 
     const [updated] = await masterDb
-      .update(tenantOrganizations)
+      .update(clientOrganizations)
       .set(updateData)
-      .where(eq(tenantOrganizations.organizationId, organizationId))
+      .where(eq(clientOrganizations.organizationId, organizationId))
       .returning();
     
     return updated;
@@ -109,23 +109,23 @@ export class SaasStorage {
     // Check if key exists and update, otherwise create
     const existing = await masterDb
       .select()
-      .from(tenantApiKeys)
+      .from(clientApiKeys)
       .where(and(
-        eq(tenantApiKeys.organizationId, organizationId),
-        eq(tenantApiKeys.service, service),
-        eq(tenantApiKeys.keyName, keyName)
+        eq(clientApiKeys.organizationId, organizationId),
+        eq(clientApiKeys.service, service),
+        eq(clientApiKeys.keyName, keyName)
       ));
 
     if (existing.length > 0) {
       const [updated] = await masterDb
-        .update(tenantApiKeys)
+        .update(clientApiKeys)
         .set({ encryptedKey, lastUsed: new Date() })
-        .where(eq(tenantApiKeys.id, existing[0].id))
+        .where(eq(clientApiKeys.id, existing[0].id))
         .returning();
       return updated;
     } else {
       const [created] = await masterDb
-        .insert(tenantApiKeys)
+        .insert(clientApiKeys)
         .values({
           organizationId,
           service,
@@ -140,12 +140,12 @@ export class SaasStorage {
   async getTenantApiKey(organizationId: string, service: string, keyName: string): Promise<string | null> {
     const [result] = await masterDb
       .select()
-      .from(tenantApiKeys)
+      .from(clientApiKeys)
       .where(and(
-        eq(tenantApiKeys.organizationId, organizationId),
-        eq(tenantApiKeys.service, service),
-        eq(tenantApiKeys.keyName, keyName),
-        eq(tenantApiKeys.isActive, true)
+        eq(clientApiKeys.organizationId, organizationId),
+        eq(clientApiKeys.service, service),
+        eq(clientApiKeys.keyName, keyName),
+        eq(clientApiKeys.isActive, true)
       ));
 
     if (!result) return null;
