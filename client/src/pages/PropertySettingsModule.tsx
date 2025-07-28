@@ -82,11 +82,11 @@ export default function PropertySettingsModule() {
 
   // Check user permissions
   const { data: user, isLoading: isUserLoading } = useQuery({
-    queryKey: ["/api/auth/demo-user"],
+    queryKey: ["/api/auth/user"],
     retry: false,
   });
 
-  const userRole = (user as any)?.role;
+  const userRole = (user as any)?.role || (user as any)?.primaryRole;
   const canEdit = ['admin', 'portfolio-manager'].includes(userRole);
   const canView = ['admin', 'portfolio-manager', 'owner'].includes(userRole);
   
