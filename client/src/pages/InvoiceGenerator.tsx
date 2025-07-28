@@ -11,6 +11,7 @@ export default function InvoiceGenerator() {
   const [selectedStatus, setSelectedStatus] = useState("all");
   const [selectedClient, setSelectedClient] = useState("all");
   const [selectedPeriod, setSelectedPeriod] = useState("month");
+  const [activeTab, setActiveTab] = useState("invoices");
   
   // New invoice form state
   const [newInvoice, setNewInvoice] = useState({
@@ -241,14 +242,14 @@ export default function InvoiceGenerator() {
             <Download className="w-4 h-4 mr-2" />
             Export Report
           </Button>
-          <Button>
+          <Button onClick={() => setActiveTab("create")}>
             <Plus className="w-4 h-4 mr-2" />
             Create Invoice
           </Button>
         </div>
       </div>
 
-      <Tabs defaultValue="invoices" className="space-y-6">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
         <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="invoices">All Invoices</TabsTrigger>
           <TabsTrigger value="create">Create Invoice</TabsTrigger>
