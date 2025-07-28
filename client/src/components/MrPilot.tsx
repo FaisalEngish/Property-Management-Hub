@@ -11,13 +11,13 @@ const MrPilot = () => {
     
     setIsLoading(true);
     try {
-      const res = await fetch("/api/assistant", {
+      const res = await fetch("/api/ai-bot/query", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt }),
+        body: JSON.stringify({ question: prompt }),
       });
       const data = await res.json();
-      setResponse(data.result || "No response received");
+      setResponse(data.response || "No response received");
     } catch (error) {
       setResponse("Error connecting to AI assistant");
     } finally {

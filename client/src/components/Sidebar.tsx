@@ -94,7 +94,6 @@ const getRoleBasedMenus = (role: string): MenuSection[] => {
         { label: "Dashboard", icon: BarChart3, href: "/dashboard-hub", description: "Access all dashboard views and analytics" },
         { label: "Property", icon: Building2, href: "/property-hub", description: "Complete property management tools" },
         { label: "Finance", icon: DollarSign, href: "/finance-hub", description: "Financial management and analytics" },
-        { label: "AI Assistant", icon: Bot, href: "/ai-bot", description: "MR Pilot AI bot for business questions", badge: "AI" },
         { label: "System", icon: Settings, href: "/system-hub", description: "System settings and administration" },
       ]
     }

@@ -74,6 +74,31 @@ export default function SimpleSettings() {
             </div>
           </div>
         </div>
+        
+        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
+          <h2 className="text-xl font-semibold mb-4">AI Assistant</h2>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <label className="text-sm font-medium">MR Pilot AI Bot</label>
+              <span className="text-sm text-green-600">Available</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-sm font-medium">Access AI Assistant</div>
+                <div className="text-xs text-gray-500">Get answers about your property data</div>
+              </div>
+              <a 
+                href="/ai-bot" 
+                className="text-blue-600 hover:text-blue-800 text-sm font-medium underline"
+              >
+                Open AI Chat
+              </a>
+            </div>
+            <div className="text-xs text-gray-500">
+              💡 Tip: You can also access MR Pilot using the floating button at the bottom right corner of any page
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
