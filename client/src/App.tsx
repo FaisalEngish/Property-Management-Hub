@@ -23,6 +23,7 @@ import NotFound from "@/pages/not-found";
 import SimpleLiveBookingCalendar from "./pages/SimpleLiveBookingCalendar";
 import SimpleMaintenanceSuggestions from "./pages/SimpleMaintenanceSuggestions";
 import CheckInCheckOutWorkflow from "@/pages/CheckInCheckOutWorkflow";
+import GuestCheckInCheckOutTracker from "@/pages/GuestCheckInCheckOutTracker";
 import DailyOperationsDashboard from "@/pages/DailyOperationsDashboard";
 import SandboxTestingDashboard from "@/pages/SandboxTestingDashboard";
 import GuestPortalSmartRequests from "@/pages/GuestPortalSmartRequests";
@@ -235,6 +236,8 @@ function AppRoutes() {
         <Route path="/staff-dashboard" component={StaffDashboard} />
         <Route path="/check-in-check-out" component={CheckInCheckOutWorkflow} />
         <Route path="/checkin-checkout" component={CheckInCheckOutWorkflow} />
+        <Route path="/guest-checkin-checkout-tracker" component={GuestCheckInCheckOutTracker} />
+        <Route path="/guest-check-in-check-out" component={GuestCheckInCheckOutTracker} />
         <Route path="/activity-logs" component={ActivityLogs} />
         <Route path="/daily-operations" component={DailyOperationsDashboard} />
         

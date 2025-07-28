@@ -432,7 +432,7 @@ export default function PortfolioManagerDashboard() {
             {isAdmin && selectedPortfolioManager && (
               <Badge variant="outline" className="bg-blue-50 text-blue-700">
                 <User className="h-3 w-3 mr-1" />
-                {portfolioManagers.find(pm => pm.id === selectedPortfolioManager)?.name || "Portfolio Manager"}
+                {(portfolioManagers && Array.isArray(portfolioManagers) ? portfolioManagers : []).find(pm => pm.id === selectedPortfolioManager)?.name || "Portfolio Manager"}
               </Badge>
             )}
           </div>
@@ -447,12 +447,12 @@ export default function PortfolioManagerDashboard() {
                 <SelectValue placeholder="Select Portfolio Manager">
                   <div className="flex items-center gap-2">
                     <User className="h-4 w-4" />
-                    {portfolioManagers.find(pm => pm.id === selectedPortfolioManager)?.name || "Select Portfolio Manager"}
+                    {(portfolioManagers && Array.isArray(portfolioManagers) ? portfolioManagers : []).find(pm => pm.id === selectedPortfolioManager)?.name || "Select Portfolio Manager"}
                   </div>
                 </SelectValue>
               </SelectTrigger>
               <SelectContent>
-                {portfolioManagers.map((pm: any) => (
+                {(portfolioManagers && Array.isArray(portfolioManagers) ? portfolioManagers : []).map((pm: any) => (
                   <SelectItem key={pm.id} value={pm.id}>
                     <div className="flex items-center gap-2">
                       <User className="h-4 w-4" />
