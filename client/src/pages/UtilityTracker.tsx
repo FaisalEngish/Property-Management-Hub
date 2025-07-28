@@ -9,6 +9,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useToast } from "@/hooks/use-toast";
 import { 
   Car, 
   Zap, 
@@ -28,7 +30,10 @@ import {
   Settings,
   Bell,
   FileText,
-  Eye
+  Eye,
+  TestTube,
+  Activity,
+  RefreshCw
 } from "lucide-react";
 
 export default function UtilityTracker() {
@@ -43,6 +48,126 @@ export default function UtilityTracker() {
     accountNumber: "",
     rate: "",
     autoPayEnabled: false
+  });
+
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  // Fetch utility alerts
+  const { data: utilityAlerts = [], isLoading: alertsLoading } = useQuery({
+    queryKey: ['/api/automation/utility-alerts'],
+    refetchInterval: 60000, // Refresh every minute
+  });
+
+  // Manual alert trigger mutation
+  const triggerAlertCheckMutation = useMutation({
+    mutationFn: async () => {
+      const response = await fetch('/api/automation/check-utility-alerts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      if (!response.ok) throw new Error('Failed to trigger alert check');
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Alert Check Triggered",
+        description: "Manual utility alert check has been initiated successfully.",
+      });
+      queryClient.invalidateQueries({ queryKey: ['/api/automation/utility-alerts'] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to trigger alert check",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Test alert mutation
+  const testAlertMutation = useMutation({
+    mutationFn: async () => {
+      const testData = {
+        alertType: 'test_alert',
+        alertTitle: 'Test Alert - System Check',
+        alertMessage: 'This is a test alert to verify the utility alert system is working correctly.',
+        alertSeverity: 'info',
+        propertyId: 1, // Villa Samui Breeze for testing
+        utilityType: 'electricity'
+      };
+      
+      const response = await fetch('/api/automation/utility-alerts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(testData),
+      });
+      if (!response.ok) throw new Error('Failed to create test alert');
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Test Alert Created",
+        description: "A test alert has been generated successfully. Check the alerts list below.",
+      });
+      queryClient.invalidateQueries({ queryKey: ['/api/automation/utility-alerts'] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to create test alert",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Export report functionality
+  const exportReportMutation = useMutation({
+    mutationFn: async () => {
+      const reportData = {
+        utilityBills,
+        properties,
+        monthlyStats,
+        generatedAt: new Date().toISOString(),
+        reportType: 'utility_tracker_summary'
+      };
+      
+      // Create and download CSV/JSON report
+      const csvContent = [
+        ['Property', 'Utility Type', 'Provider', 'Amount (THB)', 'Status', 'Due Date'],
+        ...utilityBills.map(bill => [
+          properties.find(p => p.id === bill.propertyId)?.name || 'Unknown',
+          bill.type.replace('_', ' ').toUpperCase(),
+          bill.provider,
+          bill.amount.toString(),
+          bill.status.toUpperCase(),
+          bill.dueDate
+        ])
+      ].map(row => row.join(',')).join('\n');
+      
+      const blob = new Blob([csvContent], { type: 'text/csv' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `utility-report-${new Date().toISOString().split('T')[0]}.csv`;
+      a.click();
+      window.URL.revokeObjectURL(url);
+      
+      return reportData;
+    },
+    onSuccess: () => {
+      toast({
+        title: "Report Exported",
+        description: "Utility report has been downloaded as CSV file.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Export Failed",
+        description: error.message || "Failed to export report",
+        variant: "destructive",
+      });
+    },
   });
 
   const properties = [
@@ -245,13 +370,27 @@ export default function UtilityTracker() {
                   <Label>Upload Receipt</Label>
                   <Input type="file" accept=".pdf,.jpg,.png" />
                 </div>
-                <Button className="w-full">Upload Bill</Button>
+                <Button 
+                  className="w-full"
+                  onClick={() => {
+                    toast({
+                      title: "Bill Upload",
+                      description: "Bill upload functionality will be integrated with actual backend storage.",
+                    });
+                  }}
+                >
+                  Upload Bill
+                </Button>
               </div>
             </DialogContent>
           </Dialog>
-          <Button variant="outline">
+          <Button 
+            variant="outline"
+            onClick={() => exportReportMutation.mutate()}
+            disabled={exportReportMutation.isPending}
+          >
             <Download className="w-4 h-4 mr-2" />
-            Export Report
+            {exportReportMutation.isPending ? "Exporting..." : "Export Report"}
           </Button>
           <Button>
             <Plus className="w-4 h-4 mr-2" />
@@ -609,42 +748,97 @@ export default function UtilityTracker() {
         <TabsContent value="alerts" className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Bill Alerts & Notifications</CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle>Utility Alert System</CardTitle>
+                <div className="flex items-center gap-2">
+                  <Button 
+                    size="sm" 
+                    variant="outline"
+                    onClick={() => testAlertMutation.mutate()}
+                    disabled={testAlertMutation.isPending}
+                  >
+                    <TestTube className="w-4 h-4 mr-2" />
+                    {testAlertMutation.isPending ? "Testing..." : "Test Alert"}
+                  </Button>
+                  <Button 
+                    size="sm" 
+                    onClick={() => triggerAlertCheckMutation.mutate()}
+                    disabled={triggerAlertCheckMutation.isPending}
+                  >
+                    <Activity className="w-4 h-4 mr-2" />
+                    {triggerAlertCheckMutation.isPending ? "Checking..." : "Manual Check"}
+                  </Button>
+                </div>
+              </div>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                <div className="flex items-center justify-between p-3 border border-red-200 rounded bg-red-50">
-                  <div className="flex items-center gap-3">
-                    <AlertTriangle className="w-5 h-5 text-red-500" />
-                    <div>
-                      <p className="font-medium text-red-800">Overdue Bill</p>
-                      <p className="text-sm text-red-600">Villa Aruna electricity bill is 5 days overdue</p>
-                    </div>
+                {alertsLoading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <RefreshCw className="w-6 h-6 animate-spin mr-2" />
+                    <span>Loading alerts...</span>
                   </div>
-                  <Button size="sm" variant="outline">Review</Button>
-                </div>
-
-                <div className="flex items-center justify-between p-3 border border-yellow-200 rounded bg-yellow-50">
-                  <div className="flex items-center gap-3">
-                    <Clock className="w-5 h-5 text-yellow-500" />
-                    <div>
-                      <p className="font-medium text-yellow-800">Due Soon</p>
-                      <p className="text-sm text-yellow-600">Villa Tropical Paradise internet bill due in 3 days</p>
-                    </div>
+                ) : utilityAlerts.length === 0 ? (
+                  <div className="text-center py-8">
+                    <Bell className="w-12 h-12 mx-auto text-gray-300 mb-4" />
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">No Active Alerts</h3>
+                    <p className="text-gray-500 mb-4">All utility bills are up to date. Use the buttons above to test the alert system.</p>
                   </div>
-                  <Button size="sm" variant="outline">Pay Now</Button>
-                </div>
-
-                <div className="flex items-center justify-between p-3 border border-blue-200 rounded bg-blue-50">
-                  <div className="flex items-center gap-3">
-                    <Bell className="w-5 h-5 text-blue-500" />
-                    <div>
-                      <p className="font-medium text-blue-800">New Bill Received</p>
-                      <p className="text-sm text-blue-600">Villa Samui Breeze water bill for January 2025</p>
-                    </div>
-                  </div>
-                  <Button size="sm" variant="outline">View</Button>
-                </div>
+                ) : (
+                  utilityAlerts.map((alert: any) => {
+                    const severityConfig = {
+                      'urgent': { 
+                        bg: 'bg-red-50', 
+                        border: 'border-red-200', 
+                        text: 'text-red-800', 
+                        icon: AlertTriangle,
+                        iconColor: 'text-red-500'
+                      },
+                      'warning': { 
+                        bg: 'bg-yellow-50', 
+                        border: 'border-yellow-200', 
+                        text: 'text-yellow-800', 
+                        icon: Clock,
+                        iconColor: 'text-yellow-500'
+                      },
+                      'info': { 
+                        bg: 'bg-blue-50', 
+                        border: 'border-blue-200', 
+                        text: 'text-blue-800', 
+                        icon: Bell,
+                        iconColor: 'text-blue-500'
+                      }
+                    };
+                    
+                    const config = severityConfig[alert.alertSeverity as keyof typeof severityConfig] || severityConfig.info;
+                    const IconComponent = config.icon;
+                    
+                    return (
+                      <div key={alert.id} className={`flex items-center justify-between p-3 border rounded ${config.bg} ${config.border}`}>
+                        <div className="flex items-center gap-3">
+                          <IconComponent className={`w-5 h-5 ${config.iconColor}`} />
+                          <div>
+                            <p className={`font-medium ${config.text}`}>{alert.alertTitle}</p>
+                            <p className={`text-sm ${config.text.replace('800', '600')}`}>{alert.alertMessage}</p>
+                            {alert.propertyName && (
+                              <p className={`text-xs ${config.text.replace('800', '500')} mt-1`}>
+                                Property: {alert.propertyName}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Badge variant={alert.alertSeverity === 'urgent' ? 'destructive' : 'secondary'}>
+                            {alert.alertStatus || 'Active'}
+                          </Badge>
+                          <Button size="sm" variant="outline">
+                            {alert.alertSeverity === 'urgent' ? 'Resolve' : 'View'}
+                          </Button>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
               </div>
             </CardContent>
           </Card>
