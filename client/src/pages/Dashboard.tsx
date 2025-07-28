@@ -66,20 +66,27 @@ export default function Dashboard() {
     { id: "demo-4", name: "Villa Ocean View", owner: "Emma Davis", portfolioManager: "Jessica Wilson", area: "Chaweng", bedrooms: 3, status: "active", revenue: 135000 }
   ];
 
+  // Helper function to get realistic demo dates
+  const getDemoDate = (daysFromToday: number) => {
+    const date = new Date();
+    date.setDate(date.getDate() + daysFromToday);
+    return date.toISOString().split('T')[0];
+  };
+
   const enhancedTasks = [
-    { id: "task-1", title: "Pool Cleaning", property: "Villa Samui Breeze", assignedTo: "Pool Team", priority: "high", status: "pending", dueDate: "2025-01-06" },
-    { id: "task-2", title: "AC Maintenance", property: "Villa Tropical Paradise", assignedTo: "Maintenance Team", priority: "medium", status: "in-progress", dueDate: "2025-01-07" },
-    { id: "task-3", title: "Garden Service", property: "Villa Balinese Charm", assignedTo: "Garden Team", priority: "low", status: "completed", dueDate: "2025-01-05" },
-    { id: "task-4", title: "WiFi Setup", property: "Villa Ocean View", assignedTo: "Tech Team", priority: "medium", status: "pending", dueDate: "2025-01-08" },
-    { id: "task-5", title: "Check-in Preparation", property: "Villa Samui Breeze", assignedTo: "Housekeeping", priority: "high", status: "in-progress", dueDate: "2025-01-09" }
+    { id: "task-1", title: "Pool Cleaning", property: "Villa Samui Breeze", assignedTo: "Pool Team", priority: "high", status: "completed", dueDate: getDemoDate(-3) }, // 3 days ago
+    { id: "task-2", title: "AC Maintenance", property: "Villa Tropical Paradise", assignedTo: "Maintenance Team", priority: "medium", status: "completed", dueDate: getDemoDate(-5) }, // 5 days ago
+    { id: "task-3", title: "Garden Service", property: "Villa Balinese Charm", assignedTo: "Garden Team", priority: "low", status: "completed", dueDate: getDemoDate(-7) }, // last week
+    { id: "task-4", title: "WiFi Setup", property: "Villa Ocean View", assignedTo: "Tech Team", priority: "medium", status: "pending", dueDate: getDemoDate(2) }, // day after tomorrow
+    { id: "task-5", title: "Check-in Preparation", property: "Villa Samui Breeze", assignedTo: "Housekeeping", priority: "high", status: "pending", dueDate: getDemoDate(5) } // 5 days from now
   ];
 
   const enhancedBookings = [
-    { id: "booking-1", guestName: "Robert Wilson", property: "Villa Samui Breeze", checkIn: "2025-01-10", checkOut: "2025-01-17", status: "confirmed", totalAmount: 35000 },
-    { id: "booking-2", guestName: "Lisa Chen", property: "Villa Tropical Paradise", checkIn: "2025-01-12", checkOut: "2025-01-19", status: "pending", totalAmount: 43500 },
-    { id: "booking-3", guestName: "James Miller", property: "Villa Ocean View", checkIn: "2025-01-15", checkOut: "2025-01-22", status: "confirmed", totalAmount: 52500 },
-    { id: "booking-4", guestName: "Anna Schmidt", property: "Villa Balinese Charm", checkIn: "2025-01-20", checkOut: "2025-01-27", status: "confirmed", totalAmount: 38500 },
-    { id: "booking-5", guestName: "David Park", property: "Villa Samui Breeze", checkIn: "2025-01-25", checkOut: "2025-02-01", status: "pending", totalAmount: 41000 }
+    { id: "booking-1", guestName: "Robert Wilson", property: "Villa Samui Breeze", checkIn: getDemoDate(-6), checkOut: getDemoDate(-2), status: "confirmed", totalAmount: 35000 }, // Past booking: 6 days ago to 2 days ago
+    { id: "booking-2", guestName: "Lisa Chen", property: "Villa Tropical Paradise", checkIn: getDemoDate(-4), checkOut: getDemoDate(-1), status: "confirmed", totalAmount: 43500 }, // Past booking: 4 days ago to yesterday
+    { id: "booking-3", guestName: "James Miller", property: "Villa Ocean View", checkIn: getDemoDate(1), checkOut: getDemoDate(4), status: "confirmed", totalAmount: 52500 }, // Future booking: tomorrow to 4 days from now
+    { id: "booking-4", guestName: "Anna Schmidt", property: "Villa Balinese Charm", checkIn: getDemoDate(3), checkOut: getDemoDate(7), status: "pending", totalAmount: 38500 }, // Future booking: 3 days to 1 week from now
+    { id: "booking-5", guestName: "David Park", property: "Villa Samui Breeze", checkIn: getDemoDate(6), checkOut: getDemoDate(10), status: "pending", totalAmount: 41000 } // Future booking: 6 days to 10 days from now
   ];
 
   const recentBookings = enhancedBookings.slice(0, 3);

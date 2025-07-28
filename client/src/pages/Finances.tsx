@@ -127,7 +127,7 @@ export default function Finances() {
       
       <div className="flex-1 flex flex-col">
         <TopBar 
-          title="Financial Dashboard" 
+          title="Admin's Financial Dashboard" 
           subtitle="Track income, expenses, and source attribution"
           onMobileMenuToggle={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
           action={
