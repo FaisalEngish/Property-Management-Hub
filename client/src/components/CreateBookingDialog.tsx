@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -100,11 +100,11 @@ export default function CreateBookingDialog({ open, onOpenChange }: CreateBookin
                   <SelectValue placeholder="Select property" />
                 </SelectTrigger>
                 <SelectContent>
-                  {properties.map((property: any) => (
+                  {Array.isArray(properties) ? properties.map((property: any) => (
                     <SelectItem key={property.id} value={property.id.toString()}>
                       {property.name}
                     </SelectItem>
-                  ))}
+                  )) : []}
                 </SelectContent>
               </Select>
             </div>
