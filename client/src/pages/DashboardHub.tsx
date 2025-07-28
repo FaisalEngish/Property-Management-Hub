@@ -1,3 +1,4 @@
+import React from "react";
 import { Link } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -50,7 +51,7 @@ export default function DashboardHub() {
     {
       title: "Daily Operations",
       description: "Today's activities, urgent tasks, and operational status overview",
-      href: "/daily-operations-dashboard",
+      href: "/daily-operations",
       icon: Activity,
       badge: "Today",
       color: "bg-red-50 hover:bg-red-100 border-red-200"

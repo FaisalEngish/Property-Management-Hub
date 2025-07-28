@@ -1,3 +1,4 @@
+import React from "react";
 import { Link } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -67,7 +68,7 @@ export default function SystemHub() {
     {
       title: "Sandbox Testing",
       description: "Demo data testing environment and system validation tools",
-      href: "/sandbox-testing-dashboard",
+      href: "/sandbox-testing",
       icon: TestTube,
       badge: "Test",
       color: "bg-pink-50 hover:bg-pink-100 border-pink-200"

@@ -1,3 +1,4 @@
+import React from "react";
 import { Link } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -66,7 +67,7 @@ export default function PropertyHub() {
     {
       title: "Staff Operations",
       description: "Staff task assignments, schedules, and operational coordination",
-      href: "/staff-tasks",
+      href: "/staff-operations",
       icon: ClipboardList,
       badge: "Staff",
       color: "bg-yellow-50 hover:bg-yellow-100 border-yellow-200"
