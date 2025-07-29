@@ -189,11 +189,19 @@ export default function UnifiedTopBar({
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
             
-            <DropdownMenuItem asChild>
-              <Link href="/settings" className="w-full flex items-center gap-2">
-                <Settings className="h-4 w-4" />
-                Settings
-              </Link>
+            <DropdownMenuItem 
+              onClick={() => {
+                try {
+                  window.location.href = "/settings";
+                } catch (error) {
+                  console.error("Settings navigation error:", error);
+                  window.location.href = "/simple-settings";
+                }
+              }}
+              className="w-full flex items-center gap-2"
+            >
+              <Settings className="h-4 w-4" />
+              Settings
             </DropdownMenuItem>
             
             <DropdownMenuSeparator />

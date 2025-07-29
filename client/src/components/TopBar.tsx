@@ -195,11 +195,30 @@ export default function TopBar({ title, subtitle, action, onMobileMenuToggle }: 
             <DropdownMenuContent align="end" className="w-56">
               <DropdownMenuLabel>My Account</DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem className="flex items-center gap-2">
+              <DropdownMenuItem 
+                className="flex items-center gap-2"
+                onClick={() => {
+                  try {
+                    window.location.href = "/profile";
+                  } catch (error) {
+                    console.error("Profile navigation error:", error);
+                  }
+                }}
+              >
                 <User className="h-4 w-4" />
                 Profile
               </DropdownMenuItem>
-              <DropdownMenuItem className="flex items-center gap-2">
+              <DropdownMenuItem 
+                className="flex items-center gap-2"
+                onClick={() => {
+                  try {
+                    window.location.href = "/settings";
+                  } catch (error) {
+                    console.error("Settings navigation error:", error);
+                    window.location.href = "/simple-settings";
+                  }
+                }}
+              >
                 <Settings className="h-4 w-4" />
                 Settings
               </DropdownMenuItem>
