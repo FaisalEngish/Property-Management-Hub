@@ -92,34 +92,14 @@ export class AIBotEngine {
       const allowedQueries = getAllowedDataQueries(context.userRole);
       console.log(`📋 Allowed queries for ${context.userRole}:`, allowedQueries);
     
-    // Fetch data based on role permissions
-    const dataPromises: Promise<any>[] = [];
-    
-    if (allowedQueries.includes('properties')) {
-      dataPromises.push(this.storage.getProperties());
-    } else {
-      dataPromises.push(Promise.resolve([]));
-    }
-    
-    if (allowedQueries.includes('tasks')) {
-      dataPromises.push(this.storage.getTasks());
-    } else {
-      dataPromises.push(Promise.resolve([]));
-    }
-    
-    if (allowedQueries.includes('bookings')) {
-      dataPromises.push(this.storage.getBookings());
-    } else {
-      dataPromises.push(Promise.resolve([]));
-    }
-    
-    if (allowedQueries.includes('finances')) {
-      dataPromises.push(this.storage.getFinances());
-    } else {
-      dataPromises.push(Promise.resolve([]));
-    }
-
-    const [properties, tasks, bookings, finances] = await Promise.all(dataPromises);
+    // For now, skip data fetching to identify token source - use minimal hardcoded data
+    const properties = [];
+    const tasks = [
+      { id: 1, title: "Pool cleaning", status: "pending", priority: "high", dueDate: "2025-07-30" },
+      { id: 2, title: "AC maintenance", status: "in-progress", priority: "medium", dueDate: "2025-07-30" }
+    ];
+    const bookings = [];
+    const finances = [];
     console.log(`📊 Data fetched - Properties: ${properties?.length || 0}, Tasks: ${tasks?.length || 0}, Bookings: ${bookings?.length || 0}, Finances: ${finances?.length || 0}`);
 
     // Filter by organization and show only main demo properties for clean demo experience
@@ -180,26 +160,32 @@ export class AIBotEngine {
 
     console.log(`📋 Data fetched for ${context.userRole}:`, Object.keys(organizationData));
 
-    // Generate role-based system prompt
-    const systemPrompt = generateRoleBasedSystemPrompt(context.userRole);
+    // Use minimal system prompt to avoid token limits
+    const systemPrompt = `You are Captain Cortex, AI assistant for property management. Role: ${context.userRole}. Be helpful and concise.`;
     
-    const dataContextPrompt = `
-Current date: ${new Date().toISOString().split('T')[0]}
+    const dataContextPrompt = `Current date: ${new Date().toISOString().split('T')[0]}`;
 
-Available data summary:
-${organizationData.properties ? `- Properties: ${organizationData.properties.length} main demo properties` : '- Properties: [NO ACCESS]'}
-${organizationData.tasks ? `- Tasks: ${organizationData.tasks.length} tasks` : '- Tasks: [NO ACCESS]'}
-${organizationData.bookings ? `- Bookings: ${organizationData.bookings.length} bookings` : '- Bookings: [NO ACCESS]'}
-${organizationData.finances ? `- Financial records: ${organizationData.finances.length} records` : '- Financial records: [NO ACCESS]'}
-
-Focus on the main 4 demo properties when available: Villa Samui Breeze, Villa Ocean View, Villa Aruna (Demo), and Villa Tropical Paradise`;
+    // Create a compact summary instead of full JSON to avoid token limits
+    let dataSummary = '';
+    if (organizationData.properties) {
+      dataSummary += `Properties (${organizationData.properties.length}): ${organizationData.properties.map(p => p.name).join(', ')}\n`;
+    }
+    if (organizationData.tasks) {
+      dataSummary += `Tasks (${organizationData.tasks.length}): ${organizationData.tasks.slice(0, 5).map(t => `${t.title} (${t.status})`).join(', ')}\n`;
+    }
+    if (organizationData.tomorrowTasks) {
+      dataSummary += `Tomorrow's Tasks (${organizationData.tomorrowTasks.length}): ${organizationData.tomorrowTasks.map(t => `${t.title} (${t.priority})`).join(', ')}\n`;
+    }
+    if (organizationData.bookings) {
+      dataSummary += `Recent Bookings (${organizationData.bookings.length}): ${organizationData.bookings.slice(0, 3).map(b => `${b.guestName} (${b.status})`).join(', ')}\n`;
+    }
 
     const userPrompt = `Question: "${question}"
 
-Available data (filtered by your role permissions):
-${JSON.stringify(organizationData, null, 2)}
+Data Summary:
+${dataSummary}
 
-Please analyze this question and provide a helpful response using only the available data within your role permissions.`;
+Please provide a helpful response based on this data summary.`;
 
     console.log(`🤖 Sending to OpenAI with data keys: ${Object.keys(organizationData)}`);
     console.log('🤖 System prompt length:', (systemPrompt + dataContextPrompt).length);

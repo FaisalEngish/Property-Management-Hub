@@ -1,10 +1,12 @@
 // Captain Cortex API routes with role-based permissions
 import type { Express } from "express";
 import { AIBotEngine } from "../ai-bot-engine";
+import { MinimalAIBotEngine } from "../ai-bot-engine-minimal";
 import { isDemoAuthenticated } from "../demoAuth";
 
 export function registerCaptainCortexRoutes(app: Express) {
   const aiBotEngine = new AIBotEngine();
+  const minimalEngine = new MinimalAIBotEngine();
 
   // AI Bot query endpoint with role-based permissions
   app.post("/api/ai-bot/query", isDemoAuthenticated, async (req, res) => {
@@ -25,7 +27,8 @@ export function registerCaptainCortexRoutes(app: Express) {
 
       console.log(`🤖 AI Bot query from ${context.userRole}: "${question}"`);
 
-      const response = await aiBotEngine.processQuery(question, context);
+      // Use minimal engine temporarily to debug token issue
+      const response = await minimalEngine.processQuery(question);
       
       res.json({ 
         response,
