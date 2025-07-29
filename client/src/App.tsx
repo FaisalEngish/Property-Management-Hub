@@ -5,7 +5,7 @@ import { queryClient } from "@/lib/queryClient";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import Layout from "@/components/Layout";
-import { useAuth } from "@/hooks/useAuth";
+import { useFastAuth } from "@/lib/fastAuth";
 import { warmCache } from "@/lib/sessionCache";
 import { CacheProvider } from "@/context/CacheContext";
 
@@ -113,12 +113,15 @@ import PropertySettingsModule from "@/pages/PropertySettingsModule";
 // QueryClient is now imported from lib/queryClient for better performance
 
 function AppRoutes() {
-  const { user, isLoading } = useAuth();
+  const { user, isLoading } = useFastAuth();
   
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-lg">Loading...</div>
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
+        <div className="flex items-center space-x-3">
+          <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+          <div className="text-lg font-medium text-blue-700">Loading HostPilotPro...</div>
+        </div>
       </div>
     );
   }

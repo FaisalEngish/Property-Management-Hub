@@ -1,12 +1,13 @@
 import React, { useEffect } from "react";
-import { useAuth } from "@/hooks/useAuth";
+import { useFastAuth } from "@/lib/fastAuth";
 import Dashboard from "@/pages/Dashboard";
 import StaffDashboard from "@/pages/StaffDashboard";
 import RetailAgentHub from "@/pages/agent/RetailAgentHub";
 import ReferralAgentDashboard from "@/pages/ReferralAgentDashboard";
+import FastPageTransition from "./FastPageTransition";
 
 export default function RoleBasedDashboard() {
-  const { user } = useAuth();
+  const { user } = useFastAuth();
   
   // Redirect retail agents to their hub immediately
   useEffect(() => {
@@ -15,18 +16,26 @@ export default function RoleBasedDashboard() {
     }
   }, [user?.role]);
   
-  // Route to appropriate dashboard based on user role
-  switch (user?.role) {
-    case 'staff':
-      return <StaffDashboard />;
-    case 'retail-agent':
-      return <RetailAgentHub />;
-    case 'referral-agent':
-      return <ReferralAgentDashboard />;
-    case 'admin':
-    case 'portfolio-manager':
-    case 'owner':
-    default:
-      return <Dashboard />;
-  }
+  // Route to appropriate dashboard based on user role with fast loading
+  const renderDashboard = () => {
+    switch (user?.role) {
+      case 'staff':
+        return <StaffDashboard />;
+      case 'retail-agent':
+        return <RetailAgentHub />;
+      case 'referral-agent':
+        return <ReferralAgentDashboard />;
+      case 'admin':
+      case 'portfolio-manager':
+      case 'owner':
+      default:
+        return <Dashboard />;
+    }
+  };
+
+  return (
+    <FastPageTransition>
+      {renderDashboard()}
+    </FastPageTransition>
+  );
 }

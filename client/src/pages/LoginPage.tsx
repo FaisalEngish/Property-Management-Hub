@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Loader2, Building2, Shield, Users, CheckCircle } from "lucide-react";
-import { useAuth } from "@/lib/auth";
+import { useFastAuth } from "@/lib/fastAuth";
 
 const DEMO_CREDENTIALS = [
   { email: "admin@test.com", role: "Admin", password: "admin123", permissions: "Full system access, User management, God Mode" },
@@ -19,7 +19,7 @@ const DEMO_CREDENTIALS = [
 
 export default function LoginPage() {
   const [, setLocation] = useLocation();
-  const { login, user, isLoading: authLoading } = useAuth();
+  const { login, user, isLoading: authLoading } = useFastAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -41,10 +41,10 @@ export default function LoginPage() {
 
     try {
       await login(email, password);
+      // Navigate immediately without waiting
       setLocation("/");
     } catch (err: any) {
       setError(err.message || "Login failed. Please check your credentials.");
-    } finally {
       setIsLoading(false);
     }
   };
@@ -60,10 +60,10 @@ export default function LoginPage() {
 
     try {
       await login(demoEmail, demoPassword);
+      // Navigate immediately without waiting
       setLocation("/");
     } catch (err: any) {
       setError(err.message || "Demo login failed.");
-    } finally {
       setIsLoading(false);
     }
   };
