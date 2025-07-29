@@ -19,6 +19,7 @@ import Services from "@/pages/Services";
 import SimpleFinances from "./pages/SimpleFinances";
 import SimpleSettings from "./pages/SimpleSettings";
 import LoginPage from "@/pages/LoginPage";
+import ProfilePage from "@/pages/ProfilePage";
 import Landing from "@/pages/Landing";
 import NotFound from "@/pages/not-found";
 
@@ -149,6 +150,7 @@ function AppRoutes() {
         <Route path="/services" component={Services} />
         <Route path="/finances" component={SimpleFinances} />
         <Route path="/settings" component={SimpleSettings} />
+        <Route path="/profile" component={ProfilePage} />
         <Route path="/help" component={SimpleHelp} />
         
         {/* Hub Pages */}
