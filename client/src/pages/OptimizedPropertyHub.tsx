@@ -2,6 +2,12 @@ import React, { useState, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useToast } from "@/hooks/use-toast";
 import { 
   Home, 
   Calendar, 
@@ -12,7 +18,10 @@ import {
   MapPin,
   TrendingUp,
   DollarSign,
-  CheckCircle
+  CheckCircle,
+  Archive,
+  UserCheck,
+  Edit3
 } from "lucide-react";
 
 // Pre-loaded property data for instant display
@@ -114,6 +123,18 @@ export default function OptimizedPropertyHub() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [selectedProperties, setSelectedProperties] = useState<number[]>([]);
+  const [isAddPropertyOpen, setIsAddPropertyOpen] = useState(false);
+  const [isBulkActionsOpen, setIsBulkActionsOpen] = useState(false);
+  const [newProperty, setNewProperty] = useState({
+    name: "",
+    location: "",
+    bedrooms: 1,
+    bathrooms: 1,
+    capacity: 2,
+    description: ""
+  });
+  
+  const { toast } = useToast();
 
   // Fast, instant filtering
   const filteredProperties = useMemo(() => {
@@ -157,6 +178,82 @@ export default function OptimizedPropertyHub() {
     window.location.href = route;
   };
 
+  const handleAddProperty = () => {
+    // Simulate adding property
+    const newId = Math.max(...DEMO_PROPERTIES.map(p => p.id)) + 1;
+    const propertyToAdd = {
+      id: newId,
+      name: newProperty.name,
+      location: newProperty.location,
+      bedrooms: newProperty.bedrooms,
+      bathrooms: newProperty.bathrooms,
+      capacity: newProperty.capacity,
+      status: "active" as const,
+      lastBooking: "Never",
+      occupancy: 0,
+      monthlyRevenue: 0,
+      roi: 0,
+      maintenanceTasks: 0,
+      image: "🏠"
+    };
+    
+    // In a real app, this would make an API call
+    toast({
+      title: "Property Added Successfully",
+      description: `${newProperty.name} has been added to your portfolio.`,
+    });
+    
+    // Reset form and close dialog
+    setNewProperty({
+      name: "",
+      location: "",
+      bedrooms: 1,
+      bathrooms: 1,
+      capacity: 2,
+      description: ""
+    });
+    setIsAddPropertyOpen(false);
+  };
+
+  const handleBulkAction = (action: string) => {
+    if (selectedProperties.length === 0) {
+      toast({
+        title: "No Properties Selected",
+        description: "Please select properties to perform bulk actions.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const selectedNames = filteredProperties
+      .filter(p => selectedProperties.includes(p.id))
+      .map(p => p.name);
+
+    switch (action) {
+      case "assign-manager":
+        toast({
+          title: "Manager Assigned",
+          description: `Assigned manager to ${selectedProperties.length} properties: ${selectedNames.join(", ")}`,
+        });
+        break;
+      case "update-status":
+        toast({
+          title: "Status Updated", 
+          description: `Updated status for ${selectedProperties.length} properties: ${selectedNames.join(", ")}`,
+        });
+        break;
+      case "archive":
+        toast({
+          title: "Properties Archived",
+          description: `Archived ${selectedProperties.length} properties: ${selectedNames.join(", ")}`,
+        });
+        break;
+    }
+    
+    setSelectedProperties([]);
+    setIsBulkActionsOpen(false);
+  };
+
   // Summary stats
   const totalProperties = filteredProperties.length;
   const activeProperties = filteredProperties.filter(p => p.status === "active").length;
@@ -175,16 +272,122 @@ export default function OptimizedPropertyHub() {
           <p className="text-gray-600 mt-1">Manage your property portfolio</p>
         </div>
         <div className="flex gap-2">
-          {QUICK_ACTIONS.slice(0, 2).map((action) => (
-            <Button 
-              key={action.id}
-              onClick={() => handleNavigation(action.route)}
-              className={action.color}
-            >
-              <action.icon className="h-4 w-4 mr-2" />
-              {action.label}
-            </Button>
-          ))}
+          <Dialog open={isAddPropertyOpen} onOpenChange={setIsAddPropertyOpen}>
+            <DialogTrigger asChild>
+              <Button className="bg-blue-600 hover:bg-blue-700">
+                <Plus className="h-4 w-4 mr-2" />
+                Add New Property
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle>Add New Property</DialogTitle>
+                <DialogDescription>
+                  Add a new property to your portfolio
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="property-name">Property Name</Label>
+                  <Input
+                    id="property-name"
+                    value={newProperty.name}
+                    onChange={(e) => setNewProperty({...newProperty, name: e.target.value})}
+                    placeholder="Villa Sunset Paradise"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="property-location">Location</Label>
+                  <Input
+                    id="property-location"
+                    value={newProperty.location}
+                    onChange={(e) => setNewProperty({...newProperty, location: e.target.value})}
+                    placeholder="Phuket, Thailand"
+                  />
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  <div>
+                    <Label htmlFor="bedrooms">Bedrooms</Label>
+                    <Select value={newProperty.bedrooms.toString()} onValueChange={(value) => setNewProperty({...newProperty, bedrooms: parseInt(value)})}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="1">1</SelectItem>
+                        <SelectItem value="2">2</SelectItem>
+                        <SelectItem value="3">3</SelectItem>
+                        <SelectItem value="4">4</SelectItem>
+                        <SelectItem value="5">5</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="bathrooms">Bathrooms</Label>
+                    <Select value={newProperty.bathrooms.toString()} onValueChange={(value) => setNewProperty({...newProperty, bathrooms: parseInt(value)})}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="1">1</SelectItem>
+                        <SelectItem value="2">2</SelectItem>
+                        <SelectItem value="3">3</SelectItem>
+                        <SelectItem value="4">4</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="capacity">Capacity</Label>
+                    <Select value={newProperty.capacity.toString()} onValueChange={(value) => setNewProperty({...newProperty, capacity: parseInt(value)})}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="2">2</SelectItem>
+                        <SelectItem value="4">4</SelectItem>
+                        <SelectItem value="6">6</SelectItem>
+                        <SelectItem value="8">8</SelectItem>
+                        <SelectItem value="10">10</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div>
+                  <Label htmlFor="description">Description</Label>
+                  <Textarea
+                    id="description"
+                    value={newProperty.description}
+                    onChange={(e) => setNewProperty({...newProperty, description: e.target.value})}
+                    placeholder="Beautiful villa with ocean view..."
+                    rows={3}
+                  />
+                </div>
+                <div className="flex gap-2 pt-4">
+                  <Button 
+                    onClick={handleAddProperty}
+                    className="flex-1"
+                    disabled={!newProperty.name || !newProperty.location}
+                  >
+                    Add Property
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    onClick={() => setIsAddPropertyOpen(false)}
+                    className="flex-1"
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
+
+          <Button 
+            onClick={() => handleNavigation("/properties/bulk")}
+            className="bg-green-600 hover:bg-green-700"
+          >
+            <Settings className="h-4 w-4 mr-2" />
+            Bulk Management
+          </Button>
         </div>
       </div>
 
@@ -274,9 +477,47 @@ export default function OptimizedPropertyHub() {
                 <Badge variant="secondary">
                   {selectedProperties.length} selected
                 </Badge>
-                <Button variant="outline" size="sm">
-                  Bulk Actions
-                </Button>
+                <Dialog open={isBulkActionsOpen} onOpenChange={setIsBulkActionsOpen}>
+                  <DialogTrigger asChild>
+                    <Button variant="outline" size="sm">
+                      Bulk Actions
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-md">
+                    <DialogHeader>
+                      <DialogTitle>Bulk Actions</DialogTitle>
+                      <DialogDescription>
+                        Choose an action for {selectedProperties.length} selected properties
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-3">
+                      <Button
+                        onClick={() => handleBulkAction("assign-manager")}
+                        variant="outline"
+                        className="w-full justify-start"
+                      >
+                        <UserCheck className="h-4 w-4 mr-2" />
+                        Assign Manager
+                      </Button>
+                      <Button
+                        onClick={() => handleBulkAction("update-status")}
+                        variant="outline"
+                        className="w-full justify-start"
+                      >
+                        <Edit3 className="h-4 w-4 mr-2" />
+                        Update Status
+                      </Button>
+                      <Button
+                        onClick={() => handleBulkAction("archive")}
+                        variant="outline"
+                        className="w-full justify-start text-red-600 hover:text-red-700"
+                      >
+                        <Archive className="h-4 w-4 mr-2" />
+                        Archive Properties
+                      </Button>
+                    </div>
+                  </DialogContent>
+                </Dialog>
               </div>
             )}
           </div>
