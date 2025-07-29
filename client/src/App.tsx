@@ -85,6 +85,7 @@ import Commissions from "@/pages/agent/Commissions";
 import Proposals from "@/pages/agent/Proposals";
 import MediaDownload from "@/pages/agent/MediaDownload";
 import Leaderboard from "@/pages/agent/Leaderboard";
+import RetailAgentHub from "@/pages/agent/RetailAgentHub";
 
 // Import new hub pages
 import DashboardHub from "@/pages/DashboardHub";
@@ -218,6 +219,7 @@ function AppRoutes() {
         <Route path="/referral-agent" component={ReferralAgentDashboard} />
         
         {/* Agent Pages */}
+        <Route path="/agent/hub" component={RetailAgentHub} />
         <Route path="/agent/quote-generator" component={QuoteGenerator} />
         <Route path="/agent/commissions" component={Commissions} />
         <Route path="/agent/proposals" component={Proposals} />
