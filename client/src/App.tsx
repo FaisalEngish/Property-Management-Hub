@@ -90,6 +90,7 @@ import RetailAgentHub from "@/pages/agent/RetailAgentHub";
 // Import new hub pages
 import DashboardHub from "@/pages/DashboardHub";
 import PropertyHub from "@/pages/PropertyHub";
+import OptimizedPropertyHub from "@/pages/OptimizedPropertyHub";
 import FinanceHub from "@/pages/FinanceHub";
 import SystemHub from "@/pages/SystemHub";
 import OptimizedFinanceHub from "@/pages/OptimizedFinanceHub";
@@ -152,11 +153,12 @@ function AppRoutes() {
         
         {/* Hub Pages */}
         <Route path="/dashboard-hub" component={DashboardHub} />
-        <Route path="/property-hub" component={PropertyHub} />
+        <Route path="/property-hub" component={OptimizedPropertyHub} />
         <Route path="/finance-hub" component={OptimizedFinanceHub} />
         <Route path="/system-hub" component={OptimizedSystemHub} />
         
         {/* Legacy Hub Routes */}
+        <Route path="/legacy-property-hub" component={PropertyHub} />
         <Route path="/legacy-finance-hub" component={FinanceHub} />
         <Route path="/legacy-system-hub" component={SystemHub} />
         
