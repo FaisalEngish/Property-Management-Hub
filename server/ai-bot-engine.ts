@@ -62,6 +62,9 @@ export class AIBotEngine {
       // Cache the response
       this.cache.set(cacheKey, { response, timestamp: Date.now() });
       
+      // Clear old cache entries periodically
+      this.cleanupCache();
+      
       return response;
 
     } catch (error: any) {
@@ -82,9 +85,29 @@ export class AIBotEngine {
       this.storage.getFinances()
     ]);
 
-    // Filter by organization
+    // Filter by organization and show only main demo properties for clean demo experience
+    const mainDemoPropertyNames = [
+      'Villa Samui Breeze',
+      'Villa Ocean View', 
+      'Villa Aruna (Demo)',
+      'Villa Tropical Paradise'
+    ];
+    
     const organizationData = {
-      properties: properties.filter((p: any) => p.organizationId === context.organizationId),
+      properties: properties
+        .filter((p: any) => p.organizationId === context.organizationId)
+        .filter((p: any) => mainDemoPropertyNames.includes(p.name))
+        .map((p: any) => ({
+          id: p.id,
+          name: p.name,
+          bedrooms: p.bedrooms,
+          bathrooms: p.bathrooms,
+          maxGuests: p.maxGuests,
+          pricePerNight: p.pricePerNight,
+          currency: p.currency,
+          status: p.status,
+          address: p.address
+        })),
       tasks: tasks.filter((t: any) => t.organizationId === context.organizationId),
       bookings: bookings.filter((b: any) => b.organizationId === context.organizationId),
       finances: finances.filter((f: any) => f.organizationId === context.organizationId)
@@ -93,7 +116,7 @@ export class AIBotEngine {
     console.log('📋 Data fetched:', Object.keys(organizationData));
 
     // Single AI call with combined analysis and response
-    const systemPrompt = `You are MR Pilot, an AI assistant for a property management company. Analyze the user's question and provide a helpful response using the available data.
+    const systemPrompt = `You are MR Pilot, an AI assistant for a Thai property management company. Analyze the user's question and provide a helpful response using the available data.
 
 Guidelines:
 1. Be conversational and helpful
@@ -103,11 +126,12 @@ Guidelines:
 5. For date-related queries, be specific about the time period
 6. Always mention property names when relevant
 7. Keep responses concise but informative
+8. Focus on the main 4 demo properties: Villa Samui Breeze, Villa Ocean View, Villa Aruna (Demo), and Villa Tropical Paradise
 
 Current date: ${new Date().toISOString().split('T')[0]}
 
 Available data summary:
-- Properties: ${organizationData.properties.length} properties
+- Properties: ${organizationData.properties.length} main demo properties
 - Tasks: ${organizationData.tasks.length} tasks
 - Bookings: ${organizationData.bookings.length} bookings
 - Financial records: ${organizationData.finances.length} records`;
@@ -138,6 +162,18 @@ Please provide a helpful response based on this data.`;
   clearCache(): void {
     this.cache.clear();
     console.log('🧹 AI Bot cache cleared');
+  }
+
+  /**
+   * Cleanup expired cache entries
+   */
+  private cleanupCache(): void {
+    const now = Date.now();
+    for (const [key, value] of this.cache.entries()) {
+      if (now - value.timestamp > this.CACHE_TTL) {
+        this.cache.delete(key);
+      }
+    }
   }
 
   /**
