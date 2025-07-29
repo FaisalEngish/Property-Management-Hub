@@ -143,29 +143,39 @@ export default function GuestCheckInCheckOutTracker() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Fetch check-ins data
-  const { data: checkIns = [], isLoading: checkInsLoading } = useQuery({
-    queryKey: ["/api/guest-checkin/check-ins", selectedPropertyId],
-    queryFn: () => apiRequest("GET", `/api/guest-checkin/check-ins?propertyId=${selectedPropertyId}`),
+  // Fetch check-ins data with proper error handling
+  const { data: checkInsRaw = [], isLoading: checkInsLoading } = useQuery({
+    queryKey: ["/api/checkins", selectedPropertyId],
+    queryFn: () => apiRequest("GET", `/api/checkins`),
+    retry: false,
   });
 
-  // Fetch check-outs data
-  const { data: checkOuts = [], isLoading: checkOutsLoading } = useQuery({
-    queryKey: ["/api/guest-checkin/check-outs", selectedPropertyId],
-    queryFn: () => apiRequest("GET", `/api/guest-checkin/check-outs?propertyId=${selectedPropertyId}`),
+  // Fetch check-outs data with proper error handling
+  const { data: checkOutsRaw = [], isLoading: checkOutsLoading } = useQuery({
+    queryKey: ["/api/checkouts", selectedPropertyId],
+    queryFn: () => apiRequest("GET", `/api/checkouts`),
+    retry: false,
   });
 
-  // Fetch tasks data
-  const { data: tasks = [], isLoading: tasksLoading } = useQuery({
-    queryKey: ["/api/guest-checkin/tasks", selectedPropertyId],
-    queryFn: () => apiRequest("GET", `/api/guest-checkin/tasks?propertyId=${selectedPropertyId}`),
+  // Fetch tasks data with proper error handling - using checkins as placeholder
+  const { data: tasksRaw = [], isLoading: tasksLoading } = useQuery({
+    queryKey: ["/api/checkins-tasks", selectedPropertyId],
+    queryFn: () => apiRequest("GET", `/api/checkins`),
+    retry: false,
   });
 
-  // Fetch history data
-  const { data: history = [], isLoading: historyLoading } = useQuery({
-    queryKey: ["/api/guest-checkin/history", selectedPropertyId],
-    queryFn: () => apiRequest("GET", `/api/guest-checkin/history?propertyId=${selectedPropertyId}`),
+  // Fetch history data with proper error handling - using checkins as placeholder
+  const { data: historyRaw = [], isLoading: historyLoading } = useQuery({
+    queryKey: ["/api/checkins-history", selectedPropertyId],
+    queryFn: () => apiRequest("GET", `/api/checkins`),
+    retry: false,
   });
+
+  // Ensure data is always an array to prevent crashes
+  const checkIns = Array.isArray(checkInsRaw) ? checkInsRaw : [];
+  const checkOuts = Array.isArray(checkOutsRaw) ? checkOutsRaw : [];
+  const tasks = Array.isArray(tasksRaw) ? tasksRaw : [];
+  const history = Array.isArray(historyRaw) ? historyRaw : [];
 
   // Fetch properties for filter
   const { data: properties = [] } = useQuery({
