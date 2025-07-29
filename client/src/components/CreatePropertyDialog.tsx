@@ -52,10 +52,20 @@ export default function CreatePropertyDialog({ open, onOpenChange }: CreatePrope
         status: "active",
       });
     },
-    onError: (error) => {
+    onError: (error: any) => {
+      console.error("Property creation error:", error);
+      let errorMessage = "Failed to create property";
+      
+      // Try to extract more detailed error information
+      if (error.message) {
+        errorMessage = error.message;
+      } else if (error.errors && Array.isArray(error.errors)) {
+        errorMessage = error.errors.map((e: any) => e.message || e.path?.join('.') + ': ' + e.message).join(", ");
+      }
+      
       toast({
         title: "Error",
-        description: "Failed to create property",
+        description: errorMessage,
         variant: "destructive",
       });
     },
@@ -64,14 +74,39 @@ export default function CreatePropertyDialog({ open, onOpenChange }: CreatePrope
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
+    // Basic validation
+    if (!formData.name.trim()) {
+      toast({
+        title: "Validation Error",
+        description: "Property name is required",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    if (!formData.address.trim()) {
+      toast({
+        title: "Validation Error", 
+        description: "Property address is required",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     const data = {
-      ...formData,
+      organizationId: 'default-org', // Default organization for demo
+      name: formData.name.trim(),
+      address: formData.address.trim(),
+      description: formData.description?.trim() || null,
       bedrooms: parseInt(formData.bedrooms) || 0,
       bathrooms: parseInt(formData.bathrooms) || 0,
       maxGuests: parseInt(formData.maxGuests) || 0,
       pricePerNight: formData.pricePerNight || "0",
+      currency: "THB", // Thai Baht for consistency
+      status: formData.status,
     };
 
+    console.log("Submitting property data:", data);
     createMutation.mutate(data);
   };
 

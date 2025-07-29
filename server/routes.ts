@@ -1455,11 +1455,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/properties", isDemoAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.id;
-      const propertyData = insertPropertySchema.parse({ ...req.body, ownerId: userId });
+      const organizationId = req.user.organizationId || 'default-org';
+      
+      // Ensure required fields are present and properly formatted
+      const propertyData = insertPropertySchema.parse({ 
+        ...req.body, 
+        ownerId: userId,
+        organizationId: organizationId,
+        currency: req.body.currency || "THB" // Default to THB for Thai properties
+      });
+      
       const property = await storage.createProperty(propertyData);
       res.status(201).json(property);
     } catch (error) {
       if (error instanceof z.ZodError) {
+        console.error("Property validation errors:", error.errors);
         return res.status(400).json({ message: "Invalid property data", errors: error.errors });
       }
       console.error("Error creating property:", error);
