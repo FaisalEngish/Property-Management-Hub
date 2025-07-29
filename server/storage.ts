@@ -4110,6 +4110,177 @@ export class DatabaseStorage implements IStorage {
     return upserted;
   }
 
+  // Live alerts methods for admin dashboard
+  async getLiveAlerts(organizationId: string): Promise<{
+    overdueTasks: any[];
+    unpaidBills: any[];
+    guestIssues: any[];
+  }> {
+    try {
+      // Get overdue tasks
+      const now = new Date();
+      const overdueTasks = await db
+        .select()
+        .from(tasks)
+        .where(and(
+          eq(tasks.organizationId, organizationId),
+          lt(tasks.dueDate, now),
+          ne(tasks.status, 'completed')
+        ))
+        .limit(5);
+
+      // Get unpaid bills (utility bills with overdue status)
+      const unpaidBills = await db
+        .select()
+        .from(utilityBills)
+        .where(and(
+          eq(utilityBills.organizationId, organizationId),
+          eq(utilityBills.status, 'overdue')
+        ))
+        .limit(5);
+
+      // Get recent guest issues (tasks with high priority and guest-related)
+      const guestIssues = await db
+        .select()
+        .from(tasks)
+        .where(and(
+          eq(tasks.organizationId, organizationId),
+          eq(tasks.priority, 'high'),
+          or(
+            like(tasks.title, '%guest%'),
+            like(tasks.title, '%check%'),
+            like(tasks.title, '%cleaning%')
+          )
+        ))
+        .limit(3);
+
+      return {
+        overdueTasks,
+        unpaidBills,
+        guestIssues
+      };
+    } catch (error) {
+      console.error('Error fetching live alerts:', error);
+      return {
+        overdueTasks: [],
+        unpaidBills: [],
+        guestIssues: []
+      };
+    }
+  }
+
+  async getKPIMetrics(organizationId: string): Promise<{
+    monthlyRevenue: number;
+    monthlyExpenses: number;
+    occupancyPercent: number;
+    activeBookings: number;
+    topPerformingProperty: { name: string; revenue: number } | null;
+  }> {
+    try {
+      const now = new Date();
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+
+      // Get monthly revenue
+      const revenueResult = await db
+        .select({ total: sum(finances.amount) })
+        .from(finances)
+        .where(and(
+          eq(finances.organizationId, organizationId),
+          eq(finances.type, 'income'),
+          gte(finances.date, startOfMonth),
+          lte(finances.date, endOfMonth)
+        ));
+
+      // Get monthly expenses
+      const expenseResult = await db
+        .select({ total: sum(finances.amount) })
+        .from(finances)
+        .where(and(
+          eq(finances.organizationId, organizationId),
+          eq(finances.type, 'expense'),
+          gte(finances.date, startOfMonth),
+          lte(finances.date, endOfMonth)
+        ));
+
+      // Get active bookings count
+      const activeBookingsResult = await db
+        .select({ count: count() })
+        .from(bookings)
+        .where(and(
+          eq(bookings.organizationId, organizationId),
+          or(
+            eq(bookings.status, 'confirmed'),
+            eq(bookings.status, 'checked_in')
+          )
+        ));
+
+      // Calculate occupancy percentage (simplified calculation)
+      const totalProperties = await db
+        .select({ count: count() })
+        .from(properties)
+        .where(eq(properties.organizationId, organizationId));
+
+      const occupiedProperties = await db
+        .select({ count: count() })
+        .from(bookings)
+        .where(and(
+          eq(bookings.organizationId, organizationId),
+          eq(bookings.status, 'checked_in'),
+          lte(bookings.checkInDate, now),
+          gte(bookings.checkOutDate, now)
+        ));
+
+      const occupancyPercent = totalProperties[0]?.count > 0 
+        ? Math.round((occupiedProperties[0]?.count / totalProperties[0]?.count) * 100)
+        : 0;
+
+      // Get top performing property by revenue this month
+      const topPropertyResult = await db
+        .select({
+          propertyId: finances.propertyId,
+          totalRevenue: sum(finances.amount)
+        })
+        .from(finances)
+        .innerJoin(properties, eq(finances.propertyId, properties.id))
+        .where(and(
+          eq(finances.organizationId, organizationId),
+          eq(finances.type, 'income'),
+          gte(finances.date, startOfMonth),
+          lte(finances.date, endOfMonth)
+        ))
+        .groupBy(finances.propertyId)
+        .orderBy(desc(sum(finances.amount)))
+        .limit(1);
+
+      let topPerformingProperty = null;
+      if (topPropertyResult.length > 0) {
+        const property = await this.getProperty(topPropertyResult[0].propertyId);
+        topPerformingProperty = {
+          name: property?.name || 'Unknown Property',
+          revenue: parseFloat(topPropertyResult[0].totalRevenue || '0')
+        };
+      }
+
+      return {
+        monthlyRevenue: parseFloat(revenueResult[0]?.total || '0'),
+        monthlyExpenses: parseFloat(expenseResult[0]?.total || '0'),
+        occupancyPercent,
+        activeBookings: activeBookingsResult[0]?.count || 0,
+        topPerformingProperty
+      };
+    } catch (error) {
+      console.error('Error fetching KPI metrics:', error);
+      return {
+        monthlyRevenue: 0,
+        monthlyExpenses: 0,
+        occupancyPercent: 0,
+        activeBookings: 0,
+        topPerformingProperty: null
+      };
+    }
+  }
+
   // Notification trigger methods
   async notifyTaskAssignment(taskId: number, assigneeId: string, assignedBy: string): Promise<void> {
     const task = await this.getTask(taskId);

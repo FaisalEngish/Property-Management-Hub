@@ -142,4 +142,30 @@ export function registerFastRoutes(app: Express) {
       60 // 1 hour cache
     );
   });
+
+  // Live alerts for upgraded admin dashboard
+  app.get("/api/dashboard/live-alerts", async (req: any, res) => {
+    const organizationId = req.user?.organizationId || "default-org";
+    const cacheKey = `live-alerts-${organizationId}`;
+    
+    return sendCachedOrFetch(
+      cacheKey,
+      () => storage.getLiveAlerts(organizationId),
+      res,
+      2 // 2 minute cache for alerts
+    );
+  });
+
+  // KPI metrics for upgraded admin dashboard
+  app.get("/api/dashboard/kpi-metrics", async (req: any, res) => {
+    const organizationId = req.user?.organizationId || "default-org";
+    const cacheKey = `kpi-metrics-${organizationId}`;
+    
+    return sendCachedOrFetch(
+      cacheKey,
+      () => storage.getKPIMetrics(organizationId),
+      res,
+      5 // 5 minute cache for KPIs
+    );
+  });
 }

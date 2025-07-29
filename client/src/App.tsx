@@ -73,6 +73,7 @@ import SaasManagement from "@/pages/admin/SaasManagement";
 // Import Property Appliances Management
 import PropertyAppliancesManagement from "@/pages/PropertyAppliancesManagement";
 import AlertManagement from "@/pages/AlertManagement";
+import UpgradedAdminDashboard from "@/pages/UpgradedAdminDashboard";
 import AutomationManagement from "@/pages/AutomationManagement";
 import CurrencyTaxManagement from "@/pages/CurrencyTaxManagement";
 import UpsellRecommendationsManagement from "@/pages/UpsellRecommendationsManagement";
@@ -229,6 +230,9 @@ function AppRoutes() {
         
         {/* Additional Settings */}
         <Route path="/admin/additional-settings" component={AdditionalSettings} />
+        
+        {/* Upgraded Admin Dashboard */}
+        <Route path="/admin/upgraded-dashboard" component={UpgradedAdminDashboard} />
         
         {/* Missing Routes - Fix 404 Errors */}
         <Route path="/smart-pricing-performance-toolkit" component={SmartPricingPerformanceToolkit} />
