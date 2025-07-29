@@ -1,0 +1,858 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HostPilotPro - Property Management Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        /* HostPilotPro CSS Variables - Light Theme */
+        :root {
+            --background: hsl(0, 0%, 100%);
+            --foreground: hsl(20, 14.3%, 4.1%);
+            --muted: hsl(60, 4.8%, 95.9%);
+            --muted-foreground: hsl(25, 5.3%, 44.7%);
+            --popover: hsl(0, 0%, 100%);
+            --popover-foreground: hsl(20, 14.3%, 4.1%);
+            --card: hsl(0, 0%, 100%);
+            --card-foreground: hsl(20, 14.3%, 4.1%);
+            --border: hsl(20, 5.9%, 90%);
+            --input: hsl(20, 5.9%, 90%);
+            --primary: hsl(207, 90%, 54%);
+            --primary-foreground: hsl(211, 100%, 99%);
+            --secondary: hsl(60, 4.8%, 95.9%);
+            --secondary-foreground: hsl(24, 9.8%, 10%);
+            --accent: hsl(26, 100%, 50%);
+            --accent-foreground: hsl(60, 9.1%, 97.8%);
+            --destructive: hsl(0, 84.2%, 60.2%);
+            --destructive-foreground: hsl(60, 9.1%, 97.8%);
+            --ring: hsl(20, 14.3%, 4.1%);
+            --radius: 0.5rem;
+            --success: hsl(142, 76%, 36%);
+            --warning: hsl(38, 92%, 50%);
+            --error: hsl(0, 84%, 60%);
+        }
+
+        /* Dark Theme */
+        .dark {
+            --background: hsl(240, 10%, 3.9%);
+            --foreground: hsl(0, 0%, 98%);
+            --muted: hsl(240, 3.7%, 15.9%);
+            --muted-foreground: hsl(240, 5%, 64.9%);
+            --popover: hsl(240, 10%, 3.9%);
+            --popover-foreground: hsl(0, 0%, 98%);
+            --card: hsl(240, 10%, 3.9%);
+            --card-foreground: hsl(0, 0%, 98%);
+            --border: hsl(240, 3.7%, 15.9%);
+            --input: hsl(240, 3.7%, 15.9%);
+            --primary: hsl(207, 90%, 54%);
+            --primary-foreground: hsl(211, 100%, 99%);
+            --secondary: hsl(240, 3.7%, 15.9%);
+            --secondary-foreground: hsl(0, 0%, 98%);
+            --accent: hsl(240, 3.7%, 15.9%);
+            --accent-foreground: hsl(0, 0%, 98%);
+            --destructive: hsl(0, 62.8%, 30.6%);
+            --destructive-foreground: hsl(0, 0%, 98%);
+            --ring: hsl(240, 4.9%, 83.9%);
+        }
+
+        /* Base Styles */
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--background);
+            color: var(--foreground);
+            line-height: 1.5;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        /* Layout */
+        .app-container {
+            min-height: 100vh;
+            display: flex;
+            background-color: var(--background);
+        }
+
+        .sidebar {
+            width: 280px;
+            background-color: var(--card);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            position: fixed;
+            left: 0;
+            top: 0;
+            z-index: 10;
+        }
+
+        .main-content {
+            flex: 1;
+            margin-left: 280px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Sidebar Styles */
+        .sidebar-header {
+            padding: 1rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 1rem;
+        }
+
+        .brand-logo {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .logo-icon {
+            width: 32px;
+            height: 32px;
+            background-color: var(--primary);
+            border-radius: 0.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--primary-foreground);
+            font-weight: 600;
+        }
+
+        .brand-text {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .brand-name {
+            font-weight: 600;
+            font-size: 0.875rem;
+            color: var(--foreground);
+        }
+
+        .brand-version {
+            font-size: 0.75rem;
+            color: var(--muted-foreground);
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background-color: var(--muted);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--muted-foreground);
+            font-weight: 500;
+        }
+
+        .user-details {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .user-email {
+            font-weight: 500;
+            font-size: 0.875rem;
+            color: var(--foreground);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .user-role {
+            display: inline-block;
+            padding: 0.125rem 0.5rem;
+            background-color: var(--secondary);
+            color: var(--secondary-foreground);
+            font-size: 0.75rem;
+            border-radius: 0.375rem;
+            margin-top: 0.25rem;
+        }
+
+        .nav-menu {
+            flex: 1;
+            overflow-y: auto;
+            padding: 1rem 0;
+        }
+
+        .nav-section {
+            margin-bottom: 1.5rem;
+        }
+
+        .nav-section-title {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--muted-foreground);
+            text-transform: uppercase;
+            letter-spacing: 0.025em;
+            padding: 0 1rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            padding: 0.75rem 1rem;
+            color: var(--foreground);
+            text-decoration: none;
+            transition: all 0.2s ease;
+            border: none;
+            background: none;
+            width: 100%;
+            text-align: left;
+            cursor: pointer;
+        }
+
+        .nav-item:hover {
+            background-color: var(--muted);
+        }
+
+        .nav-item.active {
+            background-color: var(--primary);
+            color: var(--primary-foreground);
+        }
+
+        .nav-icon {
+            width: 16px;
+            height: 16px;
+            margin-right: 0.75rem;
+        }
+
+        /* Top Bar */
+        .top-bar {
+            background-color: var(--card);
+            border-bottom: 1px solid var(--border);
+            padding: 1rem 1.5rem;
+        }
+
+        .top-bar-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--foreground);
+            margin-bottom: 0.25rem;
+        }
+
+        .top-bar-subtitle {
+            color: var(--muted-foreground);
+            font-size: 0.875rem;
+        }
+
+        /* Main Content */
+        .main-content-inner {
+            flex: 1;
+            overflow-y: auto;
+            padding: 1.5rem;
+        }
+
+        /* Cards */
+        .card {
+            background-color: var(--card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+        }
+
+        .card-header {
+            padding: 1.5rem 1.5rem 0;
+        }
+
+        .card-title {
+            font-size: 1.125rem;
+            font-weight: 600;
+            color: var(--card-foreground);
+        }
+
+        .card-content {
+            padding: 1.5rem;
+        }
+
+        /* Filter Bar */
+        .filter-bar {
+            margin-bottom: 1.5rem;
+        }
+
+        .filter-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+        }
+
+        .input {
+            width: 100%;
+            padding: 0.5rem 0.75rem;
+            border: 1px solid var(--border);
+            border-radius: calc(var(--radius) - 2px);
+            background-color: var(--background);
+            color: var(--foreground);
+            font-size: 0.875rem;
+            transition: border-color 0.2s ease;
+        }
+
+        .input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 2px var(--primary);
+        }
+
+        .button {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0.5rem 1rem;
+            border-radius: calc(var(--radius) - 2px);
+            font-size: 0.875rem;
+            font-weight: 500;
+            transition: all 0.2s ease;
+            cursor: pointer;
+            border: none;
+            text-decoration: none;
+        }
+
+        .button-primary {
+            background-color: var(--primary);
+            color: var(--primary-foreground);
+        }
+
+        .button-primary:hover {
+            background-color: hsl(207, 90%, 48%);
+        }
+
+        .button-outline {
+            background-color: transparent;
+            color: var(--foreground);
+            border: 1px solid var(--border);
+        }
+
+        .button-outline:hover {
+            background-color: var(--muted);
+        }
+
+        /* Stats Grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background-color: var(--card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .stat-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 0.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.25rem;
+        }
+
+        .stat-icon.primary {
+            background-color: hsl(207, 90%, 95%);
+            color: var(--primary);
+        }
+
+        .stat-icon.success {
+            background-color: hsl(142, 76%, 95%);
+            color: var(--success);
+        }
+
+        .stat-icon.warning {
+            background-color: hsl(38, 92%, 95%);
+            color: var(--warning);
+        }
+
+        .stat-icon.accent {
+            background-color: hsl(26, 100%, 95%);
+            color: var(--accent);
+        }
+
+        .stat-content {
+            flex: 1;
+        }
+
+        .stat-title {
+            font-size: 0.875rem;
+            color: var(--muted-foreground);
+            margin-bottom: 0.25rem;
+        }
+
+        .stat-value {
+            font-size: 1.875rem;
+            font-weight: 700;
+            color: var(--foreground);
+        }
+
+        /* Tabs */
+        .tabs {
+            margin-bottom: 1.5rem;
+        }
+
+        .tab-list {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            background-color: var(--muted);
+            border-radius: var(--radius);
+            padding: 0.25rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .tab-trigger {
+            padding: 0.5rem 1rem;
+            border: none;
+            background: none;
+            color: var(--muted-foreground);
+            font-size: 0.875rem;
+            font-weight: 500;
+            border-radius: calc(var(--radius) - 2px);
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .tab-trigger.active {
+            background-color: var(--background);
+            color: var(--foreground);
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+        }
+
+        /* Content Grid */
+        .content-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 1.5rem;
+        }
+
+        /* Table */
+        .table-container {
+            overflow-x: auto;
+        }
+
+        .table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .table th,
+        .table td {
+            padding: 0.75rem;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .table th {
+            font-weight: 600;
+            color: var(--muted-foreground);
+            font-size: 0.875rem;
+        }
+
+        .table td {
+            color: var(--foreground);
+        }
+
+        /* Badges */
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.25rem 0.5rem;
+            font-size: 0.75rem;
+            font-weight: 500;
+            border-radius: 0.375rem;
+        }
+
+        .badge-default {
+            background-color: var(--secondary);
+            color: var(--secondary-foreground);
+        }
+
+        .badge-success {
+            background-color: hsl(142, 76%, 95%);
+            color: var(--success);
+        }
+
+        .badge-warning {
+            background-color: hsl(38, 92%, 95%);
+            color: var(--warning);
+        }
+
+        .badge-destructive {
+            background-color: hsl(0, 84%, 95%);
+            color: var(--destructive);
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .sidebar {
+                width: 100%;
+                transform: translateX(-100%);
+                transition: transform 0.3s ease;
+            }
+
+            .sidebar.open {
+                transform: translateX(0);
+            }
+
+            .main-content {
+                margin-left: 0;
+            }
+
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .content-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .filter-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .tab-list {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 0.25rem;
+            }
+        }
+
+        /* Animations */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .fade-in {
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        /* Dark Mode Toggle */
+        .theme-toggle {
+            position: fixed;
+            top: 1rem;
+            right: 1rem;
+            z-index: 20;
+            padding: 0.5rem;
+            border: 1px solid var(--border);
+            border-radius: 0.5rem;
+            background-color: var(--card);
+            color: var(--foreground);
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .theme-toggle:hover {
+            background-color: var(--muted);
+        }
+    </style>
+</head>
+<body>
+    <!-- Theme Toggle -->
+    <button class="theme-toggle" onclick="toggleTheme()">🌙</button>
+
+    <div class="app-container">
+        <!-- Sidebar -->
+        <nav class="sidebar">
+            <div class="sidebar-header">
+                <div class="brand">
+                    <div class="brand-logo">
+                        <div class="logo-icon">H</div>
+                        <div class="brand-text">
+                            <div class="brand-name">HostPilotPro</div>
+                            <div class="brand-version">v2.0</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="user-info">
+                    <div class="avatar">A</div>
+                    <div class="user-details">
+                        <div class="user-email">admin@test.com</div>
+                        <div class="user-role">Admin</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="nav-menu">
+                <div class="nav-section">
+                    <div class="nav-section-title">📊 Dashboards</div>
+                    <a href="#" class="nav-item active">
+                        <span class="nav-icon">📈</span>
+                        Enhanced Admin Dashboard
+                    </a>
+                    <a href="#" class="nav-item">
+                        <span class="nav-icon">📋</span>
+                        Daily Operations
+                    </a>
+                </div>
+
+                <div class="nav-section">
+                    <div class="nav-section-title">🏘️ Property Management</div>
+                    <a href="#" class="nav-item">
+                        <span class="nav-icon">🏠</span>
+                        Properties
+                    </a>
+                    <a href="#" class="nav-item">
+                        <span class="nav-icon">📅</span>
+                        Bookings
+                    </a>
+                    <a href="#" class="nav-item">
+                        <span class="nav-icon">✅</span>
+                        Tasks
+                    </a>
+                </div>
+
+                <div class="nav-section">
+                    <div class="nav-section-title">💰 Finance & Revenue</div>
+                    <a href="#" class="nav-item">
+                        <span class="nav-icon">💳</span>
+                        Admin's Financial Dashboard
+                    </a>
+                    <a href="#" class="nav-item">
+                        <span class="nav-icon">💡</span>
+                        Utility Tracker
+                    </a>
+                </div>
+
+                <div class="nav-section">
+                    <div class="nav-section-title">👥 Guest Services</div>
+                    <a href="#" class="nav-item">
+                        <span class="nav-icon">🎯</span>
+                        Guest Portal
+                    </a>
+                    <a href="#" class="nav-item">
+                        <span class="nav-icon">🤖</span>
+                        MR Pilot AI
+                    </a>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Top Bar -->
+            <header class="top-bar">
+                <h1 class="top-bar-title">Enhanced Admin Dashboard</h1>
+                <p class="top-bar-subtitle">Comprehensive property management overview with advanced filtering</p>
+            </header>
+
+            <!-- Main Content Area -->
+            <main class="main-content-inner fade-in">
+                <!-- Filter Bar -->
+                <div class="card filter-bar">
+                    <div class="card-content">
+                        <div class="filter-grid">
+                            <input type="text" class="input" placeholder="Search properties...">
+                            <select class="input">
+                                <option>All Areas</option>
+                                <option>Chaweng</option>
+                                <option>Lamai</option>
+                                <option>Bophut</option>
+                            </select>
+                            <select class="input">
+                                <option>All Bedrooms</option>
+                                <option>2 Bedrooms</option>
+                                <option>3 Bedrooms</option>
+                                <option>4 Bedrooms</option>
+                            </select>
+                            <button class="button button-outline">Clear Filters</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Stats Cards -->
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon primary">🏠</div>
+                        <div class="stat-content">
+                            <div class="stat-title">Total Properties</div>
+                            <div class="stat-value">4</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon success">✅</div>
+                        <div class="stat-content">
+                            <div class="stat-title">Active Properties</div>
+                            <div class="stat-value">3</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon warning">⚠️</div>
+                        <div class="stat-content">
+                            <div class="stat-title">High Priority Tasks</div>
+                            <div class="stat-value">2</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon accent">💰</div>
+                        <div class="stat-content">
+                            <div class="stat-title">Monthly Revenue</div>
+                            <div class="stat-value">฿510,000</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tabs -->
+                <div class="tabs">
+                    <div class="tab-list">
+                        <button class="tab-trigger active">Overview</button>
+                        <button class="tab-trigger">Properties</button>
+                        <button class="tab-trigger">Tasks</button>
+                        <button class="tab-trigger">Bookings</button>
+                    </div>
+
+                    <!-- Content Grid -->
+                    <div class="content-grid">
+                        <!-- Recent Bookings -->
+                        <div class="card">
+                            <div class="card-header">
+                                <h3 class="card-title">Recent Bookings</h3>
+                            </div>
+                            <div class="card-content">
+                                <div class="table-container">
+                                    <table class="table">
+                                        <thead>
+                                            <tr>
+                                                <th>Guest</th>
+                                                <th>Property</th>
+                                                <th>Status</th>
+                                                <th>Amount</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr>
+                                                <td>Robert Wilson</td>
+                                                <td>Villa Samui Breeze</td>
+                                                <td><span class="badge badge-success">Confirmed</span></td>
+                                                <td>฿35,000</td>
+                                            </tr>
+                                            <tr>
+                                                <td>Lisa Chen</td>
+                                                <td>Villa Tropical Paradise</td>
+                                                <td><span class="badge badge-success">Confirmed</span></td>
+                                                <td>฿43,500</td>
+                                            </tr>
+                                            <tr>
+                                                <td>James Miller</td>
+                                                <td>Villa Ocean View</td>
+                                                <td><span class="badge badge-warning">Pending</span></td>
+                                                <td>฿52,500</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Task Overview -->
+                        <div class="card">
+                            <div class="card-header">
+                                <h3 class="card-title">Task Overview</h3>
+                            </div>
+                            <div class="card-content">
+                                <div class="table-container">
+                                    <table class="table">
+                                        <thead>
+                                            <tr>
+                                                <th>Task</th>
+                                                <th>Property</th>
+                                                <th>Priority</th>
+                                                <th>Status</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr>
+                                                <td>Pool Cleaning</td>
+                                                <td>Villa Samui Breeze</td>
+                                                <td><span class="badge badge-destructive">High</span></td>
+                                                <td><span class="badge badge-success">Completed</span></td>
+                                            </tr>
+                                            <tr>
+                                                <td>AC Maintenance</td>
+                                                <td>Villa Tropical Paradise</td>
+                                                <td><span class="badge badge-warning">Medium</span></td>
+                                                <td><span class="badge badge-success">Completed</span></td>
+                                            </tr>
+                                            <tr>
+                                                <td>WiFi Setup</td>
+                                                <td>Villa Ocean View</td>
+                                                <td><span class="badge badge-warning">Medium</span></td>
+                                                <td><span class="badge badge-default">Pending</span></td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <script>
+        function toggleTheme() {
+            document.body.classList.toggle('dark');
+            const button = document.querySelector('.theme-toggle');
+            button.textContent = document.body.classList.contains('dark') ? '☀️' : '🌙';
+        }
+
+        // Tab functionality
+        document.querySelectorAll('.tab-trigger').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('.tab-trigger').forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+            });
+        });
+
+        // Navigation functionality
+        document.querySelectorAll('.nav-item').forEach(item => {
+            item.addEventListener('click', (e) => {
+                e.preventDefault();
+                document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+                item.classList.add('active');
+            });
+        });
+
+        // Mobile sidebar toggle (if needed)
+        function toggleSidebar() {
+            document.querySelector('.sidebar').classList.toggle('open');
+        }
+
+        // Demo data animation
+        window.addEventListener('load', () => {
+            const elements = document.querySelectorAll('.stat-card, .card');
+            elements.forEach((el, index) => {
+                setTimeout(() => {
+                    el.classList.add('fade-in');
+                }, index * 100);
+            });
+        });
+    </script>
+</body>
+</html>
