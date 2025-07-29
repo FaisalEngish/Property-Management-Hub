@@ -112,6 +112,10 @@ import OwnerDashboard from "@/pages/OwnerDashboard";
 import GuestPortal from "@/pages/GuestPortal";
 import PropertySettingsModule from "@/pages/PropertySettingsModule";
 
+// Import Property Hub related components
+import PropertyManage from "@/pages/PropertyManage";
+import PropertyDocuments from "@/pages/PropertyDocuments";
+
 // QueryClient is now imported from lib/queryClient for better performance
 
 function AppRoutes() {
@@ -158,6 +162,11 @@ function AppRoutes() {
         <Route path="/property-hub" component={OptimizedPropertyHub} />
         <Route path="/finance-hub" component={OptimizedFinanceHub} />
         <Route path="/system-hub" component={OptimizedSystemHub} />
+        
+        {/* Property Management Routes */}
+        <Route path="/property-manage/:id" component={PropertyManage} />
+        <Route path="/property-documents/:id" component={PropertyDocuments} />
+        <Route path="/property-detail/:id" component={PropertyDetailView} />
         
         {/* Legacy Hub Routes */}
         <Route path="/legacy-property-hub" component={PropertyHub} />
