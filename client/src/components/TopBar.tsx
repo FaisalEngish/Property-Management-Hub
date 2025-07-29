@@ -1,5 +1,4 @@
-import { useState, useEffect } from "react";
-import { useModalManager } from "@/hooks/useModalManager";
+import React from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -62,9 +61,6 @@ const roleColors = {
 
 export default function TopBar({ title, subtitle, action, onMobileMenuToggle }: TopBarProps) {
   const { user } = useAuth();
-  const { openModal, closeModal } = useModalManager();
-  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
-  
   const userRole = (user as any)?.role || "guest";
   const RoleIcon = roleIcons[userRole as keyof typeof roleIcons] || Clock;
   const roleColor = roleColors[userRole as keyof typeof roleColors] || "bg-gray-500";
@@ -78,41 +74,6 @@ export default function TopBar({ title, subtitle, action, onMobileMenuToggle }: 
       window.location.href = "/";
     },
   });
-
-  // Handle user menu state changes
-  const handleUserMenuChange = (open: boolean) => {
-    setIsUserMenuOpen(open);
-    if (open) {
-      openModal('user-profile');
-    } else {
-      closeModal();
-    }
-  };
-
-  // Force close on escape or outside click
-  useEffect(() => {
-    const handleDocumentClick = (event: MouseEvent) => {
-      if (isUserMenuOpen && !(event.target as Element)?.closest('[data-radix-popper-content-wrapper]')) {
-        handleUserMenuChange(false);
-      }
-    };
-
-    const handleEscapeKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && isUserMenuOpen) {
-        handleUserMenuChange(false);
-      }
-    };
-
-    if (isUserMenuOpen) {
-      document.addEventListener('click', handleDocumentClick);
-      document.addEventListener('keydown', handleEscapeKey);
-    }
-
-    return () => {
-      document.removeEventListener('click', handleDocumentClick);
-      document.removeEventListener('keydown', handleEscapeKey);
-    };
-  }, [isUserMenuOpen]);
 
   return (
     <header className="sticky top-0 z-40 border-b border-gray-200 dark:border-gray-800 bg-white/95 dark:bg-gray-900/95 backdrop-blur supports-[backdrop-filter]:bg-white/60 dark:supports-[backdrop-filter]:bg-gray-900/60">
@@ -193,7 +154,7 @@ export default function TopBar({ title, subtitle, action, onMobileMenuToggle }: 
           </Button>
 
           {/* User profile dropdown */}
-          <DropdownMenu open={isUserMenuOpen} onOpenChange={handleUserMenuChange}>
+          <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="flex items-center gap-3 pl-2 hover:bg-gray-100 dark:hover:bg-gray-800">
                 <div className="hidden sm:block text-right">
