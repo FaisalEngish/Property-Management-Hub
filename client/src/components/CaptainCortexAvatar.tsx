@@ -23,8 +23,9 @@ const CaptainCortexAvatar: React.FC<CaptainCortexAvatarProps> = ({
     sceneRef.current = scene;
 
     // Camera setup
-    const camera = new THREE.PerspectiveCamera(75, 1, 0.1, 1000);
-    camera.position.set(0, 0, 2);
+    const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 1000);
+    camera.position.set(0, 0, 5);
+    camera.lookAt(0, 0, 0);
 
     // Renderer setup
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
@@ -48,9 +49,30 @@ const CaptainCortexAvatar: React.FC<CaptainCortexAvatarProps> = ({
             console.log('GLB file loaded, processing model...');
             const model = gltf.scene;
             
-            // Try direct positioning first
-            model.scale.set(2, 2, 2);
-            model.position.set(0, -0.5, 0);
+            // Calculate model bounds and fit to camera view
+            const box = new THREE.Box3().setFromObject(model);
+            const center = box.getCenter(new THREE.Vector3());
+            const size = box.getSize(new THREE.Vector3());
+            
+            // Get the largest dimension to scale appropriately
+            const maxDim = Math.max(size.x, size.y, size.z);
+            const fov = camera.fov * (Math.PI / 180);
+            const cameraZ = Math.abs(maxDim / 2 / Math.tan(fov / 2));
+            
+            // Scale to fit nicely in view
+            const scale = 1.5 / maxDim;
+            model.scale.setScalar(scale);
+            
+            // Center the model at origin
+            model.position.copy(center).multiplyScalar(-scale);
+            
+            console.log('Model positioning:', {
+              originalSize: size,
+              center: center,
+              scale: scale,
+              newPosition: model.position,
+              cameraPosition: camera.position
+            });
             
             // Add very bright lighting for maximum visibility
             const ambientLight = new THREE.AmbientLight(0xffffff, 1.2);
@@ -91,8 +113,8 @@ const CaptainCortexAvatar: React.FC<CaptainCortexAvatarProps> = ({
               // Rotate the model slowly
               model.rotation.y += 0.01;
               
-              // Also try moving camera slightly for testing
-              camera.position.x = Math.sin(Date.now() * 0.001) * 0.1;
+              // Keep camera focused on the model
+              camera.lookAt(0, 0, 0);
               
               renderer.render(scene, camera);
             };
@@ -120,34 +142,37 @@ const CaptainCortexAvatar: React.FC<CaptainCortexAvatarProps> = ({
     const createFallbackAvatar = (scene: THREE.Scene) => {
       console.log('Creating fallback Captain Cortex avatar');
       
-      // Create a simple animated captain avatar
-      const geometry = new THREE.SphereGeometry(0.8, 32, 32);
+      // Create a simple animated captain avatar properly positioned
+      const geometry = new THREE.SphereGeometry(1, 32, 32);
       const material = new THREE.MeshPhongMaterial({ color: 0x4f46e5 });
       const sphere = new THREE.Mesh(geometry, material);
+      sphere.position.set(0, 0, 0);
       
       // Add captain hat
-      const hatGeometry = new THREE.CylinderGeometry(0.9, 0.9, 0.2, 32);
+      const hatGeometry = new THREE.CylinderGeometry(1.1, 1.1, 0.3, 32);
       const hatMaterial = new THREE.MeshPhongMaterial({ color: 0x1e1b4b });
       const hat = new THREE.Mesh(hatGeometry, hatMaterial);
-      hat.position.y = 0.9;
+      hat.position.set(0, 1.1, 0);
       
       // Add hat brim
-      const brimGeometry = new THREE.CylinderGeometry(1.1, 1.1, 0.05, 32);
+      const brimGeometry = new THREE.CylinderGeometry(1.3, 1.3, 0.08, 32);
       const brimMaterial = new THREE.MeshPhongMaterial({ color: 0x1e1b4b });
       const brim = new THREE.Mesh(brimGeometry, brimMaterial);
-      brim.position.y = 0.8;
+      brim.position.set(0, 1.0, 0);
       
       scene.add(sphere);
       scene.add(hat);
       scene.add(brim);
       
       // Add bright lighting
-      const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+      const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
       scene.add(ambientLight);
       
-      const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
-      directionalLight.position.set(1, 1, 1);
+      const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+      directionalLight.position.set(2, 2, 2);
       scene.add(directionalLight);
+
+      console.log('Fallback avatar created and positioned at origin');
 
       // Animation loop
       const animate = () => {
@@ -155,6 +180,7 @@ const CaptainCortexAvatar: React.FC<CaptainCortexAvatarProps> = ({
         sphere.rotation.y += 0.01;
         hat.rotation.y += 0.01;
         brim.rotation.y += 0.01;
+        camera.lookAt(0, 0, 0);
         renderer.render(scene, camera);
       };
       
