@@ -204,18 +204,34 @@ ${JSON.stringify(organizationData, null, 2)}
 Please analyze this question and provide a helpful response using only the available data within your role permissions.`;
 
     console.log(`🤖 Sending to OpenAI with data keys: ${Object.keys(organizationData)}`);
+    console.log('🤖 System prompt length:', (systemPrompt + dataContextPrompt).length);
+    console.log('🤖 User prompt length:', userPrompt.length);
     
-    const completion = await this.openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        { role: "system", content: systemPrompt + dataContextPrompt },
-        { role: "user", content: userPrompt }
-      ],
-      temperature: 0.3,
-      max_tokens: 600,
-    });
+    let response: string;
+    
+    try {
+      const completion = await this.openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [
+          { role: "system", content: systemPrompt + dataContextPrompt },
+          { role: "user", content: userPrompt }
+        ],
+        temperature: 0.3,
+        max_tokens: 600,
+      });
 
-    let response = completion.choices[0].message.content || "I apologize, but I couldn't generate a response to your question.";
+      response = completion.choices[0]?.message?.content || "I apologize, but I couldn't generate a response to your question.";
+      console.log('✅ OpenAI response received, length:', response.length);
+    } catch (openaiError: any) {
+      console.error('❌ OpenAI API Error:', openaiError);
+      console.error('❌ OpenAI Error Details:', {
+        message: openaiError?.message,
+        status: openaiError?.status,
+        code: openaiError?.code,
+        type: openaiError?.type
+      });
+      throw new Error(`OpenAI API failed: ${openaiError?.message || 'Unknown OpenAI error'}`);
+    }
     
     // Apply role-based filtering to the response
     response = filterResponseByRole(response, context.userRole);
