@@ -26,6 +26,8 @@ interface DataQuery {
 export class AIBotEngine {
   private openai: OpenAI;
   private storage: DatabaseStorage;
+  private cache: Map<string, { response: string; timestamp: number }> = new Map();
+  private CACHE_TTL = 5 * 60 * 1000; // 5 minutes cache
 
   constructor() {
     if (!process.env.OPENAI_API_KEY) {
@@ -46,16 +48,19 @@ export class AIBotEngine {
     try {
       console.log(`🤖 AI Bot processing: "${question}" for org: ${context.organizationId}`);
 
-      // Step 1: Analyze the question to understand what data is needed
-      const queryAnalysis = await this.analyzeQuestion(question);
-      console.log('📊 Query analysis:', queryAnalysis);
+      // Check cache first
+      const cacheKey = `${context.organizationId}:${question.toLowerCase().trim()}`;
+      const cached = this.cache.get(cacheKey);
+      if (cached && (Date.now() - cached.timestamp) < this.CACHE_TTL) {
+        console.log('💨 Cache hit - returning cached response');
+        return cached.response;
+      }
 
-      // Step 2: Fetch relevant data based on analysis
-      const relevantData = await this.fetchRelevantData(queryAnalysis, context);
-      console.log('📋 Data fetched:', Object.keys(relevantData));
-
-      // Step 3: Generate intelligent response using OpenAI
-      const response = await this.generateResponse(question, relevantData, queryAnalysis);
+      // Use fast single-call approach for better performance
+      const response = await this.processQueryFast(question, context);
+      
+      // Cache the response
+      this.cache.set(cacheKey, { response, timestamp: Date.now() });
       
       return response;
 
@@ -63,6 +68,76 @@ export class AIBotEngine {
       console.error('❌ AI Bot error:', error);
       return `I apologize, but I encountered an error while processing your question: ${error?.message || 'Unknown error'}. Please try rephrasing your question or contact support if the issue persists.`;
     }
+  }
+
+  /**
+   * Fast single-call query processing
+   */
+  private async processQueryFast(question: string, context: QueryContext): Promise<string> {
+    // Fetch all relevant data upfront
+    const [properties, tasks, bookings, finances] = await Promise.all([
+      this.storage.getProperties(),
+      this.storage.getTasks(),
+      this.storage.getBookings(),
+      this.storage.getFinances()
+    ]);
+
+    // Filter by organization
+    const organizationData = {
+      properties: properties.filter((p: any) => p.organizationId === context.organizationId),
+      tasks: tasks.filter((t: any) => t.organizationId === context.organizationId),
+      bookings: bookings.filter((b: any) => b.organizationId === context.organizationId),
+      finances: finances.filter((f: any) => f.organizationId === context.organizationId)
+    };
+
+    console.log('📋 Data fetched:', Object.keys(organizationData));
+
+    // Single AI call with combined analysis and response
+    const systemPrompt = `You are MR Pilot, an AI assistant for a property management company. Analyze the user's question and provide a helpful response using the available data.
+
+Guidelines:
+1. Be conversational and helpful
+2. Use specific data from the provided context
+3. Format numbers clearly (use Thai Baht ฿ for money)
+4. If no data is found, explain why and suggest alternatives
+5. For date-related queries, be specific about the time period
+6. Always mention property names when relevant
+7. Keep responses concise but informative
+
+Current date: ${new Date().toISOString().split('T')[0]}
+
+Available data summary:
+- Properties: ${organizationData.properties.length} properties
+- Tasks: ${organizationData.tasks.length} tasks
+- Bookings: ${organizationData.bookings.length} bookings
+- Financial records: ${organizationData.finances.length} records`;
+
+    const userPrompt = `Question: "${question}"
+
+Available data:
+${JSON.stringify(organizationData, null, 2)}
+
+Please provide a helpful response based on this data.`;
+
+    const completion = await this.openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt }
+      ],
+      temperature: 0.3,
+      max_tokens: 600,
+    });
+
+    return completion.choices[0].message.content || "I apologize, but I couldn't generate a response to your question.";
+  }
+
+  /**
+   * Clear cache (for maintenance)
+   */
+  clearCache(): void {
+    this.cache.clear();
+    console.log('🧹 AI Bot cache cleared');
   }
 
   /**
@@ -82,12 +157,13 @@ Examples:
 Return only valid JSON.`;
 
     const completion = await this.openai.chat.completions.create({
-      model: "gpt-4",
+      model: "gpt-4o-mini",
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: question }
       ],
       temperature: 0.1,
+      max_tokens: 500,
     });
 
     try {
@@ -211,13 +287,13 @@ ${JSON.stringify(data, null, 2)}
 Please provide a helpful response based on this data.`;
 
     const completion = await this.openai.chat.completions.create({
-      model: "gpt-4",
+      model: "gpt-4o-mini",
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt }
       ],
       temperature: 0.3,
-      max_tokens: 1000,
+      max_tokens: 800,
     });
 
     return completion.choices[0].message.content || "I apologize, but I couldn't generate a response to your question.";
