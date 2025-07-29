@@ -20,17 +20,17 @@ const CaptainCortexAvatar: React.FC<CaptainCortexAvatarProps> = ({
 
     // Scene setup
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0xf0f0f0);
     sceneRef.current = scene;
 
     // Camera setup
     const camera = new THREE.PerspectiveCamera(75, 1, 0.1, 1000);
-    camera.position.z = 3;
+    camera.position.set(0, 0, 2);
 
     // Renderer setup
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setSize(size, size);
     renderer.setClearColor(0x000000, 0);
+    renderer.domElement.style.borderRadius = '50%';
     rendererRef.current = renderer;
     mountRef.current.appendChild(renderer.domElement);
 
@@ -45,21 +45,32 @@ const CaptainCortexAvatar: React.FC<CaptainCortexAvatarProps> = ({
         loader.load(
           '/captain-cortex-avatar.glb',
           (gltf) => {
+            console.log('GLB file loaded, processing model...');
             const model = gltf.scene;
             
-            // Scale and position the model
-            model.scale.set(1, 1, 1);
-            model.position.set(0, -1, 0);
+            // Try direct positioning first
+            model.scale.set(2, 2, 2);
+            model.position.set(0, -0.5, 0);
             
-            // Add lighting
-            const ambientLight = new THREE.AmbientLight(0x404040, 1);
+            // Add very bright lighting for maximum visibility
+            const ambientLight = new THREE.AmbientLight(0xffffff, 1.2);
             scene.add(ambientLight);
             
-            const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
-            directionalLight.position.set(1, 1, 1);
-            scene.add(directionalLight);
+            const directionalLight1 = new THREE.DirectionalLight(0xffffff, 1.5);
+            directionalLight1.position.set(5, 5, 5);
+            directionalLight1.castShadow = false;
+            scene.add(directionalLight1);
+            
+            const directionalLight2 = new THREE.DirectionalLight(0xffffff, 1);
+            directionalLight2.position.set(-5, -5, 5);
+            scene.add(directionalLight2);
+            
+            const pointLight = new THREE.PointLight(0xffffff, 1, 100);
+            pointLight.position.set(0, 0, 5);
+            scene.add(pointLight);
             
             scene.add(model);
+            console.log('Captain Cortex 3D model added to scene!');
 
             // Animation setup if available
             let mixer: THREE.AnimationMixer | null = null;
@@ -78,7 +89,10 @@ const CaptainCortexAvatar: React.FC<CaptainCortexAvatarProps> = ({
               }
               
               // Rotate the model slowly
-              model.rotation.y += 0.005;
+              model.rotation.y += 0.01;
+              
+              // Also try moving camera slightly for testing
+              camera.position.x = Math.sin(Date.now() * 0.001) * 0.1;
               
               renderer.render(scene, camera);
             };
@@ -90,38 +104,48 @@ const CaptainCortexAvatar: React.FC<CaptainCortexAvatarProps> = ({
           },
           (error) => {
             console.error('Error loading GLB model:', error);
-            // Fallback to text avatar
+            console.error('Error details:', error);
+            // Fallback to simple avatar
             createFallbackAvatar(scene);
           }
         );
       } catch (error) {
         console.error('Error importing GLTFLoader:', error);
-        // Fallback to text avatar
+        // Fallback to simple avatar
         createFallbackAvatar(scene);
       }
     };
 
     // Fallback avatar creation
     const createFallbackAvatar = (scene: THREE.Scene) => {
+      console.log('Creating fallback Captain Cortex avatar');
+      
       // Create a simple animated captain avatar
-      const geometry = new THREE.SphereGeometry(1, 32, 32);
+      const geometry = new THREE.SphereGeometry(0.8, 32, 32);
       const material = new THREE.MeshPhongMaterial({ color: 0x4f46e5 });
       const sphere = new THREE.Mesh(geometry, material);
       
       // Add captain hat
-      const hatGeometry = new THREE.CylinderGeometry(1.2, 1.2, 0.3, 32);
+      const hatGeometry = new THREE.CylinderGeometry(0.9, 0.9, 0.2, 32);
       const hatMaterial = new THREE.MeshPhongMaterial({ color: 0x1e1b4b });
       const hat = new THREE.Mesh(hatGeometry, hatMaterial);
-      hat.position.y = 1.2;
+      hat.position.y = 0.9;
+      
+      // Add hat brim
+      const brimGeometry = new THREE.CylinderGeometry(1.1, 1.1, 0.05, 32);
+      const brimMaterial = new THREE.MeshPhongMaterial({ color: 0x1e1b4b });
+      const brim = new THREE.Mesh(brimGeometry, brimMaterial);
+      brim.position.y = 0.8;
       
       scene.add(sphere);
       scene.add(hat);
+      scene.add(brim);
       
-      // Add lighting
-      const ambientLight = new THREE.AmbientLight(0x404040, 1);
+      // Add bright lighting
+      const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
       scene.add(ambientLight);
       
-      const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+      const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
       directionalLight.position.set(1, 1, 1);
       scene.add(directionalLight);
 
@@ -130,14 +154,18 @@ const CaptainCortexAvatar: React.FC<CaptainCortexAvatarProps> = ({
         animationIdRef.current = requestAnimationFrame(animate);
         sphere.rotation.y += 0.01;
         hat.rotation.y += 0.01;
+        brim.rotation.y += 0.01;
         renderer.render(scene, camera);
       };
       
       animate();
     };
 
-    // Load the GLB model
-    loadGLB();
+    // Load the GLB model or create fallback immediately
+    loadGLB().catch(() => {
+      console.log('GLB loading failed, creating fallback avatar');
+      createFallbackAvatar(scene);
+    });
 
     // Cleanup function
     return () => {
@@ -157,7 +185,16 @@ const CaptainCortexAvatar: React.FC<CaptainCortexAvatarProps> = ({
     <div 
       ref={mountRef} 
       className={`captain-cortex-avatar ${className}`}
-      style={{ width: size, height: size }}
+      style={{ 
+        width: size, 
+        height: size,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: 'rgba(59, 130, 246, 0.1)', // Light blue background to see the container
+        border: '1px solid rgba(59, 130, 246, 0.3)',
+        borderRadius: '50%'
+      }}
     />
   );
 };

@@ -9,7 +9,7 @@ const CaptainCortex = () => {
   const [isLoading, setIsLoading] = useState(false);
 
   // Fetch role-based greeting
-  const { data: greetingData } = useQuery({
+  const { data: greetingData } = useQuery<{greeting: string}>({
     queryKey: ['/api/ai-bot/greeting'],
     staleTime: 1000 * 60 * 10, // 10 minutes
   });
@@ -43,18 +43,22 @@ const CaptainCortex = () => {
     <div className="fixed bottom-4 right-4 z-50">
       {!isOpen ? (
         <button
-          className="bg-blue-600 hover:bg-blue-700 text-white rounded-full p-2 shadow-lg transition-colors flex items-center gap-2"
+          className="bg-blue-600 hover:bg-blue-700 text-white rounded-full p-3 shadow-lg transition-colors flex items-center gap-2"
           onClick={() => setIsOpen(true)}
           title="Open Captain Cortex AI Assistant"
         >
-          <CaptainCortexAvatar size={32} className="rounded-full overflow-hidden" />
-          <span className="text-sm font-medium">Captain Cortex</span>
+          <div className="flex-shrink-0">
+            <CaptainCortexAvatar size={40} className="rounded-full overflow-hidden border-2 border-white" />
+          </div>
+          <span className="text-sm font-medium pr-2">Captain Cortex</span>
         </button>
       ) : (
         <div className="bg-white dark:bg-gray-800 shadow-lg border dark:border-gray-700 rounded-lg w-96 p-4">
           <div className="flex justify-between items-center mb-2">
-            <div className="flex items-center gap-2">
-              <CaptainCortexAvatar size={40} className="rounded-full overflow-hidden" />
+            <div className="flex items-center gap-3">
+              <div className="flex-shrink-0">
+                <CaptainCortexAvatar size={50} className="rounded-full overflow-hidden border-2 border-blue-200" />
+              </div>
               <div>
                 <h2 className="font-bold text-gray-900 dark:text-gray-100">Captain Cortex</h2>
                 <div className="text-xs text-gray-500">The Smart Co-Pilot for Property Management by HostPilotPro</div>
