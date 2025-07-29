@@ -76,9 +76,14 @@ export default function Properties() {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {properties.map((property: any) => (
+              {Array.isArray(properties) && properties
+                .filter((property, index, self) => 
+                  // Remove duplicates by ID
+                  property && property.id && self.findIndex(p => p.id === property.id) === index
+                )
+                .map((property: any) => (
                 <PropertyCard
-                  key={property.id}
+                  key={`property-${property.id}`}
                   property={property}
                   onDelete={() => handleDeleteProperty(property.id)}
                 />

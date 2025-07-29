@@ -47,13 +47,13 @@ export function MultiPropertyCalendar({ properties, bookings }: MultiPropertyCal
   const [selectedProperty, setSelectedProperty] = useState<string>('all');
   const [viewMode, setViewMode] = useState<'month' | 'week'>('month');
 
-  const getDaysInMonth = (date: Date) => {
+  const getDaysInMonth = (date: Date): (Date | null)[] => {
     const firstDay = new Date(date.getFullYear(), date.getMonth(), 1);
     const lastDay = new Date(date.getFullYear(), date.getMonth() + 1, 0);
     const daysInMonth = lastDay.getDate();
     const startDayOfWeek = firstDay.getDay();
     
-    const days = [];
+    const days: (Date | null)[] = [];
     
     // Add empty cells for days before the first day of the month
     for (let i = 0; i < startDayOfWeek; i++) {
@@ -173,7 +173,7 @@ export function MultiPropertyCalendar({ properties, bookings }: MultiPropertyCal
           <div className="grid grid-cols-7 gap-2">
             {days.map((day, index) => {
               const dayBookings = getBookingsForDate(day);
-              const isToday = day && day.toDateString() === new Date().toDateString();
+              const isToday = day ? day.toDateString() === new Date().toDateString() : false;
               
               return (
                 <div 

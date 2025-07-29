@@ -577,39 +577,49 @@ export default function PortfolioManagerDashboard() {
             </CardHeader>
             <CardContent>
               <div className="grid gap-4 md:grid-cols-5">
-                <Button asChild variant="outline" className="h-20 flex-col">
-                  <Link href="/portfolio/property-access">
-                    <Building className="h-6 w-6 mb-2" />
-                    <span className="text-sm">Property Access</span>
-                  </Link>
+                <Button 
+                  variant="outline" 
+                  className="h-20 flex-col"
+                  onClick={() => window.location.href = "/properties"}
+                >
+                  <Building className="h-6 w-6 mb-2" />
+                  <span className="text-sm">Property Access</span>
                 </Button>
                 
-                <Button asChild variant="outline" className="h-20 flex-col">
-                  <Link href="/portfolio/documents">
-                    <FileText className="h-6 w-6 mb-2" />
-                    <span className="text-sm">Document Center</span>
-                  </Link>
+                <Button 
+                  variant="outline" 
+                  className="h-20 flex-col"
+                  onClick={() => window.location.href = "/property-documents-management"}
+                >
+                  <FileText className="h-6 w-6 mb-2" />
+                  <span className="text-sm">Document Center</span>
                 </Button>
                 
-                <Button asChild variant="outline" className="h-20 flex-col">
-                  <Link href="/portfolio/maintenance">
-                    <Settings className="h-6 w-6 mb-2" />
-                    <span className="text-sm">Maintenance</span>
-                  </Link>
+                <Button 
+                  variant="outline" 
+                  className="h-20 flex-col"
+                  onClick={() => window.location.href = "/tasks"}
+                >
+                  <Settings className="h-6 w-6 mb-2" />
+                  <span className="text-sm">Maintenance</span>
                 </Button>
                 
-                <Button asChild variant="outline" className="h-20 flex-col">
-                  <Link href="/portfolio/service-tracker">
-                    <Calendar className="h-6 w-6 mb-2" />
-                    <span className="text-sm">Service Tracker</span>
-                  </Link>
+                <Button 
+                  variant="outline" 
+                  className="h-20 flex-col"
+                  onClick={() => window.location.href = "/services"}
+                >
+                  <Calendar className="h-6 w-6 mb-2" />
+                  <span className="text-sm">Service Tracker</span>
                 </Button>
                 
-                <Button asChild variant="outline" className="h-20 flex-col">
-                  <Link href="/portfolio/invoices">
-                    <Receipt className="h-6 w-6 mb-2" />
-                    <span className="text-sm">Invoices</span>
-                  </Link>
+                <Button 
+                  variant="outline" 
+                  className="h-20 flex-col"
+                  onClick={() => window.location.href = "/invoice-generator"}
+                >
+                  <Receipt className="h-6 w-6 mb-2" />
+                  <span className="text-sm">Invoices</span>
                 </Button>
               </div>
             </CardContent>

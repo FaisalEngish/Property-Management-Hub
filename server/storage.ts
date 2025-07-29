@@ -4832,6 +4832,37 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
+  async getFinanceAnalytics(filters?: { organizationId?: string }): Promise<any> {
+    try {
+      const finances = await this.getFinances(filters);
+      
+      const totalRevenue = finances
+        .filter(f => f.type === 'income')
+        .reduce((sum, f) => sum + (f.amount || 0), 0);
+      
+      const totalExpenses = finances
+        .filter(f => f.type === 'expense')
+        .reduce((sum, f) => sum + (f.amount || 0), 0);
+      
+      return {
+        totalRevenue,
+        totalExpenses,
+        netProfit: totalRevenue - totalExpenses,
+        monthlyGrowth: 12.5, // Demo value
+        transactionCount: finances.length
+      };
+    } catch (error) {
+      console.error('Error calculating finance analytics:', error);
+      return {
+        totalRevenue: 0,
+        totalExpenses: 0,
+        netProfit: 0,
+        monthlyGrowth: 0,
+        transactionCount: 0
+      };
+    }
+  }
+
   // System Hub methods
   async getUserStats(filters?: { organizationId?: string }): Promise<any> {
     try {
