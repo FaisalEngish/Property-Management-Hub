@@ -95,7 +95,7 @@ export default function SimpleSettings() {
               </a>
             </div>
             <div className="text-xs text-gray-500">
-              💡 Tip: You can also access MR Pilot using the floating button at the bottom right corner of any page
+              💡 Tip: You can also access Captain Cortex using the floating button at the bottom right corner of any page
             </div>
           </div>
         </div>

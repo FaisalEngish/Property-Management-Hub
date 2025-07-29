@@ -1,5 +1,6 @@
 /**
- * MR Pilot AI Bot Engine
+ * Captain Cortex AI Bot Engine
+ * The Smart Co-Pilot for Property Management by HostPilotPro
  * Provides intelligent access to all property management data
  */
 

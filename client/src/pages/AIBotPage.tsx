@@ -10,11 +10,11 @@ export function AIBotPage() {
       <div className="space-y-2">
         <h1 className="text-3xl font-bold tracking-tight flex items-center gap-3">
           <Bot className="h-8 w-8 text-blue-500" />
-          MR Pilot AI Assistant
+          Captain Cortex AI Assistant
         </h1>
         <p className="text-muted-foreground">
           Ask questions about your properties, tasks, revenue, expenses, and bookings. 
-          MR Pilot has real-time access to all your property management data.
+          Captain Cortex is the Smart Co-Pilot for Property Management with real-time access to all your data.
         </p>
       </div>
 

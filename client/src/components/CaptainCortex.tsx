@@ -1,12 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState } from "react";
 
-const MrPilot = () => {
+const CaptainCortex = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [prompt, setPrompt] = useState("");
   const [response, setResponse] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
-  const askPilot = async () => {
+  const askCortex = async () => {
     if (!prompt.trim()) return;
     
     setIsLoading(true);
@@ -27,7 +27,7 @@ const MrPilot = () => {
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && e.ctrlKey) {
-      askPilot();
+      askCortex();
     }
   };
 
@@ -37,14 +37,14 @@ const MrPilot = () => {
         <button
           className="bg-blue-600 hover:bg-blue-700 text-white rounded-full p-4 shadow-lg transition-colors"
           onClick={() => setIsOpen(true)}
-          title="Open Mr. Pilot AI Assistant"
+          title="Open Captain Cortex AI Assistant"
         >
-          🧑‍✈️ Mr. Pilot
+          🧠 Captain Cortex
         </button>
       ) : (
         <div className="bg-white dark:bg-gray-800 shadow-lg border dark:border-gray-700 rounded-lg w-96 p-4">
           <div className="flex justify-between items-center mb-2">
-            <h2 className="font-bold text-gray-900 dark:text-gray-100">Mr. Pilot Assistant</h2>
+            <h2 className="font-bold text-gray-900 dark:text-gray-100">Captain Cortex</h2>
             <button 
               onClick={() => setIsOpen(false)}
               className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
@@ -53,6 +53,7 @@ const MrPilot = () => {
               ❌
             </button>
           </div>
+          <div className="text-xs text-gray-500 mb-2">The Smart Co-Pilot for Property Management by HostPilotPro</div>
           <textarea
             className="w-full p-2 border dark:border-gray-600 rounded mb-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
             rows={3}
@@ -63,7 +64,7 @@ const MrPilot = () => {
           />
           <button
             className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded w-full disabled:bg-gray-400 transition-colors"
-            onClick={askPilot}
+            onClick={askCortex}
             disabled={isLoading || !prompt.trim()}
           >
             {isLoading ? "Thinking..." : "Ask (Ctrl+Enter)"}
@@ -80,4 +81,4 @@ const MrPilot = () => {
   );
 };
 
-export default MrPilot;
+export default CaptainCortex;
