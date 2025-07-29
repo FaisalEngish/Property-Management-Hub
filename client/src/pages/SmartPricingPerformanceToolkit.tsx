@@ -166,35 +166,51 @@ export default function SmartPricingPerformanceToolkit() {
     queryFn: () => apiRequest("GET", `/api/smart-pricing/year-on-year${selectedProperty !== "all" ? `?propertyId=${selectedProperty}` : ""}`),
   });
 
-  // Holiday Events
-  const { data: holidays, isLoading: holidaysLoading } = useQuery<HolidayEvent[]>({
+  // Holiday Events with error handling
+  const { data: holidaysRaw, isLoading: holidaysLoading } = useQuery<HolidayEvent[]>({
     queryKey: ["/api/smart-pricing/holidays"],
     queryFn: () => apiRequest("GET", "/api/smart-pricing/holidays"),
+    retry: false,
   });
 
-  // Price Deviation Analysis
-  const { data: priceDeviations, isLoading: priceDeviationsLoading } = useQuery<PriceDeviationAnalysis[]>({
+  // Ensure data is always an array to prevent crashes
+  const holidays = Array.isArray(holidaysRaw) ? holidaysRaw : [];
+
+  // Price Deviation Analysis with error handling
+  const { data: priceDeviationsRaw, isLoading: priceDeviationsLoading } = useQuery<PriceDeviationAnalysis[]>({
     queryKey: ["/api/smart-pricing/price-deviation", selectedProperty],
     queryFn: () => apiRequest("GET", `/api/smart-pricing/price-deviation${selectedProperty !== "all" ? `?propertyId=${selectedProperty}` : ""}`),
+    retry: false,
   });
 
-  // Booking Gaps
-  const { data: bookingGaps, isLoading: bookingGapsLoading } = useQuery<BookingGap[]>({
+  // Booking Gaps with error handling
+  const { data: bookingGapsRaw, isLoading: bookingGapsLoading } = useQuery<BookingGap[]>({
     queryKey: ["/api/smart-pricing/booking-gaps", selectedProperty],
     queryFn: () => apiRequest("GET", `/api/smart-pricing/booking-gaps${selectedProperty !== "all" ? `?propertyId=${selectedProperty}` : ""}`),
+    retry: false,
   });
 
-  // Smart Alerts
-  const { data: smartAlerts, isLoading: smartAlertsLoading } = useQuery<SmartAlert[]>({
+  // Ensure data is always an array to prevent crashes
+  const priceDeviations = Array.isArray(priceDeviationsRaw) ? priceDeviationsRaw : [];
+  const bookingGaps = Array.isArray(bookingGapsRaw) ? bookingGapsRaw : [];
+
+  // Smart Alerts with error handling
+  const { data: smartAlertsRaw, isLoading: smartAlertsLoading } = useQuery<SmartAlert[]>({
     queryKey: ["/api/smart-pricing/alerts", selectedProperty],
     queryFn: () => apiRequest("GET", `/api/smart-pricing/alerts${selectedProperty !== "all" ? `?propertyId=${selectedProperty}` : ""}`),
+    retry: false,
   });
 
-  // AI Performance Summary
-  const { data: aiSummary, isLoading: aiSummaryLoading } = useQuery<AIPerformanceSummary[]>({
+  // AI Performance Summary with error handling
+  const { data: aiSummaryRaw, isLoading: aiSummaryLoading } = useQuery<AIPerformanceSummary[]>({
     queryKey: ["/api/smart-pricing/ai-summary", selectedProperty],
     queryFn: () => apiRequest("GET", `/api/smart-pricing/ai-summary${selectedProperty !== "all" ? `?propertyId=${selectedProperty}` : ""}`),
+    retry: false,
   });
+
+  // Ensure data is always an array to prevent crashes
+  const smartAlerts = Array.isArray(smartAlertsRaw) ? smartAlertsRaw : [];
+  const aiSummary = Array.isArray(aiSummaryRaw) ? aiSummaryRaw : [];
 
   // Direct Booking Optimization
   const { data: directBooking, isLoading: directBookingLoading } = useQuery<DirectBookingOptimization[]>({
@@ -400,7 +416,7 @@ export default function SmartPricingPerformanceToolkit() {
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    {(Array.isArray(smartAlerts) ? smartAlerts : [])?.filter(alert => alert.severity === "critical" || alert.severity === "high").slice(0, 3).map((alert) => (
+                    {smartAlerts.filter(alert => alert.severity === "critical" || alert.severity === "high").slice(0, 3).map((alert) => (
                       <div key={alert.id} className="flex items-start space-x-3 p-3 border rounded-lg">
                         <AlertCircle className={`h-4 w-4 mt-0.5 ${alert.severity === "critical" ? "text-red-500" : "text-orange-500"}`} />
                         <div className="flex-1 min-w-0">
@@ -487,7 +503,7 @@ export default function SmartPricingPerformanceToolkit() {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {aiSummary?.slice(0, 1).map((summary) => (
+                  {aiSummary.slice(0, 1).map((summary) => (
                     <div key={summary.id} className="space-y-3">
                       <div className="flex items-center justify-between">
                         <span className="font-medium">Performance Grade: </span>
