@@ -22,9 +22,9 @@ const CaptainCortexAvatar: React.FC<CaptainCortexAvatarProps> = ({
     const scene = new THREE.Scene();
     sceneRef.current = scene;
 
-    // Camera setup
-    const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 1000);
-    camera.position.set(0, 0, 5);
+    // Camera setup - closer and wider field of view
+    const camera = new THREE.PerspectiveCamera(60, 1, 0.1, 1000);
+    camera.position.set(0, 0, 3);
     camera.lookAt(0, 0, 0);
 
     // Renderer setup
@@ -32,6 +32,9 @@ const CaptainCortexAvatar: React.FC<CaptainCortexAvatarProps> = ({
     renderer.setSize(size, size);
     renderer.setClearColor(0x000000, 0);
     renderer.domElement.style.borderRadius = '50%';
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.2;
     rendererRef.current = renderer;
     mountRef.current.appendChild(renderer.domElement);
 
@@ -59,12 +62,16 @@ const CaptainCortexAvatar: React.FC<CaptainCortexAvatarProps> = ({
             const fov = camera.fov * (Math.PI / 180);
             const cameraZ = Math.abs(maxDim / 2 / Math.tan(fov / 2));
             
-            // Scale to fit nicely in view
-            const scale = 1.5 / maxDim;
+            // Scale much larger to be clearly visible
+            const scale = 3.5 / maxDim;
             model.scale.setScalar(scale);
             
             // Center the model at origin
             model.position.copy(center).multiplyScalar(-scale);
+            
+            // Ensure model is facing forward
+            model.rotation.x = 0;
+            model.rotation.z = 0;
             
             console.log('Model positioning:', {
               originalSize: size,
@@ -74,21 +81,24 @@ const CaptainCortexAvatar: React.FC<CaptainCortexAvatarProps> = ({
               cameraPosition: camera.position
             });
             
-            // Add very bright lighting for maximum visibility
-            const ambientLight = new THREE.AmbientLight(0xffffff, 1.2);
+            // Add extremely bright lighting for maximum visibility
+            const ambientLight = new THREE.AmbientLight(0xffffff, 2.0);
             scene.add(ambientLight);
             
-            const directionalLight1 = new THREE.DirectionalLight(0xffffff, 1.5);
-            directionalLight1.position.set(5, 5, 5);
-            directionalLight1.castShadow = false;
+            const directionalLight1 = new THREE.DirectionalLight(0xffffff, 2.0);
+            directionalLight1.position.set(3, 3, 3);
             scene.add(directionalLight1);
             
-            const directionalLight2 = new THREE.DirectionalLight(0xffffff, 1);
-            directionalLight2.position.set(-5, -5, 5);
+            const directionalLight2 = new THREE.DirectionalLight(0xffffff, 1.5);
+            directionalLight2.position.set(-3, -3, 3);
             scene.add(directionalLight2);
             
-            const pointLight = new THREE.PointLight(0xffffff, 1, 100);
-            pointLight.position.set(0, 0, 5);
+            const directionalLight3 = new THREE.DirectionalLight(0xffffff, 1.5);
+            directionalLight3.position.set(0, 3, -3);
+            scene.add(directionalLight3);
+            
+            const pointLight = new THREE.PointLight(0xffffff, 2, 100);
+            pointLight.position.set(0, 0, 3);
             scene.add(pointLight);
             
             scene.add(model);
@@ -111,7 +121,7 @@ const CaptainCortexAvatar: React.FC<CaptainCortexAvatarProps> = ({
               }
               
               // Rotate the model slowly
-              model.rotation.y += 0.01;
+              model.rotation.y += 0.015;
               
               // Keep camera focused on the model
               camera.lookAt(0, 0, 0);
@@ -217,9 +227,7 @@ const CaptainCortexAvatar: React.FC<CaptainCortexAvatarProps> = ({
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: 'rgba(59, 130, 246, 0.1)', // Light blue background to see the container
-        border: '1px solid rgba(59, 130, 246, 0.3)',
-        borderRadius: '50%'
+        backgroundColor: 'transparent'
       }}
     />
   );
