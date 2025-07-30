@@ -4863,12 +4863,28 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
+  // Missing getUsers method that was causing crashes
+  async getUsers(filters?: { organizationId?: string }): Promise<User[]> {
+    try {
+      let query = db.select().from(users);
+      
+      if (filters?.organizationId) {
+        query = query.where(eq(users.organizationId, filters.organizationId));
+      }
+      
+      return await query;
+    } catch (error) {
+      console.error('Error fetching users:', error);
+      return [];
+    }
+  }
+
   // System Hub methods
   async getUserStats(filters?: { organizationId?: string }): Promise<any> {
     try {
       const allUsers = await this.getUsers(filters);
       const totalUsers = allUsers.length;
-      const activeUsers = allUsers.filter(user => user.status === 'active').length;
+      const activeUsers = allUsers.filter(user => user.status === 'active' || !user.status).length;
       
       const usersByRole = allUsers.reduce((acc, user) => {
         acc[user.role] = (acc[user.role] || 0) + 1;

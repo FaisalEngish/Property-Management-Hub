@@ -73,6 +73,8 @@ import SaasManagement from "@/pages/admin/SaasManagement";
 
 // Import Property Appliances Management
 import PropertyAppliancesManagement from "@/pages/PropertyAppliancesManagement";
+import TaskOverview from "@/pages/TaskOverview";
+import DailyOperations from "@/pages/DailyOperations";
 import AlertManagement from "@/pages/AlertManagement";
 import UpgradedAdminDashboard from "@/pages/UpgradedAdminDashboard";
 import AutomationManagement from "@/pages/AutomationManagement";
@@ -172,6 +174,8 @@ function AppRoutes() {
         <Route path="/maintenance-suggestions" component={SimpleMaintenanceSuggestions} />
         <Route path="/checkin-checkout-workflow" component={CheckInCheckOutWorkflow} />
         <Route path="/daily-operations" component={DailyOperationsDashboard} />
+        <Route path="/task-overview" component={TaskOverview} />
+        <Route path="/daily-operations-overview" component={DailyOperations} />
         <Route path="/sandbox-testing" component={SandboxTestingDashboard} />
         
         {/* Communication & Guest Services */}
