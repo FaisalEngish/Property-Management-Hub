@@ -30,16 +30,18 @@ const FloatingCaptainCortex = () => {
   const [showSpeechBubble, setShowSpeechBubble] = useState(false);
   const [speechMessage, setSpeechMessage] = useState("");
 
-  // Fetch role-based greeting
+  // Fetch role-based greeting (handle authentication gracefully)
   const { data: greetingData } = useQuery<{greeting: string}>({
     queryKey: ['/api/ai-bot/greeting'],
     staleTime: 1000 * 60 * 10, // 10 minutes
+    retry: false, // Don't retry if unauthorized
   });
 
-  // Check for high priority tasks as notifications
+  // Check for high priority tasks as notifications (handle authentication gracefully)
   const { data: tasksData } = useQuery({
     queryKey: ['/api/tasks'],
     staleTime: 1000 * 60, // 1 minute
+    retry: false, // Don't retry if unauthorized
   });
 
   // Filter high priority tasks as notifications
