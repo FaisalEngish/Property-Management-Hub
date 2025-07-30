@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import CreateTaskDialog from "@/components/CreateTaskDialog";
 import { 
   Plus, 
@@ -20,7 +21,8 @@ import {
   Calendar,
   User,
   MapPin,
-  RefreshCw
+  RefreshCw,
+  Trash2
 } from 'lucide-react';
 
 // Ultra-fast demo tasks data - no API calls, instant loading
@@ -138,6 +140,7 @@ export default function UltraFastTasks() {
   const [priorityFilter, setPriorityFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [isBulkDialogOpen, setIsBulkDialogOpen] = useState(false);
   
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -289,6 +292,64 @@ export default function UltraFastTasks() {
     },
   });
 
+  // Bulk delete mutations
+  const deleteExpiredMutation = useMutation({
+    mutationFn: () => apiRequest('/api/tasks/bulk-delete/expired', { method: 'DELETE' }),
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/tasks'] });
+      toast({
+        title: "Expired tasks deleted",
+        description: `Successfully deleted ${result.deletedCount} expired tasks`,
+      });
+      setIsBulkDialogOpen(false);
+    },
+    onError: (error) => {
+      toast({
+        title: "Error deleting expired tasks",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteCompletedMutation = useMutation({
+    mutationFn: () => apiRequest('/api/tasks/bulk-delete/completed', { method: 'DELETE' }),
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/tasks'] });
+      toast({
+        title: "Completed tasks deleted",
+        description: `Successfully deleted ${result.deletedCount} completed tasks`,
+      });
+      setIsBulkDialogOpen(false);
+    },
+    onError: (error) => {
+      toast({
+        title: "Error deleting completed tasks",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteOldMutation = useMutation({
+    mutationFn: () => apiRequest('/api/tasks/bulk-delete/old', { method: 'DELETE' }),
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/tasks'] });
+      toast({
+        title: "Old tasks deleted",
+        description: `Successfully deleted ${result.deletedCount} old tasks`,
+      });
+      setIsBulkDialogOpen(false);
+    },
+    onError: (error) => {
+      toast({
+        title: "Error deleting old tasks",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleCompleteTask = (taskId: number) => {
     completeTaskMutation.mutate(taskId);
   };
@@ -300,6 +361,18 @@ export default function UltraFastTasks() {
 
   const handleRefresh = () => {
     refreshTasksMutation.mutate();
+  };
+
+  const handleDeleteExpiredTasks = () => {
+    deleteExpiredMutation.mutate();
+  };
+
+  const handleDeleteCompletedTasks = () => {
+    deleteCompletedMutation.mutate();
+  };
+
+  const handleDeleteOldTasks = () => {
+    deleteOldMutation.mutate();
   };
 
   return (
@@ -322,13 +395,23 @@ export default function UltraFastTasks() {
             <RefreshCw className={`h-4 w-4 ${refreshTasksMutation.isPending ? 'animate-spin' : ''}`} />
             Refresh
           </Button>
-          <Button 
-            onClick={() => setIsCreateDialogOpen(true)}
-            className="gap-2"
-          >
-            <Plus className="h-4 w-4" />
-            Create Task
-          </Button>
+          <div className="flex gap-2">
+            <Button 
+              onClick={() => setIsCreateDialogOpen(true)}
+              className="gap-2"
+            >
+              <Plus className="h-4 w-4" />
+              Create Task
+            </Button>
+            <Button 
+              onClick={() => setIsBulkDialogOpen(true)}
+              variant="outline"
+              className="gap-2 border-red-200 text-red-600 hover:bg-red-50"
+            >
+              <Trash2 className="h-4 w-4" />
+              Bulk Actions
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -588,6 +671,62 @@ export default function UltraFastTasks() {
         isOpen={isCreateDialogOpen}
         onOpenChange={setIsCreateDialogOpen}
       />
+
+      {/* Bulk Actions Dialog */}
+      <Dialog open={isBulkDialogOpen} onOpenChange={setIsBulkDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Bulk Task Management</DialogTitle>
+            <DialogDescription>
+              Clean up old tasks to improve performance. We currently have {tasks.length} tasks.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="grid gap-3">
+              <Button 
+                onClick={handleDeleteExpiredTasks}
+                variant="destructive"
+                className="w-full"
+                disabled={deleteExpiredMutation.isPending}
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                {deleteExpiredMutation.isPending ? 'Deleting...' : 'Delete Expired Tasks (30+ days old)'}
+              </Button>
+              
+              <Button 
+                onClick={handleDeleteCompletedTasks}
+                variant="outline"
+                className="w-full border-orange-200 text-orange-600 hover:bg-orange-50"
+                disabled={deleteCompletedMutation.isPending}
+              >
+                <CheckCircle2 className="mr-2 h-4 w-4" />
+                {deleteCompletedMutation.isPending ? 'Deleting...' : 'Delete All Completed Tasks'}
+              </Button>
+              
+              <Button 
+                onClick={handleDeleteOldTasks}
+                variant="outline"
+                className="w-full border-red-200 text-red-600 hover:bg-red-50"
+                disabled={deleteOldMutation.isPending}
+              >
+                <Calendar className="mr-2 h-4 w-4" />
+                {deleteOldMutation.isPending ? 'Deleting...' : 'Delete Tasks Older Than 90 Days'}
+              </Button>
+            </div>
+            
+            <div className="text-xs text-muted-foreground">
+              <p>• Expired tasks: Tasks older than 30 days</p>
+              <p>• Completed tasks: All tasks marked as completed</p>
+              <p>• Old tasks: All tasks older than 90 days regardless of status</p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsBulkDialogOpen(false)}>
+              Cancel
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
