@@ -70,14 +70,18 @@ const AIBotChat: React.FC<AIBotChatProps> = ({ className = "" }) => {
         }];
       });
     },
-    onError: () => {
+    onError: (error: any) => {
       // Remove loading message and add error message
+      const errorMessage = error?.message?.includes("401") || error?.message?.includes("Unauthorized") 
+        ? "Please log in to use Captain Cortex. Go to the login page first."
+        : "Sorry, I'm having trouble connecting. Please try again.";
+      
       setMessages(prev => {
         const filtered = prev.filter(m => !m.isLoading);
         return [...filtered, {
           id: Date.now().toString(),
           type: 'bot',
-          content: 'Sorry, I encountered an error. Please try again.',
+          content: errorMessage,
           timestamp: new Date()
         }];
       });

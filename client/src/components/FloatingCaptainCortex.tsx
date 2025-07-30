@@ -68,12 +68,12 @@ const FloatingCaptainCortex = () => {
   // Show greeting bubble on first load
   useEffect(() => {
     const hasShownGreeting = localStorage.getItem('cortex-greeting-shown');
-    if (!hasShownGreeting && greetingData?.greeting) {
-      setSpeechMessage("Hi! I'm Captain Cortex, your property management co-pilot!");
+    if (!hasShownGreeting) {
+      setSpeechMessage("👨‍✈️ Hi! I'm Captain Cortex, your AI property management co-pilot! Make sure you're logged in to chat.");
       setShowSpeechBubble(true);
       localStorage.setItem('cortex-greeting-shown', 'true');
       
-      // Auto-hide after 4 seconds
+      // Auto-hide after 6 seconds
       const timer = setTimeout(() => {
         setShowSpeechBubble(false);
       }, 4000);
