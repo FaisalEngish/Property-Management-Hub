@@ -11,6 +11,7 @@ import { CacheProvider } from "@/context/CacheContext";
 
 // Import existing pages with lazy loading for performance
 import { LazyDashboard, LazyFinancialDashboard, LazyPropertyDashboard } from "@/components/LazyDashboard";
+import UltraFastPropertyDashboard from "@/pages/UltraFastPropertyDashboard";
 import RoleBasedDashboard from "@/components/RoleBasedDashboard";
 import Properties from "@/pages/Properties";
 import Tasks from "@/pages/Tasks";
@@ -169,7 +170,7 @@ function AppRoutes() {
         
         {/* Enhanced Dashboards */}
         <Route path="/simple-filtered-financial-dashboard" component={LazyFinancialDashboard} />
-        <Route path="/filtered-property-dashboard" component={LazyPropertyDashboard} />
+        <Route path="/filtered-property-dashboard" component={UltraFastPropertyDashboard} />
         
         {/* Core Management */}
         <Route path="/maintenance-suggestions" component={SimpleMaintenanceSuggestions} />
