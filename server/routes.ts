@@ -12867,6 +12867,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post("/api/users", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = req.user?.organizationId || "default-org";
+      const { name, email, role, password } = req.body;
+      
+      // Validate required fields
+      if (!name || !email || !role || !password) {
+        return res.status(400).json({ message: "Name, email, role, and password are required" });
+      }
+      
+      // Check if email already exists (in demo mode, check against demo users)
+      const existingUsers = [
+        "admin@test.com", "manager@test.com", "staff@test.com", 
+        "owner@test.com", "retail@test.com", "referral@test.com"
+      ];
+      
+      if (existingUsers.includes(email.toLowerCase())) {
+        return res.status(409).json({ message: "User with this email already exists" });
+      }
+      
+      // Generate new user ID
+      const userId = `user-${Date.now()}`;
+      
+      // Create new user (for demo purposes)
+      const newUser = {
+        id: userId,
+        name,
+        email,
+        role,
+        status: "active",
+        organizationId,
+        createdAt: new Date(),
+        // In real implementation, password would be hashed
+        password: password // Don't return this in response
+      };
+      
+      // Return user without password
+      const { password: _, ...userResponse } = newUser;
+      
+      res.status(201).json(userResponse);
+    } catch (error) {
+      console.error("Error creating user:", error);
+      res.status(500).json({ message: "Failed to create user" });
+    }
+  });
+
   app.patch("/api/users/:id", isDemoAuthenticated, async (req: any, res) => {
     try {
       const { id } = req.params;

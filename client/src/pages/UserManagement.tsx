@@ -23,13 +23,22 @@ const editUserSchema = z.object({
   status: z.enum(["active", "inactive"]),
 });
 
+const addUserSchema = z.object({
+  name: z.string().min(1, "Name is required"),
+  email: z.string().email("Invalid email address"),
+  role: z.enum(["admin", "portfolio-manager", "staff", "owner", "guest"]),
+  password: z.string().min(6, "Password must be at least 6 characters"),
+});
+
 type EditUserForm = z.infer<typeof editUserSchema>;
+type AddUserForm = z.infer<typeof addUserSchema>;
 
 export default function UserManagement() {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterRole, setFilterRole] = useState("all");
   const [editingUser, setEditingUser] = useState<any>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -48,14 +57,20 @@ export default function UserManagement() {
     },
   });
 
+  const addForm = useForm<AddUserForm>({
+    resolver: zodResolver(addUserSchema),
+    defaultValues: {
+      name: "",
+      email: "",
+      role: "staff",
+      password: "",
+    },
+  });
+
   const updateUserMutation = useMutation({
     mutationFn: async (data: EditUserForm & { id: string }) => {
       const { id, ...updateData } = data;
-      return apiRequest(`/api/users/${id}`, {
-        method: "PATCH",
-        body: JSON.stringify(updateData),
-        headers: { "Content-Type": "application/json" },
-      });
+      return apiRequest("PATCH", `/api/users/${id}`, updateData);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/users"] });
@@ -76,6 +91,28 @@ export default function UserManagement() {
     },
   });
 
+  const createUserMutation = useMutation({
+    mutationFn: async (data: AddUserForm) => {
+      return apiRequest("POST", "/api/users", data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/users"] });
+      setIsAddDialogOpen(false);
+      addForm.reset();
+      toast({
+        title: "Success",
+        description: "User created successfully",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to create user",
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleEditUser = (user: any) => {
     setEditingUser(user);
     editForm.reset({
@@ -91,6 +128,10 @@ export default function UserManagement() {
     if (editingUser) {
       updateUserMutation.mutate({ ...data, id: editingUser.id });
     }
+  };
+
+  const onSubmitAdd = (data: AddUserForm) => {
+    createUserMutation.mutate(data);
   };
 
   const filteredUsers = users.filter((user: any) => {
@@ -117,10 +158,98 @@ export default function UserManagement() {
           <h1 className="text-3xl font-bold">User Management</h1>
           <p className="text-gray-600">Manage users, permissions, and access controls</p>
         </div>
-        <Button>
-          <UserPlus className="w-4 h-4 mr-2" />
-          Add User
-        </Button>
+        <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+          <DialogTrigger asChild>
+            <Button>
+              <UserPlus className="w-4 h-4 mr-2" />
+              Add User
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Add New User</DialogTitle>
+            </DialogHeader>
+            <Form {...addForm}>
+              <form onSubmit={addForm.handleSubmit(onSubmitAdd)} className="space-y-4">
+                <FormField
+                  control={addForm.control}
+                  name="name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Full Name</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Enter full name" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={addForm.control}
+                  name="email"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Email</FormLabel>
+                      <FormControl>
+                        <Input type="email" placeholder="Enter email address" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={addForm.control}
+                  name="password"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Password</FormLabel>
+                      <FormControl>
+                        <Input type="password" placeholder="Enter password" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={addForm.control}
+                  name="role"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Role</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select role" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="staff">Staff</SelectItem>
+                          <SelectItem value="owner">Owner</SelectItem>
+                          <SelectItem value="portfolio-manager">Portfolio Manager</SelectItem>
+                          <SelectItem value="admin">Admin</SelectItem>
+                          <SelectItem value="guest">Guest</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <div className="flex justify-end gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setIsAddDialogOpen(false)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button type="submit" disabled={createUserMutation.isPending}>
+                    {createUserMutation.isPending ? "Creating..." : "Create User"}
+                  </Button>
+                </div>
+              </form>
+            </Form>
+          </DialogContent>
+        </Dialog>
       </div>
 
       <Tabs defaultValue="users" className="space-y-6">
