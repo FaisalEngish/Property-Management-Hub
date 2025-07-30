@@ -1,10 +1,14 @@
 import React, { useState, useMemo } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { apiRequest } from '@/lib/queryClient';
+import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import CreateTaskDialog from "@/components/CreateTaskDialog";
 import { 
   Plus, 
   Search, 
@@ -15,7 +19,8 @@ import {
   Wrench,
   Calendar,
   User,
-  MapPin
+  MapPin,
+  RefreshCw
 } from 'lucide-react';
 
 // Ultra-fast demo tasks data - no API calls, instant loading
@@ -132,14 +137,60 @@ export default function UltraFastTasks() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [priorityFilter, setPriorityFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
 
-  // Instant filtering with no delays
+  // Fetch actual tasks from database
+  const { data: tasks = [], isLoading: tasksLoading, error: tasksError } = useQuery({
+    queryKey: ['/api/tasks'],
+  });
+
+  // Fetch properties for property names
+  const { data: properties = [] } = useQuery({
+    queryKey: ['/api/properties'],
+  });
+
+  // Fetch users for assignee names
+  const { data: users = [] } = useQuery({
+    queryKey: ['/api/users'],
+  });
+
+  // Create property lookup map
+  const propertyMap = useMemo(() => {
+    const map = new Map();
+    properties.forEach((prop: any) => {
+      map.set(prop.id, prop.name);
+    });
+    return map;
+  }, [properties]);
+
+  // Create user lookup map
+  const userMap = useMemo(() => {
+    const map = new Map();
+    users.forEach((user: any) => {
+      map.set(user.id, user.name);
+    });
+    return map;
+  }, [users]);
+
+  // Enhanced tasks with property and user names
+  const enhancedTasks = useMemo(() => {
+    return tasks.map((task: any) => ({
+      ...task,
+      propertyName: propertyMap.get(task.propertyId) || `Property ${task.propertyId}`,
+      assigneeName: task.assignedTo ? (userMap.get(task.assignedTo) || 'Unknown User') : 'Unassigned',
+    }));
+  }, [tasks, propertyMap, userMap]);
+
+  // Real-time filtering with actual data
   const filteredTasks = useMemo(() => {
-    return ULTRA_FAST_TASKS.filter(task => {
+    return enhancedTasks.filter((task: any) => {
       const matchesSearch = searchTerm === "" || 
-        task.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        task.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        task.propertyName.toLowerCase().includes(searchTerm.toLowerCase());
+        (task.title && task.title.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (task.description && task.description.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (task.propertyName && task.propertyName.toLowerCase().includes(searchTerm.toLowerCase()));
       
       const matchesStatus = statusFilter === "all" || task.status === statusFilter;
       const matchesPriority = priorityFilter === "all" || task.priority === priorityFilter;
@@ -147,7 +198,22 @@ export default function UltraFastTasks() {
       
       return matchesSearch && matchesStatus && matchesPriority && matchesType;
     });
-  }, [searchTerm, statusFilter, priorityFilter, typeFilter]);
+  }, [enhancedTasks, searchTerm, statusFilter, priorityFilter, typeFilter]);
+
+  // Calculate real statistics
+  const stats = useMemo(() => {
+    return {
+      totalTasks: enhancedTasks.length,
+      pendingTasks: enhancedTasks.filter((t: any) => t.status === 'pending').length,
+      inProgressTasks: enhancedTasks.filter((t: any) => t.status === 'in-progress').length,
+      completedTasks: enhancedTasks.filter((t: any) => t.status === 'completed').length,
+      overdueTasks: enhancedTasks.filter((t: any) => {
+        if (!t.dueDate) return false;
+        return new Date(t.dueDate) < new Date() && t.status !== 'completed';
+      }).length,
+      highPriorityTasks: enhancedTasks.filter((t: any) => t.priority === 'high' || t.priority === 'urgent').length,
+    };
+  }, [enhancedTasks]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -188,14 +254,52 @@ export default function UltraFastTasks() {
     }
   };
 
+  // Task completion mutation
+  const completeTaskMutation = useMutation({
+    mutationFn: async (taskId: number) => {
+      return await apiRequest('PUT', `/api/tasks/${taskId}`, { status: 'completed' });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/tasks'] });
+      toast({
+        title: 'Success',
+        description: 'Task completed successfully',
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to complete task',
+        variant: 'destructive',
+      });
+    },
+  });
+
+  // Refresh tasks mutation
+  const refreshTasksMutation = useMutation({
+    mutationFn: async () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/tasks'] });
+      return 'refreshed';
+    },
+    onSuccess: () => {
+      toast({
+        title: 'Tasks Refreshed',
+        description: 'Task list updated with latest data',
+      });
+    },
+  });
+
   const handleCompleteTask = (taskId: number) => {
-    // In a real app, this would make an API call
-    console.log(`Completing task ${taskId}`);
+    completeTaskMutation.mutate(taskId);
   };
 
   const handleEditTask = (taskId: number) => {
-    // In a real app, this would open an edit dialog
+    // Future: Open edit dialog
     console.log(`Editing task ${taskId}`);
+  };
+
+  const handleRefresh = () => {
+    refreshTasksMutation.mutate();
   };
 
   return (
@@ -208,10 +312,24 @@ export default function UltraFastTasks() {
             Track and manage all property maintenance and operational tasks
           </p>
         </div>
-        <Button className="gap-2">
-          <Plus className="h-4 w-4" />
-          Create Task
-        </Button>
+        <div className="flex gap-2">
+          <Button 
+            variant="outline" 
+            onClick={handleRefresh}
+            disabled={refreshTasksMutation.isPending}
+            className="gap-2"
+          >
+            <RefreshCw className={`h-4 w-4 ${refreshTasksMutation.isPending ? 'animate-spin' : ''}`} />
+            Refresh
+          </Button>
+          <Button 
+            onClick={() => setIsCreateDialogOpen(true)}
+            className="gap-2"
+          >
+            <Plus className="h-4 w-4" />
+            Create Task
+          </Button>
+        </div>
       </div>
 
       {/* Summary Stats */}
@@ -222,7 +340,7 @@ export default function UltraFastTasks() {
             <Wrench className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{SUMMARY_STATS.totalTasks}</div>
+            <div className="text-2xl font-bold">{stats.totalTasks}</div>
             <p className="text-xs text-muted-foreground">
               All tasks
             </p>
@@ -235,7 +353,7 @@ export default function UltraFastTasks() {
             <Clock className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-yellow-600">{SUMMARY_STATS.pendingTasks}</div>
+            <div className="text-2xl font-bold text-yellow-600">{stats.pendingTasks}</div>
             <p className="text-xs text-muted-foreground">
               Awaiting start
             </p>
@@ -248,7 +366,7 @@ export default function UltraFastTasks() {
             <Wrench className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-blue-600">{SUMMARY_STATS.inProgressTasks}</div>
+            <div className="text-2xl font-bold text-blue-600">{stats.inProgressTasks}</div>
             <p className="text-xs text-muted-foreground">
               Currently active
             </p>
@@ -261,7 +379,7 @@ export default function UltraFastTasks() {
             <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">{SUMMARY_STATS.completedTasks}</div>
+            <div className="text-2xl font-bold text-green-600">{stats.completedTasks}</div>
             <p className="text-xs text-muted-foreground">
               Recently finished
             </p>
@@ -274,7 +392,7 @@ export default function UltraFastTasks() {
             <AlertTriangle className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-red-600">{SUMMARY_STATS.highPriorityTasks}</div>
+            <div className="text-2xl font-bold text-red-600">{stats.highPriorityTasks}</div>
             <p className="text-xs text-muted-foreground">
               Urgent attention
             </p>
@@ -287,7 +405,7 @@ export default function UltraFastTasks() {
             <Calendar className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-red-600">{SUMMARY_STATS.overdueTasks}</div>
+            <div className="text-2xl font-bold text-red-600">{stats.overdueTasks}</div>
             <p className="text-xs text-muted-foreground">
               Past due date
             </p>
@@ -364,7 +482,7 @@ export default function UltraFastTasks() {
               <p className="text-muted-foreground mb-4">
                 Try adjusting your search criteria or create a new task.
               </p>
-              <Button>
+              <Button onClick={() => setIsCreateDialogOpen(true)}>
                 <Plus className="h-4 w-4 mr-2" />
                 Create New Task
               </Button>
@@ -389,14 +507,15 @@ export default function UltraFastTasks() {
                     <TableRow key={task.id}>
                       <TableCell>
                         <div className="space-y-1">
-                          <div className="font-medium">{task.title}</div>
+                          <div className="font-medium">{task.title || 'Untitled Task'}</div>
                           <div className="text-sm text-muted-foreground line-clamp-1">
-                            {task.description}
+                            {task.description || 'No description'}
                           </div>
-                          <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                            <Clock className="h-3 w-3" />
-                            {task.estimatedHours}h estimated
-                          </div>
+                          {task.estimatedCost && (
+                            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                              <span>฿{parseFloat(task.estimatedCost || 0).toLocaleString()}</span>
+                            </div>
+                          )}
                         </div>
                       </TableCell>
                       <TableCell>
@@ -413,24 +532,24 @@ export default function UltraFastTasks() {
                       </TableCell>
                       <TableCell>
                         <Badge variant="outline" className="capitalize">
-                          {task.type}
+                          {(task.type || '').replace('-', ' ')}
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        <Badge className={getPriorityColor(task.priority)}>
-                          {task.priority}
+                        <Badge className={getPriorityColor(task.priority || 'medium')}>
+                          {task.priority || 'medium'}
                         </Badge>
                       </TableCell>
                       <TableCell>
                         <div className="text-sm">
-                          {formatDate(task.dueDate)}
+                          {task.dueDate ? formatDate(task.dueDate) : 'No due date'}
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Badge className={getStatusColor(task.status)}>
+                        <Badge className={getStatusColor(task.status || 'pending')}>
                           <span className="flex items-center gap-1">
-                            {getStatusIcon(task.status)}
-                            {task.status.replace('-', ' ')}
+                            {getStatusIcon(task.status || 'pending')}
+                            {(task.status || 'pending').replace('-', ' ')}
                           </span>
                         </Badge>
                       </TableCell>
@@ -448,8 +567,9 @@ export default function UltraFastTasks() {
                               variant="default" 
                               size="sm"
                               onClick={() => handleCompleteTask(task.id)}
+                              disabled={completeTaskMutation.isPending}
                             >
-                              Complete
+                              {completeTaskMutation.isPending ? 'Completing...' : 'Complete'}
                             </Button>
                           )}
                         </div>
@@ -462,6 +582,12 @@ export default function UltraFastTasks() {
           )}
         </CardContent>
       </Card>
+
+      {/* Create Task Dialog */}
+      <CreateTaskDialog 
+        isOpen={isCreateDialogOpen}
+        onOpenChange={setIsCreateDialogOpen}
+      />
     </div>
   );
 }
