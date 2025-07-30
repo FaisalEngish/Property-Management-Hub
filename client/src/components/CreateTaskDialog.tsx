@@ -109,7 +109,7 @@ export default function CreateTaskDialog({ isOpen, onOpenChange, trigger }: Crea
       department: '',
       priority: 'medium',
       propertyId: 0,
-      assignedTo: '',
+      assignedTo: 'unassigned',
       estimatedCost: 0,
       isRecurring: false,
       recurringInterval: 1,
@@ -124,7 +124,7 @@ export default function CreateTaskDialog({ isOpen, onOpenChange, trigger }: Crea
         ...taskData,
         dueDate: date ? date.toISOString() : null,
         estimatedCost: taskData.estimatedCost || null,
-        assignedTo: taskData.assignedTo || null,
+        assignedTo: taskData.assignedTo === 'unassigned' ? null : taskData.assignedTo,
         description: taskData.description || null,
         department: taskData.department || null,
         recurringType: taskData.isRecurring ? taskData.recurringType : null,
@@ -330,7 +330,7 @@ export default function CreateTaskDialog({ isOpen, onOpenChange, trigger }: Crea
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="">Unassigned</SelectItem>
+                      <SelectItem value="unassigned">Unassigned</SelectItem>
                       {users.filter((user: any) => user.role === 'staff' || user.role === 'admin').map((user: any) => (
                         <SelectItem key={user.id} value={user.id}>
                           {user.name} ({user.role})
