@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 
 import TopBar from "@/components/TopBar";
+import Sidebar from "@/components/Sidebar";
 import StatsCard from "@/components/StatsCard";
 import CreateBookingDialog from "@/components/CreateBookingDialog";
 import CreatePropertyDialog from "@/components/CreatePropertyDialog";
@@ -129,7 +130,10 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen flex bg-background">
-      <div className="flex-1 flex flex-col lg:ml-0">
+      {/* Sidebar */}
+      <Sidebar />
+      
+      <div className="flex-1 flex flex-col lg:ml-80">
         <TopBar 
           title="Enhanced Admin Dashboard" 
           subtitle="Comprehensive property management overview with advanced filtering"
