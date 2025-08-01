@@ -60,9 +60,13 @@ export default function PropertyHub() {
     staleTime: 10 * 60 * 1000,
   });
 
+  // Type assertions for safety
+  const propertiesArray = Array.isArray(properties) ? properties : [];
+  const bookingsArray = Array.isArray(bookings) ? bookings : [];
+
   // Filter properties
   const filteredProperties = useMemo(() => {
-    return properties.filter((property: any) => {
+    return propertiesArray.filter((property: any) => {
       // Search filter
       if (filters.search && !property.name.toLowerCase().includes(filters.search.toLowerCase())) {
         return false;
@@ -100,7 +104,7 @@ export default function PropertyHub() {
       
       return true;
     });
-  }, [properties, filters]);
+  }, [propertiesArray, filters]);
 
   // Property selection handlers
   const handlePropertySelect = (property: any, selected: boolean) => {
@@ -136,15 +140,15 @@ export default function PropertyHub() {
   };
 
   // Transform data for calendar
-  const calendarProperties = properties.map((p: any, index: number) => ({
+  const calendarProperties = propertiesArray.map((p: any, index: number) => ({
     id: p.id,
     name: p.name,
     color: `hsl(${index * 137.5 % 360}, 70%, 50%)`
   }));
 
-  const calendarBookings = bookings.map((b: any) => ({
+  const calendarBookings = bookingsArray.map((b: any) => ({
     id: b.id,
-    propertyId: b.propertyId || (Math.floor(Math.random() * properties.length) + 1),
+    propertyId: b.propertyId || (Math.floor(Math.random() * propertiesArray.length) + 1),
     propertyName: b.propertyName || 'Unknown Property',
     guestName: b.guestName,
     checkIn: b.checkInDate,
@@ -187,7 +191,7 @@ export default function PropertyHub() {
                   Refresh
                 </Button>
                 <Badge variant="secondary" className="px-3 py-1">
-                  {properties.length} Properties
+                  {propertiesArray.length} Properties
                 </Badge>
               </div>
             </div>
@@ -219,7 +223,7 @@ export default function PropertyHub() {
                 <PropertyFilters
                   filters={filters}
                   onFiltersChange={setFilters}
-                  totalProperties={properties.length}
+                  totalProperties={propertiesArray.length}
                   filteredCount={filteredProperties.length}
                 />
 
