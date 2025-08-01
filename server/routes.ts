@@ -1764,41 +1764,19 @@ Be specific and actionable in your recommendations.`;
 
   // Property routes with performance optimization
   app.get("/api/properties", isDemoAuthenticated, async (req: any, res) => {
-    const { sendCachedOrFetch } = await import("./performanceOptimizer");
-    const user = req.user;
-    const userId = req.user?.id;
-    const cacheKey = `properties-${user?.role}-${userId}`;
-    
-    return sendCachedOrFetch(
-      cacheKey,
-      async () => {
-        // Get all properties first
-        const allProperties = await storage.getProperties();
-        
-        // Filter to show only the 4 standardized demo properties for all users
-        const demoPropertyNames = [
-          'Villa Samui Breeze',
-          'Villa Ocean View', 
-          'Villa Aruna Demo',
-          'Villa Tropical Paradise'
-        ];
-        
-        let properties = allProperties.filter(prop => 
-          demoPropertyNames.some(demoName => prop.name.includes(demoName)) ||
-          prop.name.includes('Demo') ||
-          prop.ownerId === 'demo-owner'
-        );
-        
-        // If no demo properties found, return the filtered demo properties
-        if (properties.length === 0) {
-          properties = allProperties.slice(0, 4); // Fallback to first 4 properties
-        }
-        
-        return properties;
-      },
-      res,
-      15 // 15 minute cache
-    );
+    try {
+      console.log("🏠 GET /api/properties - Fetching properties...");
+      
+      // Get all properties directly without complex filtering for now
+      const allProperties = await storage.getProperties();
+      console.log(`🏠 Found ${allProperties.length} total properties`);
+      
+      // Return all properties for now to fix the issue
+      res.json(allProperties);
+    } catch (error) {
+      console.error("❌ Error fetching properties:", error);
+      res.status(500).json({ message: "Failed to fetch properties" });
+    }
   });
 
   app.get("/api/properties/:id", isDemoAuthenticated, async (req, res) => {

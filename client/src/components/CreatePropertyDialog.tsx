@@ -11,6 +11,9 @@ import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, ExternalLink, Loader2 } from "lucide-react";
 
+// Add debugging for property creation issues
+console.log("🏠 Property Dialog component loaded");
+
 interface CreatePropertyDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -36,14 +39,21 @@ export default function CreatePropertyDialog({ open, onOpenChange }: CreatePrope
 
   const createMutation = useMutation({
     mutationFn: async (data: any) => {
+      console.log("🚀 Frontend: Submitting property data:", data);
       const response = await apiRequest("POST", "/api/properties", data);
-      return response.json();
+      const result = await response.json();
+      console.log("✅ Frontend: Property created successfully:", result);
+      return result;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      console.log("🎉 Frontend: Property creation successful, invalidating cache");
       queryClient.invalidateQueries({ queryKey: ["/api/properties"] });
+      // Force refresh by clearing all property-related cache
+      queryClient.removeQueries({ queryKey: ["/api/properties"] });
+      
       toast({
-        title: "Success",
-        description: "Property created successfully",
+        title: "Success", 
+        description: `Property "${data.name}" created successfully! (ID: ${data.id})`,
       });
       onOpenChange(false);
       setFormData({
@@ -56,9 +66,14 @@ export default function CreatePropertyDialog({ open, onOpenChange }: CreatePrope
         pricePerNight: "",
         status: "active",
       });
+      
+      // Force page refresh to show new property
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000);
     },
     onError: (error: any) => {
-      console.error("Property creation error:", error);
+      console.error("❌ Frontend: Property creation error:", error);
       let errorMessage = "Failed to create property";
       
       // Try to extract more detailed error information
@@ -78,6 +93,8 @@ export default function CreatePropertyDialog({ open, onOpenChange }: CreatePrope
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    
+    console.log("🔄 Frontend: Form submitted with data:", formData);
     
     // Basic validation
     if (!formData.name.trim()) {
@@ -102,16 +119,16 @@ export default function CreatePropertyDialog({ open, onOpenChange }: CreatePrope
       organizationId: 'default-org', // Default organization for demo
       name: formData.name.trim(),
       address: formData.address.trim(),
-      description: formData.description?.trim() || null,
-      bedrooms: parseInt(formData.bedrooms) || 0,
-      bathrooms: parseInt(formData.bathrooms) || 0,
-      maxGuests: parseInt(formData.maxGuests) || 0,
-      pricePerNight: formData.pricePerNight || "0",
+      description: formData.description?.trim() || "",
+      bedrooms: formData.bedrooms ? parseInt(formData.bedrooms) : null,
+      bathrooms: formData.bathrooms ? parseInt(formData.bathrooms) : null,
+      maxGuests: formData.maxGuests ? parseInt(formData.maxGuests) : null,
+      pricePerNight: formData.pricePerNight ? parseFloat(formData.pricePerNight) : null,
       currency: "THB", // Thai Baht for consistency
       status: formData.status,
     };
 
-    console.log("Submitting property data:", data);
+    console.log("🚀 Frontend: Final property data being submitted:", data);
     createMutation.mutate(data);
   };
 
