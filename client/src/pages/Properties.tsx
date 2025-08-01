@@ -48,21 +48,18 @@ export default function Properties() {
   };
 
   return (
-    <div className="min-h-screen flex bg-background">
-
+    <>
+      <TopBar 
+        title="Properties" 
+        action={
+          <Button onClick={() => setIsCreateDialogOpen(true)} className="bg-primary hover:bg-primary/90">
+            <Plus className="w-4 h-4 mr-2" />
+            Add Property
+          </Button>
+        }
+      />
       
-      <div className="flex-1 flex flex-col lg:ml-0">
-        <TopBar 
-          title="Properties" 
-          action={
-            <Button onClick={() => setIsCreateDialogOpen(true)} className="bg-primary hover:bg-primary/90">
-              <Plus className="w-4 h-4 mr-2" />
-              Add Property
-            </Button>
-          }
-        />
-        
-        <main className="flex-1 overflow-auto p-6">
+      <main className="flex-1 overflow-auto p-6">
           {isLoading ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {[1, 2, 3].map((i) => (
@@ -93,13 +90,12 @@ export default function Properties() {
               ))}
             </div>
           )}
-        </main>
-      </div>
+      </main>
 
       <CreatePropertyDialog
         open={isCreateDialogOpen}
         onOpenChange={setIsCreateDialogOpen}
       />
-    </div>
+    </>
   );
 }
