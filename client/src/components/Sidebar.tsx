@@ -546,33 +546,19 @@ export default function Sidebar({ className, isMobileMenuOpen, setIsMobileMenuOp
         </Sheet>
       </div>
 
-      {/* Mobile Top Bar */}
-      <div className="lg:hidden fixed top-0 left-0 right-0 z-40 bg-background border-b p-4 pl-16">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Avatar className="h-8 w-8">
-              <AvatarImage src={(user as any)?.profileImageUrl} />
-              <AvatarFallback>
-                <RoleIcon className="h-4 w-4" />
-              </AvatarFallback>
-            </Avatar>
-            <Badge 
-              variant="secondary" 
-              className={cn("text-xs", roleColors[userRole as keyof typeof roleColors])}
-            >
-              {userRole.replace("-", " ").replace(/\b\w/g, l => l.toUpperCase())}
-            </Badge>
-          </div>
-          <div className="flex gap-2">
-            <Button variant="ghost" size="sm" onClick={handleGoBack}>
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
-            <Button variant="ghost" size="sm" onClick={handleLogout}>
-              <LogOut className="h-4 w-4" />
-            </Button>
-          </div>
+      {/* Mobile Menu Trigger - Only show when not using external mobile menu control */}
+      {isMobileMenuOpen === undefined && (
+        <div className="lg:hidden fixed top-4 left-4 z-50">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setMobileMenuOpen(true)}
+            className="bg-background shadow-md"
+          >
+            <Menu className="h-4 w-4" />
+          </Button>
         </div>
-      </div>
+      )}
 
       {/* Settings Dialog */}
       <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
