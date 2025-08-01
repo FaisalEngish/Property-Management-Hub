@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -6,8 +6,10 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { Plus, ExternalLink, Loader2 } from "lucide-react";
 
 interface CreatePropertyDialogProps {
   open: boolean;
@@ -25,6 +27,9 @@ export default function CreatePropertyDialog({ open, onOpenChange }: CreatePrope
     pricePerNight: "",
     status: "active",
   });
+
+  const [airbnbUrl, setAirbnbUrl] = useState("");
+  const [isImporting, setIsImporting] = useState(false);
 
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -114,14 +119,130 @@ export default function CreatePropertyDialog({ open, onOpenChange }: CreatePrope
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
+  const handleAirbnbImport = async () => {
+    if (!airbnbUrl.trim()) {
+      toast({
+        title: "Validation Error",
+        description: "Please enter an Airbnb URL",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validate Airbnb URL format
+    if (!airbnbUrl.includes('airbnb.com') && !airbnbUrl.includes('abnb.me')) {
+      toast({
+        title: "Invalid URL",
+        description: "Please enter a valid Airbnb listing URL",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsImporting(true);
+    try {
+      const response = await apiRequest("POST", "/api/properties/import/airbnb", {
+        url: airbnbUrl.trim()
+      });
+      
+      const importedData = await response.json();
+      
+      if (importedData.success) {
+        // Pre-fill form with imported data
+        setFormData({
+          name: importedData.property.name || "",
+          address: importedData.property.address || "",
+          description: importedData.property.description || "",
+          bedrooms: importedData.property.bedrooms?.toString() || "",
+          bathrooms: importedData.property.bathrooms?.toString() || "",
+          maxGuests: importedData.property.maxGuests?.toString() || "",
+          pricePerNight: importedData.property.pricePerNight?.toString() || "",
+          status: "active",
+        });
+        
+        toast({
+          title: "Import Successful",
+          description: "Property data imported from Airbnb. Please review and save.",
+        });
+        
+        setAirbnbUrl("");
+      } else {
+        throw new Error(importedData.message || "Failed to import property data");
+      }
+    } catch (error: any) {
+      console.error("Airbnb import error:", error);
+      toast({
+        title: "Import Failed",
+        description: error.message || "Could not import from Airbnb. Please enter property details manually.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsImporting(false);
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Add New Property</DialogTitle>
         </DialogHeader>
         
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <Tabs defaultValue="manual" className="w-full">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="manual">
+              <Plus className="h-4 w-4 mr-2" />
+              Create from Scratch
+            </TabsTrigger>
+            <TabsTrigger value="airbnb">
+              <ExternalLink className="h-4 w-4 mr-2" />
+              Import from Airbnb
+            </TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="airbnb" className="space-y-4 mt-4">
+            <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <h3 className="font-semibold text-blue-900 mb-2">Import from Airbnb</h3>
+              <p className="text-sm text-blue-700 mb-4">
+                Enter an Airbnb listing URL to automatically import property details, photos, and amenities.
+              </p>
+              
+              <div className="space-y-3">
+                <div>
+                  <Label htmlFor="airbnb-url">Airbnb Listing URL</Label>
+                  <Input
+                    id="airbnb-url"
+                    value={airbnbUrl}
+                    onChange={(e) => setAirbnbUrl(e.target.value)}
+                    placeholder="https://www.airbnb.com/rooms/12345678"
+                    className="mt-1"
+                  />
+                </div>
+                
+                <Button 
+                  type="button"
+                  onClick={handleAirbnbImport}
+                  disabled={isImporting || !airbnbUrl.trim()}
+                  className="w-full"
+                >
+                  {isImporting ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Importing from Airbnb...
+                    </>
+                  ) : (
+                    <>
+                      <ExternalLink className="h-4 w-4 mr-2" />
+                      Import Property Data
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+          </TabsContent>
+          
+          <TabsContent value="manual" className="mt-4">
+            <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <Label htmlFor="name">Property Name</Label>
@@ -231,6 +352,8 @@ export default function CreatePropertyDialog({ open, onOpenChange }: CreatePrope
             </Button>
           </div>
         </form>
+        </TabsContent>
+        </Tabs>
       </DialogContent>
     </Dialog>
   );

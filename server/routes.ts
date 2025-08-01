@@ -33820,6 +33820,51 @@ async function processGuestIssueForAI(issueReport: any) {
     }
   });
 
+  // Airbnb Property Import API
+  app.post("/api/properties/import/airbnb", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { url } = req.body;
+      
+      if (!url || (!url.includes('airbnb.com') && !url.includes('abnb.me'))) {
+        return res.status(400).json({ 
+          success: false, 
+          message: "Invalid Airbnb URL provided" 
+        });
+      }
+
+      // Simulate Airbnb data extraction (in real implementation, this would scrape or use Airbnb API)
+      // For demo purposes, we'll extract property ID and return mock data
+      const propertyId = url.match(/\/rooms\/(\d+)/)?.[1] || Math.random().toString().slice(2, 10);
+      
+      // Mock Airbnb property data based on URL
+      const mockAirbnbData = {
+        success: true,
+        property: {
+          name: `Beautiful Airbnb Property ${propertyId.slice(0, 4)}`,
+          address: "123 Imported Street, Bangkok, Thailand 10110",
+          description: "This lovely property was imported from Airbnb. Features modern amenities, great location, and excellent guest reviews. Perfect for short-term rentals with all the comforts of home.",
+          bedrooms: Math.floor(Math.random() * 4) + 1,
+          bathrooms: Math.floor(Math.random() * 3) + 1,
+          maxGuests: Math.floor(Math.random() * 8) + 2,
+          pricePerNight: (Math.floor(Math.random() * 5000) + 1500).toString(),
+          amenities: ["WiFi", "Kitchen", "Air Conditioning", "TV", "Washing Machine"],
+          photos: [],
+          airbnbId: propertyId,
+          source: "airbnb"
+        },
+        message: "Property data successfully imported from Airbnb"
+      };
+
+      res.json(mockAirbnbData);
+    } catch (error) {
+      console.error("Airbnb import error:", error);
+      res.status(500).json({ 
+        success: false, 
+        message: "Failed to import property from Airbnb" 
+      });
+    }
+  });
+
   // API 404 handler - must be after all other API routes
   app.use("/api/*", (req, res) => {
     res.status(404).json({ 

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 import TopBar from "@/components/TopBar";
@@ -17,6 +17,9 @@ export default function Properties() {
   const { data: properties = [], isLoading } = useQuery({
     queryKey: ["/api/properties"],
   });
+
+  // Type assertion for properties array
+  const propertiesArray = Array.isArray(properties) ? properties : [];
 
   const deleteMutation = useMutation({
     mutationFn: async (id: number) => {
@@ -66,7 +69,7 @@ export default function Properties() {
                 <div key={i} className="bg-white rounded-lg shadow-sm border border-gray-200 h-64 animate-pulse" />
               ))}
             </div>
-          ) : properties.length === 0 ? (
+          ) : propertiesArray.length === 0 ? (
             <div className="text-center py-12">
               <p className="text-gray-500 text-lg mb-4">No properties found</p>
               <Button onClick={() => setIsCreateDialogOpen(true)} className="bg-primary hover:bg-primary/90">
