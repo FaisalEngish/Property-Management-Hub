@@ -3,8 +3,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { apiRequest } from '@/lib/queryClient';
-import { useToast } from '@/hooks/use-toast';
+import { apiRequest } from '../lib/queryClient';
+import { useToast } from '../hooks/use-toast';
 
 import {
   Dialog,
@@ -13,7 +13,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from '@/components/ui/dialog';
+} from '../components/ui/dialog';
 import {
   Form,
   FormControl,
@@ -22,21 +22,21 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from '@/components/ui/form';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
+} from '../components/ui/form';
+import { Input } from '../components/ui/input';
+import { Button } from '../components/ui/button';
+import { Textarea } from '../components/ui/textarea';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
-import { Checkbox } from '@/components/ui/checkbox';
+} from '../components/ui/select';
+import { Checkbox } from '../components/ui/checkbox';
 import { CalendarIcon, Plus } from 'lucide-react';
-import { Calendar } from '@/components/ui/calendar';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '../components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '../components/ui/popover';
 import { format } from 'date-fns';
 
 // Task creation schema based on database structure
@@ -101,6 +101,10 @@ export default function CreateTaskDialog({ isOpen, onOpenChange, trigger }: Crea
     queryKey: ['/api/users'],
   });
 
+  // Type assertions for safety
+  const propertiesArray = Array.isArray(properties) ? properties : [];
+  const usersArray = Array.isArray(users) ? users : [];
+
   const form = useForm<CreateTaskForm>({
     resolver: zodResolver(createTaskSchema),
     defaultValues: {
@@ -135,7 +139,7 @@ export default function CreateTaskDialog({ isOpen, onOpenChange, trigger }: Crea
       console.log('Creating task with data:', apiData);
       
       const response = await apiRequest('POST', '/api/tasks', apiData);
-      return response;
+      return response.json ? response.json() : response;
     },
     onSuccess: (newTask) => {
       // Invalidate tasks cache to refresh the list
@@ -226,7 +230,7 @@ export default function CreateTaskDialog({ isOpen, onOpenChange, trigger }: Crea
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {properties.map((property: any) => (
+                      {propertiesArray.map((property: any) => (
                         <SelectItem key={property.id} value={property.id.toString()}>
                           {property.name}
                         </SelectItem>
@@ -332,7 +336,7 @@ export default function CreateTaskDialog({ isOpen, onOpenChange, trigger }: Crea
                     </FormControl>
                     <SelectContent>
                       <SelectItem value="unassigned">Unassigned</SelectItem>
-                      {users.filter((user: any) => user.role === 'staff' || user.role === 'admin').map((user: any) => (
+                      {usersArray.filter((user: any) => user.role === 'staff' || user.role === 'admin').map((user: any) => (
                         <SelectItem key={user.id} value={user.id}>
                           {user.name} ({user.role})
                         </SelectItem>
