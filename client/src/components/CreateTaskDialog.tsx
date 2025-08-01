@@ -142,12 +142,18 @@ export default function CreateTaskDialog({ isOpen, onOpenChange, trigger }: Crea
       return response.json ? response.json() : response;
     },
     onSuccess: (newTask) => {
-      // Invalidate tasks cache to refresh the list
+      console.log('Task created successfully:', newTask);
+      
+      // Invalidate ALL task-related queries to ensure refresh
       queryClient.invalidateQueries({ queryKey: ['/api/tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/dashboard'] });
+      
+      // Force refetch tasks immediately
+      queryClient.refetchQueries({ queryKey: ['/api/tasks'] });
       
       toast({
         title: 'Success',
-        description: `Task "${newTask.title}" created successfully`,
+        description: `Task "${newTask.title || 'New task'}" created successfully`,
       });
       
       // Reset form and close dialog

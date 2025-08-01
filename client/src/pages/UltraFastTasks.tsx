@@ -1,15 +1,15 @@
 import React, { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { apiRequest } from '@/lib/queryClient';
-import { useToast } from '@/hooks/use-toast';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import CreateTaskDialog from "@/components/CreateTaskDialog";
+import { apiRequest } from '../lib/queryClient';
+import { useToast } from '../hooks/use-toast';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card";
+import { Button } from "../components/ui/button";
+import { Input } from "../components/ui/input";
+import { Badge } from "../components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui/table";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../components/ui/dialog";
+import CreateTaskDialog from "../components/CreateTaskDialog";
 import { 
   Plus, 
   Search, 
@@ -145,10 +145,15 @@ export default function UltraFastTasks() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Fetch actual tasks from database
+  // Fetch actual tasks from database with debugging
   const { data: tasks = [], isLoading: tasksLoading, error: tasksError } = useQuery({
     queryKey: ['/api/tasks'],
+    staleTime: 0, // Always refetch
+    cacheTime: 0, // Don't cache
   });
+
+  // Debug log to see if tasks are loading
+  console.log('UltraFastTasks - Tasks loaded:', tasks.length, 'tasks');
 
   // Fetch properties for property names
   const { data: properties = [] } = useQuery({
