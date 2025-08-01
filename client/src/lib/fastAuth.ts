@@ -179,8 +179,23 @@ export function useFastAuth() {
   };
 
   const logout = async () => {
-    await fastLogout();
-    setUser(null);
+    try {
+      // Immediately clear user state for instant UI update
+      setUser(null);
+      
+      // Clear session storage
+      await fastLogout();
+      
+      // Force page reload to ensure clean state
+      setTimeout(() => {
+        window.location.href = "/";
+      }, 100);
+    } catch (error) {
+      console.error('Logout failed:', error);
+      // Force reload even if API call fails
+      setUser(null);
+      window.location.href = "/";
+    }
   };
 
   return {

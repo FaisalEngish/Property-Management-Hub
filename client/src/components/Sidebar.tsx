@@ -243,10 +243,9 @@ export default function Sidebar({ className, isMobileMenuOpen, setIsMobileMenuOp
   const handleLogout = async () => {
     try {
       await logout();
-      // No need to manually redirect, the App component will handle it
     } catch (error) {
       console.error("Logout error:", error);
-      // Fallback to manual redirect
+      // Force page reload as fallback
       window.location.href = "/";
     }
   };
