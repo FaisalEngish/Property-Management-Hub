@@ -147,8 +147,14 @@ export default function CreatePropertyDialog({ open, onOpenChange }: CreatePrope
       return;
     }
 
-    // Validate Airbnb URL format
-    if (!airbnbUrl.includes('airbnb.com') && !airbnbUrl.includes('abnb.me')) {
+    // Validate Airbnb URL format - accept various Airbnb URL formats
+    const isValidAirbnbUrl = airbnbUrl.includes('airbnb.com') || 
+                            airbnbUrl.includes('abnb.me') ||
+                            airbnbUrl.includes('airbnb.') ||
+                            airbnbUrl.includes('www.airbnb') ||
+                            /airbnb/i.test(airbnbUrl);
+    
+    if (!isValidAirbnbUrl) {
       toast({
         title: "Invalid URL",
         description: "Please enter a valid Airbnb listing URL",

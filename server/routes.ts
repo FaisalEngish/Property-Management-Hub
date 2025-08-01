@@ -33841,10 +33841,19 @@ async function processGuestIssueForAI(issueReport: any) {
     try {
       const { url } = req.body;
       
-      if (!url || (!url.includes('airbnb.com') && !url.includes('abnb.me'))) {
+      // Validate Airbnb URL format - accept various Airbnb URL formats
+      const isValidAirbnbUrl = url && (
+        url.includes('airbnb.com') || 
+        url.includes('abnb.me') ||
+        url.includes('airbnb.') ||
+        url.includes('www.airbnb') ||
+        /airbnb/i.test(url)
+      );
+      
+      if (!isValidAirbnbUrl) {
         return res.status(400).json({ 
           success: false, 
-          message: "Invalid Airbnb URL provided" 
+          message: "Invalid Airbnb URL provided. Please provide a valid Airbnb listing URL." 
         });
       }
 
