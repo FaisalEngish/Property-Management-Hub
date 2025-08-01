@@ -4,7 +4,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import Layout from "@/components/Layout";
+import Sidebar from "@/components/Sidebar";
 import { useFastAuth } from "@/lib/fastAuth";
 import { warmCache } from "@/lib/sessionCache";
 import { CacheProvider } from "@/context/CacheContext";
@@ -152,8 +152,11 @@ function AppRoutes() {
 
   // User is authenticated, show the main app
   return (
-    <Layout>
-      <Switch>
+    <div className="min-h-screen bg-background">
+      <Sidebar />
+      <div className="lg:pl-80">
+        <div className="lg:hidden h-20"></div>
+        <Switch>
         <Route path="/" component={RoleBasedDashboard} />
         <Route path="/properties" component={Properties} />
         <Route path="/property/:id" component={PropertyDetailView} />
@@ -294,7 +297,8 @@ function AppRoutes() {
         
         <Route component={NotFound} />
       </Switch>
-    </Layout>
+      </div>
+    </div>
   );
 }
 
