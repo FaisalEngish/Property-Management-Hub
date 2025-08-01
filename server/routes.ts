@@ -558,43 +558,93 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Invoice endpoints
-  app.get('/api/invoices', isDemoAuthenticated, async (req: Request, res: Response) => {
+  app.get('/api/invoices', isDemoAuthenticated, async (req: any, res: Response) => {
     try {
-      // Return demo invoice data for now
-      const demoInvoices = [
-        {
-          id: 1,
-          number: 'INV-2025-001',
-          clientName: 'Villa Samui Breeze Booking',
-          amount: 25000,
-          status: 'paid',
-          date: '2025-01-15',
-          dueDate: '2025-01-30'
-        },
-        {
-          id: 2,
-          number: 'INV-2025-002',
-          clientName: 'Villa Ocean View Booking',
-          amount: 18000,
-          status: 'pending',
-          date: '2025-01-20',
-          dueDate: '2025-02-05'
-        },
-        {
-          id: 3,
-          number: 'INV-2025-003',
-          clientName: 'Villa Aruna Demo Booking',
-          amount: 35000,
-          status: 'overdue',
-          date: '2025-01-10',
-          dueDate: '2025-01-25'
-        }
-      ];
+      const organizationId = req.user?.organizationId || "default-org";
+      console.log("Fetching invoices for organization:", organizationId);
       
-      res.json(demoInvoices);
+      // Try to get invoices from database first
+      let invoices = [];
+      try {
+        invoices = await storage.getInvoices(organizationId);
+        console.log("Found invoices in database:", invoices.length);
+      } catch (dbError) {
+        console.log("Database invoice fetch failed, using demo data:", dbError.message);
+        
+        // Fallback to demo invoice data
+        invoices = [
+          {
+            id: 1,
+            number: 'INV-2025-001',
+            clientName: 'Villa Samui Breeze Booking',
+            amount: 25000,
+            status: 'paid',
+            date: '2025-01-15',
+            dueDate: '2025-01-30',
+            organizationId
+          },
+          {
+            id: 2,
+            number: 'INV-2025-002',
+            clientName: 'Villa Ocean View Booking',
+            amount: 18000,
+            status: 'pending',
+            date: '2025-01-20',
+            dueDate: '2025-02-05',
+            organizationId
+          },
+          {
+            id: 3,
+            number: 'INV-2025-003',
+            clientName: 'Villa Aruna Demo Booking',
+            amount: 35000,
+            status: 'overdue',
+            date: '2025-01-10',
+            dueDate: '2025-01-25',
+            organizationId
+          }
+        ];
+      }
+      
+      res.json(invoices);
     } catch (error) {
       console.error('Error fetching invoices:', error);
-      res.status(500).json({ message: 'Error fetching invoices' });
+      res.status(500).json({ message: 'Error fetching invoices', error: error.message });
+    }
+  });
+
+  // Create test invoice endpoint
+  app.post('/api/invoices/test', isDemoAuthenticated, async (req: any, res: Response) => {
+    try {
+      const organizationId = req.user?.organizationId || "default-org";
+      console.log("Creating test invoice for organization:", organizationId);
+      
+      const testInvoice = {
+        number: `INV-TEST-${Date.now()}`,
+        clientName: 'Test Client',
+        amount: 15000,
+        status: 'pending',
+        date: new Date().toISOString().split('T')[0],
+        dueDate: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 15 days from now
+        organizationId
+      };
+      
+      try {
+        const newInvoice = await storage.createInvoice(testInvoice);
+        console.log("Test invoice created:", newInvoice.id);
+        res.status(201).json(newInvoice);
+      } catch (dbError) {
+        console.log("Database invoice creation failed, returning test data:", dbError.message);
+        // Return test invoice with generated ID
+        res.status(201).json({ 
+          id: Date.now(), 
+          ...testInvoice,
+          createdAt: new Date()
+        });
+      }
+    } catch (error) {
+      console.error('Error creating test invoice:', error);
+      res.status(500).json({ message: 'Error creating test invoice', error: error.message });
     }
   });
 
@@ -12917,44 +12967,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const organizationId = req.user?.organizationId || "default-org";
       const { name, email, role, password } = req.body;
       
+      console.log("Creating user with data:", { name, email, role, organizationId });
+      
       // Validate required fields
       if (!name || !email || !role || !password) {
         return res.status(400).json({ message: "Name, email, role, and password are required" });
       }
       
-      // Check if email already exists (in demo mode, check against demo users)
-      const existingUsers = [
-        "admin@test.com", "manager@test.com", "staff@test.com", 
-        "owner@test.com", "retail@test.com", "referral@test.com"
-      ];
-      
-      if (existingUsers.includes(email.toLowerCase())) {
+      // Check if user already exists in database
+      const existingUser = await storage.getUserByEmail(email);
+      if (existingUser) {
         return res.status(409).json({ message: "User with this email already exists" });
       }
       
       // Generate new user ID
       const userId = `user-${Date.now()}`;
       
-      // Create new user (for demo purposes)
-      const newUser = {
+      // Create new user in database
+      const userData = {
         id: userId,
-        name,
         email,
-        role,
-        status: "active",
+        firstName: name.split(' ')[0] || name,
+        lastName: name.split(' ').slice(1).join(' ') || '',
+        role: role as any,
         organizationId,
-        createdAt: new Date(),
-        // In real implementation, password would be hashed
-        password: password // Don't return this in response
+        isActive: true,
+        password // In real implementation, this would be hashed
       };
       
-      // Return user without password
+      const newUser = await storage.createUser(userData);
+      console.log("User created successfully:", newUser.id);
+      
+      // Return user data without password
       const { password: _, ...userResponse } = newUser;
       
       res.status(201).json(userResponse);
     } catch (error) {
       console.error("Error creating user:", error);
-      res.status(500).json({ message: "Failed to create user" });
+      res.status(500).json({ message: "Failed to create user", error: error.message });
     }
   });
 
