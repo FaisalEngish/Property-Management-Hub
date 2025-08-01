@@ -1,5 +1,5 @@
 import React from "react";
-import { useCachedData } from "@/context/CacheContext";
+import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import RefreshDataButton from "@/components/RefreshDataButton";
@@ -7,11 +7,11 @@ import LoadingSpinner from "@/components/ui/LoadingSpinner";
 import { Zap, Droplets, Wifi, AlertCircle } from "lucide-react";
 
 export default function CachedUtilityTracker() {
-  const { data: utilities = [], isLoading: utilitiesLoading, isStale } = useCachedData(
-    '/api/utilities',
-    undefined,
-    { backgroundRefresh: true, refetchInterval: 5 * 60 * 1000 }
-  );
+  const { data: utilities = [], isLoading: utilitiesLoading, isStale = false } = useQuery({
+    queryKey: ['/api/utilities'],
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    refetchInterval: 5 * 60 * 1000,
+  });
 
   const formatCurrency = (amount: number | null | undefined) => {
     if (amount == null) return "฿0";
