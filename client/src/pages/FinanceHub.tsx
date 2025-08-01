@@ -25,7 +25,7 @@ import { useFastAuth } from "@/lib/fastAuth";
 // Lazy load all Finance modules
 const FinancesPage = lazy(() => import("./CachedFinances"));
 const InvoiceGenerator = lazy(() => import("./CachedInvoiceGenerator"));
-const UtilityTracker = lazy(() => import("./CachedUtilityTracker"));
+const UtilityTracker = lazy(() => import("./SimpleUtilityTracker"));
 const FinanceEngine = lazy(() => import("./FinanceEngine"));
 const SmartPricingPerformanceToolkit = lazy(() => import("./SmartPricingPerformanceToolkit"));
 const OtaPayoutLogicSmartRevenue = lazy(() => import("./OtaPayoutLogicSmartRevenue"));
