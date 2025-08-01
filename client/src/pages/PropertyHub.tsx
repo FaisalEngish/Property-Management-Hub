@@ -160,9 +160,9 @@ export default function PropertyHub() {
     id: b.id,
     propertyId: b.propertyId || (Math.floor(Math.random() * propertiesArray.length) + 1),
     propertyName: b.propertyName || 'Unknown Property',
-    guestName: b.guestName,
-    checkIn: b.checkInDate,
-    checkOut: b.checkOutDate,
+    guestName: b.guestName || 'Guest',
+    checkIn: b.checkInDate || b.checkIn || '2024-08-01',
+    checkOut: b.checkOutDate || b.checkOut || '2024-08-02',
     status: b.status || 'confirmed',
     totalAmount: b.totalAmount || 0,
     invoiceId: b.invoiceId,
@@ -288,10 +288,18 @@ export default function PropertyHub() {
 
               {/* Calendar Tab */}
               <TabsContent value="calendar">
-                <MultiPropertyCalendar
-                  properties={calendarProperties}
-                  bookings={calendarBookings}
-                />
+                {calendarProperties.length > 0 ? (
+                  <MultiPropertyCalendar
+                    properties={calendarProperties}
+                    bookings={calendarBookings}
+                  />
+                ) : (
+                  <div className="text-center py-12">
+                    <Calendar className="h-12 w-12 text-slate-400 mx-auto mb-4" />
+                    <h3 className="text-lg font-medium text-slate-900 mb-2">No Properties Available</h3>
+                    <p className="text-slate-600">Add properties to view the calendar.</p>
+                  </div>
+                )}
               </TabsContent>
 
               {/* Task Templates Tab */}
