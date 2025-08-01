@@ -12,6 +12,14 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { 
+  DropdownMenu, 
+  DropdownMenuContent, 
+  DropdownMenuItem, 
+  DropdownMenuLabel, 
+  DropdownMenuSeparator, 
+  DropdownMenuTrigger 
+} from "@/components/ui/dropdown-menu";
+import { 
   Menu, 
   X,
   ArrowLeft,
@@ -68,6 +76,8 @@ import {
 import { useFastAuth } from "@/lib/fastAuth";
 import { filterMenuForRole, getRoleDisplayInfo, UserRole } from "@/utils/roleBasedMenu";
 import { cn } from "@/lib/utils";
+import { useQuery } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
 
 interface SidebarProps {
   className?: string;
@@ -200,6 +210,89 @@ const roleColors = {
   freelancer: "text-teal-500 bg-teal-50"
 };
 
+// Notification Bell Component
+function NotificationBell() {
+  const { data: unreadNotifications = [], isLoading } = useQuery({
+    queryKey: ['/api/notifications/unread'],
+    queryFn: () => apiRequest('/api/notifications/unread'),
+    refetchInterval: 30000, // Refresh every 30 seconds
+  });
+
+  const { data: allNotifications = [] } = useQuery({
+    queryKey: ['/api/notifications'],
+    queryFn: () => apiRequest('/api/notifications'),
+  });
+
+  const unreadCount = Array.isArray(unreadNotifications) ? unreadNotifications.length : 0;
+
+  if (isLoading) {
+    return (
+      <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+        <Bell className="h-4 w-4 text-muted-foreground animate-pulse" />
+      </Button>
+    );
+  }
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" size="sm" className="h-8 w-8 p-0 relative">
+          <Bell className="h-4 w-4" />
+          {unreadCount > 0 && (
+            <Badge 
+              className="absolute -top-1 -right-1 h-5 w-5 text-xs p-0 flex items-center justify-center bg-red-500 text-white"
+            >
+              {unreadCount > 9 ? '9+' : unreadCount}
+            </Badge>
+          )}
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-80">
+        <DropdownMenuLabel className="flex items-center justify-between">
+          <span>Notifications</span>
+          {unreadCount > 0 && (
+            <Badge variant="secondary" className="text-xs">
+              {unreadCount} new
+            </Badge>
+          )}
+        </DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        {allNotifications.length === 0 ? (
+          <div className="p-4 text-center text-sm text-muted-foreground">
+            No notifications yet
+          </div>
+        ) : (
+          <div className="max-h-80 overflow-y-auto">
+            {allNotifications.slice(0, 5).map((notification: any, index: number) => (
+              <DropdownMenuItem key={notification.id || index} className="flex flex-col items-start p-3">
+                <div className="font-medium text-sm">
+                  {notification.title || 'New notification'}
+                </div>
+                <div className="text-xs text-muted-foreground mt-1">
+                  {notification.message || notification.content || 'No message'}
+                </div>
+                {notification.createdAt && (
+                  <div className="text-xs text-muted-foreground mt-1">
+                    {new Date(notification.createdAt).toLocaleDateString()}
+                  </div>
+                )}
+              </DropdownMenuItem>
+            ))}
+          </div>
+        )}
+        {allNotifications.length > 5 && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem className="text-center text-sm text-primary">
+              View all notifications
+            </DropdownMenuItem>
+          </>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
 export default function Sidebar({ className, isMobileMenuOpen, setIsMobileMenuOpen }: SidebarProps) {
   const [location, setLocation] = useLocation();
   const [isOpen, setIsOpen] = useState(false);
@@ -331,6 +424,7 @@ export default function Sidebar({ className, isMobileMenuOpen, setIsMobileMenuOp
                 {roleInfo.name}
               </Badge>
             </div>
+            <NotificationBell />
           </div>
           
           {/* Quick Actions */}
