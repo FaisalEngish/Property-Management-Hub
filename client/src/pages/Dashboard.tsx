@@ -131,7 +131,10 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen flex bg-background">
       {/* Sidebar */}
-      <Sidebar />
+      <Sidebar 
+        isMobileMenuOpen={isMobileMenuOpen}
+        setIsMobileMenuOpen={setIsMobileMenuOpen}
+      />
       
       <div className="flex-1 flex flex-col lg:ml-80">
         <TopBar 
