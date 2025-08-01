@@ -16,7 +16,7 @@ import {
   Clock,
   Zap
 } from "lucide-react";
-import TopBar from "@/components/TopBar";
+
 import LazyChart from "@/components/LazyChart";
 import LoadingSpinner from "@/components/ui/LoadingSpinner";
 
@@ -73,91 +73,86 @@ export default function OptimizedSystemHub() {
     
     if (Component) {
       return (
-        <div className="min-h-screen flex bg-background">
-          <div className="flex-1 flex flex-col lg:ml-0">
-            <TopBar title={`${selectedModule.charAt(0).toUpperCase() + selectedModule.slice(1)} Management`} />
-            
-            <main className="flex-1 overflow-auto">
-              <div className="p-4 border-b bg-white">
-                <Button
-                  variant="outline"
-                  onClick={() => setSelectedModule(null)}
-                  className="flex items-center gap-2"
-                >
-                  <ArrowLeft className="h-4 w-4" />
-                  Back to System Hub
-                </Button>
-              </div>
-              
-              <Suspense fallback={
-                <div className="flex items-center justify-center h-64">
-                  <div className="text-center">
-                    <LoadingSpinner size="lg" />
-                    <p className="text-muted-foreground mt-2">Loading system module...</p>
-                  </div>
-                </div>
-              }>
-                <Component />
-              </Suspense>
-            </main>
+        <div>
+          <div className="p-4 border-b bg-white">
+            <div className="flex items-center gap-4 mb-4">
+              <Button
+                variant="outline"
+                onClick={() => setSelectedModule(null)}
+                className="flex items-center gap-2"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                Back to System Hub
+              </Button>
+              <h1 className="text-2xl font-bold text-gray-900">
+                {selectedModule.charAt(0).toUpperCase() + selectedModule.slice(1)} Management
+              </h1>
+            </div>
           </div>
+              
+          <Suspense fallback={
+            <div className="flex items-center justify-center h-64">
+              <div className="text-center">
+                <LoadingSpinner size="lg" />
+                <p className="text-muted-foreground mt-2">Loading system module...</p>
+              </div>
+            </div>
+          }>
+            <Component />
+          </Suspense>
         </div>
       );
     }
   }
 
   return (
-    <div className="min-h-screen flex bg-background">
-      <div className="flex-1 flex flex-col lg:ml-0">
-        <TopBar title="System Hub" />
-        
-        <main className="flex-1 overflow-auto p-6">
-          <div className="max-w-7xl mx-auto space-y-6">
-            {/* Header */}
-            <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-3xl font-bold text-gray-900">System Hub</h1>
-                <p className="text-gray-600 mt-1">
-                  Complete system administration with real-time monitoring and management
-                </p>
-              </div>
-            </div>
+    <>
+      <div className="max-w-7xl mx-auto space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">System Hub</h1>
+          <p className="text-gray-600 mt-1">
+            Complete system administration with real-time monitoring and management
+          </p>
+        </div>
+      </div>
 
-            {/* Summary Cards - Always visible */}
-            {isLoading ? (
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                {[1, 2, 3, 4].map(i => (
-                  <Card key={i}>
-                    <CardContent className="p-6">
-                      <div className="flex items-center justify-center h-20">
-                        <LoadingSpinner size="md" />
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            ) : error ? (
-              <Card className="border-red-200">
-                <CardContent className="p-6">
-                  <div className="text-center text-red-600">
-                    <p>Failed to load system summary</p>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => window.location.reload()}
-                      className="mt-2"
-                    >
-                      Retry
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ) : systemData ? (
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                <Card className="border-blue-200">
-                  <CardContent className="p-6">
-                    <div className="flex items-center justify-between">
-                      <div>
+      {/* Summary Cards - Always visible */}
+      {isLoading ? (
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+          {[1, 2, 3, 4].map(i => (
+            <Card key={i}>
+              <CardContent className="p-6">
+                <div className="flex items-center justify-center h-20">
+                  <LoadingSpinner size="md" />
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      ) : error ? (
+        <Card className="border-red-200">
+          <CardContent className="p-6">
+            <div className="text-center text-red-600">
+              <p>Failed to load system summary</p>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => window.location.reload()}
+                className="mt-2"
+              >
+                Retry
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      ) : systemData ? (
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+          <Card className="border-blue-200">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
                         <p className="text-sm font-medium text-gray-600">Total Users</p>
                         <p className="text-2xl font-bold text-blue-600">
                           {systemData.userStats?.totalUsers || 0}
@@ -217,78 +212,78 @@ export default function OptimizedSystemHub() {
                     </div>
                   </CardContent>
                 </Card>
-              </div>
-            ) : null}
+        </div>
+      ) : null}
 
-            {/* Tabs for different views */}
-            <Tabs value={selectedTab} onValueChange={setSelectedTab}>
-              <TabsList className="grid w-full grid-cols-4">
-                <TabsTrigger value="overview">Overview</TabsTrigger>
-                <TabsTrigger value="activity">Activity</TabsTrigger>
-                <TabsTrigger value="analytics">Analytics</TabsTrigger>
-                <TabsTrigger value="modules">Modules</TabsTrigger>
-              </TabsList>
+      {/* Tabs for different views */}
+      <Tabs value={selectedTab} onValueChange={setSelectedTab}>
+        <TabsList className="grid w-full grid-cols-4">
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="activity">Activity</TabsTrigger>
+          <TabsTrigger value="analytics">Analytics</TabsTrigger>
+          <TabsTrigger value="modules">Modules</TabsTrigger>
+        </TabsList>
 
-              {/* Overview Tab */}
-              <TabsContent value="overview" className="space-y-6">
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  {/* Quick Actions */}
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>System Management</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                      <Button
-                        onClick={() => setSelectedModule('users')}
-                        className="w-full justify-start"
-                        variant="outline"
-                      >
-                        <Users className="h-4 w-4 mr-2" />
-                        Manage Users & Roles
-                      </Button>
-                      <Button
-                        onClick={() => setSelectedModule('settings')}
-                        className="w-full justify-start"
-                        variant="outline"
-                      >
-                        <Settings className="h-4 w-4 mr-2" />
-                        System Settings
-                      </Button>
-                      <Button
-                        onClick={() => setSelectedModule('automation')}
-                        className="w-full justify-start"
-                        variant="outline"
-                      >
-                        <Activity className="h-4 w-4 mr-2" />
-                        Automation & Tasks
-                      </Button>
-                    </CardContent>
-                  </Card>
+        {/* Overview Tab */}
+        <TabsContent value="overview" className="space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Quick Actions */}
+            <Card>
+              <CardHeader>
+                <CardTitle>System Management</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <Button
+                  onClick={() => setSelectedModule('users')}
+                  className="w-full justify-start"
+                  variant="outline"
+                >
+                  <Users className="h-4 w-4 mr-2" />
+                  Manage Users & Roles
+                </Button>
+                <Button
+                  onClick={() => setSelectedModule('settings')}
+                  className="w-full justify-start"
+                  variant="outline"
+                >
+                  <Settings className="h-4 w-4 mr-2" />
+                  System Settings
+                </Button>
+                <Button
+                  onClick={() => setSelectedModule('automation')}
+                  className="w-full justify-start"
+                  variant="outline"
+                >
+                  <Activity className="h-4 w-4 mr-2" />
+                  Automation & Tasks
+                </Button>
+              </CardContent>
+            </Card>
 
-                  {/* User Role Distribution */}
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>User Distribution</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      {systemData?.userStats?.usersByRole && (
-                        <div className="space-y-3">
-                          {Object.entries(systemData.userStats.usersByRole).map(([role, count]) => (
-                            <div key={role} className="flex justify-between items-center">
-                              <span className="text-sm capitalize text-gray-600">{role}:</span>
-                              <Badge variant="outline">{count}</Badge>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                </div>
-              </TabsContent>
+            {/* User Role Distribution */}
+            <Card>
+              <CardHeader>
+                <CardTitle>User Distribution</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {systemData?.userStats?.usersByRole && (
+                  <div className="space-y-3">
+                    {Object.entries(systemData.userStats.usersByRole).map(([role, count]) => (
+                      <div key={role} className="flex justify-between items-center">
+                        <span className="text-sm capitalize text-gray-600">{role}:</span>
+                        <Badge variant="outline">{count}</Badge>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
 
-              {/* Activity Tab */}
-              <TabsContent value="activity">
-                <Card>
+        {/* Activity Tab */}
+        <TabsContent value="activity">
+          <Card>
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                       <Activity className="h-5 w-5" />
@@ -415,10 +410,8 @@ export default function OptimizedSystemHub() {
                   </Card>
                 </div>
               </TabsContent>
-            </Tabs>
-          </div>
-        </main>
+        </Tabs>
       </div>
-    </div>
+    </>
   );
 }

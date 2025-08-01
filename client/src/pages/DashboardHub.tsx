@@ -12,8 +12,6 @@ import {
   Calendar,
   Activity
 } from "lucide-react";
-import TopBar from "@/components/TopBar";
-
 export default function DashboardHub() {
   const dashboardItems = [
     {
@@ -67,50 +65,40 @@ export default function DashboardHub() {
   ];
 
   return (
-    <div className="min-h-screen flex bg-background">
-      <div className="flex-1 flex flex-col lg:ml-0">
-        <TopBar title="Dashboard Hub" />
-        
-        <main className="flex-1 overflow-auto p-6">
-          <div className="max-w-6xl mx-auto">
-            <div className="mb-6">
-              <h1 className="text-2xl font-bold text-gray-900 mb-2">Dashboard Hub</h1>
-              <p className="text-gray-600">
-                Access different dashboard views for comprehensive property management insights
-              </p>
-            </div>
+    <div className="max-w-6xl mx-auto">
+      <div className="mb-6">
+        <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Dashboard Hub</h1>
+        <p className="text-gray-600 dark:text-gray-400 mt-2">Access all dashboard views and analytics from one central location</p>
+      </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {dashboardItems.map((item) => {
-                const IconComponent = item.icon;
-                return (
-                  <Link key={item.href} href={item.href}>
-                    <Card className={`cursor-pointer transition-all duration-200 hover:shadow-lg ${item.color}`}>
-                      <CardHeader className="pb-3">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center space-x-3">
-                            <div className="p-2 bg-white rounded-lg shadow-sm">
-                              <IconComponent className="h-6 w-6 text-gray-700" />
-                            </div>
-                            <CardTitle className="text-lg">{item.title}</CardTitle>
-                          </div>
-                          <Badge variant="secondary" className="text-xs">
-                            {item.badge}
-                          </Badge>
-                        </div>
-                      </CardHeader>
-                      <CardContent>
-                        <p className="text-sm text-gray-600 leading-relaxed">
-                          {item.description}
-                        </p>
-                      </CardContent>
-                    </Card>
-                  </Link>
-                );
-              })}
-            </div>
-          </div>
-        </main>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {dashboardItems.map((item) => {
+          const IconComponent = item.icon;
+          return (
+            <Link key={item.href} href={item.href}>
+              <Card className={`cursor-pointer transition-all duration-200 hover:shadow-lg ${item.color}`}>
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-3">
+                      <div className="p-2 bg-white rounded-lg shadow-sm">
+                        <IconComponent className="h-6 w-6 text-gray-700" />
+                      </div>
+                      <CardTitle className="text-lg">{item.title}</CardTitle>
+                    </div>
+                    <Badge variant="secondary" className="text-xs">
+                      {item.badge}
+                    </Badge>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-gray-600 leading-relaxed">
+                    {item.description}
+                  </p>
+                </CardContent>
+              </Card>
+            </Link>
+          );
+        })}
       </div>
     </div>
   );

@@ -14,7 +14,7 @@ import {
   ArrowLeft,
   Loader2
 } from "lucide-react";
-import TopBar from "@/components/TopBar";
+
 import PaginatedTable from "@/components/PaginatedTable";
 import LazyChart from "@/components/LazyChart";
 import LoadingSpinner from "@/components/ui/LoadingSpinner";
@@ -76,189 +76,184 @@ export default function OptimizedFinanceHub() {
     
     if (Component) {
       return (
-        <div className="min-h-screen flex bg-background">
-          <div className="flex-1 flex flex-col lg:ml-0">
-            <TopBar title={`${selectedModule.charAt(0).toUpperCase() + selectedModule.slice(1)} Details`} />
-            
-            <main className="flex-1 overflow-auto">
-              <div className="p-4 border-b bg-white">
-                <Button
-                  variant="outline"
-                  onClick={() => setSelectedModule(null)}
-                  className="flex items-center gap-2"
-                >
-                  <ArrowLeft className="h-4 w-4" />
-                  Back to Finance Hub
-                </Button>
-              </div>
-              
-              <Suspense fallback={
-                <div className="flex items-center justify-center h-64">
-                  <div className="text-center">
-                    <LoadingSpinner size="lg" />
-                    <p className="text-muted-foreground mt-2">Loading detailed view...</p>
-                  </div>
-                </div>
-              }>
-                <Component />
-              </Suspense>
-            </main>
+        <div>
+          <div className="p-4 border-b bg-white">
+            <div className="flex items-center gap-4 mb-4">
+              <Button
+                variant="outline"
+                onClick={() => setSelectedModule(null)}
+                className="flex items-center gap-2"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                Back to Finance Hub
+              </Button>
+              <h1 className="text-2xl font-bold text-gray-900">
+                {selectedModule.charAt(0).toUpperCase() + selectedModule.slice(1)} Details
+              </h1>
+            </div>
           </div>
+              
+          <Suspense fallback={
+            <div className="flex items-center justify-center h-64">
+              <div className="text-center">
+                <LoadingSpinner size="lg" />
+                <p className="text-muted-foreground mt-2">Loading detailed view...</p>
+              </div>
+            </div>
+          }>
+            <Component />
+          </Suspense>
         </div>
       );
     }
   }
 
   return (
-    <div className="min-h-screen flex bg-background">
-      <div className="flex-1 flex flex-col lg:ml-0">
-        <TopBar title="Finance Hub" />
-        
-        <main className="flex-1 overflow-auto p-6">
-          <div className="max-w-7xl mx-auto space-y-6">
-            {/* Header */}
-            <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-3xl font-bold text-gray-900">Finance Hub</h1>
-                <p className="text-gray-600 mt-1">
-                  Complete financial management with server-side pagination and on-demand loading
-                </p>
-              </div>
+    <>
+      <div className="max-w-7xl mx-auto space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">Finance Hub</h1>
+          <p className="text-gray-600 mt-1">
+            Complete financial management with server-side pagination and on-demand loading
+          </p>
+        </div>
+      </div>
+
+      {/* Summary Cards - Always visible */}
+      {isLoading ? (
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+          {[1, 2, 3, 4].map(i => (
+            <Card key={i}>
+              <CardContent className="p-6">
+                <div className="flex items-center justify-center h-20">
+                  <LoadingSpinner size="md" />
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      ) : error ? (
+        <Card className="border-red-200">
+          <CardContent className="p-6">
+            <div className="text-center text-red-600">
+              <p>Failed to load finance summary</p>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => window.location.reload()}
+                className="mt-2"
+              >
+                Retry
+              </Button>
             </div>
-
-            {/* Summary Cards - Always visible */}
-            {isLoading ? (
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                {[1, 2, 3, 4].map(i => (
-                  <Card key={i}>
-                    <CardContent className="p-6">
-                      <div className="flex items-center justify-center h-20">
-                        <LoadingSpinner size="md" />
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+          </CardContent>
+        </Card>
+      ) : financeData?.summary ? (
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+          <Card className="border-green-200">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Total Revenue</p>
+                  <p className="text-2xl font-bold text-green-600">
+                    {formatCurrency(financeData.summary.totalRevenue)}
+                  </p>
+                </div>
+                <TrendingUp className="h-8 w-8 text-green-600" />
               </div>
-            ) : error ? (
-              <Card className="border-red-200">
-                <CardContent className="p-6">
-                  <div className="text-center text-red-600">
-                    <p>Failed to load finance summary</p>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => window.location.reload()}
-                      className="mt-2"
-                    >
-                      Retry
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ) : financeData?.summary ? (
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                <Card className="border-green-200">
-                  <CardContent className="p-6">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm font-medium text-gray-600">Total Revenue</p>
-                        <p className="text-2xl font-bold text-green-600">
-                          {formatCurrency(financeData.summary.totalRevenue)}
-                        </p>
-                      </div>
-                      <TrendingUp className="h-8 w-8 text-green-600" />
-                    </div>
-                  </CardContent>
-                </Card>
+            </CardContent>
+          </Card>
 
-                <Card className="border-red-200">
-                  <CardContent className="p-6">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm font-medium text-gray-600">Total Expenses</p>
-                        <p className="text-2xl font-bold text-red-600">
-                          {formatCurrency(financeData.summary.totalExpenses)}
-                        </p>
-                      </div>
-                      <TrendingDown className="h-8 w-8 text-red-600" />
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card className="border-blue-200">
-                  <CardContent className="p-6">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm font-medium text-gray-600">Net Profit</p>
-                        <p className="text-2xl font-bold text-blue-600">
-                          {formatCurrency(financeData.summary.netProfit)}
-                        </p>
-                      </div>
-                      <DollarSign className="h-8 w-8 text-blue-600" />
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card className="border-purple-200">
-                  <CardContent className="p-6">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm font-medium text-gray-600">Transactions</p>
-                        <p className="text-2xl font-bold text-purple-600">
-                          {financeData.summary.transactionCount.toLocaleString()}
-                        </p>
-                      </div>
-                      <FileText className="h-8 w-8 text-purple-600" />
-                    </div>
-                  </CardContent>
-                </Card>
+          <Card className="border-red-200">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Total Expenses</p>
+                  <p className="text-2xl font-bold text-red-600">
+                    {formatCurrency(financeData.summary.totalExpenses)}
+                  </p>
+                </div>
+                <TrendingDown className="h-8 w-8 text-red-600" />
               </div>
-            ) : null}
+            </CardContent>
+          </Card>
 
-            {/* Tabs for different views */}
-            <Tabs value={selectedTab} onValueChange={setSelectedTab}>
-              <TabsList className="grid w-full grid-cols-4">
-                <TabsTrigger value="overview">Overview</TabsTrigger>
-                <TabsTrigger value="transactions">Transactions</TabsTrigger>
-                <TabsTrigger value="charts">Analytics</TabsTrigger>
-                <TabsTrigger value="modules">Modules</TabsTrigger>
-              </TabsList>
+          <Card className="border-blue-200">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Net Profit</p>
+                  <p className="text-2xl font-bold text-blue-600">
+                    {formatCurrency(financeData.summary.netProfit)}
+                  </p>
+                </div>
+                <DollarSign className="h-8 w-8 text-blue-600" />
+              </div>
+            </CardContent>
+          </Card>
 
-              {/* Overview Tab */}
-              <TabsContent value="overview" className="space-y-6">
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  {/* Quick Actions */}
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Quick Actions</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                      <Button
-                        onClick={() => setSelectedModule('revenue')}
-                        className="w-full justify-start"
-                        variant="outline"
-                      >
-                        <DollarSign className="h-4 w-4 mr-2" />
-                        View Detailed Revenue
-                      </Button>
-                      <Button
-                        onClick={() => setSelectedModule('invoices')}
-                        className="w-full justify-start"
-                        variant="outline"
-                      >
-                        <FileText className="h-4 w-4 mr-2" />
-                        Manage Invoices
-                      </Button>
-                      <Button
-                        onClick={() => setSelectedModule('utilities')}
-                        className="w-full justify-start"
-                        variant="outline"
-                      >
-                        <Zap className="h-4 w-4 mr-2" />
-                        Track Utilities
-                      </Button>
-                    </CardContent>
-                  </Card>
+          <Card className="border-purple-200">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Transactions</p>
+                  <p className="text-2xl font-bold text-purple-600">
+                    {financeData.summary.transactionCount.toLocaleString()}
+                  </p>
+                </div>
+                <FileText className="h-8 w-8 text-purple-600" />
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      ) : null}
+
+      {/* Tabs for different views */}
+      <Tabs value={selectedTab} onValueChange={setSelectedTab}>
+        <TabsList className="grid w-full grid-cols-4">
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="transactions">Transactions</TabsTrigger>
+          <TabsTrigger value="charts">Analytics</TabsTrigger>
+          <TabsTrigger value="modules">Modules</TabsTrigger>
+        </TabsList>
+
+        {/* Overview Tab */}
+        <TabsContent value="overview" className="space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Quick Actions */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Quick Actions</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <Button
+                  onClick={() => setSelectedModule('revenue')}
+                  className="w-full justify-start"
+                  variant="outline"
+                >
+                  <DollarSign className="h-4 w-4 mr-2" />
+                  View Detailed Revenue
+                </Button>
+                <Button
+                  onClick={() => setSelectedModule('invoices')}
+                  className="w-full justify-start"
+                  variant="outline"
+                >
+                  <FileText className="h-4 w-4 mr-2" />
+                  Manage Invoices
+                </Button>
+                <Button
+                  onClick={() => setSelectedModule('utilities')}
+                  className="w-full justify-start"
+                  variant="outline"
+                >
+                  <Zap className="h-4 w-4 mr-2" />
+                  Track Utilities
+                </Button>
+              </CardContent>
+            </Card>
 
                   {/* Performance Metrics */}
                   <Card>
@@ -411,10 +406,8 @@ export default function OptimizedFinanceHub() {
                   </Card>
                 </div>
               </TabsContent>
-            </Tabs>
-          </div>
-        </main>
+        </Tabs>
       </div>
-    </div>
+    </>
   );
 }
