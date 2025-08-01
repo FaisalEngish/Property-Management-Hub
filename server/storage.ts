@@ -723,6 +723,7 @@ export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
   upsertUser(user: UpsertUser): Promise<User>;
+  updateUser(id: string, updates: Partial<User>): Promise<User | undefined>;
 
   // Property operations
   getProperties(): Promise<Property[]>;
@@ -2184,6 +2185,27 @@ export class DatabaseStorage implements IStorage {
         },
       })
       .returning();
+    return user;
+  }
+
+  async updateUser(id: string, updates: Partial<User>): Promise<User | undefined> {
+    // Parse name into firstName and lastName if provided
+    if (updates.name) {
+      const nameParts = updates.name.split(' ');
+      updates.firstName = nameParts[0] || '';
+      updates.lastName = nameParts.slice(1).join(' ') || '';
+      delete updates.name; // Remove name field as it's not in the database
+    }
+
+    const [user] = await db
+      .update(users)
+      .set({
+        ...updates,
+        updatedAt: new Date(),
+      })
+      .where(eq(users.id, id))
+      .returning();
+    
     return user;
   }
 

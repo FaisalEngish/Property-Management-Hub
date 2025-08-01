@@ -13262,18 +13262,22 @@ Be specific and actionable in your recommendations.`;
     try {
       const { id } = req.params;
       const { name, email, role, status } = req.body;
+      const organizationId = req.user?.organizationId || "default-org";
       
-      // For demo purposes, we'll just return the updated user data
-      // In a real implementation, you'd update the database
-      const updatedUser = {
-        id,
+      console.log("Updating user:", id, "with data:", { name, email, role, status });
+      
+      // Actually update the user in the database
+      const updatedUser = await storage.updateUser(id, {
         name,
         email,
         role,
-        status,
-        organizationId: req.user?.organizationId || "default-org",
+        isActive: status === 'active',
         updatedAt: new Date()
-      };
+      });
+      
+      if (!updatedUser) {
+        return res.status(404).json({ message: "User not found" });
+      }
       
       res.json(updatedUser);
     } catch (error) {
