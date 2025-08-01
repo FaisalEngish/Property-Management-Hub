@@ -72,10 +72,6 @@ app.use((req, res, next) => {
   // await seedOwnerOnboardingData();
   
   const server = await registerRoutes(app);
-  
-  // Register bulk delete routes
-  const { registerBulkDeleteRoutes } = await import('./bulk-delete-api');
-  registerBulkDeleteRoutes(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;

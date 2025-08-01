@@ -1599,8 +1599,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         priority: req.body.priority || "medium",
         status: "pending",
         propertyId: req.body.propertyId ? parseInt(req.body.propertyId) : null,
-        assignedTo: (req.body.assignedTo === 'unassigned' || !req.body.assignedTo) ? null : req.body.assignedTo,
-        dueDate: req.body.dueDate ? new Date(req.body.dueDate) : null,
+        assignedTo: req.body.assignedTo || null,
+        dueDate: req.body.dueDate || null,
         estimatedCost: req.body.estimatedCost ? parseFloat(req.body.estimatedCost) : null,
         department: req.body.department || null
       };
