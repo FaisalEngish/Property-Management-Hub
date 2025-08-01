@@ -35,6 +35,7 @@ import { inventoryStorage } from "./inventoryStorage";
 import { insertInventoryItemSchema, insertInventoryUsageLogSchema } from "@shared/schema";
 import { handleBookingConfirmation, CommissionAutomation } from './commission-automation';
 import { UtilityAlertAutomation, initializeUtilityAutomation } from './utility-alert-automation';
+import { registerBulkDeleteRoutes } from './bulk-delete-api';
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Setup demo authentication (for development/testing)
@@ -95,6 +96,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Register Finance routes
   registerFinanceRoutes(app);
+  
+  // Register Bulk Delete routes
+  registerBulkDeleteRoutes(app);
   
   // Register Fast routes for performance
   const { registerFastRoutes } = await import("./fastRoutes");

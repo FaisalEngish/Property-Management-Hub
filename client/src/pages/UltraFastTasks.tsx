@@ -149,11 +149,12 @@ export default function UltraFastTasks() {
   const { data: tasks = [], isLoading: tasksLoading, error: tasksError } = useQuery({
     queryKey: ['/api/tasks'],
     staleTime: 0, // Always refetch
-    cacheTime: 0, // Don't cache
+    gcTime: 0, // Don't cache (replaces cacheTime in newer versions)
   });
 
   // Debug log to see if tasks are loading
-  console.log('UltraFastTasks - Tasks loaded:', tasks.length, 'tasks');
+  const tasksArray = Array.isArray(tasks) ? tasks : [];
+  console.log('UltraFastTasks - Tasks loaded:', tasksArray.length, 'tasks');
 
   // Fetch properties for property names
   const { data: properties = [] } = useQuery({
@@ -165,32 +166,36 @@ export default function UltraFastTasks() {
     queryKey: ['/api/users'],
   });
 
+  // Type safe arrays
+  const propertiesArray = Array.isArray(properties) ? properties : [];
+  const usersArray = Array.isArray(users) ? users : [];
+
   // Create property lookup map
   const propertyMap = useMemo(() => {
     const map = new Map();
-    properties.forEach((prop: any) => {
+    propertiesArray.forEach((prop: any) => {
       map.set(prop.id, prop.name);
     });
     return map;
-  }, [properties]);
+  }, [propertiesArray]);
 
   // Create user lookup map
   const userMap = useMemo(() => {
     const map = new Map();
-    users.forEach((user: any) => {
+    usersArray.forEach((user: any) => {
       map.set(user.id, user.name);
     });
     return map;
-  }, [users]);
+  }, [usersArray]);
 
   // Enhanced tasks with property and user names
   const enhancedTasks = useMemo(() => {
-    return tasks.map((task: any) => ({
+    return tasksArray.map((task: any) => ({
       ...task,
       propertyName: propertyMap.get(task.propertyId) || `Property ${task.propertyId}`,
       assigneeName: task.assignedTo ? (userMap.get(task.assignedTo) || 'Unknown User') : 'Unassigned',
     }));
-  }, [tasks, propertyMap, userMap]);
+  }, [tasksArray, propertyMap, userMap]);
 
   // Real-time filtering with actual data
   const filteredTasks = useMemo(() => {
@@ -299,57 +304,66 @@ export default function UltraFastTasks() {
 
   // Bulk delete mutations
   const deleteExpiredMutation = useMutation({
-    mutationFn: () => apiRequest('/api/tasks/bulk-delete/expired', { method: 'DELETE' }),
-    onSuccess: (result) => {
+    mutationFn: async () => {
+      const response = await apiRequest('DELETE', '/api/tasks/bulk-delete/expired');
+      return response;
+    },
+    onSuccess: (result: any) => {
       queryClient.invalidateQueries({ queryKey: ['/api/tasks'] });
       toast({
         title: "Expired tasks deleted",
-        description: `Successfully deleted ${result.deletedCount} expired tasks`,
+        description: `Successfully deleted ${result?.deletedCount || 0} expired tasks`,
       });
       setIsBulkDialogOpen(false);
     },
-    onError: (error) => {
+    onError: (error: any) => {
       toast({
         title: "Error deleting expired tasks",
-        description: error.message,
+        description: error.message || 'Failed to delete expired tasks',
         variant: "destructive",
       });
     },
   });
 
   const deleteCompletedMutation = useMutation({
-    mutationFn: () => apiRequest('/api/tasks/bulk-delete/completed', { method: 'DELETE' }),
-    onSuccess: (result) => {
+    mutationFn: async () => {
+      const response = await apiRequest('DELETE', '/api/tasks/bulk-delete/completed');
+      return response;
+    },
+    onSuccess: (result: any) => {
       queryClient.invalidateQueries({ queryKey: ['/api/tasks'] });
       toast({
         title: "Completed tasks deleted",
-        description: `Successfully deleted ${result.deletedCount} completed tasks`,
+        description: `Successfully deleted ${result?.deletedCount || 0} completed tasks`,
       });
       setIsBulkDialogOpen(false);
     },
-    onError: (error) => {
+    onError: (error: any) => {
       toast({
         title: "Error deleting completed tasks",
-        description: error.message,
+        description: error.message || 'Failed to delete completed tasks',
         variant: "destructive",
       });
     },
   });
 
   const deleteOldMutation = useMutation({
-    mutationFn: () => apiRequest('/api/tasks/bulk-delete/old', { method: 'DELETE' }),
-    onSuccess: (result) => {
+    mutationFn: async () => {
+      const response = await apiRequest('DELETE', '/api/tasks/bulk-delete/old');
+      return response;
+    },
+    onSuccess: (result: any) => {
       queryClient.invalidateQueries({ queryKey: ['/api/tasks'] });
       toast({
         title: "Old tasks deleted",
-        description: `Successfully deleted ${result.deletedCount} old tasks`,
+        description: `Successfully deleted ${result?.deletedCount || 0} old tasks`,
       });
       setIsBulkDialogOpen(false);
     },
-    onError: (error) => {
+    onError: (error: any) => {
       toast({
         title: "Error deleting old tasks",
-        description: error.message,
+        description: error.message || 'Failed to delete old tasks',
         variant: "destructive",
       });
     },
@@ -683,7 +697,7 @@ export default function UltraFastTasks() {
           <DialogHeader>
             <DialogTitle>Bulk Task Management</DialogTitle>
             <DialogDescription>
-              Clean up old tasks to improve performance. We currently have {tasks.length} tasks.
+              Clean up old tasks to improve performance. We currently have {tasksArray.length} tasks.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
