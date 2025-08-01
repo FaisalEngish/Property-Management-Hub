@@ -212,18 +212,27 @@ const roleColors = {
 
 // Notification Bell Component
 function NotificationBell() {
+  const [isOpen, setIsOpen] = useState(false);
+  
   const { data: unreadNotifications = [], isLoading } = useQuery({
     queryKey: ['/api/notifications/unread'],
     queryFn: () => apiRequest('/api/notifications/unread'),
     refetchInterval: 30000, // Refresh every 30 seconds
+    enabled: true, // Always enabled to avoid conflicts
   });
 
   const { data: allNotifications = [] } = useQuery({
     queryKey: ['/api/notifications'],
     queryFn: () => apiRequest('/api/notifications'),
+    enabled: true, // Always enabled
   });
 
   const unreadCount = Array.isArray(unreadNotifications) ? unreadNotifications.length : 0;
+
+  const handleOpenChange = (open: boolean) => {
+    console.log("Notification dropdown state change:", open);
+    setIsOpen(open);
+  };
 
   if (isLoading) {
     return (
@@ -234,20 +243,36 @@ function NotificationBell() {
   }
 
   return (
-    <DropdownMenu>
+    <DropdownMenu open={isOpen} onOpenChange={handleOpenChange}>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="sm" className="h-8 w-8 p-0 relative">
+        <Button 
+          variant="ghost" 
+          size="sm" 
+          className="h-8 w-8 p-0 relative focus:outline-none" 
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            console.log("Notification bell clicked");
+            setIsOpen(!isOpen);
+          }}
+        >
           <Bell className="h-4 w-4" />
           {unreadCount > 0 && (
             <Badge 
-              className="absolute -top-1 -right-1 h-5 w-5 text-xs p-0 flex items-center justify-center bg-red-500 text-white"
+              className="absolute -top-1 -right-1 h-5 w-5 text-xs p-0 flex items-center justify-center bg-red-500 text-white pointer-events-none"
             >
               {unreadCount > 9 ? '9+' : unreadCount}
             </Badge>
           )}
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-80">
+      <DropdownMenuContent 
+        align="end" 
+        className="w-80 z-50" 
+        onCloseAutoFocus={(e) => e.preventDefault()}
+        onEscapeKeyDown={() => setIsOpen(false)}
+        onPointerDownOutside={() => setIsOpen(false)}
+      >
         <DropdownMenuLabel className="flex items-center justify-between">
           <span>Notifications</span>
           {unreadCount > 0 && (
@@ -264,7 +289,14 @@ function NotificationBell() {
         ) : (
           <div className="max-h-80 overflow-y-auto">
             {allNotifications.slice(0, 5).map((notification: any, index: number) => (
-              <DropdownMenuItem key={notification.id || index} className="flex flex-col items-start p-3">
+              <DropdownMenuItem 
+                key={notification.id || index} 
+                className="flex flex-col items-start p-3 cursor-pointer"
+                onSelect={() => {
+                  console.log("Notification selected:", notification.title);
+                  // Don't close the dropdown immediately to prevent flickering
+                }}
+              >
                 <div className="font-medium text-sm">
                   {notification.title || 'New notification'}
                 </div>
@@ -283,7 +315,13 @@ function NotificationBell() {
         {allNotifications.length > 5 && (
           <>
             <DropdownMenuSeparator />
-            <DropdownMenuItem className="text-center text-sm text-primary">
+            <DropdownMenuItem 
+              className="text-center text-sm text-primary cursor-pointer"
+              onSelect={() => {
+                console.log("View all notifications clicked");
+                setIsOpen(false);
+              }}
+            >
               View all notifications
             </DropdownMenuItem>
           </>
