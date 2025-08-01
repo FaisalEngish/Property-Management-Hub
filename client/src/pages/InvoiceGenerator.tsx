@@ -13,6 +13,40 @@ export default function InvoiceGenerator() {
   const [selectedPeriod, setSelectedPeriod] = useState("month");
   const [activeTab, setActiveTab] = useState("invoices");
   
+  // Invoice templates data
+  const invoiceTemplates = [
+    {
+      id: 1,
+      name: "Owner Revenue Share",
+      description: "Monthly revenue distribution to property owners",
+      defaultItems: ["Booking Revenue Share", "Management Fee", "Maintenance Deduction", "Utility Charges"]
+    },
+    {
+      id: 2,
+      name: "Portfolio Manager Commission",
+      description: "Commission payments to portfolio managers",
+      defaultItems: ["Management Commission", "Performance Bonus", "Override Commission"]
+    },
+    {
+      id: 3,
+      name: "Agent Commission",
+      description: "Commission payments to retail and referral agents",
+      defaultItems: ["Booking Commission", "Referral Bonus", "Performance Incentive"]
+    },
+    {
+      id: 4,
+      name: "Service Provider Payment",
+      description: "Payments to external service providers",
+      defaultItems: ["Service Fee", "Materials Cost", "Labor Charges"]
+    },
+    {
+      id: 5,
+      name: "Expense Reimbursement",
+      description: "Reimbursement for business expenses",
+      defaultItems: ["Travel Expenses", "Material Purchases", "Service Payments"]
+    }
+  ];
+  
   // New invoice form state
   const [newInvoice, setNewInvoice] = useState({
     invoiceNumber: "",
@@ -125,39 +159,6 @@ export default function InvoiceGenerator() {
     return statusMatch && clientMatch && periodMatch;
   });
 
-  const invoiceTemplates = [
-    {
-      id: 1,
-      name: "Owner Revenue Share",
-      description: "Monthly revenue distribution to property owners",
-      defaultItems: ["Booking Revenue Share", "Management Fee", "Maintenance Deduction", "Utility Charges"]
-    },
-    {
-      id: 2,
-      name: "Portfolio Manager Commission",
-      description: "Commission payments to portfolio managers",
-      defaultItems: ["Management Commission", "Performance Bonus", "Override Commission"]
-    },
-    {
-      id: 3,
-      name: "Agent Commission",
-      description: "Commission payments to retail and referral agents",
-      defaultItems: ["Booking Commission", "Referral Bonus", "Performance Incentive"]
-    },
-    {
-      id: 4,
-      name: "Service Provider Payment",
-      description: "Payments to external service providers",
-      defaultItems: ["Service Fee", "Materials Cost", "Labor Charges"]
-    },
-    {
-      id: 5,
-      name: "Expense Reimbursement",
-      description: "Reimbursement for business expenses",
-      defaultItems: ["Travel Expenses", "Material Purchases", "Service Payments"]
-    }
-  ];
-
   const getStatusColor = (status: string) => {
     switch (status) {
       case "paid": return "bg-green-100 text-green-800";
@@ -197,6 +198,29 @@ export default function InvoiceGenerator() {
       }));
       setCurrentItem({ description: "", amount: "" });
     }
+  };
+
+  const handleCreateInvoice = () => {
+    if (!newInvoice.clientName || !newInvoice.clientType || newInvoice.items.length === 0) {
+      alert('Please fill in all required fields and add at least one line item.');
+      return;
+    }
+    
+    // Create new invoice
+    const newInvoiceData = {
+      ...newInvoice,
+      id: newInvoice.invoiceNumber,
+      amount: calculateTotal(),
+      status: 'draft'
+    };
+    
+    console.log('Creating invoice:', newInvoiceData);
+    
+    // Reset form and switch to invoices tab
+    resetForm();
+    setActiveTab("invoices");
+    
+    alert('Invoice created successfully!');
   };
 
   const removeLineItem = (index) => {
@@ -269,9 +293,19 @@ export default function InvoiceGenerator() {
             <Download className="w-4 h-4 mr-2" />
             Export Report
           </Button>
-          <Button onClick={() => setActiveTab("create")}>
+          <Button onClick={() => {
+            setActiveTab("create");
+            // Auto-generate invoice number when creating new invoice
+            if (!newInvoice.invoiceNumber) {
+              setNewInvoice(prev => ({
+                ...prev,
+                invoiceNumber: generateInvoiceNumber(),
+                issueDate: new Date().toISOString().split('T')[0]
+              }));
+            }
+          }}>
             <Plus className="w-4 h-4 mr-2" />
-            Create Invoice
+            New Invoice
           </Button>
         </div>
       </div>
@@ -691,12 +725,7 @@ export default function InvoiceGenerator() {
                     Save as Draft
                   </Button>
                   <Button
-                    onClick={() => {
-                      console.log('Generating invoice:', newInvoice);
-                      // Here you would typically generate final invoice
-                      alert(`Invoice generated! Total: ${formatCurrency(calculateTotal())}`);
-                      resetForm();
-                    }}
+                    onClick={handleCreateInvoice}
                     disabled={!newInvoice.invoiceNumber || !newInvoice.clientName || newInvoice.items.length === 0}
                   >
                     Generate Invoice
@@ -720,7 +749,16 @@ export default function InvoiceGenerator() {
                 <CardHeader>
                   <CardTitle className="flex items-center justify-between">
                     <span>{template.name}</span>
-                    <Button variant="outline" size="sm">Use Template</Button>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={() => {
+                        setActiveTab("create");
+                        loadTemplate(template.name);
+                      }}
+                    >
+                      Use Template
+                    </Button>
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
