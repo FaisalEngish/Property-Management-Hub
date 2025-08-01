@@ -2,17 +2,19 @@ import { neon } from '@neondatabase/serverless';
 import { drizzle } from 'drizzle-orm/neon-http';
 import * as schema from "@shared/schema";
 
-// Use HTTP connection instead of WebSocket to avoid connection issues
-// This is more stable for server environments
+// For now, keep using the working Neon connection until proper Supabase URL is provided
+const databaseUrl = process.env.DATABASE_URL;
 
-if (!process.env.DATABASE_URL) {
+if (!databaseUrl) {
   throw new Error(
     "DATABASE_URL must be set. Did you forget to provision a database?",
   );
 }
 
+console.log("🔗 Connecting to database:", databaseUrl.includes('supabase') ? 'Supabase' : 'Neon');
+
 // Create HTTP connection client - more stable than WebSocket
-const sql = neon(process.env.DATABASE_URL);
+const sql = neon(databaseUrl);
 
 // Create drizzle instance with HTTP client
 export const db = drizzle(sql, { schema });
