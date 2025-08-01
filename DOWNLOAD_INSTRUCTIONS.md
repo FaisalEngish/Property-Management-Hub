@@ -5,14 +5,16 @@
 I've created a compressed archive with all your project files ready for GitHub upload.
 
 ### File Details
-- **Archive Name**: `hostpilotpro.tar.gz`
+- **Archive Name**: `hostpilotpro-complete.tar.gz`
+- **Size**: 1.7 MB (compressed)
 - **Contents**: All source code, documentation, and configuration files
+- **Files**: 400+ files included
 - **Excludes**: `node_modules`, `.env`, database backups, session files
 
 ### How to Download from Replit
 
 #### Method 1: Direct Download
-1. In Replit file explorer, look for `hostpilotpro.tar.gz`
+1. In Replit file explorer, look for `hostpilotpro-complete.tar.gz`
 2. Right-click on the file
 3. Select "Download"
 4. Save to your computer
@@ -20,7 +22,7 @@ I've created a compressed archive with all your project files ready for GitHub u
 #### Method 2: Shell Download Link
 1. In Replit Shell, run:
    ```bash
-   ls -la hostpilotpro.tar.gz
+   ls -la hostpilotpro-complete.tar.gz
    ```
 2. The file will appear in your Files panel
 3. Download it from there
@@ -30,7 +32,7 @@ I've created a compressed archive with all your project files ready for GitHub u
 1. **Extract the Archive**
    - On Windows: Use 7-Zip or WinRAR
    - On Mac: Double-click to extract
-   - On Linux: `tar -xzf hostpilotpro.tar.gz`
+   - On Linux: `tar -xzf hostpilotpro-complete.tar.gz`
 
 2. **Create GitHub Repository**
    - Go to github.com
