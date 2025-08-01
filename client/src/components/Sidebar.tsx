@@ -64,7 +64,7 @@ import {
   Filter,
   Palette
 } from "lucide-react";
-import { useAuth } from "@/hooks/useAuth";
+import { useFastAuth } from "@/lib/fastAuth";
 import { cn } from "@/lib/utils";
 
 interface SidebarProps {
@@ -221,8 +221,8 @@ export default function Sidebar({ className, isMobileMenuOpen, setIsMobileMenuOp
     maintenance: false,
   });
   
-  const { user, isAuthenticated } = useAuth();
-  const userRole = (user as any)?.role || "guest";
+  const { user, isAuthenticated, logout } = useFastAuth();
+  const userRole = user?.role || "guest";
 
   const toggleSection = (sectionTitle: string) => {
     setCollapsedSections(prev => ({
@@ -242,10 +242,11 @@ export default function Sidebar({ className, isMobileMenuOpen, setIsMobileMenuOp
 
   const handleLogout = async () => {
     try {
-      await fetch("/api/auth/demo-logout", { method: "POST" });
-      window.location.href = "/";
+      await logout();
+      // No need to manually redirect, the App component will handle it
     } catch (error) {
       console.error("Logout error:", error);
+      // Fallback to manual redirect
       window.location.href = "/";
     }
   };
