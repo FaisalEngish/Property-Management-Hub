@@ -11,11 +11,14 @@ import {
   ArrowUpDown,
   PieChart,
   CreditCard,
-  ArrowLeft
+  ArrowLeft,
+  Users,
+  Shield
 } from "lucide-react";
 import TopBar from "@/components/TopBar";
 import RefreshDataButton from "@/components/RefreshDataButton";
 import LoadingSpinner from "@/components/ui/LoadingSpinner";
+import { useFastAuth } from "@/lib/fastAuth";
 
 // Lazy load all Finance modules
 const FinancesPage = lazy(() => import("./CachedFinances"));
@@ -26,9 +29,11 @@ const SmartPricingPerformanceToolkit = lazy(() => import("./SmartPricingPerforma
 const OtaPayoutLogicSmartRevenue = lazy(() => import("./OtaPayoutLogicSmartRevenue"));
 const SimpleFilteredFinancialDashboard = lazy(() => import("./SimpleFilteredFinancialDashboard"));
 const OwnerInvoicingPayouts = lazy(() => import("./OwnerInvoicingPayouts"));
+const SalariesWages = lazy(() => import("./SalariesWages"));
 
 export default function FinanceHub() {
   const [selectedModule, setSelectedModule] = useState<string | null>(null);
+  const { user } = useFastAuth();
 
   const financeItems = [
     {
@@ -105,11 +110,30 @@ export default function FinanceHub() {
     }
   ];
 
+  // Add admin-only items
+  const adminOnlyItems = [
+    {
+      title: "Salaries & Wages",
+      description: "Manage staff salaries, wages, and payroll information",
+      key: "salaries-wages",
+      icon: Users,
+      badge: "Admin Only",
+      color: "bg-red-50 hover:bg-red-100 border-red-200",
+      component: SalariesWages,
+      adminOnly: true
+    }
+  ];
+
+  // Combine items based on user role
+  const allFinanceItems = user?.role === "admin" 
+    ? [...financeItems, ...adminOnlyItems]
+    : financeItems;
+
   const handleModuleClick = (key: string) => {
     setSelectedModule(key);
   };
 
-  const selectedItem = financeItems.find(item => item.key === selectedModule);
+  const selectedItem = allFinanceItems.find(item => item.key === selectedModule);
 
   // If a module is selected, render it lazily
   if (selectedModule && selectedItem) {
@@ -174,7 +198,7 @@ export default function FinanceHub() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {financeItems.map((item) => {
+              {allFinanceItems.map((item) => {
                 const IconComponent = item.icon;
                 return (
                   <Card
@@ -194,7 +218,11 @@ export default function FinanceHub() {
                             </CardTitle>
                           </div>
                         </div>
-                        <Badge variant="secondary" className="bg-white/70 text-gray-700 border border-gray-300">
+                        <Badge 
+                          variant="secondary" 
+                          className={`${item.badge === "Admin Only" ? "bg-red-100 text-red-700 border-red-300" : "bg-white/70 text-gray-700 border border-gray-300"}`}
+                        >
+                          {item.badge === "Admin Only" && <Shield className="h-3 w-3 mr-1" />}
                           {item.badge}
                         </Badge>
                       </div>

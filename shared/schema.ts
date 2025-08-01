@@ -2797,11 +2797,179 @@ export const insertAchievementNotificationSchema = createInsertSchema(achievemen
   createdAt: true,
 });
 
+// Export staff types
+export type StaffMember = typeof staffMembers.$inferSelect;
+export type StaffDocument = typeof staffDocuments.$inferSelect;
+export type PayrollRecord = typeof payrollRecords.$inferSelect;
+export type DepartmentBudget = typeof departmentBudgets.$inferSelect;
+
 // Export achievement types
 export type Achievement = typeof achievements.$inferSelect;
 export type UserAchievement = typeof userAchievements.$inferSelect;
 export type UserGameStats = typeof userGameStats.$inferSelect;
 export type AchievementNotification = typeof achievementNotifications.$inferSelect;
+
+// ===== STAFF MANAGEMENT & PAYROLL TABLES =====
+
+// Staff Member Profiles
+export const staffMembers = pgTable("staff_members", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").notNull(),
+  userId: varchar("user_id"), // Optional - links to users table if staff has account
+  employeeId: varchar("employee_id").notNull(), // Unique employee ID
+  firstName: varchar("first_name").notNull(),
+  lastName: varchar("last_name").notNull(),
+  dateOfBirth: date("date_of_birth"),
+  phoneNumber: varchar("phone_number"),
+  email: varchar("email"),
+  address: text("address"),
+  
+  // Employment details
+  department: varchar("department").notNull(), // housekeeping, pool, garden, manager, supervisor, admin
+  position: varchar("position").notNull(),
+  startDate: date("start_date").notNull(),
+  endDate: date("end_date"), // null if still employed
+  status: varchar("status").default("active"), // active, inactive, terminated
+  
+  // Compensation
+  salaryType: varchar("salary_type").notNull(), // monthly, hourly, commission, daily
+  monthlySalary: decimal("monthly_salary", { precision: 10, scale: 2 }),
+  hourlyRate: decimal("hourly_rate", { precision: 8, scale: 2 }),
+  commissionRate: decimal("commission_rate", { precision: 5, scale: 2 }), // percentage
+  
+  // Banking
+  bankName: varchar("bank_name"),
+  accountNumber: varchar("account_number"),
+  accountHolderName: varchar("account_holder_name"),
+  
+  // Work preferences
+  preferredDayOff: varchar("preferred_day_off"), // monday, tuesday, etc.
+  workingHours: varchar("working_hours"), // e.g., "8:00-17:00"
+  
+  // Admin notes
+  notes: text("notes"),
+  performanceNotes: text("performance_notes"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Staff Documents (Passport, Work Permit, etc.)
+export const staffDocuments = pgTable("staff_documents", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").notNull(),
+  staffMemberId: integer("staff_member_id").references(() => staffMembers.id, { onDelete: 'cascade' }),
+  documentType: varchar("document_type").notNull(), // passport, work_permit, id_card, contract, bank_book, photo
+  fileName: varchar("file_name").notNull(),
+  fileUrl: varchar("file_url").notNull(),
+  fileSize: integer("file_size"),
+  mimeType: varchar("mime_type"),
+  uploadedBy: varchar("uploaded_by").notNull(),
+  uploadedAt: timestamp("uploaded_at").defaultNow(),
+  expiryDate: date("expiry_date"), // for permits, contracts, etc.
+  notes: text("notes"),
+});
+
+// Payroll Records
+export const payrollRecords = pgTable("payroll_records", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").notNull(),
+  staffMemberId: integer("staff_member_id").references(() => staffMembers.id, { onDelete: 'cascade' }),
+  payPeriodStart: date("pay_period_start").notNull(),
+  payPeriodEnd: date("pay_period_end").notNull(),
+  
+  // Hours and rates
+  hoursWorked: decimal("hours_worked", { precision: 8, scale: 2 }),
+  regularHours: decimal("regular_hours", { precision: 8, scale: 2 }),
+  overtimeHours: decimal("overtime_hours", { precision: 8, scale: 2 }),
+  hourlyRate: decimal("hourly_rate", { precision: 8, scale: 2 }),
+  overtimeRate: decimal("overtime_rate", { precision: 8, scale: 2 }),
+  
+  // Salary calculations
+  baseSalary: decimal("base_salary", { precision: 10, scale: 2 }),
+  overtimePay: decimal("overtime_pay", { precision: 10, scale: 2 }),
+  bonuses: decimal("bonuses", { precision: 10, scale: 2 }).default("0"),
+  deductions: decimal("deductions", { precision: 10, scale: 2 }).default("0"),
+  
+  // Commission (for agents)
+  commissionEarned: decimal("commission_earned", { precision: 10, scale: 2 }).default("0"),
+  commissionRate: decimal("commission_rate", { precision: 5, scale: 2 }),
+  
+  // Totals
+  grossPay: decimal("gross_pay", { precision: 10, scale: 2 }).notNull(),
+  netPay: decimal("net_pay", { precision: 10, scale: 2 }).notNull(),
+  
+  // Payment tracking
+  paymentStatus: varchar("payment_status").default("pending"), // pending, paid, cancelled
+  paymentDate: date("payment_date"),
+  paymentMethod: varchar("payment_method"), // bank_transfer, cash, check
+  
+  notes: text("notes"),
+  createdBy: varchar("created_by").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Department Salary Budgets
+export const departmentBudgets = pgTable("department_budgets", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").notNull(),
+  department: varchar("department").notNull(),
+  year: integer("year").notNull(),
+  month: integer("month"), // null for yearly budgets
+  
+  budgetedAmount: decimal("budgeted_amount", { precision: 12, scale: 2 }),
+  actualAmount: decimal("actual_amount", { precision: 12, scale: 2 }).default("0"),
+  
+  notes: text("notes"),
+  createdBy: varchar("created_by").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Staff Member Relations
+export const staffMemberRelations = relations(staffMembers, ({ many }) => ({
+  documents: many(staffDocuments),
+  payrollRecords: many(payrollRecords),
+}));
+
+export const staffDocumentRelations = relations(staffDocuments, ({ one }) => ({
+  staffMember: one(staffMembers, {
+    fields: [staffDocuments.staffMemberId],
+    references: [staffMembers.id],
+  }),
+}));
+
+export const payrollRecordRelations = relations(payrollRecords, ({ one }) => ({
+  staffMember: one(staffMembers, {
+    fields: [payrollRecords.staffMemberId],
+    references: [staffMembers.id],
+  }),
+}));
+
+// Staff management insert schemas (after table definitions)
+export const insertStaffMemberSchema = createInsertSchema(staffMembers).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertStaffDocumentSchema = createInsertSchema(staffDocuments).omit({
+  id: true,
+  uploadedAt: true,
+});
+
+export const insertPayrollRecordSchema = createInsertSchema(payrollRecords).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertDepartmentBudgetSchema = createInsertSchema(departmentBudgets).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
 
 // ===== COMMUNICATION SYSTEM TABLES =====
 

@@ -597,6 +597,19 @@ import {
   type InsertStaffCommission,
   type PaySlip,
   type InsertPaySlip,
+  // Staff Management & Payroll
+  staffMembers,
+  staffDocuments,
+  payrollRecords,
+  departmentBudgets,
+  type StaffMember,
+  type StaffDocument,
+  type PayrollRecord,
+  type DepartmentBudget,
+  insertStaffMemberSchema,
+  insertStaffDocumentSchema,
+  insertPayrollRecordSchema,
+  insertDepartmentBudgetSchema,
   // Property Access Management types
   propertyAccessCredentials,
   propertyAccessPhotos,
@@ -1008,6 +1021,45 @@ export interface IStorage {
     totalRevenue: number;
     popularServices: Array<{ serviceName: string; bookingCount: number; revenue: number }>;
     billingRouteBreakdown: Record<string, number>;
+  }>;
+
+  // Staff Management & Payroll operations
+  // Staff member operations
+  getStaffMembers(organizationId: string, filters?: { department?: string; status?: string }): Promise<StaffMember[]>;
+  getStaffMember(id: number): Promise<StaffMember | undefined>;
+  getStaffMemberByEmployeeId(employeeId: string, organizationId: string): Promise<StaffMember | undefined>;
+  createStaffMember(member: Omit<StaffMember, 'id' | 'createdAt' | 'updatedAt'>): Promise<StaffMember>;
+  updateStaffMember(id: number, member: Partial<StaffMember>): Promise<StaffMember | undefined>;
+  deleteStaffMember(id: number): Promise<boolean>;
+  
+  // Staff document operations
+  getStaffDocuments(staffMemberId: number): Promise<StaffDocument[]>;
+  getStaffDocument(id: number): Promise<StaffDocument | undefined>;
+  createStaffDocument(document: Omit<StaffDocument, 'id' | 'uploadedAt'>): Promise<StaffDocument>;
+  updateStaffDocument(id: number, document: Partial<StaffDocument>): Promise<StaffDocument | undefined>;
+  deleteStaffDocument(id: number): Promise<boolean>;
+  
+  // Payroll record operations
+  getPayrollRecords(organizationId: string, filters?: { staffMemberId?: number; payPeriodStart?: string; payPeriodEnd?: string }): Promise<PayrollRecord[]>;
+  getPayrollRecord(id: number): Promise<PayrollRecord | undefined>;
+  createPayrollRecord(record: Omit<PayrollRecord, 'id' | 'createdAt' | 'updatedAt'>): Promise<PayrollRecord>;
+  updatePayrollRecord(id: number, record: Partial<PayrollRecord>): Promise<PayrollRecord | undefined>;
+  deletePayrollRecord(id: number): Promise<boolean>;
+  
+  // Department budget operations
+  getDepartmentBudgets(organizationId: string, filters?: { department?: string; year?: number; month?: number }): Promise<DepartmentBudget[]>;
+  getDepartmentBudget(id: number): Promise<DepartmentBudget | undefined>;
+  createDepartmentBudget(budget: Omit<DepartmentBudget, 'id' | 'createdAt' | 'updatedAt'>): Promise<DepartmentBudget>;
+  updateDepartmentBudget(id: number, budget: Partial<DepartmentBudget>): Promise<DepartmentBudget | undefined>;
+  deleteDepartmentBudget(id: number): Promise<boolean>;
+  
+  // Staff management analytics
+  getStaffAnalytics(organizationId: string): Promise<{
+    totalStaff: number;
+    activeStaff: number;
+    inactiveStaff: number;
+    totalMonthlyPayroll: number;
+    departmentBreakdown: Array<{ department: string; count: number; totalSalary: number }>;
   }>;
 
   // Task Attachments & Property Notes operations
@@ -41009,6 +41061,361 @@ The ${packType} approach focuses on highlighting the property's strengths while 
       applianceTypeCounts,
       averageRepairCost: totalRepairs > 0 ? totalRepairCosts / totalRepairs : 0,
     };
+  }
+  // ===== STAFF MANAGEMENT & PAYROLL IMPLEMENTATIONS =====
+
+  // Staff member operations
+  async getStaffMembers(organizationId: string, filters?: { department?: string; status?: string }): Promise<StaffMember[]> {
+    try {
+      let query = db.select().from(staffMembers);
+      
+      const conditions = [eq(staffMembers.organizationId, organizationId)];
+      if (filters?.department) {
+        conditions.push(eq(staffMembers.department, filters.department));
+      }
+      if (filters?.status) {
+        conditions.push(eq(staffMembers.status, filters.status));
+      }
+
+      query = query.where(and(...conditions));
+      query = query.orderBy(asc(staffMembers.firstName), asc(staffMembers.lastName));
+
+      return await query;
+    } catch (error) {
+      console.error('Error fetching staff members:', error);
+      return [];
+    }
+  }
+
+  async getStaffMember(id: number): Promise<StaffMember | undefined> {
+    try {
+      const [member] = await db.select().from(staffMembers).where(eq(staffMembers.id, id));
+      return member;
+    } catch (error) {
+      console.error('Error fetching staff member:', error);
+      return undefined;
+    }
+  }
+
+  async getStaffMemberByEmployeeId(employeeId: string, organizationId: string): Promise<StaffMember | undefined> {
+    try {
+      const [member] = await db.select().from(staffMembers)
+        .where(and(
+          eq(staffMembers.employeeId, employeeId),
+          eq(staffMembers.organizationId, organizationId)
+        ));
+      return member;
+    } catch (error) {
+      console.error('Error fetching staff member by employee ID:', error);
+      return undefined;
+    }
+  }
+
+  async createStaffMember(member: Omit<StaffMember, 'id' | 'createdAt' | 'updatedAt'>): Promise<StaffMember> {
+    try {
+      const [created] = await db.insert(staffMembers).values({
+        ...member,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      }).returning();
+      return created;
+    } catch (error) {
+      console.error('Error creating staff member:', error);
+      throw error;
+    }
+  }
+
+  async updateStaffMember(id: number, member: Partial<StaffMember>): Promise<StaffMember | undefined> {
+    try {
+      const [updated] = await db.update(staffMembers)
+        .set({ ...member, updatedAt: new Date() })
+        .where(eq(staffMembers.id, id))
+        .returning();
+      return updated;
+    } catch (error) {
+      console.error('Error updating staff member:', error);
+      return undefined;
+    }
+  }
+
+  async deleteStaffMember(id: number): Promise<boolean> {
+    try {
+      await db.delete(staffMembers).where(eq(staffMembers.id, id));
+      return true;
+    } catch (error) {
+      console.error('Error deleting staff member:', error);
+      return false;
+    }
+  }
+
+  // Staff document operations
+  async getStaffDocuments(staffMemberId: number): Promise<StaffDocument[]> {
+    try {
+      return await db.select().from(staffDocuments)
+        .where(eq(staffDocuments.staffMemberId, staffMemberId))
+        .orderBy(desc(staffDocuments.uploadedAt));
+    } catch (error) {
+      console.error('Error fetching staff documents:', error);
+      return [];
+    }
+  }
+
+  async getStaffDocument(id: number): Promise<StaffDocument | undefined> {
+    try {
+      const [document] = await db.select().from(staffDocuments).where(eq(staffDocuments.id, id));
+      return document;
+    } catch (error) {
+      console.error('Error fetching staff document:', error);
+      return undefined;
+    }
+  }
+
+  async createStaffDocument(document: Omit<StaffDocument, 'id' | 'uploadedAt'>): Promise<StaffDocument> {
+    try {
+      const [created] = await db.insert(staffDocuments).values({
+        ...document,
+        uploadedAt: new Date()
+      }).returning();
+      return created;
+    } catch (error) {
+      console.error('Error creating staff document:', error);
+      throw error;
+    }
+  }
+
+  async updateStaffDocument(id: number, document: Partial<StaffDocument>): Promise<StaffDocument | undefined> {
+    try {
+      const [updated] = await db.update(staffDocuments)
+        .set(document)
+        .where(eq(staffDocuments.id, id))
+        .returning();
+      return updated;
+    } catch (error) {
+      console.error('Error updating staff document:', error);
+      return undefined;
+    }
+  }
+
+  async deleteStaffDocument(id: number): Promise<boolean> {
+    try {
+      await db.delete(staffDocuments).where(eq(staffDocuments.id, id));
+      return true;
+    } catch (error) {
+      console.error('Error deleting staff document:', error);
+      return false;
+    }
+  }
+
+  // Payroll record operations
+  async getPayrollRecords(organizationId: string, filters?: { staffMemberId?: number; payPeriodStart?: string; payPeriodEnd?: string }): Promise<PayrollRecord[]> {
+    try {
+      let query = db.select().from(payrollRecords);
+      
+      const conditions = [eq(payrollRecords.organizationId, organizationId)];
+      if (filters?.staffMemberId) {
+        conditions.push(eq(payrollRecords.staffMemberId, filters.staffMemberId));
+      }
+      if (filters?.payPeriodStart) {
+        conditions.push(gte(payrollRecords.payPeriodStart, filters.payPeriodStart));
+      }
+      if (filters?.payPeriodEnd) {
+        conditions.push(lte(payrollRecords.payPeriodEnd, filters.payPeriodEnd));
+      }
+
+      query = query.where(and(...conditions));
+      query = query.orderBy(desc(payrollRecords.payPeriodStart));
+
+      return await query;
+    } catch (error) {
+      console.error('Error fetching payroll records:', error);
+      return [];
+    }
+  }
+
+  async getPayrollRecord(id: number): Promise<PayrollRecord | undefined> {
+    try {
+      const [record] = await db.select().from(payrollRecords).where(eq(payrollRecords.id, id));
+      return record;
+    } catch (error) {
+      console.error('Error fetching payroll record:', error);
+      return undefined;
+    }
+  }
+
+  async createPayrollRecord(record: Omit<PayrollRecord, 'id' | 'createdAt' | 'updatedAt'>): Promise<PayrollRecord> {
+    try {
+      const [created] = await db.insert(payrollRecords).values({
+        ...record,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      }).returning();
+      return created;
+    } catch (error) {
+      console.error('Error creating payroll record:', error);
+      throw error;
+    }
+  }
+
+  async updatePayrollRecord(id: number, record: Partial<PayrollRecord>): Promise<PayrollRecord | undefined> {
+    try {
+      const [updated] = await db.update(payrollRecords)
+        .set({ ...record, updatedAt: new Date() })
+        .where(eq(payrollRecords.id, id))
+        .returning();
+      return updated;
+    } catch (error) {
+      console.error('Error updating payroll record:', error);
+      return undefined;
+    }
+  }
+
+  async deletePayrollRecord(id: number): Promise<boolean> {
+    try {
+      await db.delete(payrollRecords).where(eq(payrollRecords.id, id));
+      return true;
+    } catch (error) {
+      console.error('Error deleting payroll record:', error);
+      return false;
+    }
+  }
+
+  // Department budget operations
+  async getDepartmentBudgets(organizationId: string, filters?: { department?: string; year?: number; month?: number }): Promise<DepartmentBudget[]> {
+    try {
+      let query = db.select().from(departmentBudgets);
+      
+      const conditions = [eq(departmentBudgets.organizationId, organizationId)];
+      if (filters?.department) {
+        conditions.push(eq(departmentBudgets.department, filters.department));
+      }
+      if (filters?.year) {
+        conditions.push(eq(departmentBudgets.year, filters.year));
+      }
+      if (filters?.month) {
+        conditions.push(eq(departmentBudgets.month, filters.month));
+      }
+
+      query = query.where(and(...conditions));
+      query = query.orderBy(desc(departmentBudgets.year), desc(departmentBudgets.month));
+
+      return await query;
+    } catch (error) {
+      console.error('Error fetching department budgets:', error);
+      return [];
+    }
+  }
+
+  async getDepartmentBudget(id: number): Promise<DepartmentBudget | undefined> {
+    try {
+      const [budget] = await db.select().from(departmentBudgets).where(eq(departmentBudgets.id, id));
+      return budget;
+    } catch (error) {
+      console.error('Error fetching department budget:', error);
+      return undefined;
+    }
+  }
+
+  async createDepartmentBudget(budget: Omit<DepartmentBudget, 'id' | 'createdAt' | 'updatedAt'>): Promise<DepartmentBudget> {
+    try {
+      const [created] = await db.insert(departmentBudgets).values({
+        ...budget,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      }).returning();
+      return created;
+    } catch (error) {
+      console.error('Error creating department budget:', error);
+      throw error;
+    }
+  }
+
+  async updateDepartmentBudget(id: number, budget: Partial<DepartmentBudget>): Promise<DepartmentBudget | undefined> {
+    try {
+      const [updated] = await db.update(departmentBudgets)
+        .set({ ...budget, updatedAt: new Date() })
+        .where(eq(departmentBudgets.id, id))
+        .returning();
+      return updated;
+    } catch (error) {
+      console.error('Error updating department budget:', error);
+      return undefined;
+    }
+  }
+
+  async deleteDepartmentBudget(id: number): Promise<boolean> {
+    try {
+      await db.delete(departmentBudgets).where(eq(departmentBudgets.id, id));
+      return true;
+    } catch (error) {
+      console.error('Error deleting department budget:', error);
+      return false;
+    }
+  }
+
+  // Staff management analytics
+  async getStaffAnalytics(organizationId: string): Promise<{
+    totalStaff: number;
+    activeStaff: number;
+    inactiveStaff: number;
+    totalMonthlyPayroll: number;
+    departmentBreakdown: Array<{ department: string; count: number; totalSalary: number }>;
+  }> {
+    try {
+      const staff = await this.getStaffMembers(organizationId);
+      
+      const totalStaff = staff.length;
+      const activeStaff = staff.filter(s => s.status === 'active').length;
+      const inactiveStaff = totalStaff - activeStaff;
+      
+      // Calculate total monthly payroll
+      let totalMonthlyPayroll = 0;
+      const departmentMap: Record<string, { count: number; totalSalary: number }> = {};
+      
+      staff.forEach(member => {
+        if (member.status === 'active') {
+          let monthlySalary = 0;
+          
+          if (member.salaryType === 'monthly' && member.monthlySalary) {
+            monthlySalary = parseFloat(member.monthlySalary);
+          } else if (member.salaryType === 'hourly' && member.hourlyRate) {
+            // Estimate monthly from hourly (8 hours * 26 days)
+            monthlySalary = parseFloat(member.hourlyRate) * 8 * 26;
+          }
+          
+          totalMonthlyPayroll += monthlySalary;
+          
+          if (!departmentMap[member.department]) {
+            departmentMap[member.department] = { count: 0, totalSalary: 0 };
+          }
+          
+          departmentMap[member.department].count++;
+          departmentMap[member.department].totalSalary += monthlySalary;
+        }
+      });
+      
+      const departmentBreakdown = Object.entries(departmentMap).map(([department, data]) => ({
+        department,
+        count: data.count,
+        totalSalary: data.totalSalary
+      }));
+      
+      return {
+        totalStaff,
+        activeStaff,
+        inactiveStaff,
+        totalMonthlyPayroll,
+        departmentBreakdown
+      };
+    } catch (error) {
+      console.error('Error fetching staff analytics:', error);
+      return {
+        totalStaff: 0,
+        activeStaff: 0,
+        inactiveStaff: 0,
+        totalMonthlyPayroll: 0,
+        departmentBreakdown: []
+      };
+    }
   }
 }
 

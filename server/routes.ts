@@ -8,6 +8,20 @@ import { setupDemoAuth, isDemoAuthenticated } from "./demoAuth";
 import { setupSecureAuth, requireAuth, requireRole, requirePermission } from "./secureAuth";
 import { authenticatedTenantMiddleware, getTenantContext } from "./multiTenant";
 import { insertPropertySchema, insertTaskSchema, insertBookingSchema, insertFinanceSchema, insertPlatformSettingSchema, insertAddonServiceSchema, insertAddonBookingSchema, insertUtilityBillSchema, insertPropertyUtilityAccountSchema, insertUtilityBillReminderSchema, insertOwnerActivityTimelineSchema, insertOwnerPayoutRequestSchema, insertOwnerInvoiceSchema, insertOwnerPreferencesSchema, insertOwnerSettingsSchema, insertMarketingPackSchema, insertGuestServiceRequestSchema, insertGuestConfirmedServiceSchema, insertBookingLinkedTaskSchema, insertBookingRevenueSchema, insertOtaPlatformSettingsSchema, insertBookingRevenueCommissionSchema } from "@shared/schema";
+
+// Import staff management routes
+import {
+  getStaffMembers,
+  getStaffMember,
+  createStaffMember,
+  updateStaffMember,
+  deleteStaffMember,
+  getStaffDocuments,
+  createStaffDocument,
+  getPayrollRecords,
+  createPayrollRecord,
+  getStaffAnalytics
+} from './staffRoutes';
 import { BookingRevenueStorage } from "./bookingRevenueStorage";
 import { z } from "zod";
 import { CrossSyncedTaskVisibilityStorage } from "./crossSyncedTaskVisibility";
@@ -3448,6 +3462,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Failed to process feedback" });
     }
   });
+
+  // ===== STAFF MANAGEMENT & PAYROLL API ENDPOINTS =====
+
+  // Staff member endpoints - Admin only
+  app.get("/api/staff-members", isDemoAuthenticated, requireRole(['admin']), getStaffMembers);
+  app.get("/api/staff-members/:id", isDemoAuthenticated, requireRole(['admin']), getStaffMember);
+  app.post("/api/staff-members", isDemoAuthenticated, requireRole(['admin']), createStaffMember);
+  app.put("/api/staff-members/:id", isDemoAuthenticated, requireRole(['admin']), updateStaffMember);
+  app.delete("/api/staff-members/:id", isDemoAuthenticated, requireRole(['admin']), deleteStaffMember);
+  
+  // Staff document endpoints - Admin only
+  app.get("/api/staff-members/:staffMemberId/documents", isDemoAuthenticated, requireRole(['admin']), getStaffDocuments);
+  app.post("/api/staff-documents", isDemoAuthenticated, requireRole(['admin']), createStaffDocument);
+  
+  // Payroll record endpoints - Admin only
+  app.get("/api/payroll-records", isDemoAuthenticated, requireRole(['admin']), getPayrollRecords);
+  app.post("/api/payroll-records", isDemoAuthenticated, requireRole(['admin']), createPayrollRecord);
+  
+  // Staff analytics endpoint - Admin only
+  app.get("/api/staff-analytics", isDemoAuthenticated, requireRole(['admin']), getStaffAnalytics);
 
   // ===== GUEST MESSAGING SYSTEM API ENDPOINTS =====
 

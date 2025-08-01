@@ -77,6 +77,9 @@ import SaasManagement from "@/pages/admin/SaasManagement";
 // Import Achievement System
 import AchievementsPage from "@/pages/AchievementsPage";
 
+// Import Salaries & Wages Management
+import SalariesWages from "@/pages/SalariesWages";
+
 // Import Property Appliances Management
 import PropertyAppliancesManagement from "@/pages/PropertyAppliancesManagement";
 import TaskOverview from "@/pages/TaskOverview";
@@ -278,6 +281,9 @@ function AppRoutes() {
         
         {/* Achievement System */}
         <Route path="/achievements" component={AchievementsPage} />
+        
+        {/* Salaries & Wages Management */}
+        <Route path="/salaries-wages" component={SalariesWages} />
         
         <Route component={NotFound} />
       </Switch>
