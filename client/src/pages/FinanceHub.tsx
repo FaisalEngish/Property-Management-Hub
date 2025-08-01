@@ -13,7 +13,8 @@ import {
   CreditCard,
   ArrowLeft,
   Users,
-  Shield
+  Shield,
+  Brain
 } from "lucide-react";
 import TopBar from "@/components/TopBar";
 import RefreshDataButton from "@/components/RefreshDataButton";
@@ -30,6 +31,7 @@ const OtaPayoutLogicSmartRevenue = lazy(() => import("./OtaPayoutLogicSmartReven
 const SimpleFilteredFinancialDashboard = lazy(() => import("./SimpleFilteredFinancialDashboard"));
 const OwnerInvoicingPayouts = lazy(() => import("./OwnerInvoicingPayouts"));
 const SalariesWages = lazy(() => import("./SalariesWages"));
+const FinanceIntelligenceModule = lazy(() => import("./FinanceIntelligenceModule"));
 
 export default function FinanceHub() {
   const [selectedModule, setSelectedModule] = useState<string | null>(null);
@@ -112,6 +114,16 @@ export default function FinanceHub() {
 
   // Add admin-only items
   const adminOnlyItems = [
+    {
+      title: "Finance Intelligence",
+      description: "AI-powered financial analysis, insights, and business intelligence",
+      key: "finance-intelligence",
+      icon: Brain,
+      badge: "AI Intelligence",
+      color: "bg-purple-50 hover:bg-purple-100 border-purple-200",
+      component: FinanceIntelligenceModule,
+      adminOnly: true
+    },
     {
       title: "Salaries & Wages",
       description: "Manage staff salaries, wages, and payroll information",
