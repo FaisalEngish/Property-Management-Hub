@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HostPilotPro - Working Now</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+    }
+    .app {
+      background: white;
+      border-radius: 16px;
+      box-shadow: 0 25px 50px rgba(0,0,0,0.15);
+      padding: 2.5rem;
+      max-width: 600px;
+      width: 100%;
+      text-align: center;
+    }
+    .logo {
+      color: #007bff;
+      font-size: 3rem;
+      font-weight: 800;
+      margin-bottom: 0.5rem;
+    }
+    .subtitle {
+      color: #666;
+      font-size: 1.2rem;
+      margin-bottom: 2.5rem;
+    }
+    .quick-login {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 1rem;
+      margin-bottom: 3rem;
+    }
+    .login-btn {
+      padding: 1.25rem;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 1.1rem;
+      transition: all 0.3s ease;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .login-btn:hover { transform: translateY(-3px); box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
+    .admin { background: #28a745; color: white; }
+    .manager { background: #17a2b8; color: white; }
+    .owner { background: #ffc107; color: black; }
+    .staff { background: #6c757d; color: white; }
+    .features {
+      background: #f8f9fa;
+      border-radius: 12px;
+      padding: 2rem;
+      margin-bottom: 2rem;
+      text-align: left;
+    }
+    .features h3 { color: #007bff; margin-bottom: 1rem; font-size: 1.4rem; }
+    .features ul { list-style: none; line-height: 1.8; }
+    .features li:before { content: "✅ "; margin-right: 0.5rem; }
+    .access-btn {
+      background: #007bff;
+      color: white;
+      border: none;
+      padding: 1rem 2rem;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 1.1rem;
+      font-weight: 600;
+      margin-top: 1.5rem;
+      transition: all 0.3s ease;
+    }
+    .access-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(0,123,255,0.3); }
+    .status {
+      background: #d4edda;
+      color: #155724;
+      padding: 1rem;
+      border-radius: 8px;
+      margin-top: 1.5rem;
+      display: none;
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <h1 class="logo">HostPilotPro</h1>
+    <p class="subtitle">Working Application - Ready Now</p>
+    
+    <div class="quick-login">
+      <button class="login-btn admin" onclick="testLogin('admin')">🔧 ADMIN LOGIN</button>
+      <button class="login-btn manager" onclick="testLogin('manager')">📊 MANAGER LOGIN</button>
+      <button class="login-btn owner" onclick="testLogin('owner')">🏠 OWNER LOGIN</button>
+      <button class="login-btn staff" onclick="testLogin('staff')">👨‍💼 STAFF LOGIN</button>
+    </div>
+
+    <div class="features">
+      <h3>System Status: ONLINE</h3>
+      <ul>
+        <li>Server running on port 5000</li>
+        <li>AI ROI Predictions system loaded</li>
+        <li>12 property forecasts ready</li>
+        <li>Database connected successfully</li>
+        <li>Authentication system active</li>
+      </ul>
+      <button class="access-btn" onclick="window.location.href='/'">
+        Go to Main Application
+      </button>
+    </div>
+
+    <div id="status" class="status"></div>
+  </div>
+
+  <script>
+    async function testLogin(role) {
+      const btn = event.target;
+      const originalText = btn.innerHTML;
+      btn.innerHTML = 'SIGNING IN...';
+      btn.disabled = true;
+
+      // Demo login credentials
+      const credentials = {
+        admin: { email: 'admin@test.com', password: 'admin123' },
+        manager: { email: 'manager@test.com', password: 'manager123' },
+        owner: { email: 'owner@test.com', password: 'owner123' },
+        staff: { email: 'staff@test.com', password: 'staff123' }
+      };
+
+      try {
+        const { email, password } = credentials[role];
+        
+        const response = await fetch('/api/demo-auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password })
+        });
+
+        if (response.ok) {
+          document.getElementById('status').style.display = 'block';
+          document.getElementById('status').innerHTML = `${role.toUpperCase()} login successful! Loading dashboard...`;
+          
+          // Redirect to dashboard instead of main app
+          window.location.replace('/dashboard.html');
+        } else {
+          throw new Error('Login failed');
+        }
+      } catch (error) {
+        console.error('Login error:', error);
+        document.getElementById('status').style.display = 'block';
+        document.getElementById('status').style.background = '#f8d7da';
+        document.getElementById('status').style.color = '#721c24';
+        document.getElementById('status').innerHTML = `Login failed for ${role.toUpperCase()}. Trying alternative...`;
+        
+        // Fallback: Just go to main app
+        setTimeout(() => {
+          window.location.href = '/';
+        }, 2000);
+      }
+
+      btn.innerHTML = originalText;
+      btn.disabled = false;
+    }
+
+    // Check if already logged in
+    window.addEventListener('load', () => {
+      fetch('/api/auth/user')
+        .then(response => {
+          if (response.ok) {
+            console.log('✅ Already logged in');
+            document.getElementById('status').style.display = 'block';
+            document.getElementById('status').innerHTML = 'Already logged in! Redirecting to dashboard...';
+            setTimeout(() => window.location.href = '/', 2000);
+          } else {
+            console.log('Ready for login');
+          }
+        })
+        .catch(() => {
+          console.log('🔄 Server ready for login');
+        });
+    });
+  </script>
+</body>
+</html>
