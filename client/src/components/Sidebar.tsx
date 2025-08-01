@@ -69,8 +69,6 @@ import { cn } from "@/lib/utils";
 
 interface SidebarProps {
   className?: string;
-  isMobileMenuOpen?: boolean;
-  setIsMobileMenuOpen?: (open: boolean) => void;
 }
 
 interface MenuItem {
@@ -195,13 +193,9 @@ const roleColors = {
   freelancer: "text-teal-500 bg-teal-50"
 };
 
-export default function Sidebar({ className, isMobileMenuOpen, setIsMobileMenuOpen }: SidebarProps) {
+export default function Sidebar({ className }: SidebarProps) {
   const [location, setLocation] = useLocation();
   const [isOpen, setIsOpen] = useState(false);
-  
-  // Use mobile menu state from parent if provided, otherwise use local state
-  const mobileMenuOpen = isMobileMenuOpen !== undefined ? isMobileMenuOpen : isOpen;
-  const setMobileMenuOpen = setIsMobileMenuOpen !== undefined ? setIsMobileMenuOpen : setIsOpen;
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({
@@ -237,8 +231,8 @@ export default function Sidebar({ className, isMobileMenuOpen, setIsMobileMenuOp
   
   // Handle mobile menu close on route change
   useEffect(() => {
-    setMobileMenuOpen(false);
-  }, [location, setMobileMenuOpen]);
+    setIsOpen(false);
+  }, [location]);
 
   const handleLogout = async () => {
     try {
@@ -433,7 +427,7 @@ export default function Sidebar({ className, isMobileMenuOpen, setIsMobileMenuOp
                           key={itemIndex}
                           onClick={() => {
                             console.log('Sidebar link clicked:', item.href);
-                            setMobileMenuOpen(false);
+                            setIsOpen(false);
                             // For hub pages, use instant navigation, for others use regular navigation
                             if (item.href.includes('-hub')) {
                               // Use wouter navigation for instant loading
@@ -528,9 +522,14 @@ export default function Sidebar({ className, isMobileMenuOpen, setIsMobileMenuOp
         <SidebarContent />
       </div>
 
-      {/* Mobile Menu - Only show mobile sheet when controlled by TopBar */}
-      <div className="lg:hidden">
-        <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+      {/* Mobile Menu Button */}
+      <div className="lg:hidden fixed top-4 left-4 z-50">
+        <Sheet open={isOpen} onOpenChange={setIsOpen}>
+          <SheetTrigger asChild>
+            <Button variant="outline" size="sm" className="bg-background">
+              <Menu className="h-4 w-4" />
+            </Button>
+          </SheetTrigger>
           <SheetContent side="left" className="w-[90vw] sm:w-80 md:w-96 p-0 flex flex-col overflow-y-auto" style={{ maxHeight: '100vh' }}>
             <SheetHeader className="p-4 border-b flex-shrink-0">
               <SheetTitle className="flex items-center gap-2">

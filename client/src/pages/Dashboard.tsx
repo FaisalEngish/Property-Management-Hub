@@ -3,7 +3,6 @@ import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 
 import TopBar from "@/components/TopBar";
-import Sidebar from "@/components/Sidebar";
 import StatsCard from "@/components/StatsCard";
 import CreateBookingDialog from "@/components/CreateBookingDialog";
 import CreatePropertyDialog from "@/components/CreatePropertyDialog";
@@ -47,17 +46,9 @@ export default function Dashboard() {
     refetchOnMount: false,
   });
 
-  // Use optimized dashboard API endpoint for recent tasks only
   const { data: tasks = [] } = useQuery({
-    queryKey: ["/api/dashboard/recent-tasks"],
-    staleTime: 5 * 60 * 1000, // 5 minutes cache for recent tasks
-    refetchOnMount: false,
-  });
-
-  // Get task statistics without loading all tasks
-  const { data: taskStats = {} } = useQuery({
-    queryKey: ["/api/dashboard/task-stats"],
-    staleTime: 5 * 60 * 1000, // 5 minutes cache for task stats
+    queryKey: ["/api/tasks"],
+    staleTime: 10 * 60 * 1000, // 10 minutes cache for tasks
     refetchOnMount: false,
   });
 
@@ -99,7 +90,7 @@ export default function Dashboard() {
   ];
 
   const recentBookings = enhancedBookings.slice(0, 3);
-  const recentTasks = tasks.slice(0, 5); // Use actual tasks from API
+  const recentTasks = enhancedTasks.slice(0, 3);
 
   // Filter data based on active filters
   const filteredProperties = enhancedProperties.filter(property => {
@@ -130,13 +121,7 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen flex bg-background">
-      {/* Sidebar */}
-      <Sidebar 
-        isMobileMenuOpen={isMobileMenuOpen}
-        setIsMobileMenuOpen={setIsMobileMenuOpen}
-      />
-      
-      <div className="flex-1 flex flex-col lg:ml-80">
+      <div className="flex-1 flex flex-col lg:ml-0">
         <TopBar 
           title="Enhanced Admin Dashboard" 
           subtitle="Comprehensive property management overview with advanced filtering"
@@ -209,7 +194,7 @@ export default function Dashboard() {
             />
             <StatsCard
               title="High Priority Tasks"
-              value={taskStats.highPriority || 0}
+              value={enhancedTasks.filter(t => t.priority === 'high').length}
               icon={AlertTriangle}
               color="warning"
             />
