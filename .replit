@@ -4,7 +4,7 @@ hidden = [".config", ".git", "node_modules", "dist"]
 
 [nix]
 channel = "stable-24_05"
-packages = ["jq", "lighthouse"]
+packages = ["jq", "lighthouse", "unzip"]
 
 [deployment]
 deploymentTarget = "autoscale"

@@ -6,6 +6,8 @@ import { seedInvoiceData } from "./seedInvoiceData";
 import { seedServiceMarketplaceData } from "./seedServiceMarketplaceData";
 import { seedOwnerOnboardingData } from "./seedOwnerOnboardingData";
 import { setupDemoAuth } from "./demoAuth";
+import mountIntegrationRoutes from "./routers/integrations-routes";
+import mountPmsRoutes from "./routers/pms-routes";
 
 const app = express();
 app.use(express.json());
@@ -80,6 +82,10 @@ app.use((req, res, next) => {
   // Register fast dashboard routes
   const { registerFastDashboardRoutes } = await import('./fast-dashboard-api');
   registerFastDashboardRoutes(app);
+  
+  // Register PMS integration routes
+  mountIntegrationRoutes(app);
+  mountPmsRoutes(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
