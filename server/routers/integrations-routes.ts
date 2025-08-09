@@ -1,7 +1,7 @@
 import { Express, Request, Response } from 'express';
-import { integrationStore } from '../services/integrationStore';
+import { integrationStore, encrypt } from '../services/integrationStore';
 import { extractOrganizationId, IntegrationRequest } from '../middlewares/integration-auth';
-import { PMSClientFactory } from '../integrations/factory';
+import { getPMSClient } from '../integrations/clientFactory';
 import { PMSProviderName } from '../integrations/types';
 
 export default function mountIntegrationRoutes(app: Express) {
@@ -32,7 +32,7 @@ export default function mountIntegrationRoutes(app: Express) {
   // Connect a new integration
   app.post('/api/integrations/connect', extractOrganizationId, async (req: IntegrationRequest, res: Response) => {
     try {
-      const { provider, authType, ...credentials } = req.body;
+      const { provider, authType, apiKey, accountId, accessToken } = req.body;
 
       if (!provider || !authType) {
         return res.status(400).json({ 
@@ -42,20 +42,26 @@ export default function mountIntegrationRoutes(app: Express) {
       }
 
       // Validate provider is supported
-      if (!PMSClientFactory.getSupportedProviders().includes(provider as PMSProviderName)) {
+      const supportedProviders = ['demo', 'hostaway'];
+      if (!supportedProviders.includes(provider)) {
         return res.status(400).json({
           error: 'Unsupported provider',
-          message: `Provider ${provider} is not supported`
+          message: `Provider ${provider} is not supported. Supported: ${supportedProviders.join(', ')}`
         });
       }
 
       // Validate required credentials for provider
-      const requiredCreds = PMSClientFactory.getProviderRequiredCredentials(provider as PMSProviderName);
-      for (const cred of requiredCreds) {
-        if (!credentials[cred]) {
+      if (provider === 'hostaway') {
+        if (!accountId) {
           return res.status(400).json({
             error: 'Missing credentials',
-            message: `${provider} requires: ${requiredCreds.join(', ')}`
+            message: 'Hostaway requires accountId'
+          });
+        }
+        if (!apiKey && !accessToken) {
+          return res.status(400).json({
+            error: 'Missing credentials', 
+            message: 'Hostaway requires either apiKey or accessToken'
           });
         }
       }
@@ -63,16 +69,35 @@ export default function mountIntegrationRoutes(app: Express) {
       // Test the connection (skip for demo)
       if (provider !== 'demo') {
         try {
-          const client = PMSClientFactory.create(provider as PMSProviderName, credentials);
+          // Create temporary integration for testing
+          const tempIntegration = {
+            provider,
+            authType,
+            apiKeyEnc: apiKey ? encrypt(apiKey) : undefined,
+            accessTokenEnc: accessToken ? encrypt(accessToken) : undefined,
+            accountId,
+            isActive: true,
+            connectedAt: new Date()
+          };
+          
+          // Save temporarily to test
+          await integrationStore.saveIntegration(req.organizationId!, tempIntegration);
+          
+          // Test connection using the client factory
+          const client = await getPMSClient(req.organizationId!);
           const isValid = await (client as any).testConnection?.();
           
           if (isValid === false) {
+            // Remove failed integration
+            await integrationStore.deleteIntegration(req.organizationId!);
             return res.status(400).json({
               error: 'Invalid credentials',
               message: `Could not connect to ${provider} with provided credentials`
             });
           }
         } catch (testError) {
+          // Remove failed integration
+          await integrationStore.deleteIntegration(req.organizationId!);
           return res.status(400).json({
             error: 'Connection test failed',
             message: testError instanceof Error ? testError.message : 'Unknown error'
@@ -80,11 +105,13 @@ export default function mountIntegrationRoutes(app: Express) {
         }
       }
 
-      // Save the integration
+      // Save the integration with encrypted credentials
       const integration = {
         provider,
         authType,
-        credentials,
+        apiKeyEnc: apiKey ? encrypt(apiKey) : undefined,
+        accessTokenEnc: accessToken ? encrypt(accessToken) : undefined,
+        accountId,
         isActive: true,
         connectedAt: new Date()
       };
@@ -135,12 +162,8 @@ export default function mountIntegrationRoutes(app: Express) {
       let testResult = false;
       
       try {
-        if (integration.provider === 'demo') {
-          testResult = true; // Demo always works
-        } else {
-          const client = PMSClientFactory.create(integration.provider as PMSProviderName, integration.credentials);
-          testResult = await (client as any).testConnection?.() || false;
-        }
+        const client = await getPMSClient(req.organizationId!);
+        testResult = await (client as any).testConnection?.() || false;
       } catch (error) {
         console.error('Connection test error:', error);
         testResult = false;

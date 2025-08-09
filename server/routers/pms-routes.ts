@@ -1,7 +1,6 @@
 import { Express, Request, Response } from 'express';
 import { requireIntegration, IntegrationRequest } from '../middlewares/integration-auth';
-import { PMSClientFactory } from '../integrations/factory';
-import { PMSProviderName } from '../integrations/types';
+import { getPMSClient } from '../integrations/clientFactory';
 
 export default function mountPmsRoutes(app: Express) {
 
@@ -11,7 +10,7 @@ export default function mountPmsRoutes(app: Express) {
       const { integration } = req;
       const { limit, offset } = req.query;
       
-      const client = PMSClientFactory.create(integration.provider as PMSProviderName, integration.credentials);
+      const client = await getPMSClient(req.organizationId!);
       const listings = await client.listListings({
         limit: limit ? parseInt(limit as string) : undefined,
         offset: offset ? parseInt(offset as string) : undefined
@@ -44,7 +43,7 @@ export default function mountPmsRoutes(app: Express) {
         });
       }
 
-      const client = PMSClientFactory.create(integration.provider as PMSProviderName, integration.credentials);
+      const client = await getPMSClient(req.organizationId!);
       const availability = await client.getAvailability({
         listingId: listingId as string,
         start: start as string,
@@ -70,12 +69,23 @@ export default function mountPmsRoutes(app: Express) {
   // Get supported PMS providers
   app.get('/api/pms/providers', async (req: Request, res: Response) => {
     try {
-      const providers = PMSClientFactory.getSupportedProviders().map(provider => ({
-        name: provider,
-        displayName: provider.charAt(0).toUpperCase() + provider.slice(1),
-        requiredCredentials: PMSClientFactory.getProviderRequiredCredentials(provider),
-        isDemo: provider === 'demo'
-      }));
+      const providers = [
+        {
+          name: 'demo',
+          displayName: 'Demo',
+          requiredCredentials: [],
+          isDemo: true,
+          description: 'Demo mode with sample data - perfect for testing'
+        },
+        {
+          name: 'hostaway',
+          displayName: 'Hostaway',
+          requiredCredentials: ['accountId'],
+          optionalCredentials: ['apiKey', 'accessToken'],
+          isDemo: false,
+          description: 'Connect your Hostaway account to sync real property data'
+        }
+      ];
       
       res.json({ providers });
     } catch (error) {
