@@ -6,6 +6,15 @@ export function requireRole(...roles: string[]) {
   };
 }
 
+// Organization context middleware - ensures req.user.organizationId is set
+export function orgContext() {
+  return (req: any, _res: any, next: any) => {
+    if (!req.user) req.user = {};
+    req.user.organizationId = req.user.organizationId || "default-org";
+    next();
+  };
+}
+
 // Helper for common role combinations
 export const requireAdmin = () => requireRole("admin");
 export const requireManagerOrAbove = () => requireRole("admin", "portfolio-manager");

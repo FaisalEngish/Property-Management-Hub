@@ -2,12 +2,12 @@ import { Express, Request, Response } from 'express';
 import { saveIntegration, removeIntegration, getIntegrationForOrg, encrypt } from '../services/integrationStore';
 import { extractOrganizationId, IntegrationRequest } from '../middlewares/integration-auth';
 import { getPMSClient } from '../integrations/clientFactory';
-import { requireRole, requireManagerOrAbove, requireAnyAuthenticated } from '../middlewares/role-auth';
+import { requireRole, requireManagerOrAbove, requireAnyAuthenticated, orgContext } from '../middlewares/role-auth';
 
 export default function mountIntegrationRoutes(app: Express) {
   
   // Get current integration status
-  app.get('/api/integrations/me', requireAnyAuthenticated(), extractOrganizationId, async (req: IntegrationRequest, res: Response) => {
+  app.get('/api/integrations/me', orgContext(), requireAnyAuthenticated(), extractOrganizationId, async (req: IntegrationRequest, res: Response) => {
     try {
       const integration = await getIntegrationForOrg(req.organizationId!);
       
@@ -30,7 +30,7 @@ export default function mountIntegrationRoutes(app: Express) {
   });
 
   // Connect a new integration
-  app.post('/api/integrations/connect', requireManagerOrAbove(), extractOrganizationId, async (req: IntegrationRequest, res: Response) => {
+  app.post('/api/integrations/connect', orgContext(), requireManagerOrAbove(), extractOrganizationId, async (req: IntegrationRequest, res: Response) => {
     try {
       const { provider, authType, apiKey, accountId, accessToken } = req.body;
 
@@ -132,7 +132,7 @@ export default function mountIntegrationRoutes(app: Express) {
   });
 
   // Disconnect integration
-  app.delete('/api/integrations/disconnect', requireManagerOrAbove(), extractOrganizationId, async (req: IntegrationRequest, res: Response) => {
+  app.delete('/api/integrations/disconnect', orgContext(), requireManagerOrAbove(), extractOrganizationId, async (req: IntegrationRequest, res: Response) => {
     try {
       await removeIntegration(req.organizationId!);
       res.json({ 
@@ -146,7 +146,7 @@ export default function mountIntegrationRoutes(app: Express) {
   });
 
   // Test current integration
-  app.post('/api/integrations/test', requireAnyAuthenticated(), extractOrganizationId, async (req: IntegrationRequest, res: Response) => {
+  app.post('/api/integrations/test', orgContext(), requireAnyAuthenticated(), extractOrganizationId, async (req: IntegrationRequest, res: Response) => {
     try {
       const integration = await getIntegrationForOrg(req.organizationId!);
       
