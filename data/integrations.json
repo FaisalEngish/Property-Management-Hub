@@ -2,7 +2,7 @@
   "default-org": {
     "organizationId": "default-org",
     "isActive": true,
-    "connectedAt": "2025-08-09T12:14:49.396Z",
+    "connectedAt": "2025-08-09T12:18:08.658Z",
     "provider": "demo",
     "authType": "none"
   }
