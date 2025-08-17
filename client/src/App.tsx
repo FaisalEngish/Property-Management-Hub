@@ -123,6 +123,9 @@ import PortfolioManagerDashboard from "@/pages/PortfolioManagerDashboard";
 import OwnerDashboard from "@/pages/OwnerDashboard";
 import GuestPortal from "@/pages/GuestPortal";
 import PropertySettingsModule from "@/pages/PropertySettingsModule";
+import DocumentCenter from "@/pages/DocumentCenter";
+import PropertyDocumentCenter from "@/pages/PropertyDocumentCenter";
+import PropertyDocumentUpload from "@/pages/PropertyDocumentUpload";
 
 // QueryClient is now imported from lib/queryClient for better performance
 
@@ -228,6 +231,11 @@ function AppRoutes() {
         <Route path="/alert-management" component={AlertManagement} />
         <Route path="/automation-management" component={AutomationManagement} />
         <Route path="/currency-tax-management" component={CurrencyTaxManagement} />
+        
+        {/* Document Management */}
+        <Route path="/document-center" component={DocumentCenter} />
+        <Route path="/property-document-center" component={PropertyDocumentCenter} />
+        <Route path="/property-document-upload" component={PropertyDocumentUpload} />
         
         {/* AI Testing */}
         <Route path="/ai-test" component={AITest} />
