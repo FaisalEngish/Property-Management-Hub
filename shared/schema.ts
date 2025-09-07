@@ -3471,13 +3471,6 @@ export type WelcomePackTemplate = typeof welcomePackTemplates.$inferSelect;
 export type InsertWelcomePackUsage = z.infer<typeof insertWelcomePackUsageSchema>;
 export type WelcomePackUsage = typeof welcomePackUsage.$inferSelect;
 
-// Emergency Water Delivery types
-export type InsertEmergencyWaterDelivery = z.infer<typeof insertEmergencyWaterDeliverySchema>;
-export type EmergencyWaterDelivery = typeof emergencyWaterDeliveries.$inferSelect;
-export type InsertWaterDeliveryAlert = z.infer<typeof insertWaterDeliveryAlertSchema>;
-export type WaterDeliveryAlert = typeof waterDeliveryAlerts.$inferSelect;
-export type InsertWaterUpgradeSuggestion = z.infer<typeof insertWaterUpgradeSuggestionSchema>;
-export type WaterUpgradeSuggestion = typeof waterUpgradeSuggestions.$inferSelect;
 
 // ===== PROPERTY GOALS & INVESTMENT PLANS =====
 // Property improvement goals and investment planning
@@ -8911,10 +8904,6 @@ export type InsertGuestMaintenanceReport = z.infer<typeof insertGuestMaintenance
 
 // ===== ENHANCED MAINTENANCE TASK SYSTEM TYPES =====
 
-export type TaskChecklist = typeof taskChecklists.$inferSelect;
-export type InsertTaskChecklist = typeof taskChecklists.$inferInsert;
-export type PropertyGuide = typeof propertyGuides.$inferSelect; 
-export type InsertPropertyGuide = typeof propertyGuides.$inferInsert;
 export type AiTaskSuggestion = typeof aiTaskSuggestions.$inferSelect;
 export type InsertAiTaskSuggestion = typeof aiTaskSuggestions.$inferInsert;
 export type TaskExpense = typeof taskExpenses.$inferSelect;
