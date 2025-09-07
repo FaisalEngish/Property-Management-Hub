@@ -1,17 +1,19 @@
 import { useState, useEffect } from "react";
 import { useFastAuth } from "@/lib/fastAuth";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import AdminGlobalFilterBar, { AdminFilters } from "@/components/AdminGlobalFilterBar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Building, Calendar, ListTodo, DollarSign, User, Users, TrendingUp, AlertTriangle, CheckCircle, Clock, Wrench, Settings, Plus } from "lucide-react";
+import { Building, Calendar, ListTodo, DollarSign, User, Users, TrendingUp, AlertTriangle, CheckCircle, Clock, Wrench, Settings, Plus, Trash2 } from "lucide-react";
 import { RoleBackButton } from "@/components/BackButton";
 import RefreshDataButton from "@/components/RefreshDataButton";
 import CreateTaskDialog from "@/components/CreateTaskDialog";
 import CreateBookingDialog from "@/components/CreateBookingDialog";
 import CreatePropertyDialog from "@/components/CreatePropertyDialog";
+import { apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 
 interface FilteredData {
   properties: any[];

@@ -18,8 +18,9 @@ import PropertyFilters from "../components/PropertyFilters";
 import BulkActionPanel from "../components/BulkActionPanel";
 import MultiPropertyCalendar from "../components/MultiPropertyCalendar";
 import TaskTemplates from "../components/TaskTemplates";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "../hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
 
 interface PropertyFiltersState {
   search: string;
@@ -47,6 +48,35 @@ export default function PropertyHub() {
     hasMaintenanceTasks: false,
   });
 
+  const queryClient = useQueryClient();
+
+  // Delete mutation
+  const deleteMutation = useMutation({
+    mutationFn: async (id: number) => {
+      await apiRequest("DELETE", `/api/properties/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/properties"] });
+      toast({
+        title: "Success",
+        description: "Property deleted successfully",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: "Failed to delete property",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleDeleteProperty = (id: number) => {
+    if (window.confirm("Are you sure you want to delete this property? This action cannot be undone.")) {
+      deleteMutation.mutate(id);
+    }
+  };
+
   // Check for property selection from Dashboard
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
@@ -58,6 +88,34 @@ export default function PropertyHub() {
   }, []);
   
   const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  // Delete property mutation
+  const deleteMutation = useMutation({
+    mutationFn: async (id: number) => {
+      await apiRequest("DELETE", `/api/properties/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/properties"] });
+      toast({
+        title: "Success",
+        description: "Property deleted successfully",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: "Failed to delete property",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleDeleteProperty = (id: number) => {
+    if (window.confirm("Are you sure you want to delete this property? This action cannot be undone.")) {
+      deleteMutation.mutate(id);
+    }
+  };
 
   // Fetch data
   const { data: properties = [], isLoading: propertiesLoading, refetch: refetchProperties } = useQuery({
@@ -68,6 +126,27 @@ export default function PropertyHub() {
   const { data: bookings = [], isLoading: bookingsLoading } = useQuery({
     queryKey: ['/api/bookings'],
     staleTime: 10 * 60 * 1000,
+  });
+
+  // Delete property mutation
+  const deleteMutation = useMutation({
+    mutationFn: async (id: number) => {
+      await apiRequest("DELETE", `/api/properties/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/properties"] });
+      toast({
+        title: "Success",
+        description: "Property deleted successfully",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: "Failed to delete property",
+        variant: "destructive",
+      });
+    },
   });
 
   // Type assertions for safety
@@ -139,6 +218,12 @@ export default function PropertyHub() {
 
   const handleViewPropertyDetails = (property: any) => {
     navigate(`/property/${property.id}`);
+  };
+
+  const handleDeleteProperty = (id: number) => {
+    if (window.confirm("Are you sure you want to delete this property?")) {
+      deleteMutation.mutate(id);
+    }
   };
 
   const handleCreateTaskFromTemplate = (template: any, propertyId: number) => {
@@ -273,6 +358,7 @@ export default function PropertyHub() {
                       isSelected={selectedProperties.some(p => p.id === property.id)}
                       onSelect={(selected) => handlePropertySelect(property, selected)}
                       onViewDetails={() => handleViewPropertyDetails(property)}
+                      onDelete={() => handleDeleteProperty(property.id)}
                     />
                   ))}
                 </div>

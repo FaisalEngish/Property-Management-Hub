@@ -15,7 +15,8 @@ import {
   MapPin,
   Star,
   AlertTriangle,
-  CheckCircle
+  CheckCircle,
+  Trash2
 } from 'lucide-react';
 
 interface PropertyCardProps {
@@ -23,9 +24,10 @@ interface PropertyCardProps {
   isSelected: boolean;
   onSelect: (selected: boolean) => void;
   onViewDetails: () => void;
+  onDelete?: () => void;
 }
 
-export function PropertyCard({ property, isSelected, onSelect, onViewDetails }: PropertyCardProps) {
+export function PropertyCard({ property, isSelected, onSelect, onViewDetails, onDelete }: PropertyCardProps) {
   const [, navigate] = useLocation();
   
   const formatCurrency = (amount: number) => {
@@ -208,6 +210,17 @@ export function PropertyCard({ property, isSelected, onSelect, onViewDetails }: 
           >
             <TrendingUp className="h-4 w-4" />
           </Button>
+          {onDelete && (
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="px-3 hover:bg-red-50 hover:border-red-200 hover:text-red-600"
+              onClick={onDelete}
+              title="Delete Property"
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          )}
         </div>
       </CardContent>
     </Card>
