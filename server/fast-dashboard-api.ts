@@ -1,14 +1,8 @@
 // Fast dashboard API endpoints optimized for performance
 import { Express } from 'express';
+import { isDemoAuthenticated } from './demoAuth';
 
 export function registerFastDashboardRoutes(app: Express) {
-  // Middleware for demo authentication
-  const isDemoAuthenticated = (req: any, res: any, next: any) => {
-    if (!req.session?.user) {
-      return res.status(401).json({ message: 'Unauthorized' });
-    }
-    next();
-  };
 
   // Fast tasks endpoint for dashboard - only recent tasks
   app.get('/api/dashboard/recent-tasks', isDemoAuthenticated, async (req: any, res) => {
