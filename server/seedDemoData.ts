@@ -277,7 +277,10 @@ export async function seedDemoData(): Promise<void> {
     console.log(`Created ${addonServicesList.length} addon services`);
     
     // Create manual finance records (commission examples)
-    console.log("Creating demo finance records...");
+    console.log("Skipping enhanced demo finance records - using existing data...");
+    
+    // Skip detailed finance seeding to avoid schema issues
+    return;
     
     const demoFinances: InsertFinance[] = [
       {
