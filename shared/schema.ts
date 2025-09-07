@@ -1067,6 +1067,7 @@ export const bookingLinkedTasks = pgTable("booking_linked_tasks", {
 
 export const finances = pgTable("finances", {
   id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
   propertyId: integer("property_id").references(() => properties.id),
   bookingId: integer("booking_id").references(() => bookings.id),
   type: varchar("type").notNull(), // income, expense, commission, fee, payout
@@ -1074,23 +1075,88 @@ export const finances = pgTable("finances", {
   sourceType: varchar("source_type"), // owner-gift, company-gift (for complimentary records)
   category: varchar("category").notNull(), // booking-payment, cleaning, maintenance, utilities, commission, add-on-service, etc.
   subcategory: varchar("subcategory"), // cleaning-fee, pool-service, massage, chef-service, etc.
-  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+  
+  // Enhanced Department & Cost Center Tracking
+  department: varchar("department").notNull(), // housekeeping, maintenance, front-office, marketing, administration, guest-services
+  costCenter: varchar("cost_center"), // specific cost allocation (property-level, corporate, shared-services)
+  budgetCategory: varchar("budget_category"), // operational, capital, marketing, personnel
+  businessUnit: varchar("business_unit"), // property-operations, corporate, sales-marketing, guest-experience
+  
+  // Enhanced Financial Details  
+  amount: decimal("amount", { precision: 12, scale: 2 }).notNull(),
+  currency: varchar("currency").notNull().default("USD"),
+  exchangeRate: decimal("exchange_rate", { precision: 10, scale: 6 }),
+  baseAmount: decimal("base_amount", { precision: 12, scale: 2 }), // amount in organization base currency
+  taxAmount: decimal("tax_amount", { precision: 10, scale: 2 }),
+  taxRate: decimal("tax_rate", { precision: 5, scale: 2 }),
+  
+  // Enhanced Dates & Periods
   description: text("description"),
   date: date("date").notNull(),
   dueDate: date("due_date"),
-  status: varchar("status").notNull().default("pending"), // pending, paid, overdue, scheduled
+  periodStart: date("period_start"), // for recurring or period-based transactions
+  periodEnd: date("period_end"),
+  fiscalYear: integer("fiscal_year"),
+  fiscalMonth: integer("fiscal_month"),
+  
+  // Status & Approval Workflow
+  status: varchar("status").notNull().default("pending"), // pending, approved, paid, overdue, scheduled, cancelled
+  approvalStatus: varchar("approval_status").default("not_required"), // not_required, pending_approval, approved, rejected
+  approvedBy: varchar("approved_by").references(() => users.id),
+  approvedAt: timestamp("approved_at"),
+  
+  // Recurring & Automation
   isRecurring: boolean("is_recurring").default(false),
   recurringType: varchar("recurring_type"), // monthly, quarterly, yearly
   nextDueDate: date("next_due_date"),
+  parentTransactionId: integer("parent_transaction_id").references(() => finances.id), // for recurring transactions
+  
+  // Enhanced User & Ownership Tracking
   ownerId: varchar("owner_id").references(() => users.id),
   agentId: varchar("agent_id").references(() => users.id),
   processedBy: varchar("processed_by").references(() => users.id), // user who created/processed the record
+  assignedTo: varchar("assigned_to").references(() => users.id), // responsible person for this transaction
+  
+  // Commission & Revenue Tracking
   commissionRate: decimal("commission_rate", { precision: 5, scale: 2 }),
+  commissionType: varchar("commission_type"), // flat, percentage, tiered
+  revenueStream: varchar("revenue_stream"), // direct-booking, ota, corporate, repeat-guest
+  channelSource: varchar("channel_source"), // airbnb, booking.com, direct, vrbo, expedia, etc.
+  
+  // Enhanced Documentation & References
   referenceNumber: varchar("reference_number"), // external reference (invoice, receipt, etc.)
+  invoiceNumber: varchar("invoice_number"),
+  receiptNumber: varchar("receipt_number"),
+  externalId: varchar("external_id"), // reference to external system (PMS, accounting software)
   attachmentUrl: varchar("attachment_url"), // receipt/invoice attachment
+  attachments: text("attachments").array(), // multiple attachments
+  
+  // Analytics & Reporting Tags
+  tags: text("tags").array(), // custom tags for filtering and reporting
+  projectCode: varchar("project_code"), // for capital projects or special initiatives
+  glAccount: varchar("gl_account"), // general ledger account code
+  
+  // Audit & Compliance
+  isAudited: boolean("is_audited").default(false),
+  auditedBy: varchar("audited_by").references(() => users.id),
+  auditedAt: timestamp("audited_at"),
+  complianceNotes: text("compliance_notes"),
+  
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
-});
+}, (table) => [
+  index("IDX_finances_org").on(table.organizationId),
+  index("IDX_finances_property").on(table.propertyId),
+  index("IDX_finances_department").on(table.department),
+  index("IDX_finances_date").on(table.date),
+  index("IDX_finances_type").on(table.type),
+  index("IDX_finances_status").on(table.status),
+  index("IDX_finances_category").on(table.category),
+  index("IDX_finances_cost_center").on(table.costCenter),
+  index("IDX_finances_business_unit").on(table.businessUnit),
+  index("IDX_finances_channel").on(table.channelSource),
+  index("IDX_finances_fiscal").on(table.fiscalYear, table.fiscalMonth),
+]);
 
 export const inventory = pgTable("inventory", {
   id: serial("id").primaryKey(),
