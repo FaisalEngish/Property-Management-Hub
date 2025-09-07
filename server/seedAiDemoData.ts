@@ -18,7 +18,7 @@ export async function seedAiDemoData() {
       priority: "high",
       defaultAssignee: "demo-staff",
       isActive: true,
-      createdBy: "system",
+      createdBy: "demo-admin",
       triggerCount: 3,
     });
 
@@ -33,7 +33,7 @@ export async function seedAiDemoData() {
       priority: "medium",
       defaultAssignee: "demo-staff",
       isActive: true,
-      createdBy: "system",
+      createdBy: "demo-admin",
       triggerCount: 1,
     });
 
@@ -48,7 +48,7 @@ export async function seedAiDemoData() {
       priority: "medium",
       defaultAssignee: "demo-staff",
       isActive: true,
-      createdBy: "system",
+      createdBy: "demo-admin",
       triggerCount: 2,
     });
 
@@ -63,7 +63,7 @@ export async function seedAiDemoData() {
       priority: "low",
       defaultAssignee: "demo-staff",
       isActive: true,
-      createdBy: "system",
+      createdBy: "demo-admin",
       triggerCount: 0,
     });
 
