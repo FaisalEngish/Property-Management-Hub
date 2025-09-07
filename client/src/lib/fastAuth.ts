@@ -164,8 +164,46 @@ export function useFastAuth() {
         FastAuthSessionManager.saveSession(session);
         setUser(authUser);
       } else {
-        FastAuthSessionManager.clearSession();
-        setUser(null);
+        // Auto-login with admin user for demo environment
+        console.log("No active session, attempting auto-login...");
+        try {
+          const autoLoginResponse = await fetch('/api/auth/auto-demo-login', {
+            method: 'POST',
+            credentials: 'include'
+          });
+          
+          if (autoLoginResponse.ok) {
+            console.log("Auto-login successful, checking auth again...");
+            // Retry auth check after auto-login
+            const retryResponse = await fetch('/api/auth/user', {
+              credentials: 'include'
+            });
+            
+            if (retryResponse.ok) {
+              const userData = await retryResponse.json();
+              console.log("Auto-login user data:", userData);
+              const authUser: AuthUser = {
+                ...userData,
+                permissions: [],
+                listingsAccess: []
+              };
+              
+              const session: AuthSession = {
+                user: authUser,
+                expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000)
+              };
+              FastAuthSessionManager.saveSession(session);
+              setUser(authUser);
+            } else {
+              setUser(null);
+            }
+          } else {
+            setUser(null);
+          }
+        } catch (autoLoginError) {
+          console.error('Auto-login failed:', autoLoginError);
+          setUser(null);
+        }
       }
     } catch (error) {
       console.error('Auth check failed:', error);
