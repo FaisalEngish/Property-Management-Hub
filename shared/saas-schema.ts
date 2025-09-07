@@ -110,7 +110,26 @@ export const saasAuditLog = pgTable("saas_audit_log", {
 });
 
 // Insert schemas
-export const insertSignupRequestSchema = createInsertSchema(signupRequests);
+export const insertSignupRequestSchema = createInsertSchema(signupRequests).omit({
+  id: true,
+  submittedAt: true,
+  reviewedAt: true,
+  reviewedBy: true,
+  rejectionReason: true,
+}).extend({
+  // Ensure proper typing for complex fields
+  propertyCount: z.number().optional(),
+  staffStructure: z.object({
+    ceoCount: z.number(),
+    managerCount: z.number(),
+    supervisorCount: z.number(),
+    staffCount: z.number(),
+    agentCount: z.number(),
+  }).optional(),
+  integrationPriority: z.array(z.string()).optional(),
+  requestedFeatures: z.array(z.string()).optional(),
+});
+
 export const insertClientOrganizationSchema = createInsertSchema(clientOrganizations);
 export const insertClientApiKeySchema = createInsertSchema(clientApiKeys);
 export const insertClientDeploymentSchema = createInsertSchema(clientDeployments);
