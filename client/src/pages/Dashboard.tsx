@@ -3,7 +3,6 @@ import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 
 import TopBar from "@/components/TopBar";
-import Sidebar from "@/components/Sidebar";
 import StatsCard from "@/components/StatsCard";
 import CreateBookingDialog from "@/components/CreateBookingDialog";
 import CreatePropertyDialog from "@/components/CreatePropertyDialog";
@@ -28,7 +27,6 @@ interface AdminFilters {
 
 export default function Dashboard() {
   const { user } = useAuth();
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isBookingDialogOpen, setIsBookingDialogOpen] = useState(false);
   const [isPropertyDialogOpen, setIsPropertyDialogOpen] = useState(false);
   const [isTaskDialogOpen, setIsTaskDialogOpen] = useState(false);
@@ -135,18 +133,11 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="min-h-screen flex bg-background">
-      {/* Sidebar */}
-      <Sidebar 
-        isMobileMenuOpen={isMobileMenuOpen}
-        setIsMobileMenuOpen={setIsMobileMenuOpen}
-      />
-      
-      <div className="flex-1 flex flex-col lg:ml-80">
+    <div className="min-h-screen bg-background">
+      <div className="flex-1 flex flex-col">
         <TopBar 
           title="Enhanced Admin Dashboard" 
           subtitle="Comprehensive property management overview with advanced filtering"
-          onMobileMenuToggle={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
         />
         
         <main className="flex-1 overflow-auto p-6">
