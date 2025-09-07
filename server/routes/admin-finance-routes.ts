@@ -195,35 +195,26 @@ router.get('/staff-wages', async (req, res) => {
   try {
     const { organizationId } = req.user!;
     
-    // For now, return placeholder data - this would be implemented based on your HR system
-    const staffWages = [
-      {
-        stakeholderId: 'staff-1',
-        stakeholderName: 'Maria Santos',
-        stakeholderType: 'staff',
-        position: 'Head of Housekeeping',
-        earnings: {
-          gross: 2500,
-          net: 2250,
-          deductions: 250,
-          status: 'pending'
-        },
-        properties: []
+    // Get staff wage configurations using new core logic
+    const staffConfigs = await coreFinancialCalculationService.getStaffWageConfigs(organizationId);
+    
+    const staffWages = staffConfigs.map(config => ({
+      stakeholderId: config.userId,
+      stakeholderName: config.userName,
+      stakeholderType: 'staff',
+      department: config.department,
+      earnings: {
+        gross: config.monthlyWage,
+        net: config.monthlyWage, // Simplified - would subtract deductions
+        deductions: 0,
+        status: 'pending'
       },
-      {
-        stakeholderId: 'staff-2',
-        stakeholderName: 'John Doe',
-        stakeholderType: 'staff',
-        position: 'Maintenance Manager',
-        earnings: {
-          gross: 3000,
-          net: 2700,
-          deductions: 300,
-          status: 'pending'
-        },
-        properties: []
-      }
-    ];
+      billTo: config.billTo,
+      propertyId: config.propertyId,
+      properties: config.propertyId ? [
+        { propertyId: config.propertyId, propertyName: `Property ${config.propertyId}` }
+      ] : []
+    }));
 
     res.json(staffWages);
   } catch (error) {
