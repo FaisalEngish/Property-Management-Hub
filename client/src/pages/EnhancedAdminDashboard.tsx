@@ -1,13 +1,17 @@
 import { useState, useEffect } from "react";
 import { useFastAuth } from "@/lib/fastAuth";
+import { useQuery } from "@tanstack/react-query";
 import AdminGlobalFilterBar, { AdminFilters } from "@/components/AdminGlobalFilterBar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Building, Calendar, ListTodo, DollarSign, User, Users, TrendingUp, AlertTriangle, CheckCircle, Clock, Wrench, Settings } from "lucide-react";
+import { Building, Calendar, ListTodo, DollarSign, User, Users, TrendingUp, AlertTriangle, CheckCircle, Clock, Wrench, Settings, Plus } from "lucide-react";
 import { RoleBackButton } from "@/components/BackButton";
 import RefreshDataButton from "@/components/RefreshDataButton";
+import CreateTaskDialog from "@/components/CreateTaskDialog";
+import CreateBookingDialog from "@/components/CreateBookingDialog";
+import CreatePropertyDialog from "@/components/CreatePropertyDialog";
 
 interface FilteredData {
   properties: any[];
@@ -21,6 +25,15 @@ interface FilteredData {
 export default function EnhancedAdminDashboard() {
   const { user } = useFastAuth();
   const [activeFilters, setActiveFilters] = useState<AdminFilters>({});
+  const [createTaskOpen, setCreateTaskOpen] = useState(false);
+  const [createBookingOpen, setCreateBookingOpen] = useState(false);
+  const [createPropertyOpen, setCreatePropertyOpen] = useState(false);
+  
+  // Fetch real data from API
+  const { data: properties = [] } = useQuery({ queryKey: ["/api/properties"] });
+  const { data: tasks = [] } = useQuery({ queryKey: ["/api/tasks"] });
+  const { data: bookings = [] } = useQuery({ queryKey: ["/api/bookings"] });
+  const { data: finances = [] } = useQuery({ queryKey: ["/api/finance"] });
   
   const [filteredData, setFilteredData] = useState<FilteredData>({
     properties: [],
@@ -31,41 +44,14 @@ export default function EnhancedAdminDashboard() {
     maintenance: []
   });
 
-  // Mock data for demonstration
-  const mockData = {
-    properties: [
-      { id: 1, name: "Villa Samui Breeze", owner: "John Smith", portfolioManager: "Alex Thompson", area: "Chaweng", bedrooms: 3, status: "active", revenue: 45000 },
-      { id: 2, name: "Villa Tropical Paradise", owner: "Sarah Johnson", portfolioManager: "Jessica Wilson", area: "Lamai", bedrooms: 4, status: "active", revenue: 52000 },
-      { id: 3, name: "Villa Balinese Charm", owner: "Michael Brown", portfolioManager: "Alex Thompson", area: "Bophut", bedrooms: 2, status: "maintenance", revenue: 38000 },
-      { id: 4, name: "Villa Ocean View", owner: "Emma Davis", portfolioManager: "David Miller", area: "Chaweng", bedrooms: 5, status: "active", revenue: 68000 },
-      { id: 5, name: "Villa Sunset Dreams", owner: "John Smith", portfolioManager: "Jessica Wilson", area: "Nathon", bedrooms: 3, status: "active", revenue: 41000 }
-    ],
-    tasks: [
-      { id: 1, title: "Pool Cleaning", property: "Villa Samui Breeze", assignedTo: "Pool Team", priority: "high", status: "pending", dueDate: "2025-01-06" },
-      { id: 2, title: "AC Maintenance", property: "Villa Tropical Paradise", assignedTo: "Maintenance Team", priority: "medium", status: "in_progress", dueDate: "2025-01-07" },
-      { id: 3, title: "Garden Service", property: "Villa Balinese Charm", assignedTo: "Garden Team", priority: "low", status: "completed", dueDate: "2025-01-05" },
-      { id: 4, title: "Deep Cleaning", property: "Villa Ocean View", assignedTo: "Housekeeping", priority: "high", status: "pending", dueDate: "2025-01-08" }
-    ],
-    bookings: [
-      { id: 1, guestName: "Robert Wilson", property: "Villa Samui Breeze", checkIn: "2025-01-10", checkOut: "2025-01-17", status: "confirmed", amount: 12500 },
-      { id: 2, guestName: "Lisa Chen", property: "Villa Tropical Paradise", checkIn: "2025-01-12", checkOut: "2025-01-19", status: "pending", amount: 15600 },
-      { id: 3, guestName: "James Miller", property: "Villa Ocean View", checkIn: "2025-01-15", checkOut: "2025-01-22", status: "confirmed", amount: 18900 }
-    ],
-    finances: [
-      { id: 1, type: "revenue", property: "Villa Samui Breeze", amount: 12500, date: "2025-01-05", description: "Booking Payment" },
-      { id: 2, type: "expense", property: "Villa Tropical Paradise", amount: 850, date: "2025-01-04", description: "Maintenance Cost" },
-      { id: 3, type: "commission", property: "Villa Ocean View", amount: 1890, date: "2025-01-03", description: "Agent Commission" }
-    ],
-    utilities: [
-      { id: 1, property: "Villa Samui Breeze", type: "electricity", amount: 2340, status: "paid", dueDate: "2025-01-15" },
-      { id: 2, property: "Villa Tropical Paradise", type: "water", amount: 890, status: "overdue", dueDate: "2025-01-02" },
-      { id: 3, property: "Villa Balinese Charm", type: "internet", amount: 1200, status: "pending", dueDate: "2025-01-10" }
-    ],
-    maintenance: [
-      { id: 1, property: "Villa Samui Breeze", issue: "Pool pump replacement", priority: "high", status: "scheduled", cost: 4500 },
-      { id: 2, property: "Villa Ocean View", issue: "AC unit service", priority: "medium", status: "in_progress", cost: 2200 },
-      { id: 3, property: "Villa Balinese Charm", issue: "Garden renovation", priority: "low", status: "completed", cost: 8900 }
-    ]
+  // Real API data
+  const realData = {
+    properties: Array.isArray(properties) ? properties : [],
+    tasks: Array.isArray(tasks) ? tasks : [],
+    bookings: Array.isArray(bookings) ? bookings : [],
+    finances: Array.isArray(finances) ? finances : [],
+    utilities: [], // Will be added when utility API is ready
+    maintenance: [] // Will be added when maintenance API is ready
   };
 
   // Filter data based on active filters
@@ -73,29 +59,8 @@ export default function EnhancedAdminDashboard() {
     const applyFilters = (data: any[], type: string) => {
       return data.filter(item => {
         // Property filter
-        if (activeFilters.propertyId && item.property !== getPropertyName(activeFilters.propertyId)) {
+        if (activeFilters.propertyId && item.propertyId !== activeFilters.propertyId) {
           return false;
-        }
-        
-        // Owner filter (for properties)
-        if (activeFilters.ownerId && type === 'properties' && item.owner !== getOwnerName(activeFilters.ownerId)) {
-          return false;
-        }
-        
-        // Portfolio Manager filter (for properties)
-        if (activeFilters.portfolioManagerId && type === 'properties' && item.portfolioManager !== getPMName(activeFilters.portfolioManagerId)) {
-          return false;
-        }
-        
-        // Area filter (for properties)
-        if (activeFilters.area && type === 'properties' && item.area !== activeFilters.area) {
-          return false;
-        }
-        
-        // Bedroom count filter (for properties)
-        if (activeFilters.bedroomCount && type === 'properties') {
-          if (activeFilters.bedroomCount === 7 && item.bedrooms < 7) return false;
-          if (activeFilters.bedroomCount < 7 && item.bedrooms !== activeFilters.bedroomCount) return false;
         }
         
         // Search text filter
@@ -112,14 +77,14 @@ export default function EnhancedAdminDashboard() {
     };
 
     setFilteredData({
-      properties: applyFilters(mockData.properties, 'properties'),
-      tasks: applyFilters(mockData.tasks, 'tasks'),
-      bookings: applyFilters(mockData.bookings, 'bookings'),
-      finances: applyFilters(mockData.finances, 'finances'),
-      utilities: applyFilters(mockData.utilities, 'utilities'),
-      maintenance: applyFilters(mockData.maintenance, 'maintenance')
+      properties: applyFilters(realData.properties, 'properties'),
+      tasks: applyFilters(realData.tasks, 'tasks'),
+      bookings: applyFilters(realData.bookings, 'bookings'),
+      finances: applyFilters(realData.finances, 'finances'),
+      utilities: applyFilters(realData.utilities, 'utilities'),
+      maintenance: applyFilters(realData.maintenance, 'maintenance')
     });
-  }, [activeFilters]);
+  }, [activeFilters, properties, tasks, bookings, finances]);
 
   const getPropertyName = (id: number) => {
     const propertyNames = { 1: "Villa Samui Breeze", 2: "Villa Tropical Paradise", 3: "Villa Balinese Charm", 4: "Villa Ocean View", 5: "Villa Sunset Dreams" };
@@ -266,10 +231,16 @@ export default function EnhancedAdminDashboard() {
         <TabsContent value="properties" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Building className="h-5 w-5" />
-                Properties ({filteredData.properties.length})
-              </CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2">
+                  <Building className="h-5 w-5" />
+                  Properties ({filteredData.properties.length})
+                </CardTitle>
+                <Button onClick={() => setCreatePropertyOpen(true)} size="sm">
+                  <Plus className="h-4 w-4 mr-1" />
+                  Add Property
+                </Button>
+              </div>
             </CardHeader>
             <CardContent>
               <div className="grid gap-4">
@@ -278,22 +249,16 @@ export default function EnhancedAdminDashboard() {
                     <div className="flex-1">
                       <h3 className="font-semibold">{property.name}</h3>
                       <div className="flex items-center gap-4 text-sm text-gray-600 mt-1">
-                        <span className="flex items-center gap-1">
-                          <User className="h-3 w-3" />
-                          {property.owner}
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <Users className="h-3 w-3" />
-                          {property.portfolioManager}
-                        </span>
-                        <span>{property.area}</span>
+                        <span>{property.address}</span>
                         <span>{property.bedrooms} bedrooms</span>
+                        <span>{property.maxGuests} max guests</span>
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
                       <div className="text-right">
-                        <p className="font-semibold text-green-600">₹{property.revenue.toLocaleString()}</p>
-                        <p className="text-sm text-gray-500">Revenue</p>
+                        <p className="font-semibold text-green-600">
+                          {property.pricePerNight ? `₹${property.pricePerNight}/night` : 'No rate set'}
+                        </p>
                       </div>
                       <Badge variant={getStatusBadgeVariant(property.status)}>
                         {property.status}
@@ -312,10 +277,16 @@ export default function EnhancedAdminDashboard() {
         <TabsContent value="tasks" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <ListTodo className="h-5 w-5" />
-                Tasks ({filteredData.tasks.length})
-              </CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2">
+                  <ListTodo className="h-5 w-5" />
+                  Tasks ({filteredData.tasks.length})
+                </CardTitle>
+                <Button onClick={() => setCreateTaskOpen(true)} size="sm">
+                  <Plus className="h-4 w-4 mr-1" />
+                  Create Task
+                </Button>
+              </div>
             </CardHeader>
             <CardContent>
               <div className="grid gap-4">
@@ -327,9 +298,9 @@ export default function EnhancedAdminDashboard() {
                         <h3 className="font-semibold">{task.title}</h3>
                       </div>
                       <div className="flex items-center gap-4 text-sm text-gray-600 mt-1">
-                        <span>{task.property}</span>
-                        <span>{task.assignedTo}</span>
-                        <span>Due: {task.dueDate}</span>
+                        <span>{task.description}</span>
+                        <span>Assigned: {task.assignedTo}</span>
+                        <span>Due: {task.dueDate ? new Date(task.dueDate).toLocaleDateString() : 'No due date'}</span>
                       </div>
                     </div>
                     <Badge variant={getStatusBadgeVariant(task.status)}>
@@ -348,10 +319,16 @@ export default function EnhancedAdminDashboard() {
         <TabsContent value="bookings" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Calendar className="h-5 w-5" />
-                Bookings ({filteredData.bookings.length})
-              </CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2">
+                  <Calendar className="h-5 w-5" />
+                  Bookings ({filteredData.bookings.length})
+                </CardTitle>
+                <Button onClick={() => setCreateBookingOpen(true)} size="sm">
+                  <Plus className="h-4 w-4 mr-1" />
+                  Create Booking
+                </Button>
+              </div>
             </CardHeader>
             <CardContent>
               <div className="grid gap-4">
@@ -493,6 +470,20 @@ export default function EnhancedAdminDashboard() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Create Dialogs */}
+      <CreateTaskDialog 
+        isOpen={createTaskOpen} 
+        onOpenChange={setCreateTaskOpen} 
+      />
+      <CreateBookingDialog 
+        open={createBookingOpen} 
+        onOpenChange={setCreateBookingOpen} 
+      />
+      <CreatePropertyDialog 
+        open={createPropertyOpen} 
+        onOpenChange={setCreatePropertyOpen} 
+      />
     </div>
   );
 }
