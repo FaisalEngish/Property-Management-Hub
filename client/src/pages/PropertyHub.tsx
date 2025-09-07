@@ -20,7 +20,7 @@ import MultiPropertyCalendar from "../components/MultiPropertyCalendar";
 import TaskTemplates from "../components/TaskTemplates";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "../hooks/use-toast";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest } from "../lib/queryClient";
 
 interface PropertyFiltersState {
   search: string;
@@ -49,8 +49,9 @@ export default function PropertyHub() {
   });
 
   const queryClient = useQueryClient();
+  const { toast } = useToast();
 
-  // Delete mutation
+  // Delete property mutation
   const deleteMutation = useMutation({
     mutationFn: async (id: number) => {
       await apiRequest("DELETE", `/api/properties/${id}`);
@@ -61,16 +62,19 @@ export default function PropertyHub() {
         title: "Success",
         description: "Property deleted successfully",
       });
+      // Clear deleted property from selection if it was selected
+      setSelectedProperties(prev => prev.filter(p => p.id !== deleteMutation.variables));
     },
     onError: (error) => {
       toast({
-        title: "Error",
+        title: "Error", 
         description: "Failed to delete property",
         variant: "destructive",
       });
     },
   });
 
+  // Delete property handler
   const handleDeleteProperty = (id: number) => {
     if (window.confirm("Are you sure you want to delete this property? This action cannot be undone.")) {
       deleteMutation.mutate(id);
@@ -86,35 +90,6 @@ export default function PropertyHub() {
       setFilters(prev => ({ ...prev, search: propertyId }));
     }
   }, []);
-  
-  const { toast } = useToast();
-
-  // Delete property mutation
-  const deleteMutation = useMutation({
-    mutationFn: async (id: number) => {
-      await apiRequest("DELETE", `/api/properties/${id}`);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/properties"] });
-      toast({
-        title: "Success",
-        description: "Property deleted successfully",
-      });
-    },
-    onError: (error) => {
-      toast({
-        title: "Error",
-        description: "Failed to delete property",
-        variant: "destructive",
-      });
-    },
-  });
-
-  const handleDeleteProperty = (id: number) => {
-    if (window.confirm("Are you sure you want to delete this property? This action cannot be undone.")) {
-      deleteMutation.mutate(id);
-    }
-  };
 
   // Fetch data
   const { data: properties = [], isLoading: propertiesLoading, refetch: refetchProperties } = useQuery({
@@ -199,11 +174,6 @@ export default function PropertyHub() {
     navigate(`/property/${property.id}`);
   };
 
-  const handleDeleteProperty = (id: number) => {
-    if (window.confirm("Are you sure you want to delete this property?")) {
-      deleteMutation.mutate(id);
-    }
-  };
 
   const handleCreateTaskFromTemplate = (template: any, propertyId: number) => {
     // Simulate API call to create task
