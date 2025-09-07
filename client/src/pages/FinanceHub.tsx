@@ -36,12 +36,22 @@ const FinanceIntelligenceModule = lazy(() => import("./FinanceIntelligenceModule
 const CurrencyTaxManagement = lazy(() => import("./CurrencyTaxManagement"));
 const OtaRevenueNetPayoutCalculation = lazy(() => import("./OtaRevenueNetPayoutCalculation"));
 const StaffExpenseManagement = lazy(() => import("./StaffExpenseManagement"));
+const EnhancedFinances = lazy(() => import("./EnhancedFinances"));
 
 export default function FinanceHub() {
   const [selectedModule, setSelectedModule] = useState<string | null>(null);
   const { user } = useFastAuth();
 
   const financeItems = [
+    {
+      title: "Enhanced Financial Analytics",
+      description: "Advanced revenue and payout analysis with multi-dimensional filtering by property, department, time frame, and business intelligence",
+      key: "enhanced-finances",
+      icon: TrendingUp,
+      badge: "Advanced",
+      color: "bg-emerald-50 hover:bg-emerald-100 border-emerald-200",
+      component: EnhancedFinances
+    },
     {
       title: "Revenue & Payouts",
       description: "Track property revenue, owner payouts, and commission calculations",
