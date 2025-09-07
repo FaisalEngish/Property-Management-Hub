@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, lazy, Suspense } from "react";
 import { Route, Switch } from "wouter";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
@@ -177,6 +177,16 @@ function AppRoutes() {
         <Route path="/dashboard-hub" component={DashboardHub} />
         <Route path="/property-hub" component={PropertyHub} />
         <Route path="/finance-hub" component={FinanceHub} />
+        <Route path="/enhanced-finances">
+          {() => {
+            const EnhancedFinances = lazy(() => import("./pages/EnhancedFinances"));
+            return (
+              <Suspense fallback={<div>Loading Enhanced Finance Analytics...</div>}>
+                <EnhancedFinances />
+              </Suspense>
+            );
+          }}
+        </Route>
         <Route path="/system-hub" component={ConsolidatedSystemHub} />
         <Route path="/system-hub-old" component={SystemHub} />
         
