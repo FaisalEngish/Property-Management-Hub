@@ -1983,7 +1983,7 @@ Be specific and actionable in your recommendations.`;
   });
 
   // Enhanced task management routes
-  app.patch("/api/tasks/:id/complete", authenticatedTenantMiddleware, async (req, res) => {
+  app.patch("/api/tasks/:id/complete", isDemoAuthenticated, async (req, res) => {
     try {
       const userData = req.user as any;
       const id = parseInt(req.params.id);
@@ -2002,7 +2002,7 @@ Be specific and actionable in your recommendations.`;
     }
   });
 
-  app.patch("/api/tasks/:id/skip", authenticatedTenantMiddleware, async (req, res) => {
+  app.patch("/api/tasks/:id/skip", isDemoAuthenticated, async (req, res) => {
     try {
       const userData = req.user as any;
       const id = parseInt(req.params.id);
@@ -2025,7 +2025,7 @@ Be specific and actionable in your recommendations.`;
     }
   });
 
-  app.patch("/api/tasks/:id/reschedule", authenticatedTenantMiddleware, async (req, res) => {
+  app.patch("/api/tasks/:id/reschedule", isDemoAuthenticated, async (req, res) => {
     try {
       const userData = req.user as any;
       const id = parseInt(req.params.id);
@@ -2048,7 +2048,7 @@ Be specific and actionable in your recommendations.`;
     }
   });
 
-  app.patch("/api/tasks/:id/start", authenticatedTenantMiddleware, async (req, res) => {
+  app.patch("/api/tasks/:id/start", isDemoAuthenticated, async (req, res) => {
     try {
       const userData = req.user as any;
       const id = parseInt(req.params.id);
@@ -2067,7 +2067,7 @@ Be specific and actionable in your recommendations.`;
   });
 
   // Task history routes
-  app.get("/api/tasks/:id/history", authenticatedTenantMiddleware, async (req, res) => {
+  app.get("/api/tasks/:id/history", isDemoAuthenticated, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       const history = await storage.getTaskHistory(id);
@@ -2078,7 +2078,7 @@ Be specific and actionable in your recommendations.`;
     }
   });
 
-  app.get("/api/properties/:id/task-history", authenticatedTenantMiddleware, async (req, res) => {
+  app.get("/api/properties/:id/task-history", isDemoAuthenticated, async (req, res) => {
     try {
       const propertyId = parseInt(req.params.id);
       const history = await storage.getTaskHistoryByProperty(propertyId);
