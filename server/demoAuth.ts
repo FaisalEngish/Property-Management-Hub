@@ -196,6 +196,65 @@ export async function setupDemoAuth(app: Express) {
     }));
     res.json(safeUsers);
   });
+
+  // Get current authenticated user
+  app.get("/api/auth/user", async (req: any, res) => {
+    if (!req.session?.userId) {
+      return res.status(401).json({ message: "Not authenticated" });
+    }
+
+    try {
+      const user = await storage.getUser(req.session.userId);
+      if (!user) {
+        return res.status(401).json({ message: "User not found" });
+      }
+      
+      res.json({
+        id: user.id,
+        organizationId: user.organizationId,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        role: user.role,
+        profileImageUrl: user.profileImageUrl,
+        isActive: user.isActive,
+        permissions: [],
+        listingsAccess: []
+      });
+    } catch (error) {
+      console.error("Auth user error:", error);
+      res.status(500).json({ message: "Authentication failed" });
+    }
+  });
+
+  // Auto-login demo user for development (optional fallback)
+  app.post("/api/auth/auto-demo-login", async (req: any, res) => {
+    try {
+      const demoUser = DEMO_USERS[0]; // Login as admin by default
+      
+      req.session.userId = demoUser.id;
+      req.session.save((err: any) => {
+        if (err) {
+          console.error("Session save error:", err);
+          return res.status(500).json({ message: "Login failed" });
+        }
+        
+        res.json({ 
+          message: "Auto-login successful", 
+          user: {
+            id: demoUser.id,
+            email: demoUser.email,
+            firstName: demoUser.firstName,
+            lastName: demoUser.lastName,
+            role: demoUser.role,
+          }
+        });
+      });
+    } catch (error) {
+      console.error("Auto-login error:", error);
+      res.status(500).json({ message: "Auto-login failed" });
+    }
+  });
 }
 
 // Seed demo users into database
