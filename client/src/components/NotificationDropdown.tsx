@@ -15,6 +15,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { formatDistanceToNow } from "date-fns";
 import { useState, useEffect } from "react";
 import { useModalManager } from "@/hooks/useModalManager";
+import { useAuth } from "@/hooks/useAuth";
 
 interface Notification {
   id: number;
@@ -31,21 +32,22 @@ interface Notification {
 export function NotificationDropdown() {
   const queryClient = useQueryClient();
   const { openModal, closeModal } = useModalManager();
+  const { isAuthenticated } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
 
   const { data: notifications = [] } = useQuery<Notification[]>({
     queryKey: ["/api/notifications"],
     staleTime: 10 * 60 * 1000, // 10 minutes cache
     refetchOnMount: false,
-    enabled: isOpen, // Only fetch when dropdown is open
+    enabled: isAuthenticated && isOpen, // Only fetch when authenticated and dropdown is open
   });
 
   const { data: unreadNotifications = [] } = useQuery<Notification[]>({
     queryKey: ["/api/notifications/unread"],
-    refetchInterval: isOpen ? 60000 : false, // Only poll when dropdown is open, reduce to 1 minute
+    refetchInterval: (isAuthenticated && isOpen) ? 60000 : false, // Only poll when authenticated and dropdown is open
     staleTime: 5 * 60 * 1000, // 5 minutes cache
     refetchOnMount: false,
-    enabled: isOpen, // Only fetch when dropdown is open
+    enabled: isAuthenticated && isOpen, // Only fetch when authenticated and dropdown is open
   });
 
   const markReadMutation = useMutation({

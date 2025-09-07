@@ -78,6 +78,7 @@ import { filterMenuForRole, getRoleDisplayInfo, UserRole } from "@/utils/roleBas
 import { cn } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
+import { useAuth } from "@/hooks/useAuth";
 
 interface SidebarProps {
   className?: string;
@@ -214,18 +215,19 @@ const roleColors = {
 // Notification Bell Component
 function NotificationBell() {
   const [isOpen, setIsOpen] = useState(false);
+  const { isAuthenticated } = useAuth();
   
   const { data: unreadNotifications = [], isLoading } = useQuery({
     queryKey: ['/api/notifications/unread'],
     queryFn: () => apiRequest('/api/notifications/unread'),
-    refetchInterval: 30000, // Refresh every 30 seconds
-    enabled: true, // Always enabled to avoid conflicts
+    refetchInterval: isAuthenticated ? 30000 : false, // Only refresh when authenticated
+    enabled: isAuthenticated, // Only enabled when authenticated
   });
 
   const { data: allNotifications = [] } = useQuery({
     queryKey: ['/api/notifications'],
     queryFn: () => apiRequest('/api/notifications'),
-    enabled: true, // Always enabled
+    enabled: isAuthenticated, // Only enabled when authenticated
   });
 
   const unreadCount = Array.isArray(unreadNotifications) ? unreadNotifications.length : 0;
