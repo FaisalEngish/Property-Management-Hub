@@ -7,8 +7,33 @@ import { db } from "../db";
 import { finances, properties, users, bookings } from "../../shared/schema";
 import { eq, and, between, sum, sql, inArray } from "drizzle-orm";
 
+export interface ChannelPayoutRouting {
+  routingType: 'company_100' | 'owner_100' | 'split';
+  ownerSplitPct?: number;
+  companySplitPct?: number;
+}
+
+export interface PropertyDefaults {
+  managementFeePct: number;
+  pmUserId?: string;
+  pmSplitPct: number;
+  referralAgentId?: string;
+  retailAgentId?: string;
+  defaultExpenses: Array<{
+    expenseType: string;
+    amount: number;
+    description?: string;
+  }>;
+  channelRouting: { [channel: string]: ChannelPayoutRouting };
+}
+
 export interface BookingFinancialBreakdown {
-  // Core Revenue Flow
+  // Channel Payout Routing (applied first)
+  channelPayoutRouting: ChannelPayoutRouting;
+  initialPayoutToCompany: number;
+  initialPayoutToOwner: number;
+  
+  // Core Revenue Flow (calculations applied after routing)
   grossBookingRevenue: number;
   platformFees: number;
   netBasis: number;
@@ -29,12 +54,12 @@ export interface BookingFinancialBreakdown {
   retailAgentBasis: 'management_fee' | 'gross';
   retailAgentCommission: number;
   
-  // Owner Payout
+  // Owner Billable Expenses
   ownerBillableExpenses: number;
-  ownerPayout: number;
   
-  // Final Company Retention (after all deductions)
-  finalCompanyShare: number;
+  // Final Payouts (after all calculations)
+  finalOwnerPayout: number;
+  finalCompanyRetention: number;
 }
 
 export interface CommissionSettings {
