@@ -25,7 +25,7 @@ export default function DashboardHub() {
     {
       title: "Financial Dashboard", 
       description: "Revenue tracking, expense analysis, and financial performance insights",
-      href: "/simple-filtered-financial-dashboard",
+      href: "/admin-finance",
       icon: DollarSign,
       badge: "Finance",
       color: "bg-green-50 hover:bg-green-100 border-green-200"
