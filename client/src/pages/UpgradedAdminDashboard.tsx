@@ -107,10 +107,10 @@ export default function UpgradedAdminDashboard() {
       <div className="flex-1 flex flex-col lg:ml-0">
         <TopBar title="Enhanced Admin Dashboard" />
         
-        <main className="flex-1 overflow-auto p-6 space-y-6">
-          <div className="flex items-center justify-between mb-6">
+        <main className="flex-1 overflow-auto p-4 sm:p-6 space-y-4 sm:space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
             <div>
-              <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100">
+              <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-slate-100">
                 Enhanced Admin Dashboard
               </h1>
               <p className="text-slate-600 dark:text-slate-400">
@@ -184,7 +184,7 @@ export default function UpgradedAdminDashboard() {
 
         {/* Main Content Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-2 md:grid-cols-4">
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="tasks">Tasks</TabsTrigger>
             <TabsTrigger value="bookings">Bookings</TabsTrigger>
@@ -192,7 +192,7 @@ export default function UpgradedAdminDashboard() {
           </TabsList>
 
           <TabsContent value="overview" className="space-y-4">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {/* Properties Overview */}
               <Card>
                 <CardHeader className="pb-3">
