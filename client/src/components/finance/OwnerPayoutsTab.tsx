@@ -76,9 +76,9 @@ export function OwnerPayoutsTab({ filters }: OwnerPayoutsTabProps) {
         duration: 3000,
       });
       
-      // Invalidate and refetch owner payouts data
+      // Invalidate and refetch owner payouts data - use predicate to match all owner-payouts queries
       queryClient.invalidateQueries({ 
-        queryKey: ['/api/admin/finance/owner-payouts'] 
+        predicate: (query) => query.queryKey[0]?.toString().includes('/api/admin/finance/owner-payouts')
       });
       
       // Close dialog
