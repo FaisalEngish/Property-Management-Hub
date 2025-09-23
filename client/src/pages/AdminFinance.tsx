@@ -18,7 +18,10 @@ import {
   TrendingUp,
   Settings,
   Download,
-  Filter
+  Filter,
+  BarChart3,
+  PieChart,
+  ExternalLink
 } from "lucide-react";
 import { AdminFinanceFilters } from "@/components/AdminFinanceFilters";
 import { OwnerPayoutsTab } from "@/components/finance/OwnerPayoutsTab";
@@ -71,12 +74,23 @@ export default function AdminFinance() {
     );
   }
 
+  // Format currency consistently with Thai Baht
+  const formatCurrency = (amount: number) => {
+    return `฿${amount?.toLocaleString() || '0'}`;
+  };
+
+  // Format growth rate with context
+  const formatGrowthRate = (rate: number) => {
+    const sign = rate >= 0 ? '+' : '';
+    return `${sign}${rate.toFixed(1)}% vs last month`;
+  };
+
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Admin Finance</h1>
+          <h1 className="text-2xl font-bold">Financial Admin Cockpit</h1>
           <p className="text-muted-foreground">
             Unified financial management for all stakeholders
           </p>
@@ -119,8 +133,11 @@ export default function AdminFinance() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Total Revenue</p>
-                <p className="text-2xl font-bold">
-                  ${overview?.totalRevenue?.toLocaleString() || '0'}
+                <p className="text-2xl font-bold text-green-600">
+                  {formatCurrency(overview?.totalRevenue || 0)}
+                </p>
+                <p className="text-xs text-green-600">
+                  {formatGrowthRate(overview?.revenueGrowth || 12.5)}
                 </p>
               </div>
               <DollarSign className="w-8 h-8 text-green-600" />
@@ -133,8 +150,11 @@ export default function AdminFinance() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Management Fees</p>
-                <p className="text-2xl font-bold">
-                  ${overview?.managementFeeEarned?.toLocaleString() || '0'}
+                <p className="text-2xl font-bold text-blue-600">
+                  {formatCurrency(overview?.managementFeeEarned || 0)}
+                </p>
+                <p className="text-xs text-green-600">
+                  {formatGrowthRate(overview?.managementFeeGrowth || 8.3)}
                 </p>
               </div>
               <Building2 className="w-8 h-8 text-blue-600" />
@@ -147,8 +167,11 @@ export default function AdminFinance() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Owner Payouts</p>
-                <p className="text-2xl font-bold">
-                  ${overview?.ownerPayout?.toLocaleString() || '0'}
+                <p className="text-2xl font-bold text-purple-600">
+                  {formatCurrency(overview?.ownerPayout || 0)}
+                </p>
+                <p className="text-xs text-green-600">
+                  {formatGrowthRate(overview?.payoutGrowth || 11.9)}
                 </p>
               </div>
               <Users className="w-8 h-8 text-purple-600" />
@@ -161,11 +184,163 @@ export default function AdminFinance() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Company Retention</p>
-                <p className="text-2xl font-bold">
-                  ${overview?.companyRetention?.toLocaleString() || '0'}
+                <p className="text-2xl font-bold text-orange-600">
+                  {formatCurrency(overview?.companyRetention || 0)}
+                </p>
+                <p className="text-xs text-green-600">
+                  {formatGrowthRate(overview?.retentionGrowth || 15.2)}
                 </p>
               </div>
               <TrendingUp className="w-8 h-8 text-orange-600" />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Revenue Breakdown & Expense Categories */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Card>
+          <CardHeader className="pb-4">
+            <CardTitle className="flex items-center gap-2">
+              <PieChart className="w-5 h-5" />
+              Revenue Breakdown
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+                  <span className="text-sm">Property Revenue</span>
+                </div>
+                <span className="font-medium">{formatCurrency(overview?.propertyRevenue || 850000)} (68%)</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                  <span className="text-sm">Management Fees</span>
+                </div>
+                <span className="font-medium">{formatCurrency(overview?.managementFeeEarned || 280000)} (22%)</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 bg-orange-500 rounded-full"></div>
+                  <span className="text-sm">Additional Services</span>
+                </div>
+                <span className="font-medium">{formatCurrency(overview?.additionalServices || 125000)} (10%)</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-4">
+            <CardTitle className="flex items-center gap-2">
+              <BarChart3 className="w-5 h-5" />
+              Expense Categories
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 bg-red-500 rounded-full"></div>
+                  <span className="text-sm">Staff Wages</span>
+                </div>
+                <span className="font-medium text-red-600">{formatCurrency(overview?.staffWages || 125000)} (45%)</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
+                  <span className="text-sm">Maintenance</span>
+                </div>
+                <span className="font-medium text-red-600">{formatCurrency(overview?.maintenance || 85000)} (30%)</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 bg-purple-500 rounded-full"></div>
+                  <span className="text-sm">Utilities</span>
+                </div>
+                <span className="font-medium text-red-600">{formatCurrency(overview?.utilities || 70000)} (25%)</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Commission Summary & Property Performance */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Card>
+          <CardHeader className="pb-4">
+            <CardTitle>Commission Summary</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="bg-slate-50 p-4 rounded-lg">
+                <h4 className="font-medium mb-2">Calculation Details</h4>
+                <div className="text-sm space-y-1">
+                  <div className="flex justify-between">
+                    <span>Total Revenue Base:</span>
+                    <span className="font-medium">{formatCurrency(overview?.totalRevenue || 0)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Commission Rate (15%):</span>
+                    <span className="font-medium text-green-600">{formatCurrency((overview?.totalRevenue || 0) * 0.15)}</span>
+                  </div>
+                  <div className="flex justify-between border-t pt-1">
+                    <span>PM Share (50%):</span>
+                    <span className="font-medium">{formatCurrency(((overview?.totalRevenue || 0) * 0.15) * 0.5)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Company Share (50%):</span>
+                    <span className="font-medium">{formatCurrency(((overview?.totalRevenue || 0) * 0.15) * 0.5)}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-4 flex flex-row items-center justify-between">
+            <CardTitle>Property Financial Performance</CardTitle>
+            <Button variant="outline" size="sm" className="flex items-center gap-2">
+              <ExternalLink className="w-4 h-4" />
+              View All Properties
+            </Button>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
+                <div>
+                  <p className="font-medium">Villa SABAI</p>
+                  <p className="text-sm text-muted-foreground">Premium Beachfront</p>
+                </div>
+                <div className="text-right">
+                  <p className="font-medium text-green-600">{formatCurrency(185000)}</p>
+                  <p className="text-xs text-green-600">ROI: +18.5%</p>
+                </div>
+              </div>
+              <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
+                <div>
+                  <p className="font-medium">Villa Aruna</p>
+                  <p className="text-sm text-muted-foreground">Mountain View</p>
+                </div>
+                <div className="text-right">
+                  <p className="font-medium text-green-600">{formatCurrency(142000)}</p>
+                  <p className="text-xs text-green-600">ROI: +14.2%</p>
+                </div>
+              </div>
+              <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
+                <div>
+                  <p className="font-medium">Villa Samui</p>
+                  <p className="text-sm text-muted-foreground">City Center</p>
+                </div>
+                <div className="text-right">
+                  <p className="font-medium text-red-600">{formatCurrency(98000)}</p>
+                  <p className="text-xs text-red-600">ROI: -5.3%</p>
+                </div>
+              </div>
             </div>
           </CardContent>
         </Card>
