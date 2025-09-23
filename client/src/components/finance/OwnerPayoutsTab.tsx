@@ -88,7 +88,7 @@ export function OwnerPayoutsTab({ filters }: OwnerPayoutsTabProps) {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <p className="text-sm text-muted-foreground">Total Payouts Due</p>
-              <p className="text-2xl font-bold">฿{(totalPayout || 0).toLocaleString()}</p>
+              <p className="text-2xl font-bold">฿{(totalPayout || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
             </div>
             <div>
               <p className="text-sm text-muted-foreground">Number of Owners</p>

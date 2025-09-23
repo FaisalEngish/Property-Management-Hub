@@ -23,6 +23,7 @@ import {
   PieChart,
   ExternalLink
 } from "lucide-react";
+import { PieChart as RechartsPieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from "recharts";
 import { AdminFinanceFilters } from "@/components/AdminFinanceFilters";
 import { OwnerPayoutsTab } from "@/components/finance/OwnerPayoutsTab";
 import { PropertyManagerEarningsTab } from "@/components/finance/PropertyManagerEarningsTab";
@@ -241,27 +242,60 @@ export default function AdminFinance() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 bg-red-500 rounded-full"></div>
-                  <span className="text-sm">Staff Wages</span>
-                </div>
-                <span className="font-medium text-red-600">{formatCurrency(overview?.staffWages || 125000)} (45%)</span>
+            <div className="space-y-6">
+              {/* Pie Chart */}
+              <div className="h-48">
+                <ResponsiveContainer width="100%" height="100%">
+                  <RechartsPieChart>
+                    <Pie
+                      data={[
+                        { name: 'Staff Wages', value: overview?.staffWages || 125000, color: '#ef4444' },
+                        { name: 'Maintenance', value: overview?.maintenance || 85000, color: '#eab308' },
+                        { name: 'Utilities', value: overview?.utilities || 70000, color: '#a855f7' }
+                      ]}
+                      cx="50%"
+                      cy="50%"
+                      outerRadius={60}
+                      fill="#8884d8"
+                      dataKey="value"
+                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                    >
+                      {[
+                        { name: 'Staff Wages', value: overview?.staffWages || 125000, color: '#ef4444' },
+                        { name: 'Maintenance', value: overview?.maintenance || 85000, color: '#eab308' },
+                        { name: 'Utilities', value: overview?.utilities || 70000, color: '#a855f7' }
+                      ].map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip formatter={(value) => formatCurrency(Number(value))} />
+                  </RechartsPieChart>
+                </ResponsiveContainer>
               </div>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
-                  <span className="text-sm">Maintenance</span>
+              
+              {/* List View */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 bg-red-500 rounded-full"></div>
+                    <span className="text-sm">Staff Wages</span>
+                  </div>
+                  <span className="font-medium text-red-600">{formatCurrency(overview?.staffWages || 125000)} (45%)</span>
                 </div>
-                <span className="font-medium text-red-600">{formatCurrency(overview?.maintenance || 85000)} (30%)</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 bg-purple-500 rounded-full"></div>
-                  <span className="text-sm">Utilities</span>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
+                    <span className="text-sm">Maintenance</span>
+                  </div>
+                  <span className="font-medium text-red-600">{formatCurrency(overview?.maintenance || 85000)} (30%)</span>
                 </div>
-                <span className="font-medium text-red-600">{formatCurrency(overview?.utilities || 70000)} (25%)</span>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 bg-purple-500 rounded-full"></div>
+                    <span className="text-sm">Utilities</span>
+                  </div>
+                  <span className="font-medium text-red-600">{formatCurrency(overview?.utilities || 70000)} (25%)</span>
+                </div>
               </div>
             </div>
           </CardContent>
