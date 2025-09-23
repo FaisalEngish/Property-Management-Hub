@@ -189,6 +189,7 @@ function AppRoutes() {
         </Route>
         {/* Admin Finance */}
         <Route path="/admin/finance" component={lazy(() => import("./pages/AdminFinance"))} />
+        <Route path="/admin-finance" component={lazy(() => import("./pages/AdminFinance"))} />
         
         <Route path="/system-hub" component={ConsolidatedSystemHub} />
         <Route path="/system-hub-old" component={SystemHub} />
