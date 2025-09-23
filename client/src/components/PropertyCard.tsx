@@ -16,7 +16,10 @@ import {
   Star,
   AlertTriangle,
   CheckCircle,
-  Trash2
+  Trash2,
+  Edit,
+  Archive,
+  UserCog
 } from 'lucide-react';
 
 interface PropertyCardProps {
@@ -25,9 +28,12 @@ interface PropertyCardProps {
   onSelect: (selected: boolean) => void;
   onViewDetails: () => void;
   onDelete?: () => void;
+  onEdit?: () => void;
+  onArchive?: () => void;
+  onAssignManager?: () => void;
 }
 
-export function PropertyCard({ property, isSelected, onSelect, onViewDetails, onDelete }: PropertyCardProps) {
+export function PropertyCard({ property, isSelected, onSelect, onViewDetails, onDelete, onEdit, onArchive, onAssignManager }: PropertyCardProps) {
   const [, navigate] = useLocation();
   
   const formatCurrency = (amount: number) => {
@@ -187,8 +193,45 @@ export function PropertyCard({ property, isSelected, onSelect, onViewDetails, on
           </div>
         )}
 
+        {/* Quick Actions Row */}
+        <div className="flex items-center justify-between pt-2 mb-2 border-t border-gray-100">
+          <div className="flex items-center gap-1">
+            <span className="text-xs text-slate-500">Quick Actions:</span>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="h-7 w-7 p-0 hover:bg-blue-50 hover:text-blue-600"
+              onClick={onEdit || (() => navigate(`/property/${property.id}/edit`))}
+              title="Edit Property"
+            >
+              <Edit className="h-3.5 w-3.5" />
+            </Button>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="h-7 w-7 p-0 hover:bg-purple-50 hover:text-purple-600"
+              onClick={onAssignManager || (() => navigate(`/property/${property.id}/manager`))}
+              title="Assign Manager"
+            >
+              <UserCog className="h-3.5 w-3.5" />
+            </Button>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="h-7 w-7 p-0 hover:bg-orange-50 hover:text-orange-600"
+              onClick={onArchive || (() => console.log('Archive property:', property.id))}
+              title="Archive Property"
+            >
+              <Archive className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+          <div className="text-xs text-slate-400">
+            ID: {property.id}
+          </div>
+        </div>
+
         {/* Action Buttons */}
-        <div className="flex gap-2 pt-2">
+        <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={onViewDetails} className="flex-1">
             View Details
           </Button>
