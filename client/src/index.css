@@ -26,6 +26,14 @@
   --success: hsl(142, 76%, 36%);
   --warning: hsl(38, 92%, 50%);
   --error: hsl(0, 84%, 60%);
+  
+  /* Premium Sidebar Design Tokens */
+  --sidebar-bg: hsl(0, 0%, 98%);
+  --sidebar-gradient: linear-gradient(180deg, hsl(0, 0%, 98%) 0%, hsl(0, 0%, 96%) 24%, transparent 100%);
+  --sidebar-border: hsl(240, 5%, 90%);
+  --sidebar-muted: hsl(240, 5%, 65%);
+  --sidebar-card: hsl(0, 0%, 96%);
+  --sidebar-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
 }
 
 .dark {
@@ -52,6 +60,14 @@
   --success: hsl(142, 76%, 36%);
   --warning: hsl(38, 92%, 50%);
   --error: hsl(0, 84%, 60%);
+  
+  /* Premium Sidebar Design Tokens - Dark */
+  --sidebar-bg: hsl(240, 10%, 6%);
+  --sidebar-gradient: linear-gradient(180deg, hsl(240, 10%, 6%) 0%, hsl(240, 10%, 4%) 24%, transparent 100%);
+  --sidebar-border: hsl(240, 3.7%, 18%);
+  --sidebar-muted: hsl(240, 5%, 50%);
+  --sidebar-card: hsl(240, 5%, 8%);
+  --sidebar-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
 }
 
 @layer base {
