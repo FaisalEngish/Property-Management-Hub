@@ -128,6 +128,7 @@ import EnhancedAdminDashboard from "@/pages/EnhancedAdminDashboard";
 import DocumentCenter from "@/pages/DocumentCenter";
 import PropertyDocumentCenter from "@/pages/PropertyDocumentCenter";
 import PropertyDocumentUpload from "@/pages/PropertyDocumentUpload";
+import PropertyEditPage from "@/pages/PropertyEditPage";
 
 // QueryClient is now imported from lib/queryClient for better performance
 
@@ -164,6 +165,7 @@ function AppRoutes() {
         <Switch>
         <Route path="/" component={RoleBasedDashboard} />
         <Route path="/properties" component={Properties} />
+        <Route path="/property/:id/edit" component={PropertyEditPage} />
         <Route path="/property/:id" component={PropertyDetailView} />
         <Route path="/tasks" component={UltraFastTasks} />
         <Route path="/bookings" component={Bookings} />
