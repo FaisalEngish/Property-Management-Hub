@@ -238,8 +238,8 @@ export default function PropertyHub() {
       return <ArrowUpDown className="h-4 w-4 text-gray-400" />;
     }
     return sorting.direction === 'asc' 
-      ? <ArrowUp className="h-4 w-4 text-blue-600" />
-      : <ArrowDown className="h-4 w-4 text-blue-600" />;
+      ? <ArrowUp className="h-4 w-4 text-white" />
+      : <ArrowDown className="h-4 w-4 text-white" />;
   };
 
 
@@ -373,7 +373,11 @@ export default function PropertyHub() {
                         variant={sorting.field === 'name' ? 'default' : 'outline'}
                         size="sm"
                         onClick={() => handleSort('name')}
-                        className="flex items-center gap-1"
+                        className={`flex items-center gap-1 transition-all duration-200 ${
+                          sorting.field === 'name' 
+                            ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-md ring-2 ring-blue-200' 
+                            : 'hover:bg-blue-50 hover:border-blue-300'
+                        }`}
                       >
                         Name {getSortIcon('name')}
                       </Button>
@@ -381,7 +385,11 @@ export default function PropertyHub() {
                         variant={sorting.field === 'revenue' ? 'default' : 'outline'}
                         size="sm"
                         onClick={() => handleSort('revenue')}
-                        className="flex items-center gap-1"
+                        className={`flex items-center gap-1 transition-all duration-200 ${
+                          sorting.field === 'revenue' 
+                            ? 'bg-green-600 hover:bg-green-700 text-white shadow-md ring-2 ring-green-200' 
+                            : 'hover:bg-green-50 hover:border-green-300'
+                        }`}
                       >
                         Revenue {getSortIcon('revenue')}
                       </Button>
@@ -389,7 +397,11 @@ export default function PropertyHub() {
                         variant={sorting.field === 'roi' ? 'default' : 'outline'}
                         size="sm"
                         onClick={() => handleSort('roi')}
-                        className="flex items-center gap-1"
+                        className={`flex items-center gap-1 transition-all duration-200 ${
+                          sorting.field === 'roi' 
+                            ? 'bg-purple-600 hover:bg-purple-700 text-white shadow-md ring-2 ring-purple-200' 
+                            : 'hover:bg-purple-50 hover:border-purple-300'
+                        }`}
                       >
                         ROI {getSortIcon('roi')}
                       </Button>
@@ -397,7 +409,11 @@ export default function PropertyHub() {
                         variant={sorting.field === 'occupancy' ? 'default' : 'outline'}
                         size="sm"
                         onClick={() => handleSort('occupancy')}
-                        className="flex items-center gap-1"
+                        className={`flex items-center gap-1 transition-all duration-200 ${
+                          sorting.field === 'occupancy' 
+                            ? 'bg-orange-600 hover:bg-orange-700 text-white shadow-md ring-2 ring-orange-200' 
+                            : 'hover:bg-orange-50 hover:border-orange-300'
+                        }`}
                       >
                         Occupancy {getSortIcon('occupancy')}
                       </Button>
