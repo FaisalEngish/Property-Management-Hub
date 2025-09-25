@@ -14,7 +14,7 @@ export default function EnhancedAdminDashboard() {
   const { data: finances = [] } = useQuery({ queryKey: ["/api/finance"] });
 
   return (
-    <div className="h-full w-full p-6 space-y-6">
+    <div className="w-full max-w-7xl mx-auto px-6 pt-4 pb-12 flex flex-col gap-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Enhanced Admin Dashboard</h1>

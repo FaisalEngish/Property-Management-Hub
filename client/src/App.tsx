@@ -160,8 +160,7 @@ function AppRoutes() {
   return (
     <div className="min-h-screen bg-background">
       <Sidebar />
-      <div className="lg:pl-72 xl:pl-80 min-h-screen">
-        <div className="lg:hidden h-20"></div>
+      <main className="lg:pl-72 xl:pl-80 min-h-screen flex flex-col items-stretch justify-start pt-4">
         <Switch>
         <Route path="/" component={RoleBasedDashboard} />
         <Route path="/properties" component={Properties} />
@@ -343,7 +342,7 @@ function AppRoutes() {
         
         <Route component={NotFound} />
       </Switch>
-      </div>
+      </main>
     </div>
   );
 }
