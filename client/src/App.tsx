@@ -215,6 +215,7 @@ function AppRoutes() {
         <Route path="/system-hub-old" component={SystemHub} />
         
         {/* Enhanced Dashboards */}
+        <Route path="/dashboard/admin" component={EnhancedAdminDashboard} />
         <Route path="/enhanced-admin-dashboard" component={EnhancedAdminDashboard} />
         <Route path="/simple-filtered-financial-dashboard" component={LazyFinancialDashboard} />
         <Route path="/filtered-property-dashboard" component={UltraFastPropertyDashboard} />
