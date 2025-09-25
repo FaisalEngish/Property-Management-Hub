@@ -388,32 +388,46 @@ export default function UpgradedAdminDashboard() {
             </Card>
           </TabsContent>
 
-          <TabsContent value="finances" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Recent Financial Activity</CardTitle>
+          <TabsContent value="finances" className="space-y-6">
+            <Card className="rounded-xl shadow-lg border-2 border-green-100/50">
+              <CardHeader className="pb-4 px-6 pt-6">
+                <CardTitle className="text-2xl font-bold text-slate-800 flex items-center gap-3">
+                  <div className="p-2 bg-green-100/80 rounded-lg">
+                    <DollarSign className="h-6 w-6 text-green-600" />
+                  </div>
+                  Recent Financial Activity
+                </CardTitle>
               </CardHeader>
-              <CardContent>
+              <CardContent className="px-6 pb-6">
                 <div className="space-y-4">
                   {recentFinances.map((finance: any) => (
-                    <div key={finance.id} className="flex items-center justify-between p-4 border rounded-lg">
+                    <div key={finance.id} className="flex items-center justify-between p-4 bg-gradient-to-r from-green-50/50 to-slate-50/80 rounded-xl border-2 border-green-100/30 hover:border-green-200/50 transition-all duration-200 hover:shadow-md">
                       <div className="flex-1">
-                        <div className="flex items-center gap-3 mb-1">
-                          <h3 className="font-medium">{finance.description}</h3>
-                          <Badge variant={
-                            finance.type === 'income' ? 'default' :
-                            finance.type === 'expense' ? 'destructive' : 'secondary'
-                          }>
+                        <div className="flex items-center gap-3 mb-3">
+                          <h3 className="font-bold text-lg text-slate-800">{finance.description}</h3>
+                          <Badge 
+                            variant={
+                              finance.type === 'income' ? 'default' :
+                              finance.type === 'expense' ? 'destructive' : 'secondary'
+                            }
+                            className={
+                              finance.type === 'income' 
+                                ? 'bg-emerald-100 text-emerald-700 border-emerald-200 font-semibold' 
+                                : finance.type === 'expense'
+                                ? 'bg-red-100 text-red-700 border-red-200 font-semibold'
+                                : 'bg-slate-100 text-slate-600 border-slate-200 font-semibold'
+                            }
+                          >
                             {finance.type}
                           </Badge>
                         </div>
-                        <p className="text-sm text-slate-600">
-                          {formatDate(finance.date)} | Property: {finance.propertyName || 'General'}
+                        <p className="text-sm text-slate-500 font-medium">
+                          <span className="text-slate-700 font-semibold">{formatDate(finance.date)}</span> | Property: <span className="text-slate-700 font-semibold">{finance.propertyName || 'General'}</span>
                         </p>
                       </div>
                       <div className="text-right">
-                        <p className={`font-bold text-lg ${
-                          finance.type === 'income' ? 'text-green-600' :
+                        <p className={`font-bold text-xl mb-1 ${
+                          finance.type === 'income' ? 'text-emerald-600' :
                           finance.type === 'expense' ? 'text-red-600' : 'text-slate-600'
                         }`}>
                           {finance.type === 'expense' ? '-' : '+'}{formatCurrency(finance.amount)}
