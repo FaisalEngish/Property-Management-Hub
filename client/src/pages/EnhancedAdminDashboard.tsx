@@ -14,119 +14,150 @@ export default function EnhancedAdminDashboard() {
   const { data: finances = [] } = useQuery({ queryKey: ["/api/finance"] });
 
   return (
-    <div className="w-full px-6 pt-0 pb-12 flex flex-col gap-6" style={{ position: 'absolute', top: '0', left: '0', right: '0' }}>
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Enhanced Admin Dashboard</h1>
-          <p className="text-gray-600 mt-1">Comprehensive property management overview with advanced filtering</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="px-2 py-1 bg-gray-100 text-sm rounded">Administrator</span>
-          <button
-            className="p-2 hover:bg-gray-100 rounded"
-            onClick={() => {
-              setLocation("/settings");
-            }}
-            title="Settings"
-          >
-            <Settings className="h-4 w-4" />
-          </button>
-        </div>
-      </div>
-
-      {/* Search and Filters - Simplified */}
-      <div className="flex items-center justify-between gap-4">
-        <div className="flex-1">
-          <div className="relative">
-            <input
-              type="text"
-              placeholder="Search properties..."
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              onChange={(e) => setActiveFilters({...activeFilters, searchText: e.target.value})}
-            />
-          </div>
-        </div>
-        <button className="px-4 py-2 border border-gray-300 rounded hover:bg-gray-50">
-          Clear Filters
-        </button>
-      </div>
-
-      {/* Stats Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white p-6 rounded-lg border shadow-sm">
-          <div className="flex items-center justify-between">
+    <div className="w-full bg-gray-50 min-h-screen">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Header Section */}
+        <div className="bg-white rounded-lg shadow-sm border p-6 mb-8">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
-              <p className="text-sm font-medium text-gray-600">Properties</p>
-              <p className="text-2xl font-bold">{Array.isArray(properties) ? properties.length : 0}</p>
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">Enhanced Admin Dashboard</h1>
+              <p className="text-gray-600">Comprehensive property management overview with advanced filtering</p>
             </div>
-            <Building className="h-8 w-8 text-blue-600" />
-          </div>
-        </div>
-        
-        <div className="bg-white p-6 rounded-lg border shadow-sm">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Tasks</p>
-              <p className="text-2xl font-bold">{Array.isArray(tasks) ? tasks.length : 0}</p>
+            <div className="flex items-center gap-3">
+              <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-emerald-100 text-emerald-800">
+                Administrator
+              </span>
+              <button
+                className="inline-flex items-center p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                onClick={() => setLocation("/settings")}
+                title="Settings"
+              >
+                <Settings className="h-5 w-5" />
+              </button>
             </div>
-            <ListTodo className="h-8 w-8 text-purple-600" />
-          </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-lg border shadow-sm">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Bookings</p>
-              <p className="text-2xl font-bold">{Array.isArray(bookings) ? bookings.length : 0}</p>
-            </div>
-            <Calendar className="h-8 w-8 text-green-600" />
           </div>
         </div>
 
-        <div className="bg-white p-6 rounded-lg border shadow-sm">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Revenue (THB)</p>
-              <p className="text-2xl font-bold">{Array.isArray(finances) ? finances.filter(f => f.type === 'revenue').reduce((sum, f) => sum + (f.amount || 0), 0).toLocaleString() : '0'}</p>
-            </div>
-            <DollarSign className="h-8 w-8 text-orange-600" />
-          </div>
-        </div>
-      </div>
-
-      {/* Recent Data Preview */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white p-6 rounded-lg border shadow-sm">
-          <h3 className="text-lg font-semibold mb-4">Recent Properties</h3>
-          <div className="space-y-3">
-            {Array.isArray(properties) ? properties.slice(0, 5).map((property) => (
-              <div key={property.id} className="flex items-center justify-between p-3 border rounded">
-                <div>
-                  <h4 className="font-medium">{property.name}</h4>
-                  <p className="text-sm text-gray-600">{property.address}</p>
-                </div>
-                <span className={`px-2 py-1 text-xs rounded ${property.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
-                  {property.status}
-                </span>
+        {/* Search and Filters */}
+        <div className="bg-white rounded-lg shadow-sm border p-6 mb-8">
+          <div className="flex flex-col sm:flex-row gap-4">
+            <div className="flex-1">
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="Search properties, tasks, or bookings..."
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
+                  onChange={(e) => setActiveFilters({...activeFilters, searchText: e.target.value})}
+                />
               </div>
-            )) : <p className="text-gray-500">No properties available</p>}
+            </div>
+            <button className="px-6 py-3 border border-gray-300 text-gray-700 hover:bg-gray-50 rounded-lg transition-colors">
+              Clear Filters
+            </button>
           </div>
         </div>
 
-        <div className="bg-white p-6 rounded-lg border shadow-sm">
-          <h3 className="text-lg font-semibold mb-4">Recent Tasks</h3>
-          <div className="space-y-3">
-            {Array.isArray(tasks) ? tasks.slice(0, 5).map((task) => (
-              <div key={task.id} className="flex items-center justify-between p-3 border rounded">
-                <div>
-                  <h4 className="font-medium">{task.title}</h4>
-                  <p className="text-sm text-gray-600">{task.description}</p>
-                </div>
-                <span className={`px-2 py-1 text-xs rounded ${task.status === 'completed' ? 'bg-green-100 text-green-800' : task.status === 'in_progress' ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800'}`}>
-                  {task.status}
-                </span>
+        {/* Stats Overview */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <div className="bg-white p-6 rounded-lg border shadow-sm hover:shadow-md transition-shadow">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600 mb-1">Properties</p>
+                <p className="text-3xl font-bold text-gray-900">{Array.isArray(properties) ? properties.length : 0}</p>
               </div>
-            )) : <p className="text-gray-500">No tasks available</p>}
+              <div className="p-3 bg-blue-100 rounded-lg">
+                <Building className="h-8 w-8 text-blue-600" />
+              </div>
+            </div>
+          </div>
+          
+          <div className="bg-white p-6 rounded-lg border shadow-sm hover:shadow-md transition-shadow">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600 mb-1">Tasks</p>
+                <p className="text-3xl font-bold text-gray-900">{Array.isArray(tasks) ? tasks.length : 0}</p>
+              </div>
+              <div className="p-3 bg-purple-100 rounded-lg">
+                <ListTodo className="h-8 w-8 text-purple-600" />
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white p-6 rounded-lg border shadow-sm hover:shadow-md transition-shadow">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600 mb-1">Bookings</p>
+                <p className="text-3xl font-bold text-gray-900">{Array.isArray(bookings) ? bookings.length : 0}</p>
+              </div>
+              <div className="p-3 bg-green-100 rounded-lg">
+                <Calendar className="h-8 w-8 text-green-600" />
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white p-6 rounded-lg border shadow-sm hover:shadow-md transition-shadow">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600 mb-1">Revenue (THB)</p>
+                <p className="text-3xl font-bold text-gray-900">{Array.isArray(finances) ? finances.filter(f => f.type === 'revenue').reduce((sum, f) => sum + (f.amount || 0), 0).toLocaleString() : '0'}</p>
+              </div>
+              <div className="p-3 bg-orange-100 rounded-lg">
+                <DollarSign className="h-8 w-8 text-orange-600" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Recent Data Preview */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <div className="bg-white rounded-lg border shadow-sm">
+            <div className="p-6 border-b border-gray-200">
+              <h3 className="text-xl font-semibold text-gray-900">Recent Properties</h3>
+            </div>
+            <div className="p-6">
+              <div className="space-y-4">
+                {Array.isArray(properties) ? properties.slice(0, 5).map((property) => (
+                  <div key={property.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                    <div className="flex-1">
+                      <h4 className="font-semibold text-gray-900">{property.name}</h4>
+                      <p className="text-sm text-gray-600 mt-1">{property.address}</p>
+                    </div>
+                    <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${property.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
+                      {property.status}
+                    </span>
+                  </div>
+                )) : (
+                  <div className="text-center py-8">
+                    <p className="text-gray-500">No properties available</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-lg border shadow-sm">
+            <div className="p-6 border-b border-gray-200">
+              <h3 className="text-xl font-semibold text-gray-900">Recent Tasks</h3>
+            </div>
+            <div className="p-6">
+              <div className="space-y-4">
+                {Array.isArray(tasks) ? tasks.slice(0, 5).map((task) => (
+                  <div key={task.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                    <div className="flex-1">
+                      <h4 className="font-semibold text-gray-900">{task.title}</h4>
+                      <p className="text-sm text-gray-600 mt-1">{task.description}</p>
+                    </div>
+                    <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${task.status === 'completed' ? 'bg-green-100 text-green-800' : task.status === 'in_progress' ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800'}`}>
+                      {task.status}
+                    </span>
+                  </div>
+                )) : (
+                  <div className="text-center py-8">
+                    <p className="text-gray-500">No tasks available</p>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       </div>
