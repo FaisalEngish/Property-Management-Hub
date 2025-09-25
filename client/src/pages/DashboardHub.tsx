@@ -147,6 +147,15 @@ export default function DashboardHub() {
       gradient: "from-red-500 to-red-600"
     },
     {
+      title: "Enhanced Admin Dashboard",
+      description: "✨ Advanced admin management with comprehensive filtering and analytics",
+      href: "/dashboard/admin",
+      icon: BarChart3,
+      badge: "Admin Pro",
+      color: "bg-gradient-to-br from-emerald-50 to-emerald-100 hover:from-emerald-100 hover:to-emerald-200 border-emerald-200 dark:from-emerald-900/30 dark:to-emerald-800/30 dark:border-emerald-700",
+      gradient: "from-emerald-500 to-emerald-600"
+    },
+    {
       title: "Portfolio Manager Dashboard",
       description: "Multi-property portfolio insights and management tools",
       href: "/portfolio-manager-dashboard",
@@ -154,15 +163,6 @@ export default function DashboardHub() {
       badge: "Portfolio",
       color: "bg-gradient-to-br from-indigo-50 to-indigo-100 hover:from-indigo-100 hover:to-indigo-200 border-indigo-200 dark:from-indigo-900/30 dark:to-indigo-800/30 dark:border-indigo-700",
       gradient: "from-indigo-500 to-indigo-600"
-    },
-    {
-      title: "Enhanced Admin Dashboard",
-      description: "Comprehensive property management overview with advanced filtering",
-      href: "/dashboard/admin",
-      icon: BarChart3,
-      badge: "Admin",
-      color: "bg-gradient-to-br from-slate-50 to-slate-100 hover:from-slate-100 hover:to-slate-200 border-slate-200 dark:from-slate-900/30 dark:to-slate-800/30 dark:border-slate-700",
-      gradient: "from-slate-500 to-slate-600"
     }
   ];
 
