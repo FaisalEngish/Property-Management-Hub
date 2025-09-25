@@ -77,22 +77,21 @@ export default function UpgradedAdminDashboard() {
         <TopBar title="Enhanced Admin Dashboard" />
         
         <main className="flex-1 overflow-auto p-6 space-y-6">
-          <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center justify-between mb-8 pb-6 border-b border-slate-200/60">
             <div>
-              <h1 className="text-4xl font-extrabold text-slate-900 dark:text-slate-100 tracking-tight">
+              <h1 className="text-5xl font-extrabold text-slate-900 dark:text-slate-100 tracking-tight">
                 Enhanced Admin Dashboard
               </h1>
-              <p className="text-slate-500 dark:text-slate-400 mt-2 text-lg font-medium">
+              <p className="text-slate-400 dark:text-slate-500 mt-3 text-lg font-medium">
                 Welcome back, {user?.firstName || user?.email}
               </p>
             </div>
             <Button 
-              variant="outline" 
               onClick={() => window.location.reload()}
-              className="rounded-xl border-2 border-emerald-200 hover:border-emerald-300 hover:bg-emerald-50 shadow-md hover:shadow-lg transition-all duration-200"
+              className="rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 px-6 py-3"
             >
-              <MoreVertical className="h-4 w-4 mr-2 text-emerald-600" />
-              <span className="font-medium text-emerald-700">Refresh</span>
+              <MoreVertical className="h-5 w-5 mr-2" />
+              <span className="font-semibold">Refresh</span>
             </Button>
           </div>
 
@@ -232,11 +231,10 @@ export default function UpgradedAdminDashboard() {
                       <div className="flex items-center justify-between">
                         <p className="font-semibold text-sm text-slate-800">{task.title}</p>
                         <Button 
-                          variant="ghost" 
                           size="sm"
-                          className="rounded-lg hover:bg-teal-100/50 transition-colors duration-200"
+                          className="rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white shadow-md hover:shadow-lg transition-all duration-300 hover:scale-110 p-2"
                         >
-                          <MoreVertical className="h-4 w-4 text-teal-600" />
+                          <MoreVertical className="h-4 w-4" />
                         </Button>
                       </div>
                       <TaskProgressBar 
@@ -324,11 +322,10 @@ export default function UpgradedAdminDashboard() {
                         </p>
                       </div>
                       <Button 
-                        variant="ghost" 
                         size="sm"
-                        className="rounded-xl hover:bg-teal-100/50 transition-all duration-200 hover:scale-105"
+                        className="rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white shadow-md hover:shadow-lg transition-all duration-300 hover:scale-110 p-3"
                       >
-                        <MoreVertical className="h-5 w-5 text-teal-600" />
+                        <MoreVertical className="h-5 w-5" />
                       </Button>
                     </div>
                   ))}
