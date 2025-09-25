@@ -175,9 +175,11 @@ function AppRoutes() {
         <Route path="/profile" component={ProfilePage} />
         <Route path="/help" component={FastHelp} />
         
-        {/* Hub Pages */}
+        {/* Dashboard Routes - Order Matters! */}
         <Route path="/dashboard/admin" component={EnhancedAdminDashboard} />
         <Route path="/dashboard-hub" component={DashboardHub} />
+        
+        {/* Hub Pages */}
         <Route path="/property-hub" component={PropertyHub} />
         <Route path="/finance-hub" component={FinanceHub} />
         <Route path="/enhanced-finances">
