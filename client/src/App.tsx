@@ -160,7 +160,7 @@ function AppRoutes() {
   return (
     <div className="min-h-screen bg-background">
       <Sidebar />
-      <div className="lg:pl-80">
+      <div className="lg:pl-72 xl:pl-80">
         <div className="lg:hidden h-20"></div>
         <Switch>
         <Route path="/" component={RoleBasedDashboard} />
