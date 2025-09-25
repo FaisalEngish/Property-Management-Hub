@@ -14,10 +14,10 @@ export default function EnhancedAdminDashboard() {
   const { data: finances = [] } = useQuery({ queryKey: ["/api/finance"] });
 
   return (
-    <div className="w-full bg-gray-50 min-h-screen">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+    <div className="w-full bg-gray-50 min-h-screen" style={{ margin: '0', padding: '0' }}>
+      <div className="w-full px-4 sm:px-6 lg:px-8 pt-0 pb-4">
         {/* Header Section */}
-        <div className="bg-white rounded-lg shadow-sm border p-6 mb-6">
+        <div className="bg-white shadow-sm border p-6 mb-4" style={{ marginTop: '0' }}>
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <h1 className="text-3xl font-bold text-gray-900 mb-2">Enhanced Admin Dashboard</h1>
