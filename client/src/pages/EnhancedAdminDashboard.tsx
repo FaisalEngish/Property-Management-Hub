@@ -23,6 +23,7 @@ export default function EnhancedAdminDashboard() {
         right: '0',
         margin: '0', 
         padding: '0',
+        paddingLeft: '288px', // For sidebar width lg:pl-72 = 18rem = 288px
         zIndex: 1
       }}
     >
