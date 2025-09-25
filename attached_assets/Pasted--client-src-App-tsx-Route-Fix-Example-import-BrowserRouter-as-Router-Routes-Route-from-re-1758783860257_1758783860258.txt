@@ -1,0 +1,76 @@
+🔧 client/src/App.tsx (Route Fix Example)
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import DashboardHub from "./pages/DashboardHub";
+import EnhancedAdminDashboard from "./pages/EnhancedAdminDashboard";
+import PropertyHub from "./pages/PropertyHub";
+import FinanceHub from "./pages/FinanceHub";
+import StaffSalaries from "./pages/StaffSalaries";
+
+function App() {
+  return (
+    <Router>
+      <Routes>
+        {/* Dashboard Hub → Default Dashboard */}
+        <Route path="/dashboard" element={<DashboardHub />} />
+
+        {/* Enhanced Admin Dashboard → Standalone Page */}
+        <Route path="/dashboard/admin" element={<EnhancedAdminDashboard />} />
+
+        {/* Other Modules */}
+        <Route path="/property" element={<PropertyHub />} />
+        <Route path="/finance" element={<FinanceHub />} />
+        <Route path="/staff-salaries" element={<StaffSalaries />} />
+
+        {/* Redirect or 404 */}
+        <Route path="*" element={<DashboardHub />} />
+      </Routes>
+    </Router>
+  );
+}
+
+export default App;
+
+🔧 client/src/components/Sidebar.tsx (Navigation Fix Example)
+import { NavLink } from "react-router-dom";
+
+export default function Sidebar() {
+  return (
+    <div className="sidebar">
+      <div className="menu-section">
+        <h4>Analytics</h4>
+        <NavLink to="/dashboard" className="menu-item">
+          Dashboard Hub
+        </NavLink>
+        <NavLink to="/dashboard/admin" className="menu-item">
+          Enhanced Admin Dashboard
+        </NavLink>
+        <NavLink to="/reports" className="menu-item">
+          Reports
+        </NavLink>
+      </div>
+
+      <div className="menu-section">
+        <h4>Management</h4>
+        <NavLink to="/property" className="menu-item">
+          Property Hub
+        </NavLink>
+        <NavLink to="/finance" className="menu-item">
+          Finance Hub
+        </NavLink>
+        <NavLink to="/staff-salaries" className="menu-item">
+          Staff Salaries
+        </NavLink>
+      </div>
+    </div>
+  );
+}
+
+✅ Expected Result:
+
+/dashboard → শুধু Dashboard Hub আসবে
+
+/dashboard/admin → শুধু Enhanced Admin Dashboard আসবে (Dashboard Hub এর নিচে না)
+
+Sidebar থেকে ক্লিক করলে সঠিকভাবে আলাদা page এ যাবে
+
+কোন overlap হবে না

@@ -48,17 +48,7 @@ export default function EnhancedAdminDashboard() {
     maintenance: []
   });
 
-  // Real API data
-  const realData = {
-    properties: Array.isArray(properties) ? properties : [],
-    tasks: Array.isArray(tasks) ? tasks : [],
-    bookings: Array.isArray(bookings) ? bookings : [],
-    finances: Array.isArray(finances) ? finances : [],
-    utilities: [], // Will be added when utility API is ready
-    maintenance: [] // Will be added when maintenance API is ready
-  };
-
-  // Filter data based on active filters
+  // Filter data based on active filters - Fixed infinite loop
   useEffect(() => {
     const applyFilters = (data: any[], type: string) => {
       return data.filter(item => {
@@ -80,13 +70,19 @@ export default function EnhancedAdminDashboard() {
       });
     };
 
+    // Use data directly to avoid infinite loop
+    const safeProperties = Array.isArray(properties) ? properties : [];
+    const safeTasks = Array.isArray(tasks) ? tasks : [];
+    const safeBookings = Array.isArray(bookings) ? bookings : [];
+    const safeFinances = Array.isArray(finances) ? finances : [];
+
     setFilteredData({
-      properties: applyFilters(realData.properties, 'properties'),
-      tasks: applyFilters(realData.tasks, 'tasks'),
-      bookings: applyFilters(realData.bookings, 'bookings'),
-      finances: applyFilters(realData.finances, 'finances'),
-      utilities: applyFilters(realData.utilities, 'utilities'),
-      maintenance: applyFilters(realData.maintenance, 'maintenance')
+      properties: applyFilters(safeProperties, 'properties'),
+      tasks: applyFilters(safeTasks, 'tasks'),
+      bookings: applyFilters(safeBookings, 'bookings'),
+      finances: applyFilters(safeFinances, 'finances'),
+      utilities: [], // Will be added when utility API is ready
+      maintenance: [] // Will be added when maintenance API is ready
     });
   }, [activeFilters, properties, tasks, bookings, finances]);
 
