@@ -75,102 +75,139 @@ export default function UpgradedAdminDashboard() {
         <TopBar title="Enhanced Admin Dashboard" />
         
         <main className="flex-1 overflow-auto p-6 space-y-6">
-          <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center justify-between mb-8">
             <div>
-              <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100">
+              <h1 className="text-4xl font-extrabold text-slate-900 dark:text-slate-100 tracking-tight">
                 Enhanced Admin Dashboard
               </h1>
-              <p className="text-slate-600 dark:text-slate-400">
+              <p className="text-slate-500 dark:text-slate-400 mt-2 text-lg font-medium">
                 Welcome back, {user?.firstName || user?.email}
               </p>
             </div>
-            <Button variant="outline" onClick={() => window.location.reload()}>
-              <MoreVertical className="h-4 w-4 mr-2" />
-              Refresh
+            <Button 
+              variant="outline" 
+              onClick={() => window.location.reload()}
+              className="rounded-xl border-2 border-emerald-200 hover:border-emerald-300 hover:bg-emerald-50 shadow-md hover:shadow-lg transition-all duration-200"
+            >
+              <MoreVertical className="h-4 w-4 mr-2 text-emerald-600" />
+              <span className="font-medium text-emerald-700">Refresh</span>
             </Button>
           </div>
 
           {/* Quick Stats */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-            <Card>
-              <CardContent className="p-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+            <Card className="rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 border-2 border-emerald-100/50 hover:border-emerald-200 bg-gradient-to-br from-emerald-50/30 to-white">
+              <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-slate-600">Properties</p>
-                    <p className="text-2xl font-bold">{properties.length}</p>
+                    <p className="text-sm font-medium text-slate-500">Properties</p>
+                    <p className="text-3xl font-bold text-slate-800 mt-1">{properties.length}</p>
                   </div>
-                  <Building className="h-8 w-8 text-blue-500" />
+                  <div className="p-3 bg-emerald-100/80 rounded-xl">
+                    <Building className="h-8 w-8 text-emerald-600" />
+                  </div>
                 </div>
               </CardContent>
             </Card>
-            <Card>
-              <CardContent className="p-4">
+            <Card className="rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 border-2 border-teal-100/50 hover:border-teal-200 bg-gradient-to-br from-teal-50/30 to-white">
+              <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-slate-600">Active Tasks</p>
-                    <p className="text-2xl font-bold">{tasks.length}</p>
+                    <p className="text-sm font-medium text-slate-500">Active Tasks</p>
+                    <p className="text-3xl font-bold text-slate-800 mt-1">{tasks.length}</p>
                   </div>
-                  <ListTodo className="h-8 w-8 text-orange-500" />
+                  <div className="p-3 bg-teal-100/80 rounded-xl">
+                    <ListTodo className="h-8 w-8 text-teal-600" />
+                  </div>
                 </div>
               </CardContent>
             </Card>
-            <Card>
-              <CardContent className="p-4">
+            <Card className="rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 border-2 border-cyan-100/50 hover:border-cyan-200 bg-gradient-to-br from-cyan-50/30 to-white">
+              <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-slate-600">Bookings</p>
-                    <p className="text-2xl font-bold">{bookings.length}</p>
+                    <p className="text-sm font-medium text-slate-500">Bookings</p>
+                    <p className="text-3xl font-bold text-slate-800 mt-1">{bookings.length}</p>
                   </div>
-                  <Calendar className="h-8 w-8 text-green-500" />
+                  <div className="p-3 bg-cyan-100/80 rounded-xl">
+                    <Calendar className="h-8 w-8 text-cyan-600" />
+                  </div>
                 </div>
               </CardContent>
             </Card>
-            <Card>
-              <CardContent className="p-4">
+            <Card className="rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 border-2 border-green-100/50 hover:border-green-200 bg-gradient-to-br from-green-50/30 to-white">
+              <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-slate-600">Finances</p>
-                    <p className="text-2xl font-bold">{finances.length}</p>
+                    <p className="text-sm font-medium text-slate-500">Finances</p>
+                    <p className="text-3xl font-bold text-slate-800 mt-1">{finances.length}</p>
                   </div>
-                  <DollarSign className="h-8 w-8 text-purple-500" />
+                  <div className="p-3 bg-green-100/80 rounded-xl">
+                    <DollarSign className="h-8 w-8 text-green-600" />
+                  </div>
                 </div>
               </CardContent>
             </Card>
           </div>
 
         {/* Main Content Tabs */}
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-          <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="tasks">Tasks</TabsTrigger>
-            <TabsTrigger value="bookings">Bookings</TabsTrigger>
-            <TabsTrigger value="finances">Finances</TabsTrigger>
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+          <TabsList className="grid w-full grid-cols-4 bg-slate-100/60 rounded-xl p-1 shadow-inner">
+            <TabsTrigger 
+              value="overview" 
+              className="rounded-lg font-semibold data-[state=active]:bg-emerald-500 data-[state=active]:text-white data-[state=active]:shadow-md transition-all duration-200"
+            >
+              Overview
+            </TabsTrigger>
+            <TabsTrigger 
+              value="tasks" 
+              className="rounded-lg font-semibold data-[state=active]:bg-emerald-500 data-[state=active]:text-white data-[state=active]:shadow-md transition-all duration-200"
+            >
+              Tasks
+            </TabsTrigger>
+            <TabsTrigger 
+              value="bookings" 
+              className="rounded-lg font-semibold data-[state=active]:bg-emerald-500 data-[state=active]:text-white data-[state=active]:shadow-md transition-all duration-200"
+            >
+              Bookings
+            </TabsTrigger>
+            <TabsTrigger 
+              value="finances" 
+              className="rounded-lg font-semibold data-[state=active]:bg-emerald-500 data-[state=active]:text-white data-[state=active]:shadow-md transition-all duration-200"
+            >
+              Finances
+            </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="overview" className="space-y-4">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <TabsContent value="overview" className="space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               {/* Properties Overview */}
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    <Building className="h-5 w-5" />
+              <Card className="rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 border-2 border-emerald-100/50">
+                <CardHeader className="pb-4 px-6 pt-6">
+                  <CardTitle className="text-xl font-bold flex items-center gap-3 text-slate-800">
+                    <div className="p-2 bg-emerald-100/80 rounded-lg">
+                      <Building className="h-6 w-6 text-emerald-600" />
+                    </div>
                     Properties ({properties.length})
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-3">
+                <CardContent className="space-y-4 px-6 pb-6">
                   {properties.slice(0, 4).map((property: any) => (
-                    <div key={property.id} className="flex items-center justify-between p-2 bg-slate-50 dark:bg-slate-800 rounded">
+                    <div key={property.id} className="flex items-center justify-between p-3 bg-gradient-to-r from-emerald-50/50 to-slate-50/80 rounded-lg border border-emerald-100/30">
                       <div>
-                        <p className="font-medium text-sm">{property.name}</p>
-                        <p className="text-xs text-slate-600">{property.bedrooms} BR</p>
+                        <p className="font-semibold text-sm text-slate-800">{property.name}</p>
+                        <p className="text-xs text-slate-500 font-medium">{property.bedrooms} BR</p>
                       </div>
-                      <Badge variant={property.status === 'active' ? 'default' : 'secondary'}>
+                      <Badge 
+                        variant={property.status === 'active' ? 'default' : 'secondary'} 
+                        className={property.status === 'active' ? 'bg-emerald-100 text-emerald-700 border-emerald-200' : 'bg-slate-100 text-slate-600 border-slate-200'}
+                      >
                         {property.status}
                       </Badge>
                     </div>
                   ))}
                   {properties.length > 4 && (
-                    <p className="text-xs text-center text-slate-600 pt-2">
+                    <p className="text-sm text-center text-slate-500 pt-2 font-medium">
                       +{properties.length - 4} more properties
                     </p>
                   )}
@@ -178,27 +215,33 @@ export default function UpgradedAdminDashboard() {
               </Card>
 
               {/* Recent Tasks */}
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    <ListTodo className="h-5 w-5" />
+              <Card className="rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 border-2 border-teal-100/50">
+                <CardHeader className="pb-4 px-6 pt-6">
+                  <CardTitle className="text-xl font-bold flex items-center gap-3 text-slate-800">
+                    <div className="p-2 bg-teal-100/80 rounded-lg">
+                      <ListTodo className="h-6 w-6 text-teal-600" />
+                    </div>
                     Recent Tasks
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-3">
+                <CardContent className="space-y-4 px-6 pb-6">
                   {recentTasks.map((task: any) => (
-                    <div key={task.id} className="space-y-2 p-2 bg-slate-50 dark:bg-slate-800 rounded">
+                    <div key={task.id} className="space-y-3 p-4 bg-gradient-to-r from-teal-50/50 to-slate-50/80 rounded-lg border border-teal-100/30">
                       <div className="flex items-center justify-between">
-                        <p className="font-medium text-sm">{task.title}</p>
-                        <Button variant="ghost" size="sm">
-                          <MoreVertical className="h-3 w-3" />
+                        <p className="font-semibold text-sm text-slate-800">{task.title}</p>
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          className="rounded-lg hover:bg-teal-100/50 transition-colors duration-200"
+                        >
+                          <MoreVertical className="h-4 w-4 text-teal-600" />
                         </Button>
                       </div>
                       <TaskProgressBar 
                         status={task.status} 
                         priority={task.priority} 
                       />
-                      <p className="text-xs text-slate-600">
+                      <p className="text-xs text-slate-500 font-medium">
                         Due: {formatDate(task.dueDate)}
                       </p>
                     </div>
@@ -207,28 +250,33 @@ export default function UpgradedAdminDashboard() {
               </Card>
 
               {/* Recent Bookings */}
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    <Calendar className="h-5 w-5" />
+              <Card className="rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 border-2 border-cyan-100/50">
+                <CardHeader className="pb-4 px-6 pt-6">
+                  <CardTitle className="text-xl font-bold flex items-center gap-3 text-slate-800">
+                    <div className="p-2 bg-cyan-100/80 rounded-lg">
+                      <Calendar className="h-6 w-6 text-cyan-600" />
+                    </div>
                     Recent Bookings
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-3">
+                <CardContent className="space-y-4 px-6 pb-6">
                   {recentBookings.map((booking: any) => {
                     const propertyName = propertyMap.get(booking.propertyId) || `Property #${booking.propertyId}`;
                     return (
-                      <div key={booking.id} className="flex items-center justify-between p-2 bg-slate-50 dark:bg-slate-800 rounded">
+                      <div key={booking.id} className="flex items-center justify-between p-3 bg-gradient-to-r from-cyan-50/50 to-slate-50/80 rounded-lg border border-cyan-100/30">
                         <div>
-                          <p className="font-medium text-sm">{booking.guestName}</p>
-                          <p className="text-xs text-blue-600 font-medium">{propertyName}</p>
-                          <p className="text-xs text-slate-600">
+                          <p className="font-semibold text-sm text-slate-800">{booking.guestName}</p>
+                          <p className="text-xs text-cyan-600 font-semibold">{propertyName}</p>
+                          <p className="text-xs text-slate-500 font-medium">
                             {formatDate(booking.checkInDate || booking.checkIn)} - {formatDate(booking.checkOutDate || booking.checkOut)}
                           </p>
                         </div>
                         <div className="text-right">
-                          <p className="font-medium text-sm">{formatCurrency(booking.totalAmount)}</p>
-                          <Badge variant={booking.status === 'confirmed' ? 'default' : 'secondary'}>
+                          <p className="font-bold text-sm text-slate-800">{formatCurrency(booking.totalAmount)}</p>
+                          <Badge 
+                            variant={booking.status === 'confirmed' ? 'default' : 'secondary'}
+                            className={booking.status === 'confirmed' ? 'bg-emerald-100 text-emerald-700 border-emerald-200' : 'bg-slate-100 text-slate-600 border-slate-200'}
+                          >
                             {booking.status}
                           </Badge>
                         </div>
