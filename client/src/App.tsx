@@ -175,6 +175,7 @@ function AppRoutes() {
         <Route path="/help" component={FastHelp} />
         
         {/* Dashboard Routes - Order Matters! */}
+        <Route path="/admin" component={EnhancedAdminDashboard} />
         <Route path="/dashboard/admin" component={EnhancedAdminDashboard} />
         <Route path="/dashboard-hub" component={DashboardHub} />
         
