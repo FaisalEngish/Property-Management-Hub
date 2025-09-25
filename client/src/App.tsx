@@ -160,7 +160,7 @@ function AppRoutes() {
   return (
     <div className="min-h-screen bg-background">
       <Sidebar />
-      <main className="lg:pl-72 xl:pl-80 min-h-screen flex flex-col items-stretch justify-start">
+      <main className="lg:pl-72 xl:pl-80 min-h-screen flex flex-col items-stretch justify-start pt-2">
         <Switch>
         <Route path="/" component={RoleBasedDashboard} />
         <Route path="/properties" component={Properties} />
