@@ -1,20 +1,11 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { useLocation } from "wouter";
-import { useFastAuth } from "@/lib/fastAuth";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import AdminGlobalFilterBar, { AdminFilters } from "@/components/AdminGlobalFilterBar";
+import { useQuery } from "@tanstack/react-query";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Building, Calendar, ListTodo, DollarSign, User, Users, TrendingUp, AlertTriangle, CheckCircle, Clock, Wrench, Settings, Plus, Trash2 } from "lucide-react";
-import { RoleBackButton } from "@/components/BackButton";
-import RefreshDataButton from "@/components/RefreshDataButton";
-import CreateTaskDialog from "@/components/CreateTaskDialog";
-import CreateBookingDialog from "@/components/CreateBookingDialog";
-import CreatePropertyDialog from "@/components/CreatePropertyDialog";
-import { apiRequest } from "@/lib/queryClient";
-import { useToast } from "@/hooks/use-toast";
+import { Building, Calendar, ListTodo, DollarSign, User, Users, TrendingUp, AlertTriangle, CheckCircle, Clock, Settings, Plus, Trash2, Wrench } from "lucide-react";
 
 interface FilteredData {
   properties: any[];
@@ -26,12 +17,8 @@ interface FilteredData {
 }
 
 export default function EnhancedAdminDashboard() {
-  const { user } = useFastAuth();
   const [location, setLocation] = useLocation();
-  const [activeFilters, setActiveFilters] = useState<AdminFilters>({});
-  const [createTaskOpen, setCreateTaskOpen] = useState(false);
-  const [createBookingOpen, setCreateBookingOpen] = useState(false);
-  const [createPropertyOpen, setCreatePropertyOpen] = useState(false);
+  const [activeFilters, setActiveFilters] = useState<any>({});
   
   // Fetch real data from API
   const { data: properties = [] } = useQuery({ queryKey: ["/api/properties"] });
@@ -122,16 +109,14 @@ export default function EnhancedAdminDashboard() {
 
   return (
     <div className="container mx-auto p-6 space-y-6">
-      <RoleBackButton />
-      
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Admin Dashboard</h1>
-          <p className="text-gray-600 mt-1">Comprehensive property management overview with global filtering</p>
+          <h1 className="text-3xl font-bold text-gray-900">Enhanced Admin Dashboard</h1>
+          <p className="text-gray-600 mt-1">Comprehensive property management overview with advanced filtering</p>
         </div>
         <div className="flex items-center gap-2">
           <Badge variant="outline" className="text-sm">
-            {user?.role === 'admin' ? 'System Administrator' : 'Portfolio Manager'}
+            Administrator
           </Badge>
           <Button
             variant="ghost"
@@ -147,18 +132,21 @@ export default function EnhancedAdminDashboard() {
         </div>
       </div>
 
-      {/* Global Filter Bar and Cache Controls */}
+      {/* Search and Filters - Simplified */}
       <div className="flex items-center justify-between gap-4">
-        <AdminGlobalFilterBar 
-          onFiltersChange={setActiveFilters}
-          className="flex-1"
-        />
-        <RefreshDataButton
-          variant="outline"
-          size="sm"
-          showStats={true}
-          showLastUpdate={true}
-        />
+        <div className="flex-1">
+          <div className="relative">
+            <input
+              type="text"
+              placeholder="Search properties..."
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              onChange={(e) => setActiveFilters({...activeFilters, searchText: e.target.value})}
+            />
+          </div>
+        </div>
+        <Button variant="outline" size="sm">
+          Clear Filters
+        </Button>
       </div>
 
       {/* Stats Overview */}
@@ -466,19 +454,6 @@ export default function EnhancedAdminDashboard() {
         </TabsContent>
       </Tabs>
 
-      {/* Create Dialogs */}
-      <CreateTaskDialog 
-        isOpen={createTaskOpen} 
-        onOpenChange={setCreateTaskOpen} 
-      />
-      <CreateBookingDialog 
-        open={createBookingOpen} 
-        onOpenChange={setCreateBookingOpen} 
-      />
-      <CreatePropertyDialog 
-        open={createPropertyOpen} 
-        onOpenChange={setCreatePropertyOpen} 
-      />
     </div>
   );
 }
