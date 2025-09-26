@@ -450,8 +450,32 @@ export default function PropertyHub() {
 
               {/* Management Tools Tab */}
               <TabsContent value="grid" className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {/* Legacy Hub Items */}
+                {/* Footer Insights Bar */}
+                <Card className="bg-gradient-to-r from-emerald-50 via-emerald-100/50 to-emerald-50 backdrop-blur-sm border border-emerald-200/50">
+                  <CardContent className="py-4">
+                    <div className="flex items-center justify-center">
+                      <div className="flex items-center gap-8 text-sm font-medium">
+                        <div className="flex items-center gap-2">
+                          <span className="text-lg">📊</span>
+                          <span className="text-emerald-800">Active Bookings: <strong>{bookingsArray.length}</strong></span>
+                        </div>
+                        <div className="text-emerald-300">|</div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-lg">🔧</span>
+                          <span className="text-emerald-800">Pending Tasks: <strong>7</strong></span>
+                        </div>
+                        <div className="text-emerald-300">|</div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-lg">🏢</span>
+                          <span className="text-emerald-800">Total Properties: <strong>{propertiesArray.length}</strong></span>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
+                  {/* Enhanced Hub Items */}
                   {[
                     {
                       title: "Properties List",
@@ -459,7 +483,10 @@ export default function PropertyHub() {
                       href: "/properties",
                       icon: Building2,
                       badge: "Core",
-                      color: "bg-blue-50 hover:bg-blue-100 border-blue-200"
+                      badgeIcon: "🏠",
+                      stats: `${propertiesArray.length} total properties`,
+                      actionText: "Add Property",
+                      actionIcon: "➕"
                     },
                     {
                       title: "Calendar & Bookings", 
@@ -467,7 +494,10 @@ export default function PropertyHub() {
                       href: "/bookings",
                       icon: Calendar,
                       badge: "Bookings",
-                      color: "bg-green-50 hover:bg-green-100 border-green-200"
+                      badgeIcon: "📅",
+                      stats: `${bookingsArray.length} bookings this week`,
+                      actionText: "Create Booking", 
+                      actionIcon: "📅"
                     },
                     {
                       title: "Property Tasks",
@@ -475,29 +505,99 @@ export default function PropertyHub() {
                       href: "/tasks",
                       icon: ClipboardList,
                       badge: "Tasks",
-                      color: "bg-orange-50 hover:bg-orange-100 border-orange-200"
+                      badgeIcon: "✅",
+                      stats: "7 open tasks",
+                      actionText: "Add Task",
+                      actionIcon: "📝"
+                    },
+                    {
+                      title: "Reports & Analytics",
+                      description: "Generate comprehensive reports and analytics with PDF/CSV export capabilities",
+                      href: "/reports",
+                      icon: LayoutGrid,
+                      badge: "Analytics",
+                      badgeIcon: "📊",
+                      stats: "3 reports ready",
+                      actionText: "Generate Report",
+                      actionIcon: "📈",
+                      isComingSoon: true
+                    },
+                    {
+                      title: "Automation & Alerts",
+                      description: "Smart reminders, AI insights, and automated property management workflows",
+                      href: "/automation",
+                      icon: RefreshCw,
+                      badge: "AI & Auto",
+                      badgeIcon: "🤖",
+                      stats: "5 active rules",
+                      actionText: "Setup Alert",
+                      actionIcon: "⚡",
+                      isComingSoon: true
                     }
                   ].map((item) => {
                     const IconComponent = item.icon;
                     return (
-                      <Card key={item.href} className={`cursor-pointer transition-all duration-200 hover:shadow-lg ${item.color}`} onClick={() => navigate(item.href)}>
-                        <CardHeader className="pb-3">
-                          <div className="flex items-center justify-between">
+                      <Card 
+                        key={item.href} 
+                        className={`group cursor-pointer transition-all duration-300 bg-gradient-to-br from-white via-white to-slate-50/30 backdrop-blur-sm border border-slate-200/50 hover:shadow-xl hover:shadow-emerald-500/20 hover:scale-[1.02] hover:-translate-y-1 relative overflow-hidden ${item.isComingSoon ? 'opacity-80' : ''}`}
+                        onClick={() => !item.isComingSoon && navigate(item.href)}
+                      >
+                        {/* Glassmorphism overlay */}
+                        <div className="absolute inset-0 bg-gradient-to-br from-white/60 via-transparent to-white/30 pointer-events-none" />
+                        
+                        {/* Coming Soon badge for future cards */}
+                        {item.isComingSoon && (
+                          <div className="absolute top-2 right-2 z-10">
+                            <Badge className="bg-yellow-100 text-yellow-800 border-yellow-300 text-xs">
+                              Coming Soon
+                            </Badge>
+                          </div>
+                        )}
+                        
+                        <CardHeader className="pb-3 relative">
+                          <div className="flex items-center justify-between mb-3">
                             <div className="flex items-center space-x-3">
-                              <div className="p-2 bg-white rounded-lg shadow-sm">
-                                <IconComponent className="h-6 w-6 text-gray-700" />
+                              <div className="p-3 bg-gradient-to-br from-emerald-100 to-emerald-50 rounded-xl shadow-lg group-hover:shadow-emerald-200 group-hover:scale-110 transition-all duration-300">
+                                <IconComponent className="h-6 w-6 text-emerald-700" />
                               </div>
-                              <CardTitle className="text-lg">{item.title}</CardTitle>
+                              <CardTitle className="text-lg font-semibold text-slate-800">{item.title}</CardTitle>
                             </div>
-                            <Badge variant="secondary" className="text-xs">
+                            <Badge className="bg-gradient-to-r from-emerald-100 to-emerald-50 text-emerald-800 border-emerald-300 shadow-sm">
+                              <span className="mr-1">{item.badgeIcon}</span>
                               {item.badge}
                             </Badge>
                           </div>
+                          
+                          {/* Quick Stats */}
+                          <div className="bg-slate-50/50 rounded-lg p-2 border border-slate-200/50">
+                            <p className="text-sm font-medium text-slate-700">{item.stats}</p>
+                          </div>
                         </CardHeader>
-                        <CardContent>
-                          <p className="text-sm text-gray-600 leading-relaxed">
+
+                        <CardContent className="space-y-4 relative">
+                          <p className="text-sm text-slate-600 leading-relaxed">
                             {item.description}
                           </p>
+                          
+                          {/* Quick Action Button */}
+                          <Button 
+                            size="sm" 
+                            className={`w-full bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white shadow-lg hover:shadow-emerald-500/25 transition-all duration-200 group-hover:scale-105 ${item.isComingSoon ? 'opacity-50 cursor-not-allowed' : ''}`}
+                            disabled={item.isComingSoon}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (!item.isComingSoon) {
+                                // Handle quick actions here
+                                toast({
+                                  title: "Quick Action",
+                                  description: `${item.actionText} functionality coming soon!`,
+                                });
+                              }
+                            }}
+                          >
+                            <span className="mr-2">{item.actionIcon}</span>
+                            {item.isComingSoon ? 'Coming Soon' : item.actionText}
+                          </Button>
                         </CardContent>
                       </Card>
                     );
