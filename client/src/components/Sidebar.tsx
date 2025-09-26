@@ -219,14 +219,14 @@ function NotificationBell() {
   
   const { data: unreadNotifications = [], isLoading } = useQuery({
     queryKey: ['/api/notifications/unread'],
-    queryFn: () => apiRequest('/api/notifications/unread'),
+    queryFn: () => apiRequest('GET', '/api/notifications/unread'),
     refetchInterval: isAuthenticated ? 30000 : false, // Only refresh when authenticated
     enabled: isAuthenticated, // Only enabled when authenticated
   });
 
   const { data: allNotifications = [] } = useQuery({
     queryKey: ['/api/notifications'],
-    queryFn: () => apiRequest('/api/notifications'),
+    queryFn: () => apiRequest('GET', '/api/notifications'),
     enabled: isAuthenticated, // Only enabled when authenticated
   });
 
