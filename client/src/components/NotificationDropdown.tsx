@@ -181,7 +181,7 @@ export function NotificationDropdown() {
         
         <DropdownMenuSeparator />
         
-        {notifications.length === 0 ? (
+        {!Array.isArray(notifications) || notifications.length === 0 ? (
           <div className="p-4 text-center text-muted-foreground">
             No notifications
           </div>
@@ -248,7 +248,7 @@ export function NotificationDropdown() {
           </ScrollArea>
         )}
         
-        {notifications.length > 10 && (
+        {Array.isArray(notifications) && notifications.length > 10 && (
           <>
             <DropdownMenuSeparator />
             <DropdownMenuItem className="text-center text-muted-foreground">

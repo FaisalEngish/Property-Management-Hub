@@ -285,7 +285,7 @@ function NotificationBell() {
           )}
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
-        {allNotifications.length === 0 ? (
+        {!Array.isArray(allNotifications) || allNotifications.length === 0 ? (
           <div className="p-4 text-center text-sm text-muted-foreground">
             No notifications yet
           </div>
@@ -315,7 +315,7 @@ function NotificationBell() {
             ))}
           </div>
         )}
-        {allNotifications.length > 5 && (
+        {Array.isArray(allNotifications) && allNotifications.length > 5 && (
           <>
             <DropdownMenuSeparator />
             <DropdownMenuItem 
