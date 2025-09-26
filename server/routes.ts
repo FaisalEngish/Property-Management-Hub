@@ -2711,6 +2711,245 @@ Be specific and actionable in your recommendations.`;
     }
   });
 
+  // ===== SMART REMINDER SYSTEM API =====
+  
+  // Payslip Reminder routes
+  app.get("/api/payslip-reminders", isDemoAuthenticated, async (req, res) => {
+    try {
+      const { organizationId } = getTenantContext(req);
+      const reminders = await storage.getPayslipReminders(organizationId);
+      res.json(reminders);
+    } catch (error) {
+      console.error("Error fetching payslip reminders:", error);
+      res.status(500).json({ message: "Failed to fetch payslip reminders" });
+    }
+  });
+
+  app.get("/api/payslip-reminders/staff/:staffId", isDemoAuthenticated, async (req, res) => {
+    try {
+      const { organizationId } = getTenantContext(req);
+      const { staffId } = req.params;
+      const reminders = await storage.getPayslipRemindersByStaff(staffId, organizationId);
+      res.json(reminders);
+    } catch (error) {
+      console.error("Error fetching staff payslip reminders:", error);
+      res.status(500).json({ message: "Failed to fetch staff payslip reminders" });
+    }
+  });
+
+  app.get("/api/payslip-reminders/overdue", isDemoAuthenticated, async (req, res) => {
+    try {
+      const { organizationId } = getTenantContext(req);
+      const overdueReminders = await storage.getOverduePayslipReminders(organizationId);
+      res.json(overdueReminders);
+    } catch (error) {
+      console.error("Error fetching overdue payslip reminders:", error);
+      res.status(500).json({ message: "Failed to fetch overdue payslip reminders" });
+    }
+  });
+
+  app.post("/api/payslip-reminders", isDemoAuthenticated, async (req, res) => {
+    try {
+      const { organizationId } = getTenantContext(req);
+      const userData = req.user as any;
+      
+      const validatedData = insertPayslipReminderSchema.parse({
+        ...req.body,
+        organizationId,
+        createdBy: userData.id
+      });
+
+      const reminder = await storage.createPayslipReminder(validatedData);
+      res.status(201).json(reminder);
+    } catch (error) {
+      console.error("Error creating payslip reminder:", error);
+      res.status(500).json({ message: "Failed to create payslip reminder" });
+    }
+  });
+
+  app.patch("/api/payslip-reminders/:id/upload-payslip", isDemoAuthenticated, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { documentUrl } = req.body;
+      const userData = req.user as any;
+
+      const reminder = await storage.markPayslipUploaded(parseInt(id), documentUrl, userData.id);
+      
+      if (!reminder) {
+        return res.status(404).json({ message: "Payslip reminder not found" });
+      }
+
+      res.json(reminder);
+    } catch (error) {
+      console.error("Error uploading payslip:", error);
+      res.status(500).json({ message: "Failed to upload payslip" });
+    }
+  });
+
+  app.patch("/api/payslip-reminders/:id/upload-proof", isDemoAuthenticated, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { proofUrl } = req.body;
+      const userData = req.user as any;
+
+      const reminder = await storage.markProofOfPaymentUploaded(parseInt(id), proofUrl, userData.id);
+      
+      if (!reminder) {
+        return res.status(404).json({ message: "Payslip reminder not found" });
+      }
+
+      res.json(reminder);
+    } catch (error) {
+      console.error("Error uploading proof of payment:", error);
+      res.status(500).json({ message: "Failed to upload proof of payment" });
+    }
+  });
+
+  // Reminder Notification routes
+  app.get("/api/reminder-notifications", isDemoAuthenticated, async (req, res) => {
+    try {
+      const { organizationId } = getTenantContext(req);
+      const notifications = await storage.getReminderNotifications(organizationId);
+      res.json(notifications);
+    } catch (error) {
+      console.error("Error fetching reminder notifications:", error);
+      res.status(500).json({ message: "Failed to fetch reminder notifications" });
+    }
+  });
+
+  app.get("/api/reminder-notifications/user/:userId", isDemoAuthenticated, async (req, res) => {
+    try {
+      const { organizationId } = getTenantContext(req);
+      const { userId } = req.params;
+      const notifications = await storage.getReminderNotificationsByUser(userId, organizationId);
+      res.json(notifications);
+    } catch (error) {
+      console.error("Error fetching user reminder notifications:", error);
+      res.status(500).json({ message: "Failed to fetch user reminder notifications" });
+    }
+  });
+
+  app.post("/api/reminder-notifications/:id/mark-read", isDemoAuthenticated, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const notification = await storage.markReminderNotificationRead(parseInt(id));
+      
+      if (!notification) {
+        return res.status(404).json({ message: "Reminder notification not found" });
+      }
+
+      res.json(notification);
+    } catch (error) {
+      console.error("Error marking notification as read:", error);
+      res.status(500).json({ message: "Failed to mark notification as read" });
+    }
+  });
+
+  // Reminder Settings routes
+  app.get("/api/reminder-settings", isDemoAuthenticated, async (req, res) => {
+    try {
+      const { organizationId } = getTenantContext(req);
+      const settings = await storage.getReminderSettings(organizationId);
+      res.json(settings);
+    } catch (error) {
+      console.error("Error fetching reminder settings:", error);
+      res.status(500).json({ message: "Failed to fetch reminder settings" });
+    }
+  });
+
+  app.get("/api/reminder-settings/:reminderType", isDemoAuthenticated, async (req, res) => {
+    try {
+      const { organizationId } = getTenantContext(req);
+      const { reminderType } = req.params;
+      const settings = await storage.getReminderSettingsByType(organizationId, reminderType);
+      
+      if (!settings) {
+        return res.status(404).json({ message: "Reminder settings not found" });
+      }
+
+      res.json(settings);
+    } catch (error) {
+      console.error("Error fetching reminder settings by type:", error);
+      res.status(500).json({ message: "Failed to fetch reminder settings" });
+    }
+  });
+
+  app.post("/api/reminder-settings", isDemoAuthenticated, requireRole(['admin', 'portfolio-manager']), async (req, res) => {
+    try {
+      const { organizationId } = getTenantContext(req);
+      const userData = req.user as any;
+      
+      const validatedData = insertReminderSettingsSchema.parse({
+        ...req.body,
+        organizationId,
+        createdBy: userData.id
+      });
+
+      const settings = await storage.createReminderSettings(validatedData);
+      res.status(201).json(settings);
+    } catch (error) {
+      console.error("Error creating reminder settings:", error);
+      res.status(500).json({ message: "Failed to create reminder settings" });
+    }
+  });
+
+  app.patch("/api/reminder-settings/:id", isDemoAuthenticated, requireRole(['admin', 'portfolio-manager']), async (req, res) => {
+    try {
+      const { id } = req.params;
+      const userData = req.user as any;
+
+      const validatedData = {
+        ...req.body,
+        updatedBy: userData.id,
+        updatedAt: new Date()
+      };
+
+      const settings = await storage.updateReminderSettings(parseInt(id), validatedData);
+      
+      if (!settings) {
+        return res.status(404).json({ message: "Reminder settings not found" });
+      }
+
+      res.json(settings);
+    } catch (error) {
+      console.error("Error updating reminder settings:", error);
+      res.status(500).json({ message: "Failed to update reminder settings" });
+    }
+  });
+
+  // Smart Reminder Automation routes
+  app.post("/api/reminders/check-overdue", isDemoAuthenticated, requireRole(['admin', 'portfolio-manager']), async (req, res) => {
+    try {
+      const { organizationId } = getTenantContext(req);
+      const overdueItems = await storage.checkOverdueReminders(organizationId);
+      res.json(overdueItems);
+    } catch (error) {
+      console.error("Error checking overdue reminders:", error);
+      res.status(500).json({ message: "Failed to check overdue reminders" });
+    }
+  });
+
+  app.post("/api/reminders/generate-daily", isDemoAuthenticated, requireRole(['admin', 'portfolio-manager']), async (req, res) => {
+    try {
+      const { organizationId } = getTenantContext(req);
+      const result = await storage.generateDailyReminders(organizationId);
+      res.json(result);
+    } catch (error) {
+      console.error("Error generating daily reminders:", error);
+      res.status(500).json({ message: "Failed to generate daily reminders" });
+    }
+  });
+
+  app.post("/api/reminders/send-pending", isDemoAuthenticated, requireRole(['admin', 'portfolio-manager']), async (req, res) => {
+    try {
+      const result = await storage.sendPendingNotifications();
+      res.json(result);
+    } catch (error) {
+      console.error("Error sending pending notifications:", error);
+      res.status(500).json({ message: "Failed to send pending notifications" });
+    }
+  });
+
   // Welcome Pack Inventory routes
   app.get("/api/welcome-pack-items", isDemoAuthenticated, async (req, res) => {
     try {
