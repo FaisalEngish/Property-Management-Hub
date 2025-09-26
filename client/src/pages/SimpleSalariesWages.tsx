@@ -23,63 +23,23 @@ import {
   Sparkles
 } from 'lucide-react';
 import { useUsersData } from '@/hooks/useDashboardData';
+import { useQuery } from '@tanstack/react-query';
 import TopBar from '@/components/TopBar';
 
-// Simple demo data
-const demoStaff = [
-  {
-    id: 1,
-    employeeId: 'EMP001',
-    name: 'Sarah Johnson',
-    position: 'Property Manager',
-    department: 'Operations',
-    salary: 45000,
-    status: 'Active'
-  },
-  {
-    id: 2,
-    employeeId: 'EMP002', 
-    name: 'Mike Chen',
-    position: 'Maintenance Technician',
-    department: 'Maintenance',
-    salary: 35000,
-    status: 'Active'
-  },
-  {
-    id: 3,
-    employeeId: 'EMP003',
-    name: 'Emily Rodriguez',
-    position: 'Guest Services',
-    department: 'Customer Service',
-    salary: 32000,
-    status: 'Active'
-  }
-];
+// Live staff data from API endpoints
+const useStaffData = () => {
+  return useQuery({
+    queryKey: ['/api/staff/list'],
+    select: (data: any) => data?.staff || []
+  });
+};
 
-const demoPayroll = [
-  {
-    id: 1,
-    staffId: 1,
-    period: 'Jan 2025',
-    baseSalary: 45000,
-    overtime: 0,
-    bonus: 2000,
-    gross: 47000,
-    net: 38000,
-    status: 'Paid'
-  },
-  {
-    id: 2,
-    staffId: 2,
-    period: 'Jan 2025', 
-    baseSalary: 35000,
-    overtime: 150,
-    bonus: 0,
-    gross: 35150,
-    net: 28500,
-    status: 'Pending'
-  }
-];
+const usePendingPayroll = () => {
+  return useQuery({
+    queryKey: ['/api/staff/pending'],
+    select: (data: any) => data?.pending || []
+  });
+};
 
 export default function SimpleSalariesWages() {
   const [activeTab, setActiveTab] = useState('staff');
@@ -95,9 +55,15 @@ export default function SimpleSalariesWages() {
   const hasWriteAccess = currentUser.role === 'admin' || currentUser.role === 'portfolio-manager';
   const hasExportAccess = hasWriteAccess || currentUser.role === 'staff';
 
+  // Fetch live staff and payroll data
+  const { data: staffData = [], isLoading: isStaffLoading, error: staffError } = useStaffData();
+  const { data: pendingPayroll = [], isLoading: isPendingLoading, error: pendingError } = usePendingPayroll();
+
   // Filter staff data based on search and filters
   const filteredStaff = useMemo(() => {
-    return demoStaff.filter(staff => {
+    if (!staffData.length) return [];
+    
+    return staffData.filter(staff => {
       const matchesSearch = staff.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           staff.position.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           staff.employeeId.toLowerCase().includes(searchTerm.toLowerCase());
@@ -106,12 +72,13 @@ export default function SimpleSalariesWages() {
       
       return matchesSearch && matchesDepartment && matchesStatus;
     });
-  }, [searchTerm, departmentFilter, statusFilter]);
+  }, [staffData, searchTerm, departmentFilter, statusFilter]);
 
   // Get unique departments for filter
   const departments = useMemo(() => {
-    return [...new Set(demoStaff.map(staff => staff.department))];
-  }, []);
+    if (!staffData.length) return [];
+    return [...new Set(staffData.map(staff => staff.department))];
+  }, [staffData]);
 
   const formatCurrency = (amount: number) => {
     return `฿${amount.toLocaleString()}`;
@@ -179,12 +146,61 @@ export default function SimpleSalariesWages() {
 
   // Role breakdown for tooltip
   const getRoleBreakdown = () => {
-    const roleCounts = demoStaff.reduce((acc: Record<string, number>, staff) => {
+    if (!staffData.length) return [];
+    const roleCounts = staffData.reduce((acc: Record<string, number>, staff) => {
       acc[staff.position] = (acc[staff.position] || 0) + 1;
       return acc;
     }, {});
     return Object.entries(roleCounts).map(([position, count]) => ({ position, count }));
   };
+
+  // Calculate live statistics
+  const totalStaff = staffData.length;
+  const totalPayroll = staffData.reduce((sum, staff) => sum + (staff.salary || 0), 0);
+  const averageSalary = totalStaff > 0 ? Math.floor(totalPayroll / totalStaff) : 0;
+  const pendingPayments = pendingPayroll.length;
+
+  // Show loading state
+  if (isStaffLoading || isPendingLoading) {
+    return (
+      <div className="min-h-screen flex bg-background">
+        <div className="flex-1 flex flex-col lg:ml-0">
+          <TopBar title="Staff Salaries & Wages" />
+          <main className="flex-1 overflow-auto p-6">
+            <div className="max-w-7xl mx-auto">
+              <div className="flex items-center justify-center h-64">
+                <div className="text-center">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                  <p className="text-gray-600">Loading staff data...</p>
+                </div>
+              </div>
+            </div>
+          </main>
+        </div>
+      </div>
+    );
+  }
+
+  // Show error state
+  if (staffError || pendingError) {
+    return (
+      <div className="min-h-screen flex bg-background">
+        <div className="flex-1 flex flex-col lg:ml-0">
+          <TopBar title="Staff Salaries & Wages" />
+          <main className="flex-1 overflow-auto p-6">
+            <div className="max-w-7xl mx-auto">
+              <div className="flex items-center justify-center h-64">
+                <div className="text-center">
+                  <p className="text-red-600 mb-2">Error loading staff data</p>
+                  <p className="text-gray-600">Please try refreshing the page</p>
+                </div>
+              </div>
+            </div>
+          </main>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex bg-background">
@@ -262,7 +278,7 @@ export default function SimpleSalariesWages() {
                         <div className="flex items-center justify-between">
                           <div>
                             <p className="text-sm font-medium text-blue-700">Total Staff</p>
-                            <p className="text-3xl font-bold text-blue-900">3</p>
+                            <p className="text-3xl font-bold text-blue-900">{totalStaff}</p>
                           </div>
                           <div className="p-3 rounded-xl shadow-lg bg-gradient-to-br from-blue-100 to-blue-200">
                             <Users className="h-8 w-8 text-blue-700" />
@@ -299,7 +315,7 @@ export default function SimpleSalariesWages() {
                         <div className="flex items-center justify-between">
                           <div>
                             <p className="text-sm font-medium text-green-700">Monthly Payroll</p>
-                            <p className="text-3xl font-bold text-green-900">฿112,000</p>
+                            <p className="text-3xl font-bold text-green-900">฿{totalPayroll.toLocaleString()}</p>
                           </div>
                           <div className="p-3 rounded-xl shadow-lg bg-gradient-to-br from-green-100 to-green-200">
                             <DollarSign className="h-8 w-8 text-green-700" />
@@ -346,7 +362,7 @@ export default function SimpleSalariesWages() {
                         <div className="flex items-center justify-between">
                           <div>
                             <p className="text-sm font-medium text-purple-700">Average Salary</p>
-                            <p className="text-3xl font-bold text-purple-900">฿37,333</p>
+                            <p className="text-3xl font-bold text-purple-900">฿{averageSalary.toLocaleString()}</p>
                           </div>
                           <div className="p-3 rounded-xl shadow-lg bg-gradient-to-br from-purple-100 to-purple-200">
                             <BarChart3 className="h-8 w-8 text-purple-700" />
@@ -389,7 +405,7 @@ export default function SimpleSalariesWages() {
                         <div className="flex items-center justify-between">
                           <div>
                             <p className="text-sm font-medium text-orange-700">Pending Payments</p>
-                            <p className="text-3xl font-bold text-orange-900">1</p>
+                            <p className="text-3xl font-bold text-orange-900">{pendingPayments}</p>
                           </div>
                           <div className="p-3 rounded-xl shadow-lg bg-gradient-to-br from-orange-100 to-orange-200">
                             <Clock className="h-8 w-8 text-orange-700" />
@@ -512,7 +528,7 @@ export default function SimpleSalariesWages() {
                     <div className="flex items-center justify-between mb-4">
                       <h3 className="text-lg font-semibold text-slate-800">Staff Members</h3>
                       <div className="text-sm text-slate-600">
-                        Showing {filteredStaff.length} of {demoStaff.length} staff members
+                        Showing {filteredStaff.length} of {totalStaff} staff members
                       </div>
                     </div>
                     <div className="overflow-x-auto">
@@ -613,8 +629,8 @@ export default function SimpleSalariesWages() {
                           </tr>
                         </thead>
                         <tbody className="bg-white/80 divide-y divide-slate-200">
-                          {demoPayroll.map((record) => {
-                            const staff = demoStaff.find(s => s.id === record.staffId);
+                          {pendingPayroll.map((record) => {
+                            const staff = staffData.find(s => s.id === record.staffId);
                             return (
                               <tr key={record.id} className="hover:bg-slate-50/50 transition-colors duration-200">
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900">{record.period}</td>
