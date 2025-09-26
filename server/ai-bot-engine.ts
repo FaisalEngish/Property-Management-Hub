@@ -590,43 +590,54 @@ Please provide a well-formatted, executive-ready staff report.`;
         this.fetchFinanceAnalytics(context)
       ]);
 
-      const systemPrompt = `You are Captain Cortex, the Smart Co-Pilot for Property Management by HostPilotPro. You have access to live financial data and analytics. Analyze the user's question and provide a helpful response.
+      const systemPrompt = `You are Captain Cortex, the Smart Co-Pilot for Property Management by HostPilotPro. You have access to live financial data and analytics.
 
-Guidelines:
-1. Be conversational and helpful - act like a smart financial assistant who understands the business
-2. Use specific data from the provided financial context
-3. Format responses clearly with proper structure (tables, summaries, key insights)
-4. Use Thai Baht ฿ for money amounts
-5. Provide actionable financial insights when possible
-6. Be professional but friendly
-7. If asked about revenue, expenses, or profit, focus on those metrics
-8. Include trends and comparisons when relevant
+CRITICAL FORMATTING REQUIREMENTS:
+1. NEVER show raw JSON data or long unformatted text dumps
+2. ALWAYS create clean, professional financial summaries with clear sections
+3. Use proper table formatting for transaction lists (limit to 10 entries max)
+4. Start with key financial metrics summary (Revenue, Expenses, Net Profit)
+5. Include actionable insights and trend analysis
+6. Format all currency as Thai Baht ฿ with comma separators
+
+RESPONSE STRUCTURE FOR FINANCE QUERIES:
+1. Executive Financial Summary (Revenue, Expenses, Net Profit)
+2. Key Performance Indicators (if applicable)
+3. Recent transactions table (if requested, max 10 entries)
+4. Financial insights and recommendations
+5. Next steps or actions needed
 
 Current date: ${new Date().toISOString().split('T')[0]}
+Financial Overview: ฿${analyticsData.totalRevenue?.toLocaleString()} revenue, ฿${analyticsData.totalExpenses?.toLocaleString()} expenses, ฿${(analyticsData.totalRevenue - analyticsData.totalExpenses)?.toLocaleString()} net profit`;
 
-Financial data available:
+      // Limit transactions display for better formatting
+      const transactionsToShow = financeData.slice(0, 10);
+      const hasMoreTransactions = financeData.length > 10;
+      
+      const userPrompt = `Question: "${question}"
+
+FINANCIAL METRICS:
 - Total Revenue: ฿${analyticsData.totalRevenue?.toLocaleString()}
 - Total Expenses: ฿${analyticsData.totalExpenses?.toLocaleString()}
 - Net Profit: ฿${(analyticsData.totalRevenue - analyticsData.totalExpenses)?.toLocaleString()}
-- Recent Transactions: ${financeData.length} records`;
+- Transaction Count: ${financeData.length}
 
-      const userPrompt = `Question: "${question}"
+RECENT TRANSACTIONS (Showing ${transactionsToShow.length} of ${financeData.length} total):
+${transactionsToShow.map((tx, index) => 
+  `${index + 1}. ${tx.type.toUpperCase()} | ฿${tx.amount?.toLocaleString()} | ${tx.category} | ${tx.date} | ${tx.propertyName || 'General'}`
+).join('\n')}
 
-Financial Data Summary:
-${JSON.stringify({
-        totalRevenue: `฿${analyticsData.totalRevenue?.toLocaleString()}`,
-        totalExpenses: `฿${analyticsData.totalExpenses?.toLocaleString()}`,
-        netProfit: `฿${(analyticsData.totalRevenue - analyticsData.totalExpenses)?.toLocaleString()}`,
-        recentTransactions: financeData.slice(0, 10).map(tx => ({
-          type: tx.type,
-          amount: `฿${tx.amount?.toLocaleString()}`,
-          category: tx.category,
-          date: tx.date,
-          propertyName: tx.propertyName
-        }))
-      }, null, 2)}
+${hasMoreTransactions ? `\n(${financeData.length - 10} additional transactions available)` : ''}
 
-Please provide a helpful financial analysis based on this live data.`;
+INSTRUCTIONS FOR RESPONSE:
+- Start with executive financial summary
+- Create clean tables for transaction data if requested
+- Include financial insights and trends
+- Use proper Thai Baht formatting throughout
+- Provide actionable business recommendations
+- Keep response professional and concise
+
+Please provide a well-formatted financial analysis.`;
 
       return await this.generateAIResponse(systemPrompt, userPrompt);
 
@@ -666,42 +677,53 @@ Please provide a helpful financial analysis based on this live data.`;
       // Fetch live property data
       const propertiesData = await this.fetchPropertiesData(context);
 
-      const systemPrompt = `You are Captain Cortex, the Smart Co-Pilot for Property Management by HostPilotPro. You have access to live property data and details. Analyze the user's question and provide a helpful response.
+      const systemPrompt = `You are Captain Cortex, the Smart Co-Pilot for Property Management by HostPilotPro. You have access to live property portfolio data.
 
-Guidelines:
-1. Be conversational and helpful - act like a smart property management assistant
-2. Use specific data from the provided property context
-3. Format responses clearly with proper structure (lists, property details, summaries)
-4. Include property names, locations, and key details
-5. Provide actionable property insights when possible
-6. Be professional but friendly
-7. If asked about specific properties, focus on those details
-8. Include occupancy, availability, and booking information when relevant
+CRITICAL FORMATTING REQUIREMENTS:
+1. NEVER show raw JSON data or long unformatted text dumps
+2. ALWAYS create clean, professional property listings with proper structure
+3. Use table formatting for property lists (limit to 10 entries max)
+4. Start with portfolio summary (total properties, active count, key metrics)
+5. Include property details in organized, readable format
+6. Provide actionable property management insights
+
+RESPONSE STRUCTURE FOR PROPERTY QUERIES:
+1. Portfolio Executive Summary (total count, active properties)
+2. Property listings table with key details
+3. Pagination info if more properties exist
+4. Property insights and recommendations
+5. Next steps for property management
 
 Current date: ${new Date().toISOString().split('T')[0]}
+Portfolio Overview: ${propertiesData.length} total properties, ${propertiesData.filter(p => p.isActive).length} active`;
 
-Property portfolio:
-- Total Properties: ${propertiesData.length}
-- Active Properties: ${propertiesData.filter(p => p.isActive).length}`;
-
+      // Limit properties display for better formatting
+      const propertiesToShow = propertiesData.slice(0, 10);
+      const hasMoreProperties = propertiesData.length > 10;
+      
       const userPrompt = `Question: "${question}"
 
-Properties Data:
-${JSON.stringify({
-        totalProperties: propertiesData.length,
-        activeProperties: propertiesData.filter(p => p.isActive).length,
-        properties: propertiesData.slice(0, 10).map(property => ({
-          name: property.name,
-          location: property.location,
-          bedrooms: property.bedrooms,
-          bathrooms: property.bathrooms,
-          maxGuests: property.maxGuests,
-          isActive: property.isActive,
-          status: property.status
-        }))
-      }, null, 2)}
+PROPERTY PORTFOLIO DATA (Showing ${propertiesToShow.length} of ${propertiesData.length} total):
 
-Please provide helpful property information based on this live data.`;
+${propertiesToShow.map((property, index) => 
+  `${index + 1}. ${property.name} | ${property.location} | ${property.bedrooms}BR/${property.bathrooms}BA | Max: ${property.maxGuests} guests | Status: ${property.isActive ? 'Active' : 'Inactive'}`
+).join('\n')}
+
+${hasMoreProperties ? `\n(${propertiesData.length - 10} additional properties available)` : ''}
+
+PORTFOLIO SUMMARY:
+- Total Properties: ${propertiesData.length}
+- Active Properties: ${propertiesData.filter(p => p.isActive).length}
+- Inactive Properties: ${propertiesData.filter(p => !p.isActive).length}
+
+INSTRUCTIONS FOR RESPONSE:
+- Start with portfolio executive summary
+- Create professional property listings table with columns: ID | Name | Location | Beds/Baths | Max Guests | Status
+- Include property insights and occupancy analysis
+- Provide actionable property management recommendations
+- Keep response organized and executive-ready
+
+Please provide a well-formatted property portfolio analysis.`;
 
       return await this.generateAIResponse(systemPrompt, userPrompt);
 
