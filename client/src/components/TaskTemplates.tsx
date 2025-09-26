@@ -518,7 +518,13 @@ export function TaskTemplates({ onCreateTask, selectedProperties }: TaskTemplate
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
               <div>
                 <label className="text-sm font-medium mb-2 block">Select Property</label>
-                <Select>
+                <Select
+                  value={selectedPropertyId}
+                  onValueChange={(value) => {
+                    setSelectedPropertyId(value);
+                    setValue('propertyId', value);
+                  }}
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="Choose property" />
                   </SelectTrigger>
@@ -530,10 +536,6 @@ export function TaskTemplates({ onCreateTask, selectedProperties }: TaskTemplate
                     ))}
                   </SelectContent>
                 </Select>
-                <Input 
-                  type="hidden" 
-                  {...register('propertyId', { required: true })}
-                />
               </div>
 
               <div>
