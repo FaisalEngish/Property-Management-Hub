@@ -97,7 +97,7 @@ export function PropertyFilters({
       
       <CardContent className="space-y-6">
         {/* Search and Basic Filters */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           <div className="bg-white/70 rounded-lg shadow-sm border border-slate-200/50 backdrop-blur-sm">
             <Input
               placeholder="🔍 Search properties..."
@@ -110,7 +110,7 @@ export function PropertyFilters({
           <div className="bg-white/70 rounded-lg shadow-sm border border-slate-200/50 backdrop-blur-sm">
             <Select value={filters.location || 'all'} onValueChange={(value) => updateFilter('location', value === 'all' ? '' : value)}>
               <SelectTrigger className="border-0 bg-transparent focus:ring-emerald-500">
-                <SelectValue placeholder="📍 Location" />
+                <SelectValue placeholder="🏠 Location" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Locations</SelectItem>
@@ -126,7 +126,7 @@ export function PropertyFilters({
           <div className="bg-white/70 rounded-lg shadow-sm border border-slate-200/50 backdrop-blur-sm">
             <Select value={filters.status || 'all'} onValueChange={(value) => updateFilter('status', value === 'all' ? '' : value)}>
               <SelectTrigger className="border-0 bg-transparent focus:ring-emerald-500">
-                <SelectValue placeholder="⚡ Status" />
+                <SelectValue placeholder="📊 Status" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Status</SelectItem>
@@ -159,7 +159,7 @@ export function PropertyFilters({
                 <TrendingUp className="h-4 w-4 text-teal-600" />
               </div>
               <label className="text-sm font-semibold text-slate-700">
-                📈 Occupancy Rate: {filters.occupancyMin}% - {filters.occupancyMax}%
+                📊 Occupancy Rate: {filters.occupancyMin}% - {filters.occupancyMax}%
               </label>
             </div>
             <div className="flex gap-3 items-center">

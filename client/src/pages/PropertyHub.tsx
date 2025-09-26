@@ -423,22 +423,24 @@ export default function PropertyHub() {
           {/* Enterprise Footer */}
           <footer className="mt-12 border-t border-slate-200 bg-slate-50/30 backdrop-blur-sm">
             <div className="max-w-7xl mx-auto px-6 py-6">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-6 text-sm text-slate-600">
+              <div className="flex items-center justify-center">
+                <div className="flex items-center gap-8 text-sm text-slate-600">
                   <div className="flex items-center gap-2">
                     <div className="h-2 w-2 bg-emerald-500 rounded-full animate-pulse"></div>
                     <span className="font-medium">System Online</span>
                   </div>
+                  <div className="text-slate-400">|</div>
                   <div className="flex items-center gap-2">
                     <span>Last Updated: Today</span>
                   </div>
+                  <div className="text-slate-400">|</div>
                   <div className="flex items-center gap-2">
                     <span className="font-semibold text-emerald-600">v2.0.1</span>
                   </div>
                 </div>
-                <div className="text-sm text-slate-500">
-                  HostPilotPro Property Management • Enterprise Edition
-                </div>
+              </div>
+              <div className="text-center text-sm text-slate-500 mt-2">
+                HostPilotPro Property Management • Enterprise Edition
               </div>
             </div>
           </footer>

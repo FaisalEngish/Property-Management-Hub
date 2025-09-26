@@ -78,8 +78,14 @@ export function PropertyCard({ property, isSelected, onSelect, onViewDetails, on
       <CardHeader className="pb-4">
         <div className="flex items-start justify-between pl-8">
           <div className="flex items-start gap-4">
-            <div className="h-16 w-16 bg-gradient-to-br from-emerald-100 to-teal-100 rounded-xl flex items-center justify-center text-2xl shadow-sm">
-              🏖️
+            <div className="relative h-16 w-16 bg-gradient-to-br from-emerald-100 to-teal-100 rounded-xl flex items-center justify-center text-2xl shadow-sm overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-br from-emerald-200/20 to-teal-200/20"></div>
+              <div className="relative text-3xl">
+                {property.name?.toLowerCase().includes('beach') || property.name?.toLowerCase().includes('ocean') ? '🏖️' :
+                 property.name?.toLowerCase().includes('villa') ? '🏡' :
+                 property.name?.toLowerCase().includes('tropical') || property.name?.toLowerCase().includes('paradise') ? '🌴' :
+                 property.name?.toLowerCase().includes('samui') ? '🏝️' : '🏠'}
+              </div>
             </div>
             <div className="flex-1">
               <div className="flex items-center gap-3 mb-1">
@@ -199,10 +205,10 @@ export function PropertyCard({ property, isSelected, onSelect, onViewDetails, on
               </Button>
             </div>
             {urgentTasks > 0 && (
-              <div className="flex items-center gap-2">
-                <AlertTriangle className="h-3 w-3 text-red-500" />
+              <div className="flex items-center gap-2 animate-pulse">
+                <AlertTriangle className="h-3 w-3 text-red-500 animate-pulse" />
                 <span className="text-xs text-red-700 font-medium">
-                  {urgentTasks} urgent task{urgentTasks > 1 ? 's' : ''} require attention
+                  🚨 {urgentTasks} urgent task{urgentTasks > 1 ? 's' : ''} require attention
                 </span>
               </div>
             )}
