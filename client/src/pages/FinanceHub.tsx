@@ -334,7 +334,7 @@ export default function FinanceHub() {
       <div className="flex-1 flex flex-col lg:ml-0">
         <TopBar title="Finance Hub" />
         
-        <main className={`flex-1 overflow-auto p-6 transition-colors duration-300 ${isDarkMode ? 'bg-slate-900 text-white' : 'bg-background'}`}>
+        <main className={`flex-1 overflow-auto p-6 pb-24 transition-colors duration-300 ${isDarkMode ? 'bg-slate-900 text-white' : 'bg-background'}`}>
           <div className="max-w-7xl mx-auto">
             <div className="mb-6">
               <div className="flex items-center justify-between">
@@ -830,176 +830,198 @@ export default function FinanceHub() {
             </div>
 
 
-            {/* Enhanced Footer Stats Bar with Export */}
-            <div className="mt-12">
-              <Card className={`backdrop-blur-sm border transition-all duration-300 ${
-                isDarkMode 
-                  ? 'bg-gradient-to-r from-emerald-900/50 via-emerald-800/50 to-emerald-900/50 border-emerald-700/50' 
-                  : 'bg-gradient-to-r from-emerald-50 via-emerald-100/50 to-emerald-50 border-emerald-200/50'
-              }`}>
-                <CardContent className="py-6">
-                  <div className="flex flex-col lg:flex-row items-center justify-between gap-6">
-                    {/* Stats Display */}
-                    <div className="flex items-center gap-8 lg:gap-12 text-sm font-medium">
-                      <div className="flex items-center gap-3">
-                        <div className={`p-2 rounded-lg shadow-lg transition-colors duration-300 ${
-                          isDarkMode 
-                            ? 'bg-gradient-to-br from-blue-800 to-blue-700' 
-                            : 'bg-gradient-to-br from-blue-100 to-blue-50'
-                        }`}>
-                          <FileText className={`h-5 w-5 ${
-                            isDarkMode ? 'text-blue-200' : 'text-blue-700'
-                          }`} />
-                        </div>
-                        <div className="text-center">
-                          <p className={`font-semibold transition-colors duration-300 ${
-                            isDarkMode ? 'text-emerald-200' : 'text-emerald-800'
-                          }`}>
-                            Active Invoices
-                          </p>
-                          <p className={`text-2xl font-bold transition-colors duration-300 ${
-                            isDarkMode ? 'text-emerald-100' : 'text-emerald-900'
-                          }`}>
-                            24
-                          </p>
-                        </div>
-                      </div>
-                      
-                      <div className={`transition-colors duration-300 ${
-                        isDarkMode ? 'text-emerald-600' : 'text-emerald-300'
-                      }`}>|</div>
-                      
-                      <div className="flex items-center gap-3">
-                        <div className={`p-2 rounded-lg shadow-lg transition-colors duration-300 ${
-                          isDarkMode 
-                            ? 'bg-gradient-to-br from-orange-800 to-orange-700' 
-                            : 'bg-gradient-to-br from-orange-100 to-orange-50'
-                        }`}>
-                          <Clock className={`h-5 w-5 ${
-                            isDarkMode ? 'text-orange-200' : 'text-orange-700'
-                          }`} />
-                        </div>
-                        <div className="text-center">
-                          <p className={`font-semibold transition-colors duration-300 ${
-                            isDarkMode ? 'text-emerald-200' : 'text-emerald-800'
-                          }`}>
-                            Pending Payouts
-                          </p>
-                          <p className={`text-2xl font-bold transition-colors duration-300 ${
-                            isDarkMode ? 'text-emerald-100' : 'text-emerald-900'
-                          }`}>
-                            7
-                          </p>
-                        </div>
-                      </div>
-                      
-                      <div className={`transition-colors duration-300 ${
-                        isDarkMode ? 'text-emerald-600' : 'text-emerald-300'
-                      }`}>|</div>
-                      
-                      <div className="flex items-center gap-3">
-                        <div className={`p-2 rounded-lg shadow-lg transition-colors duration-300 ${
-                          isDarkMode 
-                            ? 'bg-gradient-to-br from-green-800 to-green-700' 
-                            : 'bg-gradient-to-br from-green-100 to-green-50'
-                        }`}>
-                          <BarChart3 className={`h-5 w-5 ${
-                            isDarkMode ? 'text-green-200' : 'text-green-700'
-                          }`} />
-                        </div>
-                        <div className="text-center">
-                          <p className={`font-semibold transition-colors duration-300 ${
-                            isDarkMode ? 'text-emerald-200' : 'text-emerald-800'
-                          }`}>
-                            Total Revenue
-                          </p>
-                          <p className={`text-2xl font-bold transition-colors duration-300 ${
-                            isDarkMode ? 'text-emerald-100' : 'text-emerald-900'
-                          }`}>
-                            $534.6K
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Export & Share Options */}
-                    <div className="flex items-center gap-3">
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button
-                              onClick={() => handleExport('csv')}
-                              size="sm"
-                              className={`transition-all duration-300 shadow-lg ${
-                                isDarkMode 
-                                  ? 'bg-gradient-to-r from-blue-700 to-blue-600 hover:from-blue-600 hover:to-blue-500 text-blue-100 border-blue-500' 
-                                  : 'bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white border-blue-400'
-                              }`}
-                            >
-                              <Download className="h-4 w-4 mr-1" />
-                              CSV
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent side="top">
-                            <p className="text-xs">Export financial data as CSV</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button
-                              onClick={() => handleExport('pdf')}
-                              size="sm"
-                              className={`transition-all duration-300 shadow-lg ${
-                                isDarkMode 
-                                  ? 'bg-gradient-to-r from-red-700 to-red-600 hover:from-red-600 hover:to-red-500 text-red-100 border-red-500' 
-                                  : 'bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white border-red-400'
-                              }`}
-                            >
-                              <Download className="h-4 w-4 mr-1" />
-                              PDF
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent side="top">
-                            <p className="text-xs">Export financial report as PDF</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button
-                              onClick={() => {
-                                // Share functionality
-                                navigator.clipboard.writeText(`Finance Hub Summary: 24 Active Invoices, 7 Pending Payouts, $534.6K Total Revenue`);
-                              }}
-                              size="sm"
-                              variant="outline"
-                              className={`transition-all duration-300 shadow-lg ${
-                                isDarkMode 
-                                  ? 'bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-600 hover:border-slate-500' 
-                                  : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-300 hover:border-slate-400'
-                              }`}
-                            >
-                              <Share2 className="h-4 w-4 mr-1" />
-                              Share
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent side="top">
-                            <p className="text-xs">Copy summary to clipboard</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
           </div>
         </main>
+
+        {/* Sticky Footer Stats Bar */}
+        <div className={`fixed bottom-0 left-0 right-0 z-40 backdrop-blur-sm border-t transition-all duration-300 ${
+          isDarkMode 
+            ? 'bg-slate-900/95 border-slate-700' 
+            : 'bg-white/95 border-slate-200'
+        }`}>
+          <div className="max-w-7xl mx-auto">
+            <div className="flex flex-col lg:flex-row items-center justify-between gap-4 px-6 py-4">
+              {/* Stats Display */}
+              <div className="flex items-center gap-6 lg:gap-8 text-sm font-medium">
+                <div className="flex items-center gap-2">
+                  <div className={`p-1.5 rounded-lg shadow-lg transition-colors duration-300 ${
+                    isDarkMode 
+                      ? 'bg-gradient-to-br from-blue-800 to-blue-700' 
+                      : 'bg-gradient-to-br from-blue-100 to-blue-50'
+                  }`}>
+                    <FileText className={`h-4 w-4 ${
+                      isDarkMode ? 'text-blue-200' : 'text-blue-700'
+                    }`} />
+                  </div>
+                  <div>
+                    <p className={`text-xs transition-colors duration-300 ${
+                      isDarkMode ? 'text-emerald-300' : 'text-emerald-700'
+                    }`}>
+                      Active Invoices
+                    </p>
+                    <p className={`text-lg font-bold transition-colors duration-300 ${
+                      isDarkMode ? 'text-emerald-100' : 'text-emerald-900'
+                    }`}>
+                      24
+                    </p>
+                  </div>
+                </div>
+                
+                <div className={`hidden sm:block transition-colors duration-300 ${
+                  isDarkMode ? 'text-emerald-600' : 'text-emerald-300'
+                }`}>|</div>
+                
+                <div className="flex items-center gap-2">
+                  <div className={`p-1.5 rounded-lg shadow-lg transition-colors duration-300 ${
+                    isDarkMode 
+                      ? 'bg-gradient-to-br from-orange-800 to-orange-700' 
+                      : 'bg-gradient-to-br from-orange-100 to-orange-50'
+                  }`}>
+                    <Clock className={`h-4 w-4 ${
+                      isDarkMode ? 'text-orange-200' : 'text-orange-700'
+                    }`} />
+                  </div>
+                  <div>
+                    <p className={`text-xs transition-colors duration-300 ${
+                      isDarkMode ? 'text-emerald-300' : 'text-emerald-700'
+                    }`}>
+                      Pending Payouts
+                    </p>
+                    <p className={`text-lg font-bold transition-colors duration-300 ${
+                      isDarkMode ? 'text-emerald-100' : 'text-emerald-900'
+                    }`}>
+                      7
+                    </p>
+                  </div>
+                </div>
+                
+                <div className={`hidden sm:block transition-colors duration-300 ${
+                  isDarkMode ? 'text-emerald-600' : 'text-emerald-300'
+                }`}>|</div>
+                
+                <div className="flex items-center gap-2">
+                  <div className={`p-1.5 rounded-lg shadow-lg transition-colors duration-300 ${
+                    isDarkMode 
+                      ? 'bg-gradient-to-br from-green-800 to-green-700' 
+                      : 'bg-gradient-to-br from-green-100 to-green-50'
+                  }`}>
+                    <BarChart3 className={`h-4 w-4 ${
+                      isDarkMode ? 'text-green-200' : 'text-green-700'
+                    }`} />
+                  </div>
+                  <div>
+                    <p className={`text-xs transition-colors duration-300 ${
+                      isDarkMode ? 'text-emerald-300' : 'text-emerald-700'
+                    }`}>
+                      Total Revenue
+                    </p>
+                    <p className={`text-lg font-bold transition-colors duration-300 ${
+                      isDarkMode ? 'text-emerald-100' : 'text-emerald-900'
+                    }`}>
+                      $534.6K
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Enhanced Export & Share Options with Section Export */}
+              <div className="flex items-center gap-2">
+                {/* Section Export Dropdown */}
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Select defaultValue="all">
+                        <SelectTrigger className={`w-36 h-8 text-xs transition-colors duration-300 ${
+                          isDarkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-white border-slate-300'
+                        }`}>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className={isDarkMode ? 'bg-slate-800 border-slate-700' : ''}>
+                          <SelectItem value="all" className={isDarkMode ? 'text-white focus:bg-slate-700' : ''}>Export All</SelectItem>
+                          <SelectItem value="core" className={isDarkMode ? 'text-white focus:bg-slate-700' : ''}>Core Modules</SelectItem>
+                          <SelectItem value="analytics" className={isDarkMode ? 'text-white focus:bg-slate-700' : ''}>Analytics & AI</SelectItem>
+                          <SelectItem value="admin" className={isDarkMode ? 'text-white focus:bg-slate-700' : ''}>Admin Only</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </TooltipTrigger>
+                    <TooltipContent side="top">
+                      <p className="text-xs">Select section to export</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        onClick={() => handleExport('csv')}
+                        size="sm"
+                        className={`h-8 px-3 text-xs transition-all duration-300 shadow-lg ${
+                          isDarkMode 
+                            ? 'bg-gradient-to-r from-blue-700 to-blue-600 hover:from-blue-600 hover:to-blue-500 text-blue-100' 
+                            : 'bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white'
+                        }`}
+                      >
+                        <Download className="h-3 w-3 mr-1" />
+                        CSV
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="top">
+                      <p className="text-xs">Export as CSV</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        onClick={() => handleExport('pdf')}
+                        size="sm"
+                        className={`h-8 px-3 text-xs transition-all duration-300 shadow-lg ${
+                          isDarkMode 
+                            ? 'bg-gradient-to-r from-red-700 to-red-600 hover:from-red-600 hover:to-red-500 text-red-100' 
+                            : 'bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white'
+                        }`}
+                      >
+                        <Download className="h-3 w-3 mr-1" />
+                        PDF
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="top">
+                      <p className="text-xs">Export as PDF</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        onClick={() => {
+                          navigator.clipboard.writeText(`Finance Hub Summary: 24 Active Invoices, 7 Pending Payouts, $534.6K Total Revenue`);
+                        }}
+                        size="sm"
+                        variant="outline"
+                        className={`h-8 px-3 text-xs transition-all duration-300 shadow-lg ${
+                          isDarkMode 
+                            ? 'bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-600' 
+                            : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-300'
+                        }`}
+                      >
+                        <Share2 className="h-3 w-3 mr-1" />
+                        Share
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="top">
+                      <p className="text-xs">Copy to clipboard</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
