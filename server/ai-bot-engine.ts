@@ -14,7 +14,7 @@ interface QueryContext {
 }
 
 interface DataQuery {
-  type: 'tasks' | 'revenue' | 'expenses' | 'bookings' | 'properties' | 'staff' | 'general';
+  type: 'tasks' | 'revenue' | 'expenses' | 'bookings' | 'properties' | 'staff' | 'finance' | 'general';
   filters: {
     property?: string;
     dateRange?: { start: string; end: string };
@@ -79,9 +79,17 @@ export class AIBotEngine {
    * Fast single-call query processing
    */
   private async processQueryFast(question: string, context: QueryContext): Promise<string> {
-    // Check if this is a staff-related query first
+    // Check for specific query types and route accordingly
     if (this.isStaffQuery(question)) {
       return await this.processStaffQuery(question, context);
+    }
+    
+    if (this.isFinanceQuery(question)) {
+      return await this.processFinanceQuery(question, context);
+    }
+    
+    if (this.isPropertyQuery(question)) {
+      return await this.processPropertyQuery(question, context);
     }
 
     // Fetch all relevant data upfront for general queries
@@ -457,6 +465,279 @@ Please provide a helpful response based on this live staff data.`;
       // Fallback
       return { pending: [], total: 0, totalAmount: 0 };
     }
+  }
+
+  /**
+   * Check if the query is asking for finance information
+   */
+  private isFinanceQuery(question: string): boolean {
+    const financeKeywords = [
+      'finance', 'financial', 'revenue', 'income', 'expense', 'cost', 'profit', 
+      'budget', 'money', 'payment', 'transaction', 'balance', 'payout', 'commission'
+    ];
+    const lowerQuestion = question.toLowerCase();
+    
+    return financeKeywords.some(keyword => lowerQuestion.includes(keyword)) ||
+           lowerQuestion.includes('how much money') ||
+           lowerQuestion.includes('financial summary') ||
+           lowerQuestion.includes('revenue report') ||
+           lowerQuestion.includes('expense breakdown');
+  }
+
+  /**
+   * Process finance-specific queries with live API data
+   */
+  private async processFinanceQuery(question: string, context: QueryContext): Promise<string> {
+    try {
+      console.log('💰 Processing finance query:', question);
+      
+      // Fetch live finance data from multiple endpoints
+      const [financeData, analyticsData] = await Promise.all([
+        this.fetchFinanceData(context),
+        this.fetchFinanceAnalytics(context)
+      ]);
+
+      const systemPrompt = `You are Captain Cortex, the Smart Co-Pilot for Property Management by HostPilotPro. You have access to live financial data and analytics. Analyze the user's question and provide a helpful response.
+
+Guidelines:
+1. Be conversational and helpful - act like a smart financial assistant who understands the business
+2. Use specific data from the provided financial context
+3. Format responses clearly with proper structure (tables, summaries, key insights)
+4. Use Thai Baht ฿ for money amounts
+5. Provide actionable financial insights when possible
+6. Be professional but friendly
+7. If asked about revenue, expenses, or profit, focus on those metrics
+8. Include trends and comparisons when relevant
+
+Current date: ${new Date().toISOString().split('T')[0]}
+
+Financial data available:
+- Total Revenue: ฿${analyticsData.totalRevenue?.toLocaleString()}
+- Total Expenses: ฿${analyticsData.totalExpenses?.toLocaleString()}
+- Net Profit: ฿${(analyticsData.totalRevenue - analyticsData.totalExpenses)?.toLocaleString()}
+- Recent Transactions: ${financeData.length} records`;
+
+      const userPrompt = `Question: "${question}"
+
+Financial Data Summary:
+${JSON.stringify({
+        totalRevenue: `฿${analyticsData.totalRevenue?.toLocaleString()}`,
+        totalExpenses: `฿${analyticsData.totalExpenses?.toLocaleString()}`,
+        netProfit: `฿${(analyticsData.totalRevenue - analyticsData.totalExpenses)?.toLocaleString()}`,
+        recentTransactions: financeData.slice(0, 10).map(tx => ({
+          type: tx.type,
+          amount: `฿${tx.amount?.toLocaleString()}`,
+          category: tx.category,
+          date: tx.date,
+          propertyName: tx.propertyName
+        }))
+      }, null, 2)}
+
+Please provide a helpful financial analysis based on this live data.`;
+
+      return await this.generateAIResponse(systemPrompt, userPrompt);
+
+    } catch (error) {
+      console.error('Error processing finance query:', error);
+      return `I apologize, but I encountered an error while fetching financial information: ${error.message}. Please try again or contact support if the issue persists.`;
+    }
+  }
+
+  /**
+   * Check if the query is asking for property information
+   */
+  private isPropertyQuery(question: string): boolean {
+    const propertyKeywords = [
+      'property', 'properties', 'villa', 'house', 'apartment', 'building',
+      'location', 'occupancy', 'availability', 'booking', 'guest'
+    ];
+    const lowerQuestion = question.toLowerCase();
+    
+    return propertyKeywords.some(keyword => lowerQuestion.includes(keyword)) ||
+           lowerQuestion.includes('property list') ||
+           lowerQuestion.includes('available properties') ||
+           lowerQuestion.includes('property details') ||
+           lowerQuestion.includes('villa samui');
+  }
+
+  /**
+   * Process property-specific queries with live API data
+   */
+  private async processPropertyQuery(question: string, context: QueryContext): Promise<string> {
+    try {
+      console.log('🏠 Processing property query:', question);
+      
+      // Fetch live property data
+      const propertiesData = await this.fetchPropertiesData(context);
+
+      const systemPrompt = `You are Captain Cortex, the Smart Co-Pilot for Property Management by HostPilotPro. You have access to live property data and details. Analyze the user's question and provide a helpful response.
+
+Guidelines:
+1. Be conversational and helpful - act like a smart property management assistant
+2. Use specific data from the provided property context
+3. Format responses clearly with proper structure (lists, property details, summaries)
+4. Include property names, locations, and key details
+5. Provide actionable property insights when possible
+6. Be professional but friendly
+7. If asked about specific properties, focus on those details
+8. Include occupancy, availability, and booking information when relevant
+
+Current date: ${new Date().toISOString().split('T')[0]}
+
+Property portfolio:
+- Total Properties: ${propertiesData.length}
+- Active Properties: ${propertiesData.filter(p => p.isActive).length}`;
+
+      const userPrompt = `Question: "${question}"
+
+Properties Data:
+${JSON.stringify({
+        totalProperties: propertiesData.length,
+        activeProperties: propertiesData.filter(p => p.isActive).length,
+        properties: propertiesData.slice(0, 10).map(property => ({
+          name: property.name,
+          location: property.location,
+          bedrooms: property.bedrooms,
+          bathrooms: property.bathrooms,
+          maxGuests: property.maxGuests,
+          isActive: property.isActive,
+          status: property.status
+        }))
+      }, null, 2)}
+
+Please provide helpful property information based on this live data.`;
+
+      return await this.generateAIResponse(systemPrompt, userPrompt);
+
+    } catch (error) {
+      console.error('Error processing property query:', error);
+      return `I apologize, but I encountered an error while fetching property information: ${error.message}. Please try again or contact support if the issue persists.`;
+    }
+  }
+
+  /**
+   * Fetch live finance data from API
+   */
+  private async fetchFinanceData(context: QueryContext): Promise<any[]> {
+    try {
+      const response = await fetch(`http://localhost:${process.env.PORT || 3000}/api/finance`, {
+        headers: {
+          'Authorization': `Bearer internal`,
+          'X-Organization-ID': context.organizationId
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch finance data: ${response.statusText}`);
+      }
+      
+      return await response.json();
+    } catch (error) {
+      console.error('Error fetching finance data:', error);
+      // Fallback to storage method
+      return await this.storage.getFinances();
+    }
+  }
+
+  /**
+   * Fetch live finance analytics from API
+   */
+  private async fetchFinanceAnalytics(context: QueryContext): Promise<any> {
+    try {
+      const response = await fetch(`http://localhost:${process.env.PORT || 3000}/api/finance/analytics`, {
+        headers: {
+          'Authorization': `Bearer internal`,
+          'X-Organization-ID': context.organizationId
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch finance analytics: ${response.statusText}`);
+      }
+      
+      return await response.json();
+    } catch (error) {
+      console.error('Error fetching finance analytics:', error);
+      // Fallback
+      return { totalRevenue: 0, totalExpenses: 0 };
+    }
+  }
+
+  /**
+   * Fetch live properties data from API
+   */
+  private async fetchPropertiesData(context: QueryContext): Promise<any[]> {
+    try {
+      const response = await fetch(`http://localhost:${process.env.PORT || 3000}/api/properties`, {
+        headers: {
+          'Authorization': `Bearer internal`,
+          'X-Organization-ID': context.organizationId
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch properties data: ${response.statusText}`);
+      }
+      
+      return await response.json();
+    } catch (error) {
+      console.error('Error fetching properties data:', error);
+      // Fallback to storage method
+      return await this.storage.getProperties();
+    }
+  }
+
+  /**
+   * Generate AI response using OpenAI Assistant or fallback
+   */
+  private async generateAIResponse(systemPrompt: string, userPrompt: string): Promise<string> {
+    let response;
+    try {
+      const ASSISTANT_ID = "asst_OATIDMTgutnkdOJpTrQ9Mf7u";
+      const thread = await this.openai.beta.threads.create();
+      
+      await this.openai.beta.threads.messages.create(thread.id, {
+        role: "user",
+        content: `${systemPrompt}\n\n${userPrompt}`
+      });
+      
+      const run = await this.openai.beta.threads.runs.create(thread.id, {
+        assistant_id: ASSISTANT_ID
+      });
+      
+      let runStatus = run;
+      for (let i = 0; i < 30; i++) {
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        runStatus = await this.openai.beta.threads.runs.retrieve(thread.id, run.id);
+        if (runStatus.status === 'completed') break;
+        if (runStatus.status === 'failed') throw new Error('Assistant run failed');
+      }
+      
+      if (runStatus.status === 'completed') {
+        const messages = await this.openai.beta.threads.messages.list(thread.id);
+        const lastMessage = messages.data[0];
+        if (lastMessage.content[0].type === 'text') {
+          response = lastMessage.content[0].text.value;
+        }
+      }
+    } catch (assistantError) {
+      console.log('Query processing: Assistant failed, using fallback');
+    }
+    
+    if (!response) {
+      const completion = await this.openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt }
+        ],
+        temperature: 0.3,
+        max_tokens: 800,
+      });
+      response = completion.choices[0].message.content;
+    }
+
+    return response || "I apologize, but I couldn't process your query at the moment.";
   }
 
   /**
