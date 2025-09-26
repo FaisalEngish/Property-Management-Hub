@@ -66,32 +66,40 @@ export function PropertyCard({ property, isSelected, onSelect, onViewDetails, on
   const urgentTasks = Math.floor(maintenanceTasks * 0.3);
 
   return (
-    <Card className="hover:shadow-lg transition-all duration-200 relative">
+    <Card className="hover:shadow-xl hover:shadow-emerald-500/20 hover:scale-[1.02] transition-all duration-300 relative bg-white/90 backdrop-blur-sm border border-slate-200/50">
       <div className="absolute top-4 left-4 z-10">
         <Checkbox 
           checked={isSelected} 
           onCheckedChange={onSelect}
-          className="bg-white border-2"
+          className="bg-white/90 border-2 border-emerald-200 data-[state=checked]:bg-emerald-500 data-[state=checked]:border-emerald-500"
         />
       </div>
       
-      <CardHeader className="pb-3">
+      <CardHeader className="pb-4">
         <div className="flex items-start justify-between pl-8">
-          <div className="flex items-center gap-3">
-            <div className="h-12 w-12 bg-slate-100 rounded-full flex items-center justify-center">
-              <Building className="h-6 w-6 text-slate-600" />
+          <div className="flex items-start gap-4">
+            <div className="h-16 w-16 bg-gradient-to-br from-emerald-100 to-teal-100 rounded-xl flex items-center justify-center text-2xl shadow-sm">
+              🏖️
             </div>
-            <div>
-              <CardTitle className="text-lg">{property.name}</CardTitle>
+            <div className="flex-1">
+              <div className="flex items-center gap-3 mb-1">
+                <CardTitle className="text-lg font-bold text-slate-800">{property.name}</CardTitle>
+                <Badge variant="outline" className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                  property.status?.toLowerCase() === 'active' 
+                    ? 'bg-emerald-100 text-emerald-700 border-emerald-300' 
+                    : property.status?.toLowerCase() === 'maintenance'
+                    ? 'bg-yellow-100 text-yellow-700 border-yellow-300'
+                    : 'bg-red-100 text-red-700 border-red-300'
+                }`}>
+                  {property.status || 'Active'}
+                </Badge>
+              </div>
               <div className="flex items-center gap-2 text-sm text-slate-600">
                 <MapPin className="h-3 w-3" />
                 {property.address || 'Bangkok, Thailand'}
               </div>
             </div>
           </div>
-          <Badge variant="outline" className={getStatusColor(property.status)}>
-            {property.status || 'Active'}
-          </Badge>
         </div>
       </CardHeader>
 
@@ -122,23 +130,35 @@ export function PropertyCard({ property, isSelected, onSelect, onViewDetails, on
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <span className="text-sm text-slate-600">Occupancy Rate</span>
-              <span className="text-sm font-medium">{occupancyRate}%</span>
+              <span className="text-sm font-bold text-emerald-600">{occupancyRate}%</span>
             </div>
-            <Progress value={occupancyRate} className="h-2" />
+            <div className="w-full bg-slate-200 rounded-full h-3 overflow-hidden">
+              <div 
+                className="h-full bg-gradient-to-r from-emerald-500 to-teal-500 rounded-full transition-all duration-500 shadow-sm" 
+                style={{ width: `${occupancyRate}%` }}
+              ></div>
+            </div>
           </div>
 
           <div className="flex items-center justify-between">
             <span className="text-sm text-slate-600">Monthly Revenue</span>
-            <span className="text-sm font-semibold text-green-600">
+            <span className="text-sm font-bold text-emerald-700">
               {formatCurrency(monthlyRevenue)}
             </span>
+          </div>
+
+          <div className="w-full bg-slate-200 rounded-full h-2 mb-2">
+            <div 
+              className="h-full bg-gradient-to-r from-emerald-400 to-teal-400 rounded-full" 
+              style={{ width: `${Math.min((monthlyRevenue / 200000) * 100, 100)}%` }}
+            ></div>
           </div>
 
           <div className="flex items-center justify-between">
             <span className="text-sm text-slate-600">Maintenance/Revenue</span>
             <span className={`text-sm font-medium ${
               parseFloat(maintenanceRatio) > 15 ? 'text-red-600' : 
-              parseFloat(maintenanceRatio) > 10 ? 'text-yellow-600' : 'text-green-600'
+              parseFloat(maintenanceRatio) > 10 ? 'text-yellow-600' : 'text-emerald-600'
             }`}>
               {maintenanceRatio}%
             </span>
@@ -146,28 +166,30 @@ export function PropertyCard({ property, isSelected, onSelect, onViewDetails, on
 
           <div className="flex items-center justify-between">
             <span className="text-sm text-slate-600">ROI</span>
-            <span className="text-sm font-semibold text-blue-600">{roi}%</span>
+            <span className="text-sm font-bold text-emerald-600">{roi}%</span>
           </div>
         </div>
 
         {/* Maintenance Tasks Priority */}
         {maintenanceTasks > 0 && (
           <div 
-            className="p-3 bg-orange-50 rounded-lg border border-orange-200 cursor-pointer hover:bg-orange-100 transition-colors duration-200"
+            className="p-3 bg-gradient-to-r from-orange-50 to-amber-50 rounded-lg border border-orange-200 cursor-pointer hover:bg-gradient-to-r hover:from-orange-100 hover:to-amber-100 hover:scale-[1.02] transition-all duration-200 shadow-sm"
             onClick={() => navigate(`/tasks?property=${property.id}&filter=maintenance`)}
-            title="Click to view maintenance tasks for this property"
+            title="🔧 Click to view maintenance tasks for this property"
           >
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
-                <Wrench className="h-4 w-4 text-orange-600" />
-                <span className="text-sm font-medium text-orange-800">
-                  {maintenanceTasks} Maintenance Tasks
+                <div className="p-1.5 bg-orange-100 rounded-full">
+                  <Wrench className="h-4 w-4 text-orange-600" />
+                </div>
+                <span className="text-sm font-semibold text-orange-800">
+                  🔧 {maintenanceTasks} Maintenance Tasks
                 </span>
               </div>
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-6 px-2 text-xs text-orange-700 hover:text-orange-900"
+                className="h-6 px-2 text-xs text-orange-700 hover:text-orange-900 hover:bg-orange-200/50 rounded-full"
                 onClick={(e) => {
                   e.stopPropagation();
                   navigate(`/tasks?property=${property.id}&filter=maintenance`);
@@ -179,7 +201,7 @@ export function PropertyCard({ property, isSelected, onSelect, onViewDetails, on
             {urgentTasks > 0 && (
               <div className="flex items-center gap-2">
                 <AlertTriangle className="h-3 w-3 text-red-500" />
-                <span className="text-xs text-red-700">
+                <span className="text-xs text-red-700 font-medium">
                   {urgentTasks} urgent task{urgentTasks > 1 ? 's' : ''} require attention
                 </span>
               </div>
@@ -188,14 +210,18 @@ export function PropertyCard({ property, isSelected, onSelect, onViewDetails, on
         )}
 
         {/* Action Buttons */}
-        <div className="flex gap-2 pt-2">
-          <Button variant="outline" size="sm" onClick={onViewDetails} className="flex-1">
+        <div className="flex gap-2 pt-3">
+          <Button 
+            size="sm" 
+            onClick={onViewDetails} 
+            className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white border-emerald-500 hover:border-emerald-600 hover:scale-[1.02] transition-all duration-200 shadow-sm"
+          >
             View Details
           </Button>
           <Button 
             variant="outline" 
             size="sm" 
-            className="px-3" 
+            className="px-3 hover:bg-emerald-50 hover:border-emerald-200 hover:text-emerald-700 hover:scale-105 transition-all duration-200" 
             onClick={() => navigate('/bookings')}
             title="View Bookings & Calendar"
           >
@@ -204,7 +230,7 @@ export function PropertyCard({ property, isSelected, onSelect, onViewDetails, on
           <Button 
             variant="outline" 
             size="sm" 
-            className="px-3"
+            className="px-3 hover:bg-emerald-50 hover:border-emerald-200 hover:text-emerald-700 hover:scale-105 transition-all duration-200"
             onClick={() => navigate(`/finance-hub?property=${property.id}&name=${encodeURIComponent(property.name || 'Property')}`)}
             title="View Property Analytics"
           >
@@ -214,7 +240,7 @@ export function PropertyCard({ property, isSelected, onSelect, onViewDetails, on
             <Button 
               variant="outline" 
               size="sm" 
-              className="px-3 hover:bg-red-50 hover:border-red-200 hover:text-red-600"
+              className="px-3 hover:bg-red-50 hover:border-red-200 hover:text-red-600 hover:scale-105 transition-all duration-200"
               onClick={onDelete}
               title="Delete Property"
             >

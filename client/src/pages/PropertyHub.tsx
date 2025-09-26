@@ -222,22 +222,29 @@ export default function PropertyHub() {
         <main className="flex-1 overflow-auto p-6">
           <div className="max-w-7xl mx-auto">
             {/* Header */}
-            <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center justify-between mb-8">
               <div>
-                <h1 className="text-3xl font-bold text-gray-900 mb-2">Property Management Hub</h1>
-                <p className="text-gray-600">
+                <h1 className="text-4xl font-bold text-slate-800 mb-3 flex items-center gap-4">
+                  🏠 Property Management Hub
+                </h1>
+                <p className="text-lg text-slate-600 mb-2">
                   Enhanced property management with advanced filtering, bulk actions, and calendar views
                 </p>
-                <div className="mt-2 text-sm text-blue-600">
+                <div className="mt-3 text-sm text-emerald-600 font-medium flex items-center gap-2">
+                  <div className="h-2 w-2 bg-emerald-500 rounded-full animate-pulse"></div>
                   Connected to Dashboard • Showing Real Data from API
                 </div>
               </div>
-              <div className="flex items-center gap-3">
-                <Button variant="outline" onClick={() => refetchProperties()}>
+              <div className="flex items-center gap-4">
+                <Button 
+                  variant="outline" 
+                  onClick={() => refetchProperties()}
+                  className="hover:bg-emerald-50 hover:border-emerald-200 hover:text-emerald-700 hover:scale-105 transition-all duration-200"
+                >
                   <RefreshCw className="h-4 w-4 mr-2" />
                   Refresh
                 </Button>
-                <Badge variant="secondary" className="px-3 py-1">
+                <Badge variant="outline" className="px-4 py-2 text-sm bg-emerald-100 text-emerald-700 border-emerald-200 font-semibold">
                   {propertiesArray.length} Properties
                 </Badge>
               </div>
@@ -265,7 +272,15 @@ export default function PropertyHub() {
               </TabsList>
 
               {/* Property Cards Tab */}
-              <TabsContent value="properties" className="space-y-6">
+              <TabsContent value="properties" className="space-y-8">
+                {/* Section Header */}
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="p-3 bg-emerald-100 rounded-xl">
+                    <LayoutGrid className="h-6 w-6 text-emerald-600" />
+                  </div>
+                  <h2 className="text-2xl font-bold text-slate-800">Property Cards</h2>
+                </div>
+
                 {/* Filters */}
                 <PropertyFilters
                   filters={filters}
@@ -283,23 +298,24 @@ export default function PropertyHub() {
 
                 {/* Select All Button */}
                 {filteredProperties.length > 0 && (
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between bg-white/50 p-4 rounded-lg border border-slate-200/50 backdrop-blur-sm">
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={handleSelectAll}
+                      className="hover:bg-emerald-50 hover:border-emerald-200 hover:text-emerald-700 hover:scale-105 transition-all duration-200"
                     >
                       {selectedProperties.length === filteredProperties.length ? 'Deselect All' : 'Select All'}
                       ({filteredProperties.length})
                     </Button>
-                    <div className="text-sm text-slate-600">
+                    <div className="text-sm text-slate-600 font-medium">
                       {selectedProperties.length} of {filteredProperties.length} selected
                     </div>
                   </div>
                 )}
 
                 {/* Property Cards Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                   {filteredProperties.map((property: any) => (
                     <PropertyCard
                       key={property.id}
@@ -403,6 +419,29 @@ export default function PropertyHub() {
               </TabsContent>
             </Tabs>
           </div>
+
+          {/* Enterprise Footer */}
+          <footer className="mt-12 border-t border-slate-200 bg-slate-50/30 backdrop-blur-sm">
+            <div className="max-w-7xl mx-auto px-6 py-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-6 text-sm text-slate-600">
+                  <div className="flex items-center gap-2">
+                    <div className="h-2 w-2 bg-emerald-500 rounded-full animate-pulse"></div>
+                    <span className="font-medium">System Online</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span>Last Updated: Today</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold text-emerald-600">v2.0.1</span>
+                  </div>
+                </div>
+                <div className="text-sm text-slate-500">
+                  HostPilotPro Property Management • Enterprise Edition
+                </div>
+              </div>
+            </div>
+          </footer>
         </main>
       </div>
     </div>
