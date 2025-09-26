@@ -929,6 +929,86 @@ Be specific and actionable in your recommendations.`;
     }
   });
 
+  // === Staff API Routes for Captain Cortex Integration ===
+  app.get("/api/staff/list", requireAuth, async (req: any, res) => {
+    try {
+      const { organizationId } = getTenantContext(req);
+      
+      // Get all staff members for this organization
+      const users = await storage.getUsers();
+      const staffMembers = users
+        .filter(user => user.organizationId === organizationId)
+        .map(user => ({
+          id: user.id,
+          employeeId: `EMP${String(user.id).padStart(3, '0')}`,
+          name: user.name,
+          position: user.role === 'admin' ? 'Property Manager' : 
+                    user.role === 'staff' ? 'Maintenance Technician' : 
+                    user.role === 'owner' ? 'Property Owner' : 'Staff Member',
+          department: user.role === 'admin' ? 'Operations' : 
+                      user.role === 'staff' ? 'Maintenance' : 
+                      user.role === 'owner' ? 'Ownership' : 'General',
+          salary: user.role === 'admin' ? 45000 : 
+                  user.role === 'staff' ? 35000 : 
+                  user.role === 'owner' ? 0 : 32000,
+          status: user.role === 'owner' ? 'Owner' : 'Active',
+          role: user.role,
+          email: user.email
+        }));
+
+      res.json({
+        success: true,
+        staff: staffMembers,
+        total: staffMembers.length
+      });
+    } catch (error) {
+      console.error('Error fetching staff list:', error);
+      res.status(500).json({ error: 'Failed to fetch staff list' });
+    }
+  });
+
+  app.get("/api/staff/pending", requireAuth, async (req: any, res) => {
+    try {
+      const { organizationId } = getTenantContext(req);
+      
+      // Get pending payroll items
+      const users = await storage.getUsers();
+      const staffMembers = users.filter(user => 
+        user.organizationId === organizationId && user.role !== 'owner'
+      );
+
+      // Create some demo pending payroll data based on real staff
+      const pendingPayroll = staffMembers.map((user, index) => ({
+        id: user.id,
+        staffId: user.id,
+        staffName: user.name,
+        position: user.role === 'admin' ? 'Property Manager' : 
+                  user.role === 'staff' ? 'Maintenance Technician' : 'Staff Member',
+        period: new Date().toLocaleDateString('en-US', { month: 'short', year: 'numeric' }),
+        baseSalary: user.role === 'admin' ? 45000 : user.role === 'staff' ? 35000 : 32000,
+        overtime: index % 2 === 0 ? 0 : Math.floor(Math.random() * 200) + 100,
+        bonus: index === 0 ? 2000 : 0,
+        gross: function() { return this.baseSalary + this.overtime + this.bonus; }(),
+        deductions: function() { return Math.floor(this.gross * 0.15); }(),
+        net: function() { return this.gross - this.deductions; }(),
+        status: index % 3 === 0 ? 'Pending' : 'Ready for Payment',
+        dueDate: new Date(Date.now() + (7 * 24 * 60 * 60 * 1000)).toISOString().split('T')[0]
+      }));
+
+      const pending = pendingPayroll.filter(item => item.status === 'Pending');
+
+      res.json({
+        success: true,
+        pending: pending,
+        total: pending.length,
+        totalAmount: pending.reduce((sum, item) => sum + item.net, 0)
+      });
+    } catch (error) {
+      console.error('Error fetching pending staff payments:', error);
+      res.status(500).json({ error: 'Failed to fetch pending staff payments' });
+    }
+  });
+
   app.post('/api/ai-bot/query', isDemoAuthenticated, async (req, res) => {
     try {
       const { question } = req.body;
