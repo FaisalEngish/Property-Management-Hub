@@ -89,7 +89,7 @@ export default function SimpleSalariesWages() {
   
   // User data for role-based permissions
   const { data: users = [] } = useUsersData();
-  const currentUser = users.find(user => user.role === 'admin') || { role: 'guest' };
+  const currentUser = (users || []).find(user => user.role === 'admin') || { role: 'guest' };
   
   // Check if user has admin or HR manager permissions
   const hasWriteAccess = currentUser.role === 'admin' || currentUser.role === 'portfolio-manager';
