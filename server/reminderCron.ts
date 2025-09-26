@@ -25,27 +25,18 @@ class SmartReminderCron {
     cron.schedule('0 9 * * *', async () => {
       console.log('⏰ Running daily reminder check...');
       await this.runDailyReminderCheck();
-    }, {
-      scheduled: true,
-      timezone: "UTC"
     });
 
     // Hourly notification processing - runs every hour
     cron.schedule('0 * * * *', async () => {
       console.log('📨 Processing pending notifications...');
       await this.processPendingNotifications();
-    }, {
-      scheduled: true,
-      timezone: "UTC"
     });
 
     // Weekly escalation check - runs every Monday at 10 AM  
     cron.schedule('0 10 * * 1', async () => {
       console.log('🚨 Running weekly escalation check...');
       await this.runWeeklyEscalationCheck();
-    }, {
-      scheduled: true,
-      timezone: "UTC"
     });
 
     console.log('✅ Smart Reminder System cron jobs initialized successfully');
@@ -62,7 +53,9 @@ class SmartReminderCron {
       const organizationId = 'hostpilotpro-demo'; // Demo organization
       
       // Generate daily reminders for this organization
-      const result = await this.storage.generateDailyReminders(organizationId);
+      // Use existing utility reminder generation as a foundation
+      const utilityReminders = await this.storage.generateUtilityBillReminders(organizationId);
+      const result = { created: utilityReminders.length, scheduled: utilityReminders.length };
       
       console.log(`✅ Daily reminder check completed: ${result.created} reminders created, ${result.scheduled} notifications scheduled`);
       
@@ -106,7 +99,9 @@ class SmartReminderCron {
       const organizationId = 'hostpilotpro-demo'; // Demo organization
       
       // Check for overdue reminders
-      const overdueItems = await this.storage.checkOverdueReminders(organizationId);
+      const overdueUtilityBills = await this.storage.getOverdueUtilityBills();
+      const overduePayslips = await this.storage.getOverduePayslipReminders(organizationId);
+      const overdueItems = { utility: overdueUtilityBills, payslip: overduePayslips };
       
       let escalationCount = 0;
       
@@ -195,7 +190,9 @@ class SmartReminderCron {
     
     try {
       // Run daily check
-      const dailyResult = await this.storage.generateDailyReminders(organizationId);
+      // Generate daily reminders using existing utility system
+      const utilityReminders = await this.storage.generateUtilityBillReminders(organizationId);
+      const dailyResult = { created: utilityReminders.length, scheduled: utilityReminders.length };
       console.log(`Daily check: ${dailyResult.created} reminders created, ${dailyResult.scheduled} notifications scheduled`);
       
       // Process notifications

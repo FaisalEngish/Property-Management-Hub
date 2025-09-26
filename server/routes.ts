@@ -48,8 +48,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Also setup production auth (fallback)
   await setupAuth(app);
 
-  // Notification API routes - deployment safe fallbacks with simplified authentication
-  app.get("/api/notifications", isDemoAuthenticated, async (req: any, res) => {
+  // Notification API routes - production ready with secure authentication
+  app.get("/api/notifications", requireAuth, async (req: any, res) => {
     try {
       const { organizationId } = getTenantContext(req);
       const userData = req.user as any;
@@ -64,7 +64,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/notifications/unread", isDemoAuthenticated, async (req: any, res) => {
+  app.get("/api/notifications/unread", requireAuth, async (req: any, res) => {
     try {
       const { organizationId } = getTenantContext(req);
       const userData = req.user as any;
