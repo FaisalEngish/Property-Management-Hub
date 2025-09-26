@@ -308,48 +308,61 @@ Please provide a helpful response based on this data.`;
       };
 
       // Use OpenAI to analyze the question and provide intelligent response
-      const systemPrompt = `You are Captain Cortex, the Smart Co-Pilot for Property Management by HostPilotPro. You have access to live staff and payroll data. Analyze the user's question and provide a helpful response.
+      const systemPrompt = `You are Captain Cortex, the Smart Co-Pilot for Property Management by HostPilotPro. You have access to live staff and payroll data.
 
-Guidelines:
-1. Be conversational and helpful - act like a smart assistant who knows the business
-2. Use specific data from the provided staff context
-3. Format responses clearly with proper structure (tables, lists, etc.)
-4. Use Thai Baht ฿ for money amounts
-5. If asked about "staff list" or "all staff", show a formatted table
-6. If asked about "pending" payments/salaries, focus on pending items
-7. Provide actionable insights when possible
-8. Be professional but friendly
+CRITICAL FORMATTING REQUIREMENTS:
+1. NEVER show raw JSON data or long unformatted text dumps
+2. ALWAYS create clean, professional markdown tables for staff listings
+3. ALWAYS start with an executive summary (total counts, key metrics)
+4. Limit initial display to 10 entries max with pagination notes
+5. Use proper table formatting with clean columns and spacing
+6. Include actionable business insights and department breakdowns
+
+RESPONSE STRUCTURE FOR STAFF QUERIES:
+1. Executive Summary (2-3 lines with totals and key metrics)
+2. Professional markdown table with columns: ID | Name | Position | Department | Salary | Status
+3. Pagination info if more data exists ("Showing 1-10 of 25 total")
+4. Department breakdown or key insights
+5. Next steps or actionable suggestions
+
+FORMAT REQUIREMENTS:
+- Thai Baht ฿ with comma separators for all amounts
+- Clean table borders and proper alignment
+- Professional, executive-ready presentation
+- Concise but comprehensive information
 
 Current date: ${new Date().toISOString().split('T')[0]}
+Staff Overview: ${staffData.totalStaff} employees, ${staffData.pendingPayments} pending payments (฿${staffData.totalPendingAmount?.toLocaleString()})`;
 
-Staff data available:
-- Total staff members: ${staffData.totalStaff}
-- Pending payments: ${staffData.pendingPayments}
-- Total pending amount: ฿${staffData.totalPendingAmount?.toLocaleString()}`;
-
+      // Limit staff display to first 10 for better formatting
+      const staffToShow = staffData.staff.slice(0, 10);
+      const hasMoreStaff = staffData.staff.length > 10;
+      const pendingToShow = staffData.pending.slice(0, 5);
+      
       const userPrompt = `Question: "${question}"
 
-Staff Data:
-${JSON.stringify({
-        totalStaff: staffData.totalStaff,
-        staffMembers: staffData.staff.map(s => ({
-          name: s.name,
-          position: s.position,
-          department: s.department,
-          salary: `฿${s.salary?.toLocaleString()}`,
-          status: s.status
-        })),
-        pendingPayments: staffData.pending.map(p => ({
-          staffName: p.staffName,
-          position: p.position,
-          period: p.period,
-          netAmount: `฿${p.net?.toLocaleString()}`,
-          status: p.status,
-          dueDate: p.dueDate
-        }))
-      }, null, 2)}
+STAFF ROSTER DATA (Showing ${staffToShow.length} of ${staffData.totalStaff} total):
 
-Please provide a helpful response based on this live staff data.`;
+${staffToShow.map((s, index) => 
+  `${index + 1}. ${s.name} | ${s.position} | ${s.department} | ฿${s.salary?.toLocaleString()} | ${s.status}`
+).join('\n')}
+
+${hasMoreStaff ? `\n(${staffData.totalStaff - 10} additional staff members available)` : ''}
+
+PENDING PAYROLL (${staffData.pendingPayments} payments pending):
+${pendingToShow.length > 0 ? pendingToShow.map((p, index) => 
+  `${index + 1}. ${p.staffName} | ${p.position} | ฿${p.net?.toLocaleString()} | Due: ${p.dueDate}`
+).join('\n') : 'No pending payments'}
+
+INSTRUCTIONS FOR RESPONSE:
+- Create a professional markdown table with columns: Employee ID | Name | Position | Department | Salary | Status
+- Start with a summary: "Staff Overview: ${staffData.totalStaff} total employees${staffData.pendingPayments > 0 ? `, ${staffData.pendingPayments} pending payments` : ''}"
+- If showing more than 10 staff, add: "Showing 1-${staffToShow.length} of ${staffData.totalStaff} (type 'show more staff' for additional entries)"
+- Include department breakdown and key insights
+- Format all currency as Thai Baht with proper thousand separators
+- Keep response concise but informative
+
+Please provide a well-formatted, executive-ready staff report.`;
 
       // Use OpenAI Assistant or fallback
       let response;
