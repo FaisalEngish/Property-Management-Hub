@@ -366,68 +366,123 @@ export default function FinanceHub() {
               </div>
             </div>
 
-            {/* Enterprise Search & Filter Bar */}
-            <div className={`mb-6 p-4 rounded-lg border transition-colors duration-300 ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-200'}`}>
-              <div className="flex flex-col md:flex-row gap-4">
-                <div className="flex-1 relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
-                  <Input
-                    placeholder="Search finance modules..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className={`pl-10 transition-colors duration-300 ${isDarkMode ? 'bg-slate-700 border-slate-600 text-white placeholder:text-slate-400' : ''}`}
-                  />
+
+            {/* Sticky Header Container */}
+            <div className={`sticky top-0 z-50 backdrop-blur-sm border-b transition-all duration-300 mb-6 ${
+              isDarkMode ? 'bg-slate-900/95 border-slate-700' : 'bg-white/95 border-slate-200'
+            }`}>
+              {/* Admin Access Pill Badge */}
+              {user?.role === "admin" && (
+                <div className="py-4 flex justify-center">
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Badge className={`transition-all duration-300 px-4 py-2 text-sm font-medium shadow-lg backdrop-blur-sm ${
+                          isDarkMode 
+                            ? 'bg-gradient-to-r from-emerald-800 via-emerald-700 to-emerald-800 text-emerald-100 border-emerald-600' 
+                            : 'bg-gradient-to-r from-emerald-100 via-emerald-50 to-emerald-100 text-emerald-800 border-emerald-300/60'
+                        }`}>
+                          <Shield className="h-4 w-4 mr-2" />
+                          Admin Access Active
+                          <span className={`ml-2 px-2 py-1 rounded-full text-xs ${
+                            isDarkMode ? 'bg-emerald-600/50' : 'bg-emerald-200/50'
+                          }`}>
+                            {allFinanceItems.length} modules
+                          </span>
+                        </Badge>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom" className="bg-gradient-to-r from-slate-800 to-slate-700 text-white border border-slate-600 shadow-xl">
+                        <div className="text-center">
+                          <p className="font-semibold text-sm">Administrator Privileges</p>
+                          <p className="text-xs text-slate-300 mt-1">Access to all {allFinanceItems.length} finance modules</p>
+                          <p className="text-xs text-emerald-300 mt-1">Including restricted admin-only features</p>
+                        </div>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                 </div>
-                <div className="relative">
-                  <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
-                  <Select value={filterBadge} onValueChange={setFilterBadge}>
-                    <SelectTrigger className={`w-48 pl-10 transition-colors duration-300 ${isDarkMode ? 'bg-slate-700 border-slate-600 text-white' : ''}`}>
-                      <SelectValue placeholder="Filter by type" />
-                    </SelectTrigger>
-                    <SelectContent className={isDarkMode ? 'bg-slate-800 border-slate-700' : ''}>
-                      <SelectItem value="all" className={isDarkMode ? 'text-white focus:bg-slate-700' : ''}>All Modules</SelectItem>
-                      {uniqueBadges.map(badge => (
-                        <SelectItem key={badge} value={badge} className={isDarkMode ? 'text-white focus:bg-slate-700' : ''}>
-                          {badge}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+              )}
+
+              {/* Advanced Filters Row */}
+              <div className={`px-4 pb-4 ${user?.role === "admin" ? '' : 'pt-4'}`}>
+                <div className="flex flex-col lg:flex-row gap-4">
+                  {/* Timeframe Filter */}
+                  <div className="flex items-center gap-2">
+                    <span className={`text-sm font-medium ${isDarkMode ? 'text-slate-300' : 'text-slate-700'}`}>
+                      Timeframe:
+                    </span>
+                    <Select defaultValue="monthly">
+                      <SelectTrigger className={`w-32 transition-colors duration-300 ${
+                        isDarkMode ? 'bg-slate-700 border-slate-600 text-white' : ''
+                      }`}>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className={isDarkMode ? 'bg-slate-800 border-slate-700' : ''}>
+                        <SelectItem value="weekly" className={isDarkMode ? 'text-white focus:bg-slate-700' : ''}>Weekly</SelectItem>
+                        <SelectItem value="monthly" className={isDarkMode ? 'text-white focus:bg-slate-700' : ''}>Monthly</SelectItem>
+                        <SelectItem value="quarterly" className={isDarkMode ? 'text-white focus:bg-slate-700' : ''}>Quarterly</SelectItem>
+                        <SelectItem value="yearly" className={isDarkMode ? 'text-white focus:bg-slate-700' : ''}>Yearly</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Department Filter */}
+                  <div className="flex items-center gap-2">
+                    <span className={`text-sm font-medium ${isDarkMode ? 'text-slate-300' : 'text-slate-700'}`}>
+                      Department:
+                    </span>
+                    <Select defaultValue="all">
+                      <SelectTrigger className={`w-40 transition-colors duration-300 ${
+                        isDarkMode ? 'bg-slate-700 border-slate-600 text-white' : ''
+                      }`}>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className={isDarkMode ? 'bg-slate-800 border-slate-700' : ''}>
+                        <SelectItem value="all" className={isDarkMode ? 'text-white focus:bg-slate-700' : ''}>All Departments</SelectItem>
+                        <SelectItem value="properties" className={isDarkMode ? 'text-white focus:bg-slate-700' : ''}>Properties</SelectItem>
+                        <SelectItem value="owners" className={isDarkMode ? 'text-white focus:bg-slate-700' : ''}>Owners</SelectItem>
+                        <SelectItem value="utilities" className={isDarkMode ? 'text-white focus:bg-slate-700' : ''}>Utilities</SelectItem>
+                        <SelectItem value="ota" className={isDarkMode ? 'text-white focus:bg-slate-700' : ''}>OTA</SelectItem>
+                        <SelectItem value="admin" className={isDarkMode ? 'text-white focus:bg-slate-700' : ''}>Administration</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Global Search */}
+                  <div className="flex-1 relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
+                    <Input
+                      placeholder="Search finance modules..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className={`pl-10 transition-colors duration-300 ${
+                        isDarkMode ? 'bg-slate-700 border-slate-600 text-white placeholder:text-slate-400' : ''
+                      }`}
+                    />
+                  </div>
+
+                  {/* Badge Filter */}
+                  <div className="relative">
+                    <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
+                    <Select value={filterBadge} onValueChange={setFilterBadge}>
+                      <SelectTrigger className={`w-48 pl-10 transition-colors duration-300 ${
+                        isDarkMode ? 'bg-slate-700 border-slate-600 text-white' : ''
+                      }`}>
+                        <SelectValue placeholder="Filter by type" />
+                      </SelectTrigger>
+                      <SelectContent className={isDarkMode ? 'bg-slate-800 border-slate-700' : ''}>
+                        <SelectItem value="all" className={isDarkMode ? 'text-white focus:bg-slate-700' : ''}>All Modules</SelectItem>
+                        {uniqueBadges.map(badge => (
+                          <SelectItem key={badge} value={badge} className={isDarkMode ? 'text-white focus:bg-slate-700' : ''}>
+                            {badge}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
               </div>
             </div>
-
-            {/* Admin Access Pill Badge */}
-            {user?.role === "admin" && (
-              <div className="mb-6 flex justify-center">
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Badge className={`transition-all duration-300 px-4 py-2 text-sm font-medium shadow-lg backdrop-blur-sm ${
-                        isDarkMode 
-                          ? 'bg-gradient-to-r from-emerald-800 via-emerald-700 to-emerald-800 text-emerald-100 border-emerald-600' 
-                          : 'bg-gradient-to-r from-emerald-100 via-emerald-50 to-emerald-100 text-emerald-800 border-emerald-300/60'
-                      }`}>
-                        <Shield className="h-4 w-4 mr-2" />
-                        Admin Access Active
-                        <span className={`ml-2 px-2 py-1 rounded-full text-xs ${
-                          isDarkMode ? 'bg-emerald-600/50' : 'bg-emerald-200/50'
-                        }`}>
-                          {allFinanceItems.length} modules
-                        </span>
-                      </Badge>
-                    </TooltipTrigger>
-                    <TooltipContent side="bottom" className="bg-gradient-to-r from-slate-800 to-slate-700 text-white border border-slate-600 shadow-xl">
-                      <div className="text-center">
-                        <p className="font-semibold text-sm">Administrator Privileges</p>
-                        <p className="text-xs text-slate-300 mt-1">Access to all {allFinanceItems.length} finance modules</p>
-                        <p className="text-xs text-emerald-300 mt-1">Including restricted admin-only features</p>
-                      </div>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              </div>
-            )}
 
             {/* Collapsible Module Groups */}
             <div className="space-y-6">
