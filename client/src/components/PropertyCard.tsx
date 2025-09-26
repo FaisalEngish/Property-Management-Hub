@@ -50,6 +50,10 @@ export function PropertyCard({ property, isSelected, onSelect, onViewDetails, on
   const maintenanceRatio = ((maintenanceCosts / monthlyRevenue) * 100).toFixed(1);
   const lastBookingDate = property.lastBookingDate || '2024-12-15';
   const roi = property.roi || (Math.random() * 20 + 5).toFixed(1);
+  
+  // Priority maintenance tasks (moved before getAnalyticsTags)
+  const maintenanceTasks = property.maintenanceTasks || Math.floor(Math.random() * 5) + 1;
+  const urgentTasks = Math.floor(maintenanceTasks * 0.3);
 
   // Smart Analytics Tags
   const getAnalyticsTags = () => {
@@ -90,9 +94,6 @@ export function PropertyCard({ property, isSelected, onSelect, onViewDetails, on
     }
   };
 
-  // Priority maintenance tasks
-  const maintenanceTasks = property.maintenanceTasks || Math.floor(Math.random() * 5) + 1;
-  const urgentTasks = Math.floor(maintenanceTasks * 0.3);
 
   return (
     <Card className="group hover:shadow-xl hover:shadow-emerald-500/20 hover:scale-[1.02] transition-all duration-300 relative bg-white/90 backdrop-blur-sm border border-slate-200/50">
