@@ -26,11 +26,14 @@ interface PropertyFiltersState {
   search: string;
   location: string;
   status: string;
+  propertyType: string;
   occupancyMin: number;
   occupancyMax: number;
   roiMin: number;
   roiMax: number;
   hasMaintenanceTasks: boolean;
+  lastBookingFrom: string;
+  lastBookingTo: string;
 }
 
 export default function PropertyHub() {
@@ -41,12 +44,19 @@ export default function PropertyHub() {
     search: '',
     location: '',
     status: '',
+    propertyType: '',
     occupancyMin: 0,
     occupancyMax: 100,
     roiMin: 0,
     roiMax: 50,
     hasMaintenanceTasks: false,
+    lastBookingFrom: '',
+    lastBookingTo: '',
   });
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(12); // Show 12 properties per page
 
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -137,6 +147,38 @@ export default function PropertyHub() {
         return false;
       }
       
+      // Property type filter
+      if (filters.propertyType) {
+        const propertyType = property.propertyType || 
+          (property.name?.toLowerCase().includes('villa') ? 'villa' :
+           property.name?.toLowerCase().includes('apartment') ? 'apartment' :
+           property.name?.toLowerCase().includes('condo') ? 'condo' :
+           property.name?.toLowerCase().includes('resort') ? 'resort' : 'villa');
+        if (propertyType !== filters.propertyType) {
+          return false;
+        }
+      }
+      
+      // Last booking date filter
+      if (filters.lastBookingFrom || filters.lastBookingTo) {
+        const lastBookingDate = property.lastBookingDate || '2024-12-15';
+        const lastBooking = new Date(lastBookingDate);
+        
+        if (filters.lastBookingFrom) {
+          const fromDate = new Date(filters.lastBookingFrom);
+          if (lastBooking < fromDate) {
+            return false;
+          }
+        }
+        
+        if (filters.lastBookingTo) {
+          const toDate = new Date(filters.lastBookingTo);
+          if (lastBooking > toDate) {
+            return false;
+          }
+        }
+      }
+      
       // Maintenance tasks filter
       if (filters.hasMaintenanceTasks) {
         const maintenanceTasks = property.maintenanceTasks || Math.floor(Math.random() * 5);
@@ -148,6 +190,24 @@ export default function PropertyHub() {
       return true;
     });
   }, [propertiesArray, filters]);
+
+  // Pagination logic
+  const totalPages = Math.ceil(filteredProperties.length / itemsPerPage);
+  const paginatedProperties = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return filteredProperties.slice(startIndex, startIndex + itemsPerPage);
+  }, [filteredProperties, currentPage, itemsPerPage]);
+
+  // Reset pagination when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filters]);
+
+  const handleLoadMore = () => {
+    if (currentPage < totalPages) {
+      setCurrentPage(prev => prev + 1);
+    }
+  };
 
   // Property selection handlers
   const handlePropertySelect = (property: any, selected: boolean) => {
@@ -316,7 +376,7 @@ export default function PropertyHub() {
 
                 {/* Property Cards Grid */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                  {filteredProperties.map((property: any) => (
+                  {paginatedProperties.map((property: any) => (
                     <PropertyCard
                       key={property.id}
                       property={property}
@@ -327,6 +387,33 @@ export default function PropertyHub() {
                     />
                   ))}
                 </div>
+
+                {/* Pagination & Load More */}
+                {filteredProperties.length > itemsPerPage && (
+                  <div className="mt-8 flex flex-col items-center gap-4">
+                    <div className="text-sm text-slate-600 bg-white/50 px-4 py-2 rounded-lg border border-slate-200/50 backdrop-blur-sm">
+                      Showing {Math.min(currentPage * itemsPerPage, filteredProperties.length)} of {filteredProperties.length} properties
+                      {currentPage < totalPages && ` • Page ${currentPage} of ${totalPages}`}
+                    </div>
+                    
+                    {currentPage < totalPages && (
+                      <Button
+                        onClick={handleLoadMore}
+                        variant="outline"
+                        size="lg"
+                        className="bg-emerald-50 hover:bg-emerald-100 border-emerald-200 text-emerald-700 hover:text-emerald-800 hover:scale-105 transition-all duration-200 shadow-sm"
+                      >
+                        📄 Load More Properties ({filteredProperties.length - (currentPage * itemsPerPage)} remaining)
+                      </Button>
+                    )}
+                    
+                    {currentPage >= totalPages && filteredProperties.length > itemsPerPage && (
+                      <div className="text-sm text-emerald-600 font-medium bg-emerald-50 px-4 py-2 rounded-lg border border-emerald-200">
+                        ✅ All properties loaded!
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {filteredProperties.length === 0 && (
                   <div className="text-center py-12">

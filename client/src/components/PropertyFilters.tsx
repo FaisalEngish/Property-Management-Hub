@@ -16,11 +16,14 @@ interface PropertyFiltersState {
   search: string;
   location: string;
   status: string;
+  propertyType: string;
   occupancyMin: number;
   occupancyMax: number;
   roiMin: number;
   roiMax: number;
   hasMaintenanceTasks: boolean;
+  lastBookingFrom: string;
+  lastBookingTo: string;
 }
 
 interface PropertyFiltersProps {
@@ -45,11 +48,14 @@ export function PropertyFilters({
       search: '',
       location: '',
       status: '',
+      propertyType: '',
       occupancyMin: 0,
       occupancyMax: 100,
       roiMin: 0,
       roiMax: 50,
       hasMaintenanceTasks: false,
+      lastBookingFrom: '',
+      lastBookingTo: '',
     });
   };
 
@@ -58,9 +64,11 @@ export function PropertyFilters({
     if (filters.search) count++;
     if (filters.location) count++;
     if (filters.status) count++;
+    if (filters.propertyType) count++;
     if (filters.occupancyMin > 0 || filters.occupancyMax < 100) count++;
     if (filters.roiMin > 0 || filters.roiMax < 50) count++;
     if (filters.hasMaintenanceTasks) count++;
+    if (filters.lastBookingFrom || filters.lastBookingTo) count++;
     return count;
   };
 
@@ -148,6 +156,79 @@ export function PropertyFilters({
           >
             🔧 Has Maintenance Tasks
           </Button>
+        </div>
+
+        {/* Advanced Filters Row */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {/* Property Type Filter */}
+          <div className="bg-white/70 rounded-lg shadow-sm border border-slate-200/50 backdrop-blur-sm">
+            <Select value={filters.propertyType || 'all'} onValueChange={(value) => updateFilter('propertyType', value === 'all' ? '' : value)}>
+              <SelectTrigger className="border-0 bg-transparent focus:ring-emerald-500">
+                <SelectValue placeholder="🏢 Property Type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Types</SelectItem>
+                <SelectItem value="villa">🏡 Villa</SelectItem>
+                <SelectItem value="apartment">🏠 Apartment</SelectItem>
+                <SelectItem value="condo">🏢 Condo</SelectItem>
+                <SelectItem value="commercial">🏪 Commercial</SelectItem>
+                <SelectItem value="resort">🏖️ Resort</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Last Booking Date Range */}
+          <div className="bg-white/70 rounded-lg shadow-sm border border-slate-200/50 backdrop-blur-sm p-3">
+            <div className="flex items-center gap-2 mb-2">
+              <Calendar className="h-4 w-4 text-emerald-600" />
+              <label className="text-sm font-semibold text-slate-700">📅 Last Booking Date</label>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <Input
+                type="date"
+                placeholder="From"
+                value={filters.lastBookingFrom}
+                onChange={(e) => updateFilter('lastBookingFrom', e.target.value)}
+                className="text-xs border-0 bg-white/50"
+              />
+              <Input
+                type="date"
+                placeholder="To"
+                value={filters.lastBookingTo}
+                onChange={(e) => updateFilter('lastBookingTo', e.target.value)}
+                className="text-xs border-0 bg-white/50"
+              />
+            </div>
+          </div>
+
+          {/* Export/Report Actions */}
+          <div className="flex flex-col gap-2">
+            <Button 
+              variant="outline"
+              className="bg-white/70 backdrop-blur-sm shadow-sm hover:bg-emerald-50 hover:border-emerald-200 hover:text-emerald-700 hover:scale-[1.02] transition-all duration-200"
+              onClick={() => {
+                // CSV export functionality
+                const csvData = 'Property Name,Location,Status,Occupancy,ROI\n'; // Mock data
+                const blob = new Blob([csvData], { type: 'text/csv' });
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'properties-export.csv';
+                a.click();
+              }}
+            >
+              📊 Export CSV
+            </Button>
+            <Button 
+              variant="outline"
+              className="bg-white/70 backdrop-blur-sm shadow-sm hover:bg-purple-50 hover:border-purple-200 hover:text-purple-700 hover:scale-[1.02] transition-all duration-200"
+              onClick={() => {
+                window.print();
+              }}
+            >
+              📋 Print Report
+            </Button>
+          </div>
         </div>
 
         {/* Advanced Range Filters */}
