@@ -49,12 +49,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
   await setupAuth(app);
 
   // Notification API routes - deployment safe fallbacks with simplified authentication
-  app.get("/api/notifications", isDemoAuthenticated, (req, res) => {
-    res.json([]);
+  app.get("/api/notifications", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId } = getTenantContext(req);
+      const userData = req.user as any;
+      
+      // Fetch reminder notifications for the current user
+      const notifications = await storage.getReminderNotificationsByUser(userData.id, organizationId);
+      
+      res.json(notifications);
+    } catch (error) {
+      console.error("Error fetching notifications:", error);
+      res.status(500).json({ message: "Failed to fetch notifications" });
+    }
   });
 
-  app.get("/api/notifications/unread", isDemoAuthenticated, (req, res) => {
-    res.json([]);
+  app.get("/api/notifications/unread", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId } = getTenantContext(req);
+      const userData = req.user as any;
+      
+      // Fetch unread reminder notifications for the current user
+      const notifications = await storage.getReminderNotificationsByUser(userData.id, organizationId);
+      const unreadNotifications = notifications.filter(n => !n.isRead);
+      
+      res.json(unreadNotifications);
+    } catch (error) {
+      console.error("Error fetching unread notifications:", error);
+      res.status(500).json({ message: "Failed to fetch unread notifications" });
+    }
   });
 
   // Seed Thailand utility providers on startup
