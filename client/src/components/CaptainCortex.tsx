@@ -14,6 +14,25 @@ const CaptainCortex = () => {
     const queryText = question || prompt;
     if (!queryText.trim()) return;
     
+    // Detect export commands and handle them directly
+    const exportCSVKeywords = /\b(?:export|download|save)\s+(?:to\s+)?csv\b/i;
+    const exportPDFKeywords = /\b(?:export|download|save)\s+(?:to\s+)?pdf\b/i;
+    const financeKeywords = /\b(?:financial?|finance|transaction|revenue|expense|income|money|payment|budget)\b/i;
+    
+    if (exportCSVKeywords.test(queryText)) {
+      console.log('🔍 Detected CSV export command, routing to handleFinancialExport');
+      handleFinancialExport('csv');
+      if (!question) setPrompt(""); // Clear input only for manual queries
+      return;
+    }
+    
+    if (exportPDFKeywords.test(queryText)) {
+      console.log('🔍 Detected PDF export command, routing to handleFinancialExport');
+      handleFinancialExport('pdf');
+      if (!question) setPrompt(""); // Clear input only for manual queries
+      return;
+    }
+    
     setIsLoading(true);
     setLastQuery(queryText);
     try {
