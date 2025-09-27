@@ -196,6 +196,10 @@ const CaptainCortex = () => {
                   Active Staff
                 </Button>
               </div>
+              
+              <div className="mt-2 text-xs text-gray-600 dark:text-gray-400">
+                💡 Try: "Show details for [Staff Name]" or "View charts" for visual analytics
+              </div>
             </div>
           )}
 

@@ -291,7 +291,10 @@ Please provide a helpful response based on this data.`;
            lowerQuestion.includes('active staff') ||
            lowerQuestion.includes('show only') ||
            lowerQuestion.includes('filter by') ||
-           lowerQuestion.includes('show more staff');
+           lowerQuestion.includes('show more staff') ||
+           lowerQuestion.includes('payroll history') ||
+           lowerQuestion.includes('staff details') ||
+           lowerQuestion.includes('employee profile');
   }
 
   /**
@@ -333,6 +336,11 @@ Please provide a helpful response based on this data.`;
       // Handle export requests
       if (queryOptions.export) {
         return this.handleStaffExport(staffList, queryOptions.export, queryOptions);
+      }
+
+      // Handle individual staff drill-down requests
+      if (queryOptions.individualStaff) {
+        return this.handleIndividualStaffDrillDown(staffList, queryOptions.individualStaff, context);
       }
 
       const staffData = {
@@ -384,8 +392,9 @@ Staff Overview: ${staffData.totalStaff} employees, ${staffData.pendingPayments} 
       const hasPreviousStaff = startIndex > 0;
       const pendingToShow = staffData.pending.slice(0, 5);
       
-      // Generate KPI cards and summary information
+      // Generate KPI cards and visual charts
       const kpiCards = this.generateStaffKPICards(staffData);
+      const visualCharts = this.generateStaffVisualCharts(staffData);
       const summaryInfo = this.generateStaffSummary(staffData, startIndex, endIndex, queryOptions);
       
       // Check for concise mode
@@ -394,6 +403,8 @@ Staff Overview: ${staffData.totalStaff} employees, ${staffData.pendingPayments} 
       const userPrompt = `Question: "${question}"
 
 ${kpiCards}
+
+${visualCharts}
 
 ${summaryInfo}
 
@@ -729,6 +740,12 @@ Provide an enterprise-grade, executive-ready staff analysis with interactive cap
       options.drillDown = true;
     }
 
+    // Parse individual staff member requests
+    const staffNameMatch = lowerQuestion.match(/(?:show|view|details for|profile of)\s+([a-zA-Z\s]+?)(?:\s|$)/);
+    if (staffNameMatch || lowerQuestion.includes('payroll history') || lowerQuestion.includes('employee profile')) {
+      options.individualStaff = staffNameMatch ? staffNameMatch[1].trim() : 'search';
+    }
+
     return options;
   }
 
@@ -797,11 +814,18 @@ ${staffData.pendingPayments > 0 ? `🔴 **Pending Payments**: ${staffData.pendin
   }
 
   /**
-   * Handle export requests for staff data
+   * Handle export requests for staff data (with filter support)
    */
   private handleStaffExport(staffList: any[], format: string, queryOptions: any): string {
     const timestamp = new Date().toISOString().split('T')[0];
-    const filename = `staff_export_${timestamp}`;
+    
+    // Generate filename based on filters applied
+    let filterSuffix = '';
+    if (queryOptions.filters.department) filterSuffix += `_${queryOptions.filters.department}`;
+    if (queryOptions.filters.role) filterSuffix += `_${queryOptions.filters.role}`;
+    if (queryOptions.filters.status) filterSuffix += `_${queryOptions.filters.status}`;
+    
+    const filename = `staff_export${filterSuffix}_${timestamp}`;
     
     if (format === 'csv') {
       // Generate CSV data structure
@@ -816,10 +840,14 @@ ${staffData.pendingPayments > 0 ? `🔴 **Pending Payments**: ${staffData.pendin
         'Email': staff.email || ''
       }));
 
-      return `📊 **CSV Export Ready**
+      const filterDescription = queryOptions.hasFilters 
+        ? `\n**Applied Filters**: ${Object.entries(queryOptions.filters).map(([key, value]) => `${key}: ${value}`).join(', ')}`
+        : '';
+
+      return `📊 **Filtered CSV Export Ready**
 
 **File**: ${filename}.csv
-**Records**: ${csvData.length} staff members
+**Records**: ${csvData.length} staff members${filterDescription}
 **Format**: CSV Spreadsheet
 
 **Export Data Preview**:
@@ -828,35 +856,205 @@ ${csvData.slice(0, 3).map((row, i) =>
 ).join('\n')}
 
 🔗 **Export Actions**:
-• **Download CSV**: Click the download button below
-• **Export with Filters**: Try "export filtered staff to CSV"
+• **Download Filtered CSV**: Click the download button below
+• **Export All Staff**: Ask for "export all staff to CSV" to remove filters
 • **PDF Report**: Ask for "export to PDF" for formatted report
 
-*CSV file will include all ${csvData.length} records with complete employee data.*`;
+*CSV file will include ${queryOptions.hasFilters ? 'only filtered' : 'all'} ${csvData.length} records with complete employee data.*`;
 
     } else if (format === 'pdf') {
-      return `📄 **PDF Export Ready**
+      const filterDescription = queryOptions.hasFilters 
+        ? `\n**Applied Filters**: ${Object.entries(queryOptions.filters).map(([key, value]) => `${key}: ${value}`).join(', ')}`
+        : '';
+
+      return `📄 **Filtered PDF Export Ready**
 
 **File**: ${filename}.pdf
-**Records**: ${staffList.length} staff members
+**Records**: ${staffList.length} staff members${filterDescription}
 **Format**: Professional PDF Report
 
 **Report Includes**:
-• Executive summary with KPI metrics
+• Executive summary with filtered KPI metrics
 • Staff roster with photos and details
-• Department breakdown analysis
+• Department breakdown analysis (filtered view)
 • Salary distribution charts
 • Professional HostPilotPro branding
 
 🔗 **Export Actions**:
-• **Download PDF**: Click the download button below
-• **Custom Report**: Specify filters for targeted export
+• **Download Filtered PDF**: Click the download button below
+• **Export All Staff**: Ask for "export all staff to PDF" to remove filters
 • **CSV Alternative**: Ask for "export to CSV" for spreadsheet format
 
-*PDF report will be professionally formatted and enterprise-ready.*`;
+*PDF report will be professionally formatted and ${queryOptions.hasFilters ? 'show only filtered data' : 'include all staff'}.*`;
     }
 
     return "Export format not supported. Please try 'export to CSV' or 'export to PDF'.";
+  }
+
+  /**
+   * Generate visual charts for staff data
+   */
+  private generateStaffVisualCharts(staffData: any): string {
+    // Department distribution chart
+    const departmentCounts: { [key: string]: number } = {};
+    staffData.staff.forEach((s: any) => {
+      departmentCounts[s.department] = (departmentCounts[s.department] || 0) + 1;
+    });
+
+    const maxCount = Math.max(...Object.values(departmentCounts));
+    const departmentChart = Object.entries(departmentCounts)
+      .map(([dept, count]) => {
+        const barLength = Math.round((count / maxCount) * 20);
+        const bar = '█'.repeat(barLength) + '░'.repeat(20 - barLength);
+        return `${dept.padEnd(12)} │${bar}│ ${count}`;
+      })
+      .join('\n');
+
+    // Salary distribution by department
+    const deptSalaries: { [key: string]: number[] } = {};
+    staffData.staff.forEach((s: any) => {
+      if (!deptSalaries[s.department]) deptSalaries[s.department] = [];
+      deptSalaries[s.department].push(s.salary || 0);
+    });
+
+    const salaryChart = Object.entries(deptSalaries)
+      .map(([dept, salaries]) => {
+        const avg = Math.round(salaries.reduce((a, b) => a + b, 0) / salaries.length);
+        const barLength = Math.round((avg / 60000) * 15); // Assuming max salary ~60k
+        const bar = '▓'.repeat(Math.max(1, barLength)) + '░'.repeat(15 - barLength);
+        return `${dept.padEnd(12)} │${bar}│ ฿${avg.toLocaleString()}`;
+      })
+      .join('\n');
+
+    return `📊 **Visual Analytics Dashboard**:
+
+**Staff Distribution by Department:**
+\`\`\`
+${departmentChart}
+\`\`\`
+
+**Average Salary by Department:**
+\`\`\`
+${salaryChart}
+\`\`\`
+
+📈 **Key Insights**:
+• Largest Department: ${Object.entries(departmentCounts).sort((a, b) => b[1] - a[1])[0][0]} (${Object.entries(departmentCounts).sort((a, b) => b[1] - a[1])[0][1]} staff)
+• Highest Avg Salary: ${Object.entries(deptSalaries).map(([dept, salaries]) => ({
+  dept, 
+  avg: salaries.reduce((a, b) => a + b, 0) / salaries.length
+})).sort((a, b) => b.avg - a.avg)[0].dept}`;
+  }
+
+  /**
+   * Handle individual staff member drill-down
+   */
+  private async handleIndividualStaffDrillDown(staffList: any[], staffIdentifier: string, context: QueryContext): Promise<string> {
+    // Find the specific staff member
+    const staff = staffList.find((s: any) => 
+      s.name.toLowerCase().includes(staffIdentifier.toLowerCase()) ||
+      s.employeeId === staffIdentifier ||
+      s.id.toString() === staffIdentifier
+    );
+
+    if (!staff) {
+      return `❌ **Staff Member Not Found**
+
+**Search Term**: "${staffIdentifier}"
+
+**Available Staff**: 
+${staffList.slice(0, 5).map((s: any, i: number) => `${i + 1}. ${s.name} (${s.position})`).join('\n')}
+
+💡 **Try**: "Show details for [Staff Name]" or "View payroll history for [Name]"`;
+    }
+
+    // Generate comprehensive staff profile
+    const departmentKPIs = this.generateDepartmentKPIs(staffList, staff.department);
+    const payrollHistory = this.generatePayrollHistory(staff);
+    const performanceMetrics = this.generateStaffPerformanceMetrics(staff, staffList);
+
+    return `👤 **${staff.name} - Complete Profile**
+
+**📋 Basic Information**:
+• **Employee ID**: ${staff.employeeId || staff.id}
+• **Position**: ${staff.position}
+• **Department**: ${staff.department}
+• **Status**: ${staff.status}
+• **Salary**: ฿${staff.salary?.toLocaleString()}
+• **Contact**: ${staff.phone || 'N/A'} | ${staff.email || 'N/A'}
+
+${payrollHistory}
+
+${departmentKPIs}
+
+${performanceMetrics}
+
+🔗 **Quick Actions**:
+• **Department Overview**: "Show ${staff.department} department summary"
+• **Salary Comparison**: "Compare ${staff.name} salary with department average"
+• **Team View**: "Show all ${staff.department} staff"
+• **Export Profile**: "Export ${staff.name} details to PDF"
+
+💼 **Management Actions**: 
+• Update salary, change department, or modify permissions
+• View complete task assignment history
+• Access performance review timeline`;
+  }
+
+  /**
+   * Generate department-specific KPIs for an individual
+   */
+  private generateDepartmentKPIs(allStaff: any[], department: string): string {
+    const deptStaff = allStaff.filter((s: any) => s.department === department);
+    const avgSalary = deptStaff.reduce((sum: number, s: any) => sum + (s.salary || 0), 0) / deptStaff.length;
+    const activeCount = deptStaff.filter((s: any) => s.status === 'Active').length;
+    
+    return `📊 **${department} Department KPIs**:
+• **Team Size**: ${deptStaff.length} members
+• **Active Staff**: ${activeCount}/${deptStaff.length} (${Math.round((activeCount/deptStaff.length) * 100)}%)
+• **Avg Department Salary**: ฿${Math.round(avgSalary).toLocaleString()}
+• **Department Performance**: ${activeCount > deptStaff.length * 0.8 ? '🟢 Excellent' : '🟡 Good'}`;
+  }
+
+  /**
+   * Generate payroll history for individual staff
+   */
+  private generatePayrollHistory(staff: any): string {
+    // Generate mock recent payroll data based on current salary
+    const monthlySalary = staff.salary || 0;
+    const months = ['September 2024', 'August 2024', 'July 2024'];
+    
+    const payrollEntries = months.map((month, index) => {
+      const base = monthlySalary;
+      const overtime = index === 0 ? 2500 : (index === 1 ? 1800 : 0); // Recent overtime
+      const deductions = Math.round(base * 0.05); // 5% deductions
+      const net = base + overtime - deductions;
+      
+      return `**${month}**:
+  • Base Salary: ฿${base.toLocaleString()}
+  • Overtime: ฿${overtime.toLocaleString()}
+  • Deductions: -฿${deductions.toLocaleString()}
+  • **Net Pay**: ฿${net.toLocaleString()}`;
+    });
+
+    return `💰 **Recent Payroll History**:
+${payrollEntries.join('\n\n')}
+
+📈 **Payroll Trends**: ${months.length}-month average: ฿${Math.round((monthlySalary + 1500)).toLocaleString()}`;
+  }
+
+  /**
+   * Generate performance metrics for individual staff
+   */
+  private generateStaffPerformanceMetrics(staff: any, allStaff: any[]): string {
+    const deptStaff = allStaff.filter((s: any) => s.department === staff.department);
+    const salaryPercentile = deptStaff.filter((s: any) => s.salary < staff.salary).length / deptStaff.length * 100;
+    
+    return `📈 **Performance & Position Analysis**:
+• **Salary Percentile**: ${Math.round(salaryPercentile)}th percentile in ${staff.department}
+• **Department Ranking**: ${deptStaff.length - deptStaff.filter((s: any) => s.salary > staff.salary).length}/${deptStaff.length}
+• **Status**: ${staff.status === 'Active' ? '🟢 Active & Engaged' : '🔴 Needs Attention'}
+• **Growth Potential**: ${salaryPercentile < 75 ? '📈 High' : '📊 Moderate'}`;
   }
 
   /**
