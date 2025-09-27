@@ -21405,9 +21405,9 @@ async function processGuestIssueForAI(issueReport: any) {
         console.log(`✅ CSV export completed: ${csvContent.length} characters`);
         
       } else if (exportType === 'pdf') {
-        // Generate proper PDF using jsPDF
-        const { jsPDF } = await import('jspdf');
-        const doc = new jsPDF();
+        // Generate proper PDF using PDFKit (server-side PDF library)
+        const PDFDocument = require('pdfkit');
+        const doc = new PDFDocument();
         
         const totalRevenue = organizationFinances
           .filter(f => f.type === 'income')
@@ -21417,30 +21417,38 @@ async function processGuestIssueForAI(issueReport: any) {
           .filter(f => f.type === 'expense')
           .reduce((sum, f) => sum + (parseFloat(f.amount?.toString() || '0') || 0), 0);
         
+        // Set up PDF buffers
+        const chunks: Buffer[] = [];
+        doc.on('data', (chunk) => chunks.push(chunk));
+        
+        // Wait for PDF to finish
+        const pdfPromise = new Promise<Buffer>((resolve, reject) => {
+          doc.on('end', () => {
+            resolve(Buffer.concat(chunks));
+          });
+          doc.on('error', reject);
+        });
+        
         // Add title
-        doc.setFontSize(20);
-        doc.text('Financial Report', 20, 30);
+        doc.fontSize(20).text('Financial Report', 50, 50);
         
         // Add subtitle
-        doc.setFontSize(12);
-        doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 20, 45);
-        doc.text(`Organization: ${organizationId}`, 20, 55);
+        doc.fontSize(12).text(`Generated on: ${new Date().toLocaleDateString()}`, 50, 80);
+        doc.text(`Organization: ${organizationId}`, 50, 95);
         
         // Add summary section
-        doc.setFontSize(16);
-        doc.text('Summary', 20, 75);
-        doc.setFontSize(12);
-        doc.text(`Total Revenue: ฿${totalRevenue.toLocaleString()}`, 20, 90);
-        doc.text(`Total Expenses: ฿${totalExpenses.toLocaleString()}`, 20, 100);
-        doc.text(`Net Profit: ฿${(totalRevenue - totalExpenses).toLocaleString()}`, 20, 110);
-        doc.text(`Total Transactions: ${organizationFinances.length}`, 20, 120);
+        doc.fontSize(16).text('Summary', 50, 120);
+        doc.fontSize(12);
+        doc.text(`Total Revenue: ฿${totalRevenue.toLocaleString()}`, 50, 145);
+        doc.text(`Total Expenses: ฿${totalExpenses.toLocaleString()}`, 50, 160);
+        doc.text(`Net Profit: ฿${(totalRevenue - totalExpenses).toLocaleString()}`, 50, 175);
+        doc.text(`Total Transactions: ${organizationFinances.length}`, 50, 190);
         
         // Add transactions section
-        doc.setFontSize(16);
-        doc.text('Recent Transactions', 20, 140);
-        doc.setFontSize(10);
+        doc.fontSize(16).text('Recent Transactions', 50, 220);
+        doc.fontSize(10);
         
-        let yPosition = 155;
+        let yPosition = 245;
         const recentTransactions = organizationFinances.slice(0, 15);
         
         recentTransactions.forEach((transaction, index) => {
@@ -21450,23 +21458,26 @@ async function processGuestIssueForAI(issueReport: any) {
           const category = transaction.category || 'General';
           
           const line = `${date} | ${type} | ${amount} | ${category}`;
-          doc.text(line, 20, yPosition);
-          yPosition += 8;
+          doc.text(line, 50, yPosition);
+          yPosition += 15;
           
           // Add new page if needed
-          if (yPosition > 270) {
+          if (yPosition > 720) {
             doc.addPage();
-            yPosition = 20;
+            yPosition = 50;
           }
         });
         
         if (organizationFinances.length > 15) {
-          yPosition += 5;
-          doc.text(`... and ${organizationFinances.length - 15} more transactions`, 20, yPosition);
+          yPosition += 10;
+          doc.text(`... and ${organizationFinances.length - 15} more transactions`, 50, yPosition);
         }
         
-        // Generate PDF buffer
-        const pdfBuffer = Buffer.from(doc.output('arraybuffer'));
+        // Finalize the PDF
+        doc.end();
+        
+        // Wait for PDF generation to complete
+        const pdfBuffer = await pdfPromise;
         
         // Set proper headers for PDF download
         res.setHeader('Content-Type', 'application/pdf');
