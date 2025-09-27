@@ -331,8 +331,8 @@ Please provide a helpful response based on this data.`;
       }
 
       // Handle export requests
-      if (queryOptions.export && context.exportFormat) {
-        return this.handleStaffExport(staffList, context.exportFormat, queryOptions);
+      if (queryOptions.export) {
+        return this.handleStaffExport(staffList, queryOptions.export, queryOptions);
       }
 
       const staffData = {
