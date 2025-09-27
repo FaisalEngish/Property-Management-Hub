@@ -934,6 +934,42 @@ Be specific and actionable in your recommendations.`;
     try {
       const { organizationId } = getTenantContext(req);
       
+      // Parse and validate query parameters
+      let { count, limit, offset } = req.query;
+      
+      // Validate and set defaults for count/limit parameters
+      if (count !== undefined) {
+        count = parseInt(count);
+        if (isNaN(count) || count <= 0) {
+          console.log(`⚠️ Invalid count parameter: ${req.query.count}, using default 20`);
+          count = 20;
+        }
+      } else {
+        count = 20; // Default count
+      }
+      
+      if (limit !== undefined) {
+        limit = parseInt(limit);
+        if (isNaN(limit) || limit <= 0) {
+          console.log(`⚠️ Invalid limit parameter: ${req.query.limit}, using default 20`);
+          limit = 20;
+        }
+      } else {
+        limit = count;
+      }
+      
+      if (offset !== undefined) {
+        offset = parseInt(offset);
+        if (isNaN(offset) || offset < 0) {
+          console.log(`⚠️ Invalid offset parameter: ${req.query.offset}, using default 0`);
+          offset = 0;
+        }
+      } else {
+        offset = 0;
+      }
+      
+      console.log(`📊 Staff list request: count=${count}, limit=${limit}, offset=${offset} for org=${organizationId}`);
+      
       // Get all staff members for this organization
       const users = await storage.getUsers();
       const staffMembers = users
@@ -956,10 +992,22 @@ Be specific and actionable in your recommendations.`;
           email: user.email
         }));
 
+      // Apply pagination
+      const totalStaff = staffMembers.length;
+      const paginatedStaff = staffMembers.slice(offset, offset + limit);
+      
+      console.log(`✅ Returning ${paginatedStaff.length} staff members (total: ${totalStaff})`);
+
       res.json({
         success: true,
-        staff: staffMembers,
-        total: staffMembers.length
+        staff: paginatedStaff,
+        total: totalStaff,
+        count: paginatedStaff.length,
+        pagination: {
+          limit: limit,
+          offset: offset,
+          hasMore: offset + limit < totalStaff
+        }
       });
     } catch (error) {
       console.error('Error fetching staff list:', error);
@@ -970,6 +1018,42 @@ Be specific and actionable in your recommendations.`;
   app.get("/api/staff/pending", requireAuth, async (req: any, res) => {
     try {
       const { organizationId } = getTenantContext(req);
+      
+      // Parse and validate query parameters
+      let { count, limit, offset } = req.query;
+      
+      // Validate and set defaults for count/limit parameters
+      if (count !== undefined) {
+        count = parseInt(count);
+        if (isNaN(count) || count <= 0) {
+          console.log(`⚠️ Invalid count parameter: ${req.query.count}, using default 10`);
+          count = 10;
+        }
+      } else {
+        count = 10; // Default count for pending items
+      }
+      
+      if (limit !== undefined) {
+        limit = parseInt(limit);
+        if (isNaN(limit) || limit <= 0) {
+          console.log(`⚠️ Invalid limit parameter: ${req.query.limit}, using default 10`);
+          limit = 10;
+        }
+      } else {
+        limit = count;
+      }
+      
+      if (offset !== undefined) {
+        offset = parseInt(offset);
+        if (isNaN(offset) || offset < 0) {
+          console.log(`⚠️ Invalid offset parameter: ${req.query.offset}, using default 0`);
+          offset = 0;
+        }
+      } else {
+        offset = 0;
+      }
+      
+      console.log(`📊 Staff pending request: count=${count}, limit=${limit}, offset=${offset} for org=${organizationId}`);
       
       // Get pending payroll items
       const users = await storage.getUsers();
@@ -996,12 +1080,24 @@ Be specific and actionable in your recommendations.`;
       }));
 
       const pending = pendingPayroll.filter(item => item.status === 'Pending');
+      
+      // Apply pagination
+      const totalPending = pending.length;
+      const paginatedPending = pending.slice(offset, offset + limit);
+      
+      console.log(`✅ Returning ${paginatedPending.length} pending staff payments (total: ${totalPending})`);
 
       res.json({
         success: true,
-        pending: pending,
-        total: pending.length,
-        totalAmount: pending.reduce((sum, item) => sum + item.net, 0)
+        pending: paginatedPending,
+        total: totalPending,
+        count: paginatedPending.length,
+        totalAmount: pending.reduce((sum, item) => sum + item.net, 0),
+        pagination: {
+          limit: limit,
+          offset: offset,
+          hasMore: offset + limit < totalPending
+        }
       });
     } catch (error) {
       console.error('Error fetching pending staff payments:', error);

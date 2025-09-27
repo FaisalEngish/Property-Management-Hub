@@ -541,11 +541,28 @@ Provide an enterprise-grade, executive-ready staff analysis with interactive cap
   }
 
   /**
+   * Sanitize count/limit parameters to prevent invalid values
+   */
+  private sanitizeCountParam(count: any, defaultValue: number = 20): number {
+    if (count === undefined || count === null) return defaultValue;
+    const parsed = typeof count === 'string' ? parseInt(count) : count;
+    if (isNaN(parsed) || parsed <= 0) {
+      console.log(`⚠️ Invalid count parameter: ${count}, using default ${defaultValue}`);
+      return defaultValue;
+    }
+    return Math.min(parsed, 100); // Cap at 100 to prevent excessive results
+  }
+
+  /**
    * Fetch live staff data using direct database access
    */
-  private async fetchStaffData(context: QueryContext): Promise<any> {
+  private async fetchStaffData(context: QueryContext, options?: { count?: number; limit?: number }): Promise<any> {
     try {
       console.log('📊 Fetching staff data via DatabaseStorage for org:', context.organizationId);
+      
+      // Sanitize any count parameters to prevent invalid values
+      const limit = this.sanitizeCountParam(options?.limit || options?.count, 20);
+      console.log(`📊 Using sanitized limit: ${limit}`);
       
       // Use direct database access for reliable data fetching
       const users = await this.storage.getUsers();
@@ -561,8 +578,11 @@ Provide an enterprise-grade, executive-ready staff analysis with interactive cap
         status: user.isActive ? 'Active' : 'Inactive'
       }));
       
-      console.log(`✅ Found ${staffMembers.length} staff members for organization ${context.organizationId}`);
-      return { staff: staffMembers, total: staffMembers.length };
+      // Apply limit to prevent excessive results
+      const limitedStaffMembers = staffMembers.slice(0, limit);
+      
+      console.log(`✅ Found ${staffMembers.length} staff members, returning ${limitedStaffMembers.length} (limit: ${limit}) for organization ${context.organizationId}`);
+      return { staff: limitedStaffMembers, total: staffMembers.length, count: limitedStaffMembers.length };
       
     } catch (error) {
       console.error('Error fetching staff data from storage:', error);
