@@ -21363,46 +21363,83 @@ async function processGuestIssueForAI(issueReport: any) {
   });
 
   app.post("/api/finance-export", isDemoAuthenticated, async (req: any, res) => {
+    console.log(`🚀 Finance export endpoint called`);
+    console.log(`📋 Request body:`, req.body);
+    console.log(`👤 User:`, req.user ? { id: req.user.id, organizationId: req.user.organizationId } : 'No user');
+    
     try {
+      if (!req.user) {
+        console.error(`❌ No user found in request`);
+        return res.status(401).json({ error: 'Authentication required' });
+      }
+
       const { organizationId, id: userId } = req.user;
       const { exportType, format, dateRange, filters } = req.body;
       
-      console.log(`📋 Finance export requested: ${exportType} format by user ${userId}`);
+      console.log(`📋 Finance export requested: ${exportType} format by user ${userId} for org ${organizationId}`);
       
-      // Get financial data
+      if (!exportType) {
+        console.error(`❌ No export type specified`);
+        return res.status(400).json({ error: 'Export type is required' });
+      }
+
+      // Get financial data with detailed logging
+      console.log(`🔍 Fetching financial data...`);
       const finances = await storage.getFinances();
+      console.log(`💰 Retrieved ${finances.length} total finance records`);
+      
       const organizationFinances = finances.filter(f => 
         f.organizationId === organizationId || 
         f.organizationId === 'default-org' || 
         f.organizationId === 'demo-org'
       );
       
-      console.log(`📊 Found ${organizationFinances.length} financial records for export`);
+      console.log(`📊 Found ${organizationFinances.length} financial records for export after filtering`);
       
       if (exportType === 'csv') {
-        // Generate CSV content
-        const csvHeaders = ['Date', 'Type', 'Amount', 'Category', 'Description', 'Property', 'Status'];
-        const csvRows = organizationFinances.map(f => [
-          f.date || new Date().toISOString().split('T')[0],
-          f.type || 'income',
-          f.amount || '0',
-          f.category || 'General',
-          f.description || 'Transaction',
-          f.propertyName || 'General',
-          f.status || 'confirmed'
-        ]);
+        console.log(`📝 Generating CSV export...`);
         
-        const csvContent = [
+        // Generate Excel-compatible CSV content with proper escaping
+        const csvHeaders = ['Date', 'Type', 'Amount', 'Category', 'Description', 'Property', 'Status', 'Transaction ID'];
+        
+        const csvRows = organizationFinances.map(f => {
+          // Escape special characters for Excel compatibility
+          const escapeCSVField = (field: any) => {
+            if (field === null || field === undefined) return '';
+            const str = String(field);
+            // Escape quotes by doubling them and wrap in quotes if contains comma, quote, or newline
+            if (str.includes('"') || str.includes(',') || str.includes('\n') || str.includes('\r')) {
+              return `"${str.replace(/"/g, '""')}"`;
+            }
+            return str;
+          };
+          
+          return [
+            escapeCSVField(f.date || new Date().toISOString().split('T')[0]),
+            escapeCSVField((f.type || 'income').toUpperCase()),
+            escapeCSVField(f.amount || '0'),
+            escapeCSVField(f.category || 'General'),
+            escapeCSVField(f.description || 'Transaction'),
+            escapeCSVField(f.propertyName || 'General'),
+            escapeCSVField(f.status || 'confirmed'),
+            escapeCSVField(f.id || '')
+          ];
+        });
+        
+        // Add BOM for Excel UTF-8 compatibility
+        const BOM = '\uFEFF';
+        const csvContent = BOM + [
           csvHeaders.join(','),
-          ...csvRows.map(row => row.map(field => `"${field}"`).join(','))
-        ].join('\n');
+          ...csvRows.map(row => row.join(','))
+        ].join('\r\n'); // Use Windows line endings for Excel compatibility
         
         // Set proper headers for CSV download
         res.setHeader('Content-Type', 'text/csv; charset=utf-8');
         res.setHeader('Content-Disposition', 'attachment; filename="financial_export.csv"');
+        res.setHeader('Content-Length', Buffer.byteLength(csvContent, 'utf8').toString());
         res.send(csvContent);
         
-        console.log(`✅ CSV export completed: ${csvContent.length} characters`);
+        console.log(`✅ CSV export completed: ${csvContent.length} characters, ${csvRows.length} data rows`);
         
       } else if (exportType === 'pdf') {
         // For now, return a simple text-based approach until PDF library issues are resolved
