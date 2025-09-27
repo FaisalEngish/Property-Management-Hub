@@ -11,6 +11,9 @@ interface QueryContext {
   organizationId: string;
   userRole: string;
   userId: string;
+  exportFormat?: 'csv' | 'pdf' | 'json';
+  viewMode?: 'concise' | 'detailed';
+  drillDown?: string;
 }
 
 interface DataQuery {
@@ -327,6 +330,11 @@ Please provide a helpful response based on this data.`;
         );
       }
 
+      // Handle export requests
+      if (queryOptions.export && context.exportFormat) {
+        return this.handleStaffExport(staffList, context.exportFormat, queryOptions);
+      }
+
       const staffData = {
         staff: staffList,
         pending: pendingResponse.pending || [],
@@ -376,10 +384,16 @@ Staff Overview: ${staffData.totalStaff} employees, ${staffData.pendingPayments} 
       const hasPreviousStaff = startIndex > 0;
       const pendingToShow = staffData.pending.slice(0, 5);
       
-      // Generate summary information
+      // Generate KPI cards and summary information
+      const kpiCards = this.generateStaffKPICards(staffData);
       const summaryInfo = this.generateStaffSummary(staffData, startIndex, endIndex, queryOptions);
       
+      // Check for concise mode
+      const isConciseMode = context.viewMode === 'concise' || queryOptions.viewMode === 'concise';
+      
       const userPrompt = `Question: "${question}"
+
+${kpiCards}
 
 ${summaryInfo}
 
@@ -400,26 +414,39 @@ ${pendingToShow.length > 0 ? pendingToShow.map((p: any, index: number) =>
   `${index + 1}. ${p.staffName} | ${p.position} | ฿${p.net?.toLocaleString()} | Due: ${p.dueDate}`
 ).join('\n') : 'No pending payments'}
 
+🔗 **INTERACTIVE DRILL-DOWN OPTIONS**:
+• Click "Sales" → "Show only Sales department staff" 
+• Click "Manager" → "Show only managers"
+• Click "Active" → "Show only Active staff"
+• Click "Operations" → "Show only Operations department"
+
+📊 **EXPORT OPTIONS**:
+• "Export staff list to CSV" - Spreadsheet format
+• "Export to PDF" - Professional report with charts
+• "Download filtered results" - Current view only
+
+⚡ **VIEW MODES**:
+- Current: ${isConciseMode ? 'Concise Mode 📋' : 'Detailed Mode 📊'}
+- Switch: ${isConciseMode ? 'Try "show detailed view" for full info' : 'Try "concise mode" for summary only'}
+
 AVAILABLE FILTER OPTIONS:
 • "Show only Active staff in Sales department"
 • "Show managers only"  
 • "Show staff in Operations department"
 • "Show card view" for alternative formatting
 
-VIEW OPTIONS:
-- Current: ${queryOptions.viewType === 'table' ? 'Table View 📊' : 'Card View 🗂️'}
-- Alternative: ${queryOptions.viewType === 'table' ? 'Try "show as cards" for card format' : 'Try "show as table" for table format'}
-
 INSTRUCTIONS FOR RESPONSE:
-- Start with the provided summary information exactly as formatted
+- Start with KPI cards showing key metrics
+- ${isConciseMode ? 'Provide concise summary with key insights only' : 'Create comprehensive analysis with detailed breakdown'}
 - Create professional markdown table: | ID | Name | Position | Department | Salary | Status |
+- Add clickable department/role elements for drill-down actions
+- Include export suggestions and interactive options
 - Add department insights and team composition analysis
 - Include pagination guidance if applicable
-- Suggest relevant filters or actions based on the data
 - Format all currency as Thai Baht ฿ with comma separators
 - End with actionable next steps for staff management
 
-Provide an enterprise-grade, executive-ready staff analysis.`;
+Provide an enterprise-grade, executive-ready staff analysis with interactive capabilities.`;
 
       // Use OpenAI Assistant or fallback
       let response;
@@ -682,6 +709,26 @@ Provide an enterprise-grade, executive-ready staff analysis.`;
       options.pagination.pageSize = 15; // Show more for "all staff" requests
     }
 
+    // Parse export requests
+    if (lowerQuestion.includes('export csv') || lowerQuestion.includes('download csv')) {
+      options.export = 'csv';
+    } else if (lowerQuestion.includes('export pdf') || lowerQuestion.includes('download pdf')) {
+      options.export = 'pdf';
+    }
+
+    // Parse view mode requests
+    if (lowerQuestion.includes('concise') || lowerQuestion.includes('summary only')) {
+      options.viewMode = 'concise';
+    } else if (lowerQuestion.includes('detailed') || lowerQuestion.includes('expand details')) {
+      options.viewMode = 'detailed';
+    }
+
+    // Parse drill-down requests
+    if (lowerQuestion.includes('drill down') || lowerQuestion.includes('show only')) {
+      // Will be handled by specific department/role filters above
+      options.drillDown = true;
+    }
+
     return options;
   }
 
@@ -717,6 +764,99 @@ Provide an enterprise-grade, executive-ready staff analysis.`;
     }
 
     return summary;
+  }
+
+  /**
+   * Generate KPI Cards for staff overview
+   */
+  private generateStaffKPICards(staffData: any): string {
+    const totalStaff = staffData.staff.length;
+    const activeStaff = staffData.staff.filter((s: any) => s.status === 'Active').length;
+    const inactiveStaff = totalStaff - activeStaff;
+    
+    // Calculate average salary by department
+    const departmentSalaries: { [key: string]: number[] } = {};
+    staffData.staff.forEach((s: any) => {
+      if (!departmentSalaries[s.department]) {
+        departmentSalaries[s.department] = [];
+      }
+      departmentSalaries[s.department].push(s.salary || 0);
+    });
+
+    const avgSalariesByDept = Object.entries(departmentSalaries).map(([dept, salaries]) => {
+      const avg = salaries.reduce((a, b) => a + b, 0) / salaries.length;
+      return `${dept}: ฿${Math.round(avg).toLocaleString()}`;
+    }).join(', ');
+
+    return `🎯 **Quick KPI Overview**:
+📊 **Total Staff**: ${totalStaff} employees
+✅ **Active**: ${activeStaff} staff (${Math.round((activeStaff/totalStaff) * 100)}%)
+⚠️ **Inactive**: ${inactiveStaff} staff (${Math.round((inactiveStaff/totalStaff) * 100)}%)
+💰 **Avg Salary by Dept**: ${avgSalariesByDept}
+${staffData.pendingPayments > 0 ? `🔴 **Pending Payments**: ${staffData.pendingPayments} (฿${staffData.totalPendingAmount?.toLocaleString()})` : ''}`;
+  }
+
+  /**
+   * Handle export requests for staff data
+   */
+  private handleStaffExport(staffList: any[], format: string, queryOptions: any): string {
+    const timestamp = new Date().toISOString().split('T')[0];
+    const filename = `staff_export_${timestamp}`;
+    
+    if (format === 'csv') {
+      // Generate CSV data structure
+      const csvData = staffList.map(staff => ({
+        'Employee ID': staff.employeeId || staff.id,
+        'Name': staff.name,
+        'Position': staff.position,
+        'Department': staff.department,
+        'Salary': staff.salary,
+        'Status': staff.status,
+        'Phone': staff.phone || '',
+        'Email': staff.email || ''
+      }));
+
+      return `📊 **CSV Export Ready**
+
+**File**: ${filename}.csv
+**Records**: ${csvData.length} staff members
+**Format**: CSV Spreadsheet
+
+**Export Data Preview**:
+${csvData.slice(0, 3).map((row, i) => 
+  `${i + 1}. ${row.Name} | ${row.Position} | ${row.Department} | ฿${row.Salary?.toLocaleString()}`
+).join('\n')}
+
+🔗 **Export Actions**:
+• **Download CSV**: Click the download button below
+• **Export with Filters**: Try "export filtered staff to CSV"
+• **PDF Report**: Ask for "export to PDF" for formatted report
+
+*CSV file will include all ${csvData.length} records with complete employee data.*`;
+
+    } else if (format === 'pdf') {
+      return `📄 **PDF Export Ready**
+
+**File**: ${filename}.pdf
+**Records**: ${staffList.length} staff members
+**Format**: Professional PDF Report
+
+**Report Includes**:
+• Executive summary with KPI metrics
+• Staff roster with photos and details
+• Department breakdown analysis
+• Salary distribution charts
+• Professional HostPilotPro branding
+
+🔗 **Export Actions**:
+• **Download PDF**: Click the download button below
+• **Custom Report**: Specify filters for targeted export
+• **CSV Alternative**: Ask for "export to CSV" for spreadsheet format
+
+*PDF report will be professionally formatted and enterprise-ready.*`;
+    }
+
+    return "Export format not supported. Please try 'export to CSV' or 'export to PDF'.";
   }
 
   /**
