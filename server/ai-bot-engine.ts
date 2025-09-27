@@ -1117,56 +1117,39 @@ ${payrollEntries.join('\n\n')}
         this.fetchFinanceAnalytics(context)
       ]);
 
-      const systemPrompt = `You are Captain Cortex, the Smart Co-Pilot for Property Management by HostPilotPro. You have access to live financial data and analytics.
+      // Return structured data for frontend to render professionally
+      const structuredResponse = {
+        type: 'financial_summary',
+        data: {
+          metrics: {
+            totalRevenue: analyticsData.totalRevenue || 0,
+            totalExpenses: analyticsData.totalExpenses || 0,
+            netProfit: (analyticsData.totalRevenue || 0) - (analyticsData.totalExpenses || 0),
+            transactionCount: financeData.length,
+            averageTransactionSize: analyticsData.avgTransactionSize || 0
+          },
+          transactions: financeData.slice(0, 10).map(tx => ({
+            id: tx.id,
+            date: tx.date,
+            type: tx.type,
+            amount: tx.amount || 0,
+            category: tx.category,
+            description: tx.description || 'Transaction',
+            status: tx.status || 'confirmed',
+            propertyName: tx.propertyName || 'General'
+          })),
+          hasMoreTransactions: financeData.length > 10,
+          totalTransactions: financeData.length,
+          insights: [
+            `Revenue performance is ${analyticsData.totalRevenue > 500000 ? 'strong' : 'moderate'} with ฿${analyticsData.totalRevenue?.toLocaleString()} total`,
+            `Operating efficiency shows ${((analyticsData.totalRevenue - analyticsData.totalExpenses) / analyticsData.totalRevenue * 100).toFixed(1)}% profit margin`,
+            `Transaction volume of ${financeData.length} indicates ${financeData.length > 1000 ? 'high' : 'moderate'} business activity`
+          ]
+        }
+      };
 
-CRITICAL FORMATTING REQUIREMENTS:
-1. NEVER show raw JSON data or long unformatted text dumps
-2. ALWAYS create clean, professional financial summaries with clear sections
-3. Use proper table formatting for transaction lists (limit to 10 entries max)
-4. Start with key financial metrics summary (Revenue, Expenses, Net Profit)
-5. Include actionable insights and trend analysis
-6. Format all currency as Thai Baht ฿ with comma separators
-
-RESPONSE STRUCTURE FOR FINANCE QUERIES:
-1. Executive Financial Summary (Revenue, Expenses, Net Profit)
-2. Key Performance Indicators (if applicable)
-3. Recent transactions table (if requested, max 10 entries)
-4. Financial insights and recommendations
-5. Next steps or actions needed
-
-Current date: ${new Date().toISOString().split('T')[0]}
-Financial Overview: ฿${analyticsData.totalRevenue?.toLocaleString()} revenue, ฿${analyticsData.totalExpenses?.toLocaleString()} expenses, ฿${(analyticsData.totalRevenue - analyticsData.totalExpenses)?.toLocaleString()} net profit`;
-
-      // Limit transactions display for better formatting
-      const transactionsToShow = financeData.slice(0, 10);
-      const hasMoreTransactions = financeData.length > 10;
-      
-      const userPrompt = `Question: "${question}"
-
-FINANCIAL METRICS:
-- Total Revenue: ฿${analyticsData.totalRevenue?.toLocaleString()}
-- Total Expenses: ฿${analyticsData.totalExpenses?.toLocaleString()}
-- Net Profit: ฿${(analyticsData.totalRevenue - analyticsData.totalExpenses)?.toLocaleString()}
-- Transaction Count: ${financeData.length}
-
-RECENT TRANSACTIONS (Showing ${transactionsToShow.length} of ${financeData.length} total):
-${transactionsToShow.map((tx, index) => 
-  `${index + 1}. ${tx.type.toUpperCase()} | ฿${tx.amount?.toLocaleString()} | ${tx.category} | ${tx.date} | ${tx.propertyName || 'General'}`
-).join('\n')}
-
-${hasMoreTransactions ? `\n(${financeData.length - 10} additional transactions available)` : ''}
-
-INSTRUCTIONS FOR RESPONSE:
-- Start with executive financial summary
-- Create clean tables for transaction data if requested
-- Include financial insights and trends
-- Use proper Thai Baht formatting throughout
-- Provide actionable business recommendations
-- Keep response professional and concise
-
-Please provide a well-formatted financial analysis.`;
-
-      return await this.generateAIResponse(systemPrompt, userPrompt);
+      // Return as special JSON format that frontend can detect and render
+      return `FINANCIAL_DATA:${JSON.stringify(structuredResponse)}`;
 
     } catch (error) {
       console.error('Error processing finance query:', error);
