@@ -176,10 +176,10 @@ export function registerFastDashboardRoutes(app: Express) {
         doc.moveDown(0.5);
         
         doc.fontSize(12).font('Helvetica')
-          .fillColor('#22c55e').text(`Total Revenue: ฿${totalRevenue.toLocaleString()}`)
-          .fillColor('#ef4444').text(`Total Expenses: ฿${totalExpenses.toLocaleString()}`)
+          .fillColor('#22c55e').text(`Total Revenue: THB ${totalRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`)
+          .fillColor('#ef4444').text(`Total Expenses: THB ${totalExpenses.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`)
           .fillColor(netProfit >= 0 ? '#22c55e' : '#ef4444')
-          .text(`Net Profit: ฿${netProfit.toLocaleString()}`)
+          .text(`Net Profit: THB ${netProfit.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`)
           .fillColor('#000000')
           .text(`Total Transactions: ${organizationFinances.length}`)
           .moveDown(1);
@@ -220,7 +220,7 @@ export function registerFastDashboardRoutes(app: Express) {
           const rowData = [
             transaction.date || 'N/A',
             (transaction.type || 'income').toUpperCase(),
-            `฿${parseFloat(transaction.amount?.toString() || '0').toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+            `THB ${parseFloat(transaction.amount?.toString() || '0').toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
             transaction.category || 'General',
             (transaction.description || 'Transaction').substring(0, 30) + 
               (transaction.description && transaction.description.length > 30 ? '...' : '')
@@ -286,7 +286,7 @@ export function registerFastDashboardRoutes(app: Express) {
             staff.email || '',
             staff.department || 'General',
             staff.position || 'Staff',
-            staff.salary ? `฿${parseFloat(staff.salary.toString()).toLocaleString()}` : '฿0',
+            staff.salary ? `THB ${parseFloat(staff.salary.toString()).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : 'THB 0.00',
             staff.status || 'active',
             staff.hireDate || ''
           ].map(field => `"${String(field).replace(/"/g, '""')}"`);

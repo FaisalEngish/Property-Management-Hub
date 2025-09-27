@@ -14,41 +14,41 @@ const CaptainCortex = () => {
     const queryText = question || prompt;
     if (!queryText.trim()) return;
     
+    console.log(`🔍 Processing query: "${queryText}"`);
+    
     // Detect export commands and handle them directly
-    const exportCSVKeywords = /\b(?:export|download|save)\s+(?:to\s+)?csv\b/i;
-    const exportPDFKeywords = /\b(?:export|download|save)\s+(?:to\s+)?pdf\b/i;
+    const exportCSVKeywords = /\b(?:export|download|save|extract)(?:\s+(?:to|as|in))?\s*csv\b/i;
+    const exportPDFKeywords = /\b(?:export|download|save|extract)(?:\s+(?:to|as|in))?\s*pdf\b/i;
     
-    // Detect data type for export
-    const staffKeywords = /\b(?:staff|employee|user|team|personnel|worker)\b/i;
-    const financeKeywords = /\b(?:financial?|finance|transaction|revenue|expense|income|money|payment|budget)\b/i;
-    const propertyKeywords = /\b(?:property|properties|building|accommodation|listing)\b/i;
+    // Improved data type detection with more comprehensive keywords
+    const staffKeywords = /\b(?:staff|employee|user|team|personnel|worker|member|hr|human|payroll|salary|wage)\b/i;
+    const financeKeywords = /\b(?:financial?|finance|transaction|revenue|expense|income|money|payment|budget|accounting|profit|loss)\b/i;
+    const propertyKeywords = /\b(?:property|properties|building|accommodation|listing|real\s*estate|asset)\b/i;
     
-    if (exportCSVKeywords.test(queryText)) {
+    // Comprehensive export detection with debugging
+    if (exportCSVKeywords.test(queryText) || exportPDFKeywords.test(queryText)) {
+      const exportFormat = exportCSVKeywords.test(queryText) ? 'csv' : 'pdf';
+      
+      // Debug keyword matching
+      console.log(`🔍 Export keywords detected for ${exportFormat.toUpperCase()}`);
+      console.log(`📋 Staff match: ${staffKeywords.test(queryText)}`);
+      console.log(`🏢 Property match: ${propertyKeywords.test(queryText)}`);
+      console.log(`💰 Finance match: ${financeKeywords.test(queryText)}`);
+      
+      // Priority-based detection: Staff > Properties > Finance (default)
+      let dataType = 'finance'; // default
+      
       if (staffKeywords.test(queryText)) {
-        console.log('🔍 Detected Staff CSV export command');
-        handleDataExport('csv', 'staff');
+        dataType = 'staff';
+        console.log(`✅ Detected Staff ${exportFormat.toUpperCase()} export command`);
       } else if (propertyKeywords.test(queryText)) {
-        console.log('🔍 Detected Property CSV export command');
-        handleDataExport('csv', 'properties');
+        dataType = 'properties';
+        console.log(`✅ Detected Property ${exportFormat.toUpperCase()} export command`);
       } else {
-        console.log('🔍 Detected Finance CSV export command (default)');
-        handleDataExport('csv', 'finance');
+        console.log(`✅ Detected Finance ${exportFormat.toUpperCase()} export command (default fallback)`);
       }
-      if (!question) setPrompt(""); // Clear input only for manual queries
-      return;
-    }
-    
-    if (exportPDFKeywords.test(queryText)) {
-      if (staffKeywords.test(queryText)) {
-        console.log('🔍 Detected Staff PDF export command');
-        handleDataExport('pdf', 'staff');
-      } else if (propertyKeywords.test(queryText)) {
-        console.log('🔍 Detected Property PDF export command');
-        handleDataExport('pdf', 'properties');
-      } else {
-        console.log('🔍 Detected Finance PDF export command (default)');
-        handleDataExport('pdf', 'finance');
-      }
+      
+      handleDataExport(exportFormat, dataType);
       if (!question) setPrompt(""); // Clear input only for manual queries
       return;
     }
