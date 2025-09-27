@@ -94,19 +94,23 @@ const CaptainCortex = () => {
         throw new Error(`Failed to export: ${response.statusText}`);
       }
 
-      const result = await response.json();
+      // Backend now returns actual file content, not JSON
+      const blob = await response.blob();
+      const contentDisposition = response.headers.get('Content-Disposition');
+      const fileName = contentDisposition?.match(/filename="(.+)"/)?.[1] || `financial_export.${exportType}`;
       
-      if (result.fileUrl) {
-        // Create download link
-        const link = document.createElement('a');
-        link.href = result.fileUrl;
-        link.download = result.fileName || `financial_export.${exportType}`;
-        link.click();
-        
-        setResponse(`✅ ${exportType.toUpperCase()} export completed successfully! Downloaded: ${result.fileName}`);
-      } else {
-        setResponse(`✅ ${exportType.toUpperCase()} export initiated. File will be ready shortly.`);
-      }
+      // Create download link
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      
+      setResponse(`✅ ${exportType.toUpperCase()} export completed successfully! Downloaded: ${fileName}`);
+      
     } catch (error) {
       console.error(`Error exporting ${exportType}:`, error);
       setResponse(`❌ Failed to export ${exportType.toUpperCase()}. Please try again.`);
