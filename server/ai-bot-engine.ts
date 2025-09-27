@@ -1249,12 +1249,16 @@ Please provide a well-formatted property portfolio analysis.`;
     try {
       console.log('💰 Fetching finance data via DatabaseStorage for org:', context.organizationId);
       
-      // Use same optimized method as Finance Hub with organization filter
-      const organizationFinances = await this.storage.getFinances({
-        organizationId: context.organizationId
-      });
+      // Use same exact method as Finance Hub - no organization filter in storage call
+      const allFinances = await this.storage.getFinances();
       
-      console.log(`✅ Found ${organizationFinances.length} finance records for organization ${context.organizationId}`);
+      // Filter by organization ID after fetching (same as Finance Hub does)
+      const organizationFinances = allFinances.filter(f => 
+        f.organizationId === context.organizationId || 
+        f.organizationId === 'default-org' // Include default org data
+      );
+      
+      console.log(`✅ Found ${organizationFinances.length} finance records for organization ${context.organizationId} (from ${allFinances.length} total)`);
       return organizationFinances;
       
     } catch (error) {
@@ -1270,23 +1274,31 @@ Please provide a well-formatted property portfolio analysis.`;
     try {
       console.log('📊 Fetching finance analytics via DatabaseStorage for org:', context.organizationId);
       
-      // Use same optimized method as Finance Hub - getFinanceAnalytics() for pre-calculated data
-      const analytics = await this.storage.getFinanceAnalytics({ 
-        organizationId: context.organizationId 
-      });
+      // Use same exact method as Finance Hub - get all finances and calculate manually
+      const allFinances = await this.storage.getFinances();
       
-      // Get transaction count from separate method for consistency
-      const transactionCount = await this.storage.getFinanceCount({ 
-        organizationId: context.organizationId 
-      });
+      // Filter by organization ID (same as Finance Hub does)
+      const organizationFinances = allFinances.filter(f => 
+        f.organizationId === context.organizationId || 
+        f.organizationId === 'default-org' // Include default org data
+      );
+      
+      // Calculate analytics manually (same as Finance Hub does in analytics endpoint)
+      const totalRevenue = organizationFinances
+        .filter(f => f.type === 'income')
+        .reduce((sum, f) => sum + (f.amount || 0), 0);
+        
+      const totalExpenses = organizationFinances
+        .filter(f => f.type === 'expense')
+        .reduce((sum, f) => sum + (f.amount || 0), 0);
       
       const result = {
-        totalRevenue: analytics.totalRevenue || 0,
-        totalExpenses: analytics.totalExpenses || 0,
-        netProfit: (analytics.totalRevenue || 0) - (analytics.totalExpenses || 0),
-        transactionCount: transactionCount || 0,
-        avgTransactionSize: analytics.avgTransactionSize || 0,
-        monthlyGrowth: analytics.monthlyGrowth || 0
+        totalRevenue,
+        totalExpenses,
+        netProfit: totalRevenue - totalExpenses,
+        transactionCount: organizationFinances.length,
+        avgTransactionSize: organizationFinances.length > 0 ? (totalRevenue + totalExpenses) / organizationFinances.length : 0,
+        monthlyGrowth: 0
       };
       
       console.log(`📈 Analytics: Revenue ฿${result.totalRevenue.toLocaleString()}, Expenses ฿${result.totalExpenses.toLocaleString()}, Net ฿${result.netProfit.toLocaleString()}, Transactions: ${result.transactionCount}`);
@@ -1294,7 +1306,14 @@ Please provide a well-formatted property portfolio analysis.`;
       
     } catch (error) {
       console.error('Error fetching finance analytics from storage:', error);
-      return { totalRevenue: 0, totalExpenses: 0, netProfit: 0, transactionCount: 0, avgTransactionSize: 0, monthlyGrowth: 0 };
+      return {
+        totalRevenue: 0,
+        totalExpenses: 0,
+        netProfit: 0,
+        transactionCount: 0,
+        avgTransactionSize: 0,
+        monthlyGrowth: 0
+      };
     }
   }
 
