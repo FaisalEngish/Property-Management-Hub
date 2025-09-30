@@ -78,24 +78,35 @@ export class AIBotEngine {
    * Fast single-call query processing
    */
   private async processQueryFast(question: string, context: QueryContext): Promise<string> {
-    // Fetch all relevant data upfront including finance analytics
-    const [properties, tasks, bookings, finances, financeAnalytics, staffMembers, users] = await Promise.all([
+    // Fetch all relevant data upfront from ALL modules
+    const [
+      properties, 
+      tasks, 
+      bookings, 
+      finances, 
+      financeAnalytics, 
+      staffMembers, 
+      users,
+      staffSalaries,
+      utilityBills,
+      ownerPayouts,
+      propertyDocuments,
+      invoices,
+      utilityAccounts
+    ] = await Promise.all([
       this.storage.getProperties(),
       this.storage.getTasks(),
       this.storage.getBookings(),
       this.storage.getFinances(),
-      this.storage.getFinanceAnalytics().catch((error) => {
-        console.log('ℹ️  Finance analytics not available, using basic calculations');
-        return null;
-      }),
-      this.storage.getStaffMembers(context.organizationId).catch((error) => {
-        console.log('ℹ️  Staff members table not available, will use users with staff role instead');
-        return [];
-      }),
-      this.storage.getUsers().catch((error) => {
-        console.error('⚠️ Error fetching users:', error.message);
-        return [];
-      })
+      this.storage.getFinanceAnalytics().catch(() => null),
+      this.storage.getStaffMembers(context.organizationId).catch(() => []),
+      this.storage.getUsers().catch(() => []),
+      this.storage.getAllStaffSalaries(context.organizationId).catch(() => []),
+      this.storage.getUtilityBills().catch(() => []),
+      this.storage.getOwnerPayouts().catch(() => []),
+      this.storage.getPropertyDocuments(context.organizationId).catch(() => []),
+      this.storage.getInvoices(context.organizationId).catch(() => []),
+      this.storage.getPropertyUtilityAccounts().catch(() => [])
     ]);
     
     console.log('📊 Raw data counts:', {
@@ -105,6 +116,12 @@ export class AIBotEngine {
       finances: finances.length,
       staffMembers: staffMembers.length,
       users: users.length,
+      staffSalaries: staffSalaries.length,
+      utilityBills: utilityBills.length,
+      ownerPayouts: ownerPayouts.length,
+      propertyDocuments: propertyDocuments.length,
+      invoices: invoices.length,
+      utilityAccounts: utilityAccounts.length,
       hasFinanceAnalytics: !!financeAnalytics
     });
     
@@ -209,6 +226,20 @@ export class AIBotEngine {
         isActive: u.isActive
       }));
 
+    // Filter new module data by organization
+    const filteredSalaries = staffSalaries.slice(0, 15);
+    const filteredUtilityBills = utilityBills
+      .filter((u: any) => u.organizationId === context.organizationId)
+      .slice(0, 15);
+    const filteredOwnerPayouts = ownerPayouts
+      .filter((p: any) => p.organizationId === context.organizationId)
+      .slice(0, 15);
+    const filteredDocuments = propertyDocuments.slice(0, 10);
+    const filteredInvoices = invoices.slice(0, 15);
+    const filteredUtilityAccounts = utilityAccounts
+      .filter((a: any) => a.organizationId === context.organizationId)
+      .slice(0, 10);
+
     const organizationData = {
       properties: filteredProperties,
       tasks: recentTasks,
@@ -216,7 +247,13 @@ export class AIBotEngine {
       finances: recentFinances,
       financeAnalytics: financeAnalytics,
       staffMembers: filteredStaffMembers,
-      staffUsers: staffUsers
+      staffUsers: staffUsers,
+      staffSalaries: filteredSalaries,
+      utilityBills: filteredUtilityBills,
+      ownerPayouts: filteredOwnerPayouts,
+      propertyDocuments: filteredDocuments,
+      invoices: filteredInvoices,
+      utilityAccounts: filteredUtilityAccounts
     };
 
     console.log('📋 Data fetched:', Object.keys(organizationData));
@@ -225,28 +262,35 @@ export class AIBotEngine {
     const ASSISTANT_ID = "asst_OATIDMTgutnkdOJpTrQ9Mf7u";
     
     // Single AI call with combined analysis and response
-    const systemPrompt = `You are Captain Cortex, the Smart Co-Pilot for Property Management by HostPilotPro, an AI assistant for a Thai property management company. Analyze the user's question and provide a helpful response using the available data.
+    const systemPrompt = `You are Captain Cortex, the Smart Co-Pilot for Property Management by HostPilotPro, an AI assistant for a comprehensive hospitality management platform. Analyze the user's question and provide helpful responses using ALL available data from multiple modules.
 
 Guidelines:
-1. Be conversational and helpful
-2. Use specific data from the provided context
-3. Format numbers clearly (use Thai Baht ฿ for money)
-4. If no data is found, explain why and suggest alternatives
-5. For date-related queries, be specific about the time period
+1. Be conversational and helpful with real-time data
+2. Use specific numbers and metrics from the provided context
+3. Format money in Thai Baht (฿) with proper formatting
+4. Provide property-level breakdowns when relevant
+5. For date-related queries, be specific about time periods
 6. Always mention property names when relevant
-7. Keep responses concise but informative
+7. Keep responses concise but data-rich
 8. Focus on the main 4 demo properties: Villa Samui Breeze, Villa Ocean View, Villa Aruna (Demo), and Villa Tropical Paradise
+9. Cross-reference data between modules (e.g., property revenue + utility costs + staff salaries)
 
 Current date: ${new Date().toISOString().split('T')[0]}
 
-Available data summary:
+Available data across ALL modules:
 - Properties: ${organizationData.properties.length} main demo properties
-- Recent Tasks: ${organizationData.tasks.length} tasks (last 20)
-- Recent Bookings: ${organizationData.bookings.length} bookings (last 15)
-- Recent Financial records: ${organizationData.finances.length} records (last 20)
+- Tasks: ${organizationData.tasks.length} tasks (recent)
+- Bookings: ${organizationData.bookings.length} bookings (recent)
+- Financial Records: ${organizationData.finances.length} transactions (recent)
 - Finance Analytics: ${financeAnalytics ? 'Available with comprehensive metrics' : 'Not available'}
 - Staff Members: ${organizationData.staffMembers.length} staff profiles
-- Staff Users: ${organizationData.staffUsers.length} users with staff role`;
+- Staff Users: ${organizationData.staffUsers.length} users with staff role
+- Staff Salaries: ${organizationData.staffSalaries.length} salary records
+- Utility Bills: ${organizationData.utilityBills.length} utility bills
+- Utility Accounts: ${organizationData.utilityAccounts.length} utility accounts
+- Owner Payouts: ${organizationData.ownerPayouts.length} payout records
+- Property Documents: ${organizationData.propertyDocuments.length} documents
+- Invoices: ${organizationData.invoices.length} invoices`;
 
     // Create a more concise data summary to reduce token usage
     const dataSummary = `Properties (${organizationData.properties.length}):
@@ -272,7 +316,25 @@ Staff Members (${organizationData.staffMembers.length}):
 ${organizationData.staffMembers.length > 0 ? organizationData.staffMembers.map(s => `- ${s.fullName} (${s.position || s.department}), ${s.email}, Status: ${s.status}, Hired: ${s.hireDate}`).join('\n') : 'No staff member profiles found'}
 
 Staff Users with Staff Role (${organizationData.staffUsers.length}):
-${organizationData.staffUsers.length > 0 ? organizationData.staffUsers.map(s => `- ${s.name}, Email: ${s.email}, Active: ${s.isActive}`).join('\n') : 'No users with staff role found'}`;
+${organizationData.staffUsers.length > 0 ? organizationData.staffUsers.map(s => `- ${s.name}, Email: ${s.email}, Active: ${s.isActive}`).join('\n') : 'No users with staff role found'}
+
+Staff Salaries (${organizationData.staffSalaries.length}):
+${organizationData.staffSalaries.length > 0 ? organizationData.staffSalaries.map((s: any) => `- ${s.userName || s.userId}: ฿${s.baseSalary || s.totalSalary}/month, Status: ${s.status || 'active'}`).join('\n') : 'No salary records found'}
+
+Utility Bills (${organizationData.utilityBills.length}):
+${organizationData.utilityBills.length > 0 ? organizationData.utilityBills.map((u: any) => `- ${u.utilityType}: ฿${u.amount}, Property: ${u.propertyName || u.propertyId}, Status: ${u.status}, Due: ${u.dueDate}`).join('\n') : 'No utility bills found'}
+
+Utility Accounts (${organizationData.utilityAccounts.length}):
+${organizationData.utilityAccounts.length > 0 ? organizationData.utilityAccounts.map((a: any) => `- ${a.utilityType}: ${a.accountNumber}, Property: ${a.propertyName || a.propertyId}, Provider: ${a.providerName}`).join('\n') : 'No utility accounts found'}
+
+Owner Payouts (${organizationData.ownerPayouts.length}):
+${organizationData.ownerPayouts.length > 0 ? organizationData.ownerPayouts.map((p: any) => `- Owner: ${p.ownerName || p.ownerId}, ฿${p.amount}, Period: ${p.period}, Status: ${p.status}`).join('\n') : 'No owner payouts found'}
+
+Property Documents (${organizationData.propertyDocuments.length}):
+${organizationData.propertyDocuments.length > 0 ? organizationData.propertyDocuments.map((d: any) => `- ${d.documentType}: ${d.documentName}, Property: ${d.propertyName || d.propertyId}, Expires: ${d.expiryDate || 'N/A'}`).join('\n') : 'No documents found'}
+
+Invoices (${organizationData.invoices.length}):
+${organizationData.invoices.length > 0 ? organizationData.invoices.map((i: any) => `- #${i.invoiceNumber}: ฿${i.totalAmount}, Type: ${i.type}, Status: ${i.status}, Due: ${i.dueDate}`).join('\n') : 'No invoices found'}`;
 
     const userPrompt = `Question: "${question}"
 

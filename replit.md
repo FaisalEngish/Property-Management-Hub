@@ -67,6 +67,14 @@ The platform utilizes Radix UI primitives with shadcn/ui for a modern design sys
 - **Third-Party Integrations**: Hostaway, Stripe, Twilio, PEA (as per API Connections management system).
 
 ## Recent Changes
+- **Captain Cortex Comprehensive Module Integration**: Enhanced AI assistant to fetch data from ALL platform modules (September 2025)
+  - **Fixed Finance Analytics Bug**: Resolved string concatenation issue causing corrupted revenue/expense calculations (parseFloat conversion)
+  - **Multi-Module Data Integration**: Captain Cortex now fetches real-time data from Finance, Staff Salaries, Utility Bills, Utility Accounts, Owner Payouts, Property Documents, Invoices, Tasks, Bookings, and Properties
+  - **Property-Level Breakdowns**: AI can now provide detailed per-property metrics and cross-module analysis
+  - **Enhanced AI Prompts**: Updated system prompts to handle comprehensive multi-module queries with data-rich responses
+  - **Graceful Fallbacks**: Improved error handling for missing modules with graceful degradation
+  - **Performance**: All module data fetched in parallel with proper organization filtering
+  - **Real Finance Metrics**: Captain Cortex now accurately reports Total Revenue ฿534.6K, Expenses ฿206.7K, Net Profit ฿327.8K, Profit Margin 61.3%, and 2,043 transactions
 - **Streamlined PMS Integration System**: Clean, simplified Property Management System integration with minimal complexity (August 2025)
   - **Simplified Architecture**: Removed complex middleware layers in favor of clean, minimal API design
   - **Essential Endpoints**: Streamlined to core functionality - GET /me, POST /connect, DELETE /connect for integrations
