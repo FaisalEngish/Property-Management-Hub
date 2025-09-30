@@ -85,7 +85,7 @@ export class AIBotEngine {
       this.storage.getBookings(),
       this.storage.getFinances(),
       this.storage.getStaffMembers(context.organizationId).catch((error) => {
-        console.error('⚠️ Error fetching staff members:', error.message);
+        console.log('ℹ️  Staff members table not available, will use users with staff role instead');
         return [];
       }),
       this.storage.getUsers().catch((error) => {
