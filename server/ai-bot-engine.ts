@@ -235,17 +235,27 @@ export class AIBotEngine {
       .filter((a: any) => a.organizationId === context.organizationId)
       .slice(0, 10);
 
-    // Calculate property metrics (occupancy, ROI, revenue, last booking) using ALL data without org filtering
-    const propertyMetrics = filteredProperties.map((property: any) => {
-      // Get ALL bookings for this property (no org filter - match by property ID or name)
+    // Calculate property metrics (occupancy, ROI, revenue, last booking) using ALL data
+    const propertyMetrics = filteredProperties.map((property: any, index: number) => {
+      // Get ALL bookings for this property - match by propertyId only
       const propertyBookings = bookings.filter((b: any) => 
-        b.propertyId === property.id || b.propertyName === property.name
+        b.propertyId === property.id
       );
       
-      // Get ALL finances for this property (no org filter - match by property ID or name)
+      // Get ALL finances for this property - match by propertyId only  
       const propertyFinances = finances.filter((f: any) => 
-        f.propertyId === property.id || f.propertyName === property.name
+        f.propertyId === property.id
       );
+      
+      // Debug first property
+      if (index === 0) {
+        console.log(`🔍 Matching for property ${property.id} (${property.name}):`, {
+          bookingsFound: propertyBookings.length,
+          financesFound: propertyFinances.length,
+          sampleBooking: propertyBookings[0] ? { id: propertyBookings[0].id, propertyId: propertyBookings[0].propertyId } : 'none',
+          sampleFinance: propertyFinances[0] ? { id: propertyFinances[0].id, propertyId: propertyFinances[0].propertyId, amount: propertyFinances[0].amount } : 'none'
+        });
+      }
       
       // Calculate total revenue (all time)
       const totalRevenue = propertyFinances
