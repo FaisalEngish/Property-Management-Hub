@@ -8,8 +8,6 @@ import { seedOwnerOnboardingData } from "./seedOwnerOnboardingData";
 import { setupDemoAuth } from "./demoAuth";
 import mountIntegrationRoutes from "./routers/integrations-routes";
 import mountPmsRoutes from "./routers/pms-routes";
-// Smart Reminder System - Initialize automated cron jobs
-import "./reminderCron";
 
 const app = express();
 app.use(express.json());

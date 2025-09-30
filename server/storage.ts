@@ -74,10 +74,6 @@ import {
   dynamicPricingRecommendations,
   // Property Chat Messages
   propertyChatMessages,
-  // Smart Reminder System
-  payslipReminders,
-  reminderNotifications,
-  reminderSettings,
   // Property Documents
   propertyDocuments,
   // Upsell Recommendations
@@ -210,12 +206,6 @@ import {
   type InsertPropertyUtilityAccount,
   type UtilityBillReminder,
   type InsertUtilityBillReminder,
-  type PayslipReminder,
-  type InsertPayslipReminder,
-  type ReminderNotification,
-  type InsertReminderNotification,
-  type ReminderSettings,
-  type InsertReminderSettings,
   type WelcomePackItem,
   type InsertWelcomePackItem,
   type WelcomePackTemplate,
@@ -840,39 +830,6 @@ export interface IStorage {
   generateUtilityBillReminders(organizationId: string): Promise<UtilityBillReminder[]>;
   getUtilityExpensesByProperty(propertyId: number, fromDate?: Date, toDate?: Date): Promise<any>;
   getUtilityExpensesByOwner(ownerId: string, fromDate?: Date, toDate?: Date): Promise<any>;
-
-  // Smart Reminder System operations
-  // Payslip Reminder operations
-  getPayslipReminders(organizationId: string): Promise<PayslipReminder[]>;
-  getPayslipRemindersByStaff(staffId: string, organizationId: string): Promise<PayslipReminder[]>;
-  getOverduePayslipReminders(organizationId: string): Promise<PayslipReminder[]>;
-  getPayslipReminder(id: number): Promise<PayslipReminder | undefined>;
-  createPayslipReminder(reminder: InsertPayslipReminder): Promise<PayslipReminder>;
-  updatePayslipReminder(id: number, reminder: Partial<InsertPayslipReminder>): Promise<PayslipReminder | undefined>;
-  markPayslipUploaded(id: number, documentUrl: string, uploadedBy: string): Promise<PayslipReminder | undefined>;
-  markProofOfPaymentUploaded(id: number, proofUrl: string, uploadedBy: string): Promise<PayslipReminder | undefined>;
-  deletePayslipReminder(id: number): Promise<boolean>;
-
-  // Multi-channel Reminder Notification operations
-  getReminderNotifications(organizationId: string): Promise<ReminderNotification[]>;
-  getReminderNotificationsByUser(userId: string, organizationId: string): Promise<ReminderNotification[]>;
-  getPendingReminderNotifications(): Promise<ReminderNotification[]>;
-  createReminderNotification(notification: InsertReminderNotification): Promise<ReminderNotification>;
-  updateReminderNotification(id: number, notification: Partial<InsertReminderNotification>): Promise<ReminderNotification | undefined>;
-  markReminderNotificationSent(id: number, externalId?: string): Promise<ReminderNotification | undefined>;
-  markReminderNotificationRead(id: number): Promise<ReminderNotification | undefined>;
-  markReminderNotificationFailed(id: number, errorMessage: string): Promise<ReminderNotification | undefined>;
-
-  // Reminder Settings operations
-  getReminderSettings(organizationId: string): Promise<ReminderSettings[]>;
-  getReminderSettingsByType(organizationId: string, reminderType: string): Promise<ReminderSettings | undefined>;
-  createReminderSettings(settings: InsertReminderSettings): Promise<ReminderSettings>;
-  updateReminderSettings(id: number, settings: Partial<InsertReminderSettings>): Promise<ReminderSettings | undefined>;
-
-  // Smart Reminder Automation operations
-  checkOverdueReminders(organizationId: string): Promise<{utility: any[], payslip: PayslipReminder[]}>;
-  generateDailyReminders(organizationId: string): Promise<{created: number, scheduled: number}>;
-  sendPendingNotifications(): Promise<{sent: number, failed: number}>;
 
   // Welcome pack inventory operations
   getWelcomePackItems(): Promise<WelcomePackItem[]>;

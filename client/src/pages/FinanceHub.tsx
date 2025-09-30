@@ -696,184 +696,40 @@ export default function FinanceHub() {
                                   </TooltipProvider>
                                 </div>
                                 
-                                {/* Enhanced Live Metrics with Detailed Breakdown Tooltips */}
-                                <TooltipProvider>
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <div className={`transition-all duration-300 rounded-lg p-3 border group-hover:scale-105 cursor-help ${
+                                {/* Live Metrics on Hover */}
+                                <div className={`transition-all duration-300 rounded-lg p-3 border group-hover:scale-105 ${
+                                  isDarkMode 
+                                    ? 'bg-gradient-to-r from-slate-700/80 via-slate-600/60 to-slate-700/80 border-slate-600/60 group-hover:border-emerald-500/60 group-hover:bg-gradient-to-r group-hover:from-emerald-800/40 group-hover:via-slate-600/70 group-hover:to-emerald-800/40' 
+                                    : 'bg-gradient-to-r from-slate-50/80 via-white/60 to-slate-50/80 border-slate-200/60 group-hover:border-emerald-200/60 group-hover:bg-gradient-to-r group-hover:from-emerald-50/40 group-hover:via-white/70 group-hover:to-emerald-50/40'
+                                }`}>
+                                  <div className="flex items-center justify-between">
+                                    <div>
+                                      <p className={`text-sm font-medium transition-colors duration-300 ${
                                         isDarkMode 
-                                          ? 'bg-gradient-to-r from-slate-700/80 via-slate-600/60 to-slate-700/80 border-slate-600/60 group-hover:border-emerald-500/60 group-hover:bg-gradient-to-r group-hover:from-emerald-800/40 group-hover:via-slate-600/70 group-hover:to-emerald-800/40' 
-                                          : 'bg-gradient-to-r from-slate-50/80 via-white/60 to-slate-50/80 border-slate-200/60 group-hover:border-emerald-200/60 group-hover:bg-gradient-to-r group-hover:from-emerald-50/40 group-hover:via-white/70 group-hover:to-emerald-50/40'
+                                          ? 'text-slate-300 group-hover:text-emerald-200' 
+                                          : 'text-slate-700 group-hover:text-emerald-800'
                                       }`}>
-                                        <div className="flex items-center justify-between">
-                                          <div>
-                                            <p className={`text-sm font-medium transition-colors duration-300 ${
-                                              isDarkMode 
-                                                ? 'text-slate-300 group-hover:text-emerald-200' 
-                                                : 'text-slate-700 group-hover:text-emerald-800'
-                                            }`}>
-                                              {item.liveMetrics?.label}
-                                            </p>
-                                            <p className={`text-xl font-bold transition-colors duration-300 ${
-                                              isDarkMode 
-                                                ? 'text-slate-100 group-hover:text-white' 
-                                                : 'text-slate-900 group-hover:text-emerald-900'
-                                            }`}>
-                                              {item.liveMetrics?.value}
-                                            </p>
-                                          </div>
-                                          <Badge className={`text-xs ${
-                                            item.liveMetrics?.trend?.startsWith('+') 
-                                              ? isDarkMode ? 'bg-green-800 text-green-200' : 'bg-green-100 text-green-800'
-                                              : item.liveMetrics?.trend?.startsWith('-') 
-                                              ? isDarkMode ? 'bg-red-800 text-red-200' : 'bg-red-100 text-red-800'
-                                              : isDarkMode ? 'bg-slate-700 text-slate-300' : 'bg-slate-100 text-slate-700'
-                                          }`}>
-                                            {item.liveMetrics?.trend}
-                                          </Badge>
-                                        </div>
-                                      </div>
-                                    </TooltipTrigger>
-                                    <TooltipContent side="left" className={`max-w-sm p-4 ${
-                                      isDarkMode 
-                                        ? 'bg-gradient-to-br from-slate-800 to-slate-900 border-slate-600 text-white' 
-                                        : 'bg-gradient-to-br from-white to-slate-50 border-slate-300 text-slate-900'
+                                        {item.liveMetrics?.label}
+                                      </p>
+                                      <p className={`text-xl font-bold transition-colors duration-300 ${
+                                        isDarkMode 
+                                          ? 'text-slate-100 group-hover:text-white' 
+                                          : 'text-slate-900 group-hover:text-emerald-900'
+                                      }`}>
+                                        {item.liveMetrics?.value}
+                                      </p>
+                                    </div>
+                                    <Badge className={`text-xs ${
+                                      item.liveMetrics?.trend?.startsWith('+') 
+                                        ? isDarkMode ? 'bg-green-800 text-green-200' : 'bg-green-100 text-green-800'
+                                        : item.liveMetrics?.trend?.startsWith('-') 
+                                        ? isDarkMode ? 'bg-red-800 text-red-200' : 'bg-red-100 text-red-800'
+                                        : isDarkMode ? 'bg-slate-700 text-slate-300' : 'bg-slate-100 text-slate-700'
                                     }`}>
-                                      <div className="space-y-2">
-                                        <p className="font-semibold text-sm flex items-center gap-2">
-                                          <BarChart3 className="h-4 w-4" />
-                                          {item.liveMetrics?.label} Breakdown
-                                        </p>
-                                        <div className="grid grid-cols-2 gap-2 text-xs">
-                                          {(() => {
-                                            // Generate realistic breakdown data based on the metric type
-                                            const getBreakdown = (label: string, value: string) => {
-                                              switch (label) {
-                                                case "Total Revenue":
-                                                  return [
-                                                    { label: "Per Property", value: "$21.4K avg" },
-                                                    { label: "This Month", value: "$127.3K" },
-                                                    { label: "Last 7 Days", value: "$29.1K" },
-                                                    { label: "Growth Rate", value: "+8.2%" }
-                                                  ];
-                                                case "Monthly Revenue":
-                                                  return [
-                                                    { label: "Booking Revenue", value: "$89.2K" },
-                                                    { label: "Service Fees", value: "$24.1K" },
-                                                    { label: "Add-on Services", value: "$14.0K" },
-                                                    { label: "Commission", value: "$18.3K" }
-                                                  ];
-                                                case "Active Invoices":
-                                                  return [
-                                                    { label: "Pending", value: "12 invoices" },
-                                                    { label: "Overdue", value: "3 invoices" },
-                                                    { label: "Draft", value: "9 invoices" },
-                                                    { label: "Total Value", value: "$156.4K" }
-                                                  ];
-                                                case "Monthly Utilities":
-                                                  return [
-                                                    { label: "Electricity", value: "$4.2K" },
-                                                    { label: "Water", value: "$1.8K" },
-                                                    { label: "Internet", value: "$1.1K" },
-                                                    { label: "Other", value: "$1.1K" }
-                                                  ];
-                                                case "Profit Margin":
-                                                  return [
-                                                    { label: "Gross Margin", value: "96.2%" },
-                                                    { label: "Net Margin", value: "94.1%" },
-                                                    { label: "vs Industry", value: "+12.3%" },
-                                                    { label: "Target", value: "95.0%" }
-                                                  ];
-                                                case "Avg Nightly Rate":
-                                                  return [
-                                                    { label: "Weekdays", value: "$142/night" },
-                                                    { label: "Weekends", value: "$189/night" },
-                                                    { label: "Peak Season", value: "$234/night" },
-                                                    { label: "Occupancy", value: "87.3%" }
-                                                  ];
-                                                case "Commission Rate":
-                                                  return [
-                                                    { label: "Booking.com", value: "15%" },
-                                                    { label: "Airbnb", value: "14%" },
-                                                    { label: "Expedia", value: "18%" },
-                                                    { label: "Direct", value: "0%" }
-                                                  ];
-                                                case "Pending Payouts":
-                                                  return [
-                                                    { label: "Owner Payouts", value: "$28.3K" },
-                                                    { label: "Staff Wages", value: "$8.9K" },
-                                                    { label: "Vendor Bills", value: "$4.9K" },
-                                                    { label: "Processing", value: "2-3 days" }
-                                                  ];
-                                                case "AI Accuracy":
-                                                  return [
-                                                    { label: "Predictions", value: "91.2%" },
-                                                    { label: "Insights", value: "87.4%" },
-                                                    { label: "Anomalies", value: "94.6%" },
-                                                    { label: "Confidence", value: "High" }
-                                                  ];
-                                                case "Monthly Payroll":
-                                                  return [
-                                                    { label: "Full-time", value: "$18.2K" },
-                                                    { label: "Part-time", value: "$6.8K" },
-                                                    { label: "Contractors", value: "$3.5K" },
-                                                    { label: "Benefits", value: "$4.2K" }
-                                                  ];
-                                                case "Tax Rate":
-                                                  return [
-                                                    { label: "VAT", value: "7%" },
-                                                    { label: "Income Tax", value: "20%" },
-                                                    { label: "Withholding", value: "3%" },
-                                                    { label: "Local Tax", value: "1%" }
-                                                  ];
-                                                case "OTA Revenue":
-                                                  return [
-                                                    { label: "Gross Revenue", value: "$108.4K" },
-                                                    { label: "Commission", value: "$12.2K" },
-                                                    { label: "Net Revenue", value: "$96.2K" },
-                                                    { label: "Channels", value: "12 active" }
-                                                  ];
-                                                case "Monthly Expenses":
-                                                  return [
-                                                    { label: "Travel", value: "$2.1K" },
-                                                    { label: "Office", value: "$1.4K" },
-                                                    { label: "Equipment", value: "$1.2K" },
-                                                    { label: "Miscellaneous", value: "$1.1K" }
-                                                  ];
-                                                case "Active Reports":
-                                                  return [
-                                                    { label: "Financial", value: "4 reports" },
-                                                    { label: "Analytics", value: "5 reports" },
-                                                    { label: "Custom", value: "3 reports" },
-                                                    { label: "Automated", value: "8 reports" }
-                                                  ];
-                                                default:
-                                                  return [
-                                                    { label: "Current Month", value: "Active" },
-                                                    { label: "Previous Month", value: "+5.2%" },
-                                                    { label: "Quarter", value: "+12.8%" },
-                                                    { label: "Year", value: "+28.4%" }
-                                                  ];
-                                              }
-                                            };
-                                            const breakdown = getBreakdown(item.liveMetrics?.label || "", item.liveMetrics?.value || "");
-                                            return breakdown.map((item, index) => (
-                                              <div key={index} className="flex justify-between">
-                                                <span className={isDarkMode ? "text-slate-300" : "text-slate-600"}>{item.label}:</span>
-                                                <span className="font-medium">{item.value}</span>
-                                              </div>
-                                            ));
-                                          })()}
-                                        </div>
-                                        <div className={`text-xs pt-2 border-t ${
-                                          isDarkMode ? 'border-slate-600 text-slate-400' : 'border-slate-200 text-slate-500'
-                                        }`}>
-                                          💡 Click to view detailed analytics
-                                        </div>
-                                      </div>
-                                    </TooltipContent>
-                                  </Tooltip>
-                                </TooltipProvider>
+                                      {item.liveMetrics?.trend}
+                                    </Badge>
+                                  </div>
+                                </div>
                                 
                                 {/* Quick Action Icons */}
                                 <div className="flex items-center justify-end space-x-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300 mt-2">
