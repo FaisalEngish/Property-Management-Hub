@@ -135,18 +135,9 @@ export class AIBotEngine {
       });
     }
 
-    // Filter by organization and show only main demo properties for clean demo experience
-    const mainDemoPropertyNames = [
-      'Villa Samui Breeze',
-      'Villa Ocean View', 
-      'Villa Aruna (Demo)',
-      'Villa Tropical Paradise'
-    ];
-    
-    // Filter and limit data to prevent token overflow
+    // Filter by organization and include ALL real properties with comprehensive data
     const filteredProperties = properties
       .filter((p: any) => p.organizationId === context.organizationId)
-      .filter((p: any) => mainDemoPropertyNames.includes(p.name))
       .map((p: any) => ({
         id: p.id,
         name: p.name,
@@ -155,7 +146,11 @@ export class AIBotEngine {
         maxGuests: p.maxGuests,
         pricePerNight: p.pricePerNight,
         currency: p.currency,
-        status: p.status
+        status: p.status,
+        location: p.location,
+        propertyType: p.propertyType,
+        externalId: p.externalId,
+        listingUrl: p.listingUrl
       }));
 
     // Limit data to prevent context overflow - take only recent/relevant items
@@ -240,8 +235,61 @@ export class AIBotEngine {
       .filter((a: any) => a.organizationId === context.organizationId)
       .slice(0, 10);
 
+    // Calculate property metrics (occupancy, ROI, revenue, last booking)
+    const propertyMetrics = filteredProperties.map((property: any) => {
+      // Get bookings for this property
+      const propertyBookings = bookings.filter((b: any) => 
+        b.propertyId === property.id || b.propertyName === property.name
+      );
+      
+      // Get finances for this property
+      const propertyFinances = finances.filter((f: any) => f.propertyId === property.id);
+      
+      // Calculate monthly revenue
+      const monthlyRevenue = propertyFinances
+        .filter((f: any) => f.type === 'income')
+        .reduce((sum: number, f: any) => sum + parseFloat(f.amount || 0), 0);
+      
+      // Calculate last booking date
+      const lastBooking = propertyBookings.length > 0
+        ? propertyBookings.sort((a: any, b: any) => 
+            new Date(b.checkIn).getTime() - new Date(a.checkIn).getTime()
+          )[0]
+        : null;
+      
+      // Calculate occupancy rate (simplified - based on recent bookings)
+      const now = new Date();
+      const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      const recentBookings = propertyBookings.filter((b: any) => 
+        new Date(b.checkIn) >= thirtyDaysAgo
+      );
+      const bookedDays = recentBookings.reduce((sum: number, b: any) => {
+        const checkIn = new Date(b.checkIn);
+        const checkOut = new Date(b.checkOut);
+        const nights = Math.ceil((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24));
+        return sum + nights;
+      }, 0);
+      const occupancyRate = Math.min(100, Math.round((bookedDays / 30) * 100));
+      
+      // Calculate ROI (simplified - revenue vs property value if available)
+      const totalRevenue = monthlyRevenue;
+      const totalExpenses = propertyFinances
+        .filter((f: any) => f.type === 'expense')
+        .reduce((sum: number, f: any) => sum + parseFloat(f.amount || 0), 0);
+      const roi = totalRevenue > 0 ? ((totalRevenue - totalExpenses) / totalRevenue * 100) : 0;
+      
+      return {
+        ...property,
+        occupancyRate,
+        monthlyRevenue,
+        lastBookingDate: lastBooking ? lastBooking.checkIn : null,
+        roi: Math.round(roi * 10) / 10,
+        bookingCount: propertyBookings.length
+      };
+    });
+
     const organizationData = {
-      properties: filteredProperties,
+      properties: propertyMetrics,
       tasks: recentTasks,
       bookings: recentBookings,
       finances: recentFinances,
@@ -268,17 +316,17 @@ Guidelines:
 1. Be conversational and helpful with real-time data
 2. Use specific numbers and metrics from the provided context
 3. Format money in Thai Baht (฿) with proper formatting
-4. Provide property-level breakdowns when relevant
+4. Provide property-level breakdowns when relevant (occupancy rate, ROI, monthly revenue, last booking date)
 5. For date-related queries, be specific about time periods
 6. Always mention property names when relevant
 7. Keep responses concise but data-rich
-8. Focus on the main 4 demo properties: Villa Samui Breeze, Villa Ocean View, Villa Aruna (Demo), and Villa Tropical Paradise
+8. Use ALL real property data including comprehensive metrics (occupancy, ROI, revenue, bookings)
 9. Cross-reference data between modules (e.g., property revenue + utility costs + staff salaries)
 
 Current date: ${new Date().toISOString().split('T')[0]}
 
 Available data across ALL modules:
-- Properties: ${organizationData.properties.length} main demo properties
+- Properties: ${organizationData.properties.length} live properties with comprehensive metrics
 - Tasks: ${organizationData.tasks.length} tasks (recent)
 - Bookings: ${organizationData.bookings.length} bookings (recent)
 - Financial Records: ${organizationData.finances.length} transactions (recent)
@@ -294,7 +342,7 @@ Available data across ALL modules:
 
     // Create a more concise data summary to reduce token usage
     const dataSummary = `Properties (${organizationData.properties.length}):
-${organizationData.properties.map(p => `- ${p.name}: ${p.bedrooms}BR/${p.bathrooms}BA, ฿${p.pricePerNight}/night, ${p.status}`).join('\n')}
+${organizationData.properties.map((p: any) => `- ${p.name}: ${p.bedrooms}BR/${p.bathrooms}BA, ฿${p.pricePerNight}/night, Status: ${p.status}, Occupancy: ${p.occupancyRate}%, ROI: ${p.roi}%, Monthly Revenue: ฿${p.monthlyRevenue}, Last Booking: ${p.lastBookingDate || 'None'}, Bookings: ${p.bookingCount}`).join('\n')}
 
 Recent Tasks (${organizationData.tasks.length}):
 ${organizationData.tasks.map(t => `- ${t.title} (${t.status}, ${t.priority}, ${t.propertyName}, due: ${t.dueDate})`).join('\n')}
