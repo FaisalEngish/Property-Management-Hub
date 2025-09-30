@@ -10,16 +10,41 @@ const CaptainCortex = () => {
     if (!prompt.trim()) return;
     
     setIsLoading(true);
+    console.log('🔍 Processing query:', JSON.stringify(prompt));
+    
     try {
+      console.log('📤 Sending request to /api/ai-bot/query...');
       const res = await fetch("/api/ai-bot/query", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          "credentials": "include"
+        },
+        credentials: "include",
         body: JSON.stringify({ question: prompt }),
       });
+      
+      console.log('📥 Response status:', res.status);
+      
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({ error: 'Unknown error' }));
+        console.error('❌ API Error:', res.status, errorData);
+        setResponse(`Error (${res.status}): ${errorData.error || errorData.message || 'Failed to get response from AI assistant. Please make sure you are logged in.'}`);
+        return;
+      }
+      
       const data = await res.json();
-      setResponse(data.response || "No response received");
-    } catch (error) {
-      setResponse("Error connecting to AI assistant");
+      console.log('✅ Received data:', data);
+      
+      if (data.response) {
+        setResponse(data.response);
+      } else {
+        console.warn('⚠️ No response field in data:', data);
+        setResponse("No response received from AI. Please try again or contact support.");
+      }
+    } catch (error: any) {
+      console.error('❌ Exception in askCortex:', error);
+      setResponse(`Connection error: ${error.message || 'Could not connect to AI assistant. Please check your internet connection.'}`);
     } finally {
       setIsLoading(false);
     }

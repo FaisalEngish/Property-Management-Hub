@@ -907,14 +907,20 @@ Be specific and actionable in your recommendations.`;
   });
 
   app.post('/api/ai-bot/query', isDemoAuthenticated, async (req, res) => {
+    console.log('🤖 AI Bot query endpoint hit');
     try {
       const { question } = req.body;
       const user = req.user as any;
       
+      console.log('👤 User:', user?.id, 'Role:', user?.role, 'Org:', user?.organizationId);
+      console.log('❓ Question:', question);
+      
       if (!question) {
+        console.warn('⚠️ No question provided in request');
         return res.status(400).json({ error: 'Question is required' });
       }
 
+      console.log('📦 Importing AI Bot Engine...');
       const { aiBotEngine } = await import('./ai-bot-engine.js');
       
       const context = {
@@ -923,7 +929,10 @@ Be specific and actionable in your recommendations.`;
         userId: user.id
       };
 
+      console.log('🔄 Processing query with context:', context);
       const response = await aiBotEngine.processQuery(question, context);
+      
+      console.log('✅ AI Bot response generated, length:', response?.length || 0);
       
       res.json({ 
         response,
@@ -932,7 +941,8 @@ Be specific and actionable in your recommendations.`;
       });
 
     } catch (error: any) {
-      console.error('AI Bot query error:', error);
+      console.error('❌ AI Bot query error:', error);
+      console.error('Stack:', error.stack);
       res.status(500).json({ 
         error: 'Failed to process AI query',
         message: error.message 
