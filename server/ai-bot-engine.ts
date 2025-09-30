@@ -79,11 +79,13 @@ export class AIBotEngine {
    */
   private async processQueryFast(question: string, context: QueryContext): Promise<string> {
     // Fetch all relevant data upfront
-    const [properties, tasks, bookings, finances] = await Promise.all([
+    const [properties, tasks, bookings, finances, staffMembers, users] = await Promise.all([
       this.storage.getProperties(),
       this.storage.getTasks(),
       this.storage.getBookings(),
-      this.storage.getFinances()
+      this.storage.getFinances(),
+      this.storage.getStaffMembers(context.organizationId).catch(() => []),
+      this.storage.getUsers().catch(() => [])
     ]);
 
     // Filter by organization and show only main demo properties for clean demo experience
@@ -148,11 +150,42 @@ export class AIBotEngine {
         propertyId: f.propertyId
       }));
 
+    // Process staff data - combine staffMembers and users with staff role
+    const filteredStaffMembers = staffMembers
+      .filter((s: any) => s.organizationId === context.organizationId)
+      .map((s: any) => ({
+        id: s.id,
+        employeeId: s.employeeId,
+        fullName: s.fullName,
+        department: s.department,
+        position: s.position,
+        email: s.email,
+        phone: s.phone,
+        status: s.status,
+        hireDate: s.hireDate
+      }));
+    
+    // Also get users with staff role
+    const staffUsers = users
+      .filter((u: any) => 
+        u.organizationId === context.organizationId && 
+        u.role === 'staff'
+      )
+      .map((u: any) => ({
+        id: u.id,
+        name: `${u.firstName} ${u.lastName}`,
+        email: u.email,
+        role: u.role,
+        isActive: u.isActive
+      }));
+
     const organizationData = {
       properties: filteredProperties,
       tasks: recentTasks,
       bookings: recentBookings,
-      finances: recentFinances
+      finances: recentFinances,
+      staffMembers: filteredStaffMembers,
+      staffUsers: staffUsers
     };
 
     console.log('📋 Data fetched:', Object.keys(organizationData));
@@ -179,7 +212,9 @@ Available data summary:
 - Properties: ${organizationData.properties.length} main demo properties
 - Recent Tasks: ${organizationData.tasks.length} tasks (last 20)
 - Recent Bookings: ${organizationData.bookings.length} bookings (last 15)
-- Recent Financial records: ${organizationData.finances.length} records (last 20)`;
+- Recent Financial records: ${organizationData.finances.length} records (last 20)
+- Staff Members: ${organizationData.staffMembers.length} staff profiles
+- Staff Users: ${organizationData.staffUsers.length} users with staff role`;
 
     // Create a more concise data summary to reduce token usage
     const dataSummary = `Properties (${organizationData.properties.length}):
@@ -192,7 +227,13 @@ Recent Bookings (${organizationData.bookings.length}):
 ${organizationData.bookings.map(b => `- ${b.guestName} at ${b.propertyName} (${b.checkIn} to ${b.checkOut}), ฿${b.totalAmount}, ${b.status}`).join('\n')}
 
 Recent Finance Records (${organizationData.finances.length}):
-${organizationData.finances.map(f => `- ${f.type}: ${f.category} ฿${f.amount} (${f.date})`).join('\n')}`;
+${organizationData.finances.map(f => `- ${f.type}: ${f.category} ฿${f.amount} (${f.date})`).join('\n')}
+
+Staff Members (${organizationData.staffMembers.length}):
+${organizationData.staffMembers.length > 0 ? organizationData.staffMembers.map(s => `- ${s.fullName} (${s.position || s.department}), ${s.email}, Status: ${s.status}, Hired: ${s.hireDate}`).join('\n') : 'No staff member profiles found'}
+
+Staff Users with Staff Role (${organizationData.staffUsers.length}):
+${organizationData.staffUsers.length > 0 ? organizationData.staffUsers.map(s => `- ${s.name}, Email: ${s.email}, Active: ${s.isActive}`).join('\n') : 'No users with staff role found'}`;
 
     const userPrompt = `Question: "${question}"
 
