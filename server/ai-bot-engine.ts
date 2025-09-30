@@ -84,7 +84,7 @@ export class AIBotEngine {
       this.storage.getTasks(),
       this.storage.getBookings(),
       this.storage.getFinances(),
-      this.storage.getFinanceAnalytics({ organizationId: context.organizationId }).catch((error) => {
+      this.storage.getFinanceAnalytics().catch((error) => {
         console.log('ℹ️  Finance analytics not available, using basic calculations');
         return null;
       }),
