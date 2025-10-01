@@ -210,7 +210,7 @@ export default function Tasks() {
       </div>
 
       <CreateTaskDialog
-        open={isCreateDialogOpen}
+        isOpen={isCreateDialogOpen}
         onOpenChange={setIsCreateDialogOpen}
       />
     </div>

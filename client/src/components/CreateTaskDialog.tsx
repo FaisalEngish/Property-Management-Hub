@@ -147,9 +147,14 @@ export default function CreateTaskDialog({ isOpen, onOpenChange, trigger }: Crea
       // Invalidate ALL task-related queries to ensure refresh
       queryClient.invalidateQueries({ queryKey: ['/api/tasks'] });
       queryClient.invalidateQueries({ queryKey: ['/api/dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/dashboard/recent-tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/dashboard/task-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/dashboard/stats'] });
       
       // Force refetch tasks immediately
       queryClient.refetchQueries({ queryKey: ['/api/tasks'] });
+      queryClient.refetchQueries({ queryKey: ['/api/dashboard/recent-tasks'] });
+      queryClient.refetchQueries({ queryKey: ['/api/dashboard/task-stats'] });
       
       toast({
         title: 'Success',
