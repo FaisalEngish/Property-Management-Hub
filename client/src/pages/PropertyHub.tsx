@@ -92,13 +92,16 @@ export default function PropertyHub() {
     }
   };
 
+  // Store selected property ID from URL parameter
+  const [selectedPropertyId, setSelectedPropertyId] = useState<number | null>(null);
+
   // Check for property selection from Dashboard
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const propertyId = urlParams.get('property');
     if (propertyId) {
-      // Pre-filter to specific property if coming from Dashboard
-      setFilters(prev => ({ ...prev, search: propertyId }));
+      // Store the property ID to filter by ID, not by name search
+      setSelectedPropertyId(parseInt(propertyId, 10));
     }
   }, []);
 
@@ -121,6 +124,11 @@ export default function PropertyHub() {
   // Filter properties
   const filteredProperties = useMemo(() => {
     return propertiesArray.filter((property: any) => {
+      // If a specific property ID is selected from Dashboard, only show that property
+      if (selectedPropertyId !== null && property.id !== selectedPropertyId) {
+        return false;
+      }
+      
       // Search filter
       if (filters.search && !property.name.toLowerCase().includes(filters.search.toLowerCase())) {
         return false;
@@ -190,7 +198,7 @@ export default function PropertyHub() {
       
       return true;
     });
-  }, [propertiesArray, filters]);
+  }, [propertiesArray, filters, selectedPropertyId]);
 
   // Pagination logic
   const totalPages = Math.ceil(filteredProperties.length / itemsPerPage);
