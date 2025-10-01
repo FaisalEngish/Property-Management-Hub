@@ -35,14 +35,14 @@ export default function Dashboard() {
 
   const { data: stats } = useQuery({
     queryKey: ["/api/dashboard/stats"],
-    staleTime: 15 * 60 * 1000, // 15 minutes cache for stats
-    refetchOnMount: false, // Don't refetch on mount if data exists
+    staleTime: 30 * 1000, // 30 seconds - show fresh data quickly
+    refetchOnMount: true, // Always refetch to show latest stats
   });
 
   const { data: properties = [] } = useQuery({
     queryKey: ["/api/properties"],
-    staleTime: 20 * 60 * 1000, // 20 minutes cache for properties
-    refetchOnMount: false,
+    staleTime: 30 * 1000, // 30 seconds - allow fresh data to show
+    refetchOnMount: true, // Always refetch on mount to show latest properties
   });
 
   // Use optimized dashboard API endpoint for recent tasks only
@@ -65,28 +65,6 @@ export default function Dashboard() {
     refetchOnMount: true, // Always refetch on mount to show latest bookings
   });
 
-  // Fixed demo data - exactly 4 properties for consistent demo experience
-  const enhancedProperties = [
-    { id: "demo-1", name: "Villa Samui Breeze", owner: "John Smith", portfolioManager: "Alex Thompson", area: "Chaweng", bedrooms: 3, status: "active", revenue: 125000 },
-    { id: "demo-2", name: "Villa Tropical Paradise", owner: "Sarah Johnson", portfolioManager: "Jessica Wilson", area: "Lamai", bedrooms: 4, status: "active", revenue: 145000 },
-    { id: "demo-3", name: "Villa Balinese Charm", owner: "Michael Brown", portfolioManager: "Alex Thompson", area: "Bophut", bedrooms: 2, status: "maintenance", revenue: 105000 },
-    { id: "demo-4", name: "Villa Ocean View", owner: "Emma Davis", portfolioManager: "Jessica Wilson", area: "Chaweng", bedrooms: 3, status: "active", revenue: 135000 }
-  ];
-
-  // Helper function to get realistic demo dates
-  const getDemoDate = (daysFromToday: number) => {
-    const date = new Date();
-    date.setDate(date.getDate() + daysFromToday);
-    return date.toISOString().split('T')[0];
-  };
-
-  const enhancedTasks = [
-    { id: "task-1", title: "Pool Cleaning", property: "Villa Samui Breeze", assignedTo: "Pool Team", priority: "high", status: "completed", dueDate: getDemoDate(-3) }, // 3 days ago
-    { id: "task-2", title: "AC Maintenance", property: "Villa Tropical Paradise", assignedTo: "Maintenance Team", priority: "medium", status: "completed", dueDate: getDemoDate(-5) }, // 5 days ago
-    { id: "task-3", title: "Garden Service", property: "Villa Balinese Charm", assignedTo: "Garden Team", priority: "low", status: "completed", dueDate: getDemoDate(-7) }, // last week
-    { id: "task-4", title: "WiFi Setup", property: "Villa Ocean View", assignedTo: "Tech Team", priority: "medium", status: "pending", dueDate: getDemoDate(2) }, // day after tomorrow
-    { id: "task-5", title: "Check-in Preparation", property: "Villa Samui Breeze", assignedTo: "Housekeeping", priority: "high", status: "pending", dueDate: getDemoDate(5) } // 5 days from now
-  ];
 
   // Use real bookings from API, sorted by creation date (most recent first)
   const recentBookings = bookings
@@ -379,27 +357,40 @@ export default function Dashboard() {
 
             <TabsContent value="tasks" className="space-y-4">
               <div className="grid gap-4">
-                {enhancedTasks.map((task) => (
-                  <Card key={task.id}>
-                    <CardContent className="p-4">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          {getPriorityIcon(task.priority)}
-                          <div>
-                            <h3 className="font-semibold">{task.title}</h3>
-                            <p className="text-sm text-muted-foreground">
-                              {task.property} • {task.assignedTo}
-                            </p>
-                            <p className="text-sm text-muted-foreground">Due: {task.dueDate}</p>
-                          </div>
-                        </div>
-                        <Badge variant={getStatusBadgeVariant(task.status)}>
-                          {task.status}
-                        </Badge>
-                      </div>
+                {recentTasks.length === 0 ? (
+                  <Card>
+                    <CardContent className="p-8 text-center text-muted-foreground">
+                      No tasks found
                     </CardContent>
                   </Card>
-                ))}
+                ) : (
+                  recentTasks.map((task: any) => {
+                    const propertyName = propertyMap.get(task.propertyId) || task.property || `Property #${task.propertyId}`;
+                    return (
+                      <Card key={task.id}>
+                        <CardContent className="p-4">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              {getPriorityIcon(task.priority)}
+                              <div>
+                                <h3 className="font-semibold">{task.title}</h3>
+                                <p className="text-sm text-muted-foreground">
+                                  {propertyName} • {task.type}
+                                </p>
+                                <p className="text-sm text-muted-foreground">
+                                  Due: {task.scheduledDate ? new Date(task.scheduledDate).toLocaleDateString() : 'No date'}
+                                </p>
+                              </div>
+                            </div>
+                            <Badge variant={getStatusBadgeVariant(task.status)}>
+                              {task.status}
+                            </Badge>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })
+                )}
               </div>
             </TabsContent>
 

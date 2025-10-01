@@ -48,6 +48,7 @@ export default function CreatePropertyDialog({ open, onOpenChange }: CreatePrope
     onSuccess: (data) => {
       console.log("🎉 Frontend: Property creation successful, invalidating cache");
       queryClient.invalidateQueries({ queryKey: ["/api/properties"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] }); // Also update dashboard stats
       // Force refresh by clearing all property-related cache
       queryClient.removeQueries({ queryKey: ["/api/properties"] });
       
@@ -70,7 +71,9 @@ export default function CreatePropertyDialog({ open, onOpenChange }: CreatePrope
       // Force refresh without page reload
       setTimeout(() => {
         queryClient.invalidateQueries({ queryKey: ["/api/properties"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
         queryClient.refetchQueries({ queryKey: ["/api/properties"] });
+        queryClient.refetchQueries({ queryKey: ["/api/dashboard/stats"] });
       }, 500);
     },
     onError: (error: any) => {
