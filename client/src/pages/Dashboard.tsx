@@ -446,7 +446,7 @@ export default function Dashboard() {
         onOpenChange={setIsPropertyDialogOpen} 
       />
       <CreateTaskDialog 
-        open={isTaskDialogOpen} 
+        isOpen={isTaskDialogOpen} 
         onOpenChange={setIsTaskDialogOpen} 
       />
     </div>
