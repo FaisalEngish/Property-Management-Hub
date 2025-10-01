@@ -61,8 +61,8 @@ export default function Dashboard() {
 
   const { data: bookings = [] } = useQuery({
     queryKey: ["/api/bookings"],
-    staleTime: 15 * 60 * 1000, // 15 minutes cache for bookings
-    refetchOnMount: false,
+    staleTime: 30 * 1000, // 30 seconds cache - allow fresh data to show
+    refetchOnMount: true, // Always refetch on mount to show latest bookings
   });
 
   // Fixed demo data - exactly 4 properties for consistent demo experience
@@ -88,15 +88,10 @@ export default function Dashboard() {
     { id: "task-5", title: "Check-in Preparation", property: "Villa Samui Breeze", assignedTo: "Housekeeping", priority: "high", status: "pending", dueDate: getDemoDate(5) } // 5 days from now
   ];
 
-  const enhancedBookings = [
-    { id: "booking-1", guestName: "Robert Wilson", property: "Villa Samui Breeze", checkIn: getDemoDate(-6), checkOut: getDemoDate(-2), status: "confirmed", totalAmount: 35000 }, // Past booking: 6 days ago to 2 days ago
-    { id: "booking-2", guestName: "Lisa Chen", property: "Villa Tropical Paradise", checkIn: getDemoDate(-4), checkOut: getDemoDate(-1), status: "confirmed", totalAmount: 43500 }, // Past booking: 4 days ago to yesterday
-    { id: "booking-3", guestName: "James Miller", property: "Villa Ocean View", checkIn: getDemoDate(1), checkOut: getDemoDate(4), status: "confirmed", totalAmount: 52500 }, // Future booking: tomorrow to 4 days from now
-    { id: "booking-4", guestName: "Anna Schmidt", property: "Villa Balinese Charm", checkIn: getDemoDate(3), checkOut: getDemoDate(7), status: "pending", totalAmount: 38500 }, // Future booking: 3 days to 1 week from now
-    { id: "booking-5", guestName: "David Park", property: "Villa Samui Breeze", checkIn: getDemoDate(6), checkOut: getDemoDate(10), status: "pending", totalAmount: 41000 } // Future booking: 6 days to 10 days from now
-  ];
-
-  const recentBookings = enhancedBookings.slice(0, 3);
+  // Use real bookings from API, sorted by creation date (most recent first)
+  const recentBookings = bookings
+    .sort((a: any, b: any) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
+    .slice(0, 3);
   const recentTasks = tasks.slice(0, 5); // Use actual tasks from API
   
   // Create property lookup map for bookings  
@@ -410,29 +405,40 @@ export default function Dashboard() {
 
             <TabsContent value="bookings" className="space-y-4">
               <div className="grid gap-4">
-                {enhancedBookings.map((booking) => (
-                  <Card key={booking.id}>
-                    <CardContent className="p-4">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <h3 className="font-semibold">{booking.guestName}</h3>
-                          <p className="text-sm text-muted-foreground">
-                            {booking.property}
-                          </p>
-                          <p className="text-sm text-muted-foreground">
-                            {booking.checkIn} → {booking.checkOut}
-                          </p>
-                          <p className="text-sm font-medium text-green-600">
-                            {formatCurrency(booking.totalAmount)}
-                          </p>
-                        </div>
-                        <Badge variant={getStatusBadgeVariant(booking.status)}>
-                          {booking.status}
-                        </Badge>
-                      </div>
+                {bookings.length === 0 ? (
+                  <Card>
+                    <CardContent className="p-8 text-center text-muted-foreground">
+                      No bookings found
                     </CardContent>
                   </Card>
-                ))}
+                ) : (
+                  bookings.map((booking: any) => {
+                    const propertyName = propertyMap.get(booking.propertyId) || booking.property || `Property #${booking.propertyId}`;
+                    return (
+                      <Card key={booking.id}>
+                        <CardContent className="p-4">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <h3 className="font-semibold">{booking.guestName}</h3>
+                              <p className="text-sm text-muted-foreground">
+                                {propertyName}
+                              </p>
+                              <p className="text-sm text-muted-foreground">
+                                {new Date(booking.checkIn).toLocaleDateString()} → {new Date(booking.checkOut).toLocaleDateString()}
+                              </p>
+                              <p className="text-sm font-medium text-green-600">
+                                {formatCurrency(booking.totalAmount)}
+                              </p>
+                            </div>
+                            <Badge variant={getStatusBadgeVariant(booking.status)}>
+                              {booking.status}
+                            </Badge>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })
+                )}
               </div>
             </TabsContent>
           </Tabs>

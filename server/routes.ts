@@ -975,10 +975,10 @@ Be specific and actionable in your recommendations.`;
   
   // Apply ultra-fast middleware to critical endpoints
   const { ultraFastCache } = await import("./ultraFastMiddleware");
-  // URGENT FIX: Disable cache for properties to fix data saving issues
+  // URGENT FIX: Disable cache for properties and bookings to fix data saving issues
   // app.use("/api/properties", ultraFastCache(15)); // DISABLED
   app.use("/api/tasks", ultraFastCache(5));
-  app.use("/api/bookings", ultraFastCache(10));
+  // app.use("/api/bookings", ultraFastCache(10)); // DISABLED - need fresh booking data
   app.use("/api/dashboard/stats", ultraFastCache(30));
 
   // Health check endpoint
