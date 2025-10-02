@@ -229,13 +229,16 @@ export default function ConsolidatedSystemHub() {
                 active={systemInfo.modules.properties.active}
                 color="blue"
               />
-              <ModuleCard 
-                icon={Users}
-                name="Users"
-                count={systemInfo.modules.users.count}
-                active={systemInfo.modules.users.active}
-                color="green"
-              />
+              <a href="/admin/user-management" className="block" data-testid="module-link-users">
+                <ModuleCard 
+                  icon={Users}
+                  name="Users"
+                  count={systemInfo.modules.users.count}
+                  active={systemInfo.modules.users.active}
+                  color="green"
+                  clickable={true}
+                />
+              </a>
               <ModuleCard 
                 icon={DollarSign}
                 name="Finance"
@@ -334,13 +337,15 @@ function ModuleCard({
   name, 
   count, 
   active, 
-  color 
+  color,
+  clickable = false
 }: { 
   icon: any; 
   name: string; 
   count: number; 
   active: boolean; 
   color: string;
+  clickable?: boolean;
 }) {
   const colorClasses = {
     blue: 'bg-blue-50 border-blue-200 text-blue-700',
@@ -351,7 +356,7 @@ function ModuleCard({
   };
 
   return (
-    <div className={`p-4 rounded-lg border-2 ${colorClasses[color as keyof typeof colorClasses]}`}>
+    <div className={`p-4 rounded-lg border-2 ${colorClasses[color as keyof typeof colorClasses]} ${clickable ? 'hover:shadow-lg hover:scale-105 transition-all cursor-pointer' : ''}`}>
       <div className="flex items-center justify-between mb-2">
         <Icon className="h-5 w-5" />
         {active ? (
@@ -362,6 +367,9 @@ function ModuleCard({
       </div>
       <div className="font-semibold text-lg">{name}</div>
       <div className="text-sm opacity-80">{count} records</div>
+      {clickable && (
+        <div className="text-xs mt-2 font-medium opacity-70">Click to manage →</div>
+      )}
     </div>
   );
 }
