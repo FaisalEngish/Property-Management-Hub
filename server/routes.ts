@@ -13218,41 +13218,20 @@ Be specific and actionable in your recommendations.`;
     try {
       const organizationId = req.user?.organizationId || "default-org";
       
-      // Get all demo users for the user management interface
-      const users = [
-        { 
-          id: "demo-admin", 
-          email: "admin@test.com", 
-          name: "Demo Admin", 
-          role: "admin", 
-          status: "active",
-          organizationId 
-        },
-        { 
-          id: "demo-pm", 
-          email: "manager@test.com", 
-          name: "JOHN DO", 
-          role: "portfolio-manager", 
-          status: "active",
-          organizationId 
-        },
-        { 
-          id: "demo-staff", 
-          email: "staff@test.com", 
-          name: "Demo Staff", 
-          role: "staff", 
-          status: "active",
-          organizationId 
-        },
-        { 
-          id: "demo-owner", 
-          email: "owner@test.com", 
-          name: "Demo Owner", 
-          role: "owner", 
-          status: "active",
-          organizationId 
-        }
-      ];
+      // Fetch all users from database for the organization
+      const allUsers = await storage.getUsers({ organizationId });
+      
+      // Format users for the frontend
+      const users = allUsers.map(user => ({
+        id: user.id,
+        email: user.email,
+        name: `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email,
+        role: user.role,
+        status: user.isActive ? "active" : "inactive",
+        organizationId: user.organizationId,
+        firstName: user.firstName,
+        lastName: user.lastName
+      }));
       
       res.json(users);
     } catch (error) {
