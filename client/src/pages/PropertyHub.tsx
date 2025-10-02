@@ -100,6 +100,41 @@ export default function PropertyHub() {
     }
   };
 
+  // Refresh handler - refetch data and reset filters
+  const handleRefresh = () => {
+    // Reset all filters to default
+    setFilters({
+      search: '',
+      location: '',
+      status: '',
+      propertyType: '',
+      occupancyMin: 0,
+      occupancyMax: 100,
+      roiMin: 0,
+      roiMax: 50,
+      hasMaintenanceTasks: false,
+      lastBookingFrom: '',
+      lastBookingTo: '',
+    });
+    
+    // Clear selected property ID filter
+    setSelectedPropertyId(null);
+    
+    // Clear URL parameter if present
+    if (window.location.search) {
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+    
+    // Refetch properties from API
+    refetchProperties();
+    
+    // Show success feedback
+    toast({
+      title: "Refreshed",
+      description: "Property list updated and filters reset",
+    });
+  };
+
   // Store selected property ID from URL parameter
   const [selectedPropertyId, setSelectedPropertyId] = useState<number | null>(null);
 
@@ -315,13 +350,19 @@ export default function PropertyHub() {
               <div className="flex items-center gap-4">
                 <Button 
                   variant="outline" 
-                  onClick={() => refetchProperties()}
+                  onClick={handleRefresh}
                   className="hover:bg-emerald-50 hover:border-emerald-200 hover:text-emerald-700 hover:scale-105 transition-all duration-200"
+                  data-testid="button-refresh"
                 >
                   <RefreshCw className="h-4 w-4 mr-2" />
                   Refresh
                 </Button>
-                <Badge variant="outline" className="px-4 py-2 text-sm bg-emerald-100 text-emerald-700 border-emerald-200 font-semibold">
+                <Badge 
+                  variant="outline" 
+                  className="px-4 py-2 text-sm bg-emerald-100 text-emerald-700 border-emerald-200 font-semibold cursor-pointer hover:bg-emerald-200 hover:scale-105 transition-all duration-200"
+                  onClick={handleRefresh}
+                  data-testid="badge-properties-counter"
+                >
                   {propertiesArray.length} Properties
                 </Badge>
               </div>
