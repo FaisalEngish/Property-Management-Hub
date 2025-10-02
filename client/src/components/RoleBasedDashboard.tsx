@@ -20,7 +20,7 @@ export default function RoleBasedDashboard() {
   const renderDashboard = () => {
     switch (user?.role) {
       case 'staff':
-        return <StaffDashboard />;
+        return <Dashboard />;
       case 'retail-agent':
         return <RetailAgentHub />;
       case 'referral-agent':
