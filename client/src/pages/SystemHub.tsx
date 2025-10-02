@@ -1,7 +1,7 @@
 import React, { lazy, Suspense, useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
+import { Badge } from "../components/ui/badge";
+import { Button } from "../components/ui/button";
 import { 
   Settings, 
   Users, 
@@ -15,9 +15,9 @@ import {
   ArrowLeft,
   BarChart3
 } from "lucide-react";
-import TopBar from "@/components/TopBar";
-import RefreshDataButton from "@/components/RefreshDataButton";
-import { useDashboardStats, useUsersData } from "@/hooks/useDashboardData";
+import TopBar from "../components/TopBar";
+import RefreshDataButton from "../components/RefreshDataButton";
+import { useDashboardStats, useUsersData } from "../hooks/useDashboardData";
 
 // Lazy load all System modules - only load when user clicks
 const SettingsPage = lazy(() => import("./Settings"));
