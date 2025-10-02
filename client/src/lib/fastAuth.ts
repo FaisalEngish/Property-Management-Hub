@@ -66,7 +66,7 @@ class FastAuthSessionManager {
 // Fast login with optimistic updates
 export async function fastLogin(email: string, password: string): Promise<AuthUser> {
   // Start the API request
-  const loginPromise = fetch('/api/auth/demo-login', {
+  const loginPromise = fetch('/api/auth/login', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -83,14 +83,21 @@ export async function fastLogin(email: string, password: string): Promise<AuthUs
       throw new Error(error.message || 'Login failed');
     }
 
-    const userData = await response.json();
-    console.log("Login response data:", userData);
+    const responseData = await response.json();
+    console.log("Login response data:", responseData);
+    
+    // Extract user from response (secureAuth returns { message, user, token })
+    const userData = responseData.user || responseData;
     
     // Create optimized auth user
     const authUser: AuthUser = {
-      ...userData,
-      permissions: [],
-      listingsAccess: []
+      id: userData.id,
+      email: userData.email,
+      name: `${userData.firstName || ''} ${userData.lastName || ''}`.trim() || userData.email,
+      role: userData.role || userData.primaryRole,
+      organizationId: userData.organizationId,
+      permissions: userData.permissions || [],
+      listingsAccess: userData.listingsAccess || []
     };
     console.log("Created auth user:", authUser);
 
@@ -157,46 +164,8 @@ export function useFastAuth() {
         FastAuthSessionManager.saveSession(session);
         setUser(authUser);
       } else {
-        // Auto-login with admin user for demo environment
-        console.log("No active session, attempting auto-login...");
-        try {
-          const autoLoginResponse = await fetch('/api/auth/auto-demo-login', {
-            method: 'POST',
-            credentials: 'include'
-          });
-          
-          if (autoLoginResponse.ok) {
-            console.log("Auto-login successful, checking auth again...");
-            // Retry auth check after auto-login
-            const retryResponse = await fetch('/api/auth/user', {
-              credentials: 'include'
-            });
-            
-            if (retryResponse.ok) {
-              const userData = await retryResponse.json();
-              console.log("Auto-login user data:", userData);
-              const authUser: AuthUser = {
-                ...userData,
-                permissions: [],
-                listingsAccess: []
-              };
-              
-              const session: AuthSession = {
-                user: authUser,
-                expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000)
-              };
-              FastAuthSessionManager.saveSession(session);
-              setUser(authUser);
-            } else {
-              setUser(null);
-            }
-          } else {
-            setUser(null);
-          }
-        } catch (autoLoginError) {
-          console.error('Auto-login failed:', autoLoginError);
-          setUser(null);
-        }
+        // No active session - user will be redirected to login page by App.tsx
+        setUser(null);
       }
     } catch (error) {
       console.error('Auth check failed:', error);
