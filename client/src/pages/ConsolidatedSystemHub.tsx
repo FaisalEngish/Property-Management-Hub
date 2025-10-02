@@ -1,9 +1,9 @@
 import React, { lazy, Suspense, useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
+import { Badge } from "../components/ui/badge";
+import { Button } from "../components/ui/button";
+import { Separator } from "../components/ui/separator";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "../components/ui/collapsible";
 import { 
   Settings, 
   Users, 
@@ -34,8 +34,8 @@ import {
   Bot,
   Gauge
 } from "lucide-react";
-import TopBar from "@/components/TopBar";
-import { useDashboardStats, useUsersData } from "@/hooks/useDashboardData";
+import TopBar from "../components/TopBar";
+import { useDashboardStats, useUsersData } from "../hooks/useDashboardData";
 
 // Lazy load all System modules
 const SettingsPage = lazy(() => import("./Settings"));
