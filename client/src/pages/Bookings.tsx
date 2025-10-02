@@ -165,25 +165,37 @@ export default function Bookings() {
   const filteredBookings = bookingsArray.filter((booking: any) => {
     const property = propertiesArray.find((p: any) => p.id === booking.propertyId);
     const propertyName = property?.name || '';
-    const propertyLocation = property?.location || '';
+    const propertyAddress = property?.address || '';
     
-    return (
-      (search === '' || 
-       propertyName.toLowerCase().includes(search.toLowerCase()) ||
-       (booking.guestName && booking.guestName.toLowerCase().includes(search.toLowerCase()))) &&
-      (filterArea === 'all' || propertyLocation === filterArea) &&
-      (filterStatus === 'all' || booking.status === filterStatus)
-    );
+    // Search filter: check property name or guest name
+    const matchesSearch = search === '' || 
+      propertyName.toLowerCase().includes(search.toLowerCase()) ||
+      (booking.guestName && booking.guestName.toLowerCase().includes(search.toLowerCase()));
+    
+    // Area filter: check if address contains the area (since location field doesn't exist)
+    const matchesArea = filterArea === 'all' || 
+      propertyAddress.toLowerCase().includes(filterArea.toLowerCase());
+    
+    // Manager filter: skip for now since properties don't have manager field
+    // In the future, this could be based on property owner or assigned staff
+    const matchesManager = filterManager === 'all'; // Always true for now
+    
+    // Status filter: exact match on booking status
+    const matchesStatus = filterStatus === 'all' || 
+      booking.status === filterStatus;
+    
+    return matchesSearch && matchesArea && matchesManager && matchesStatus;
   });
 
   // Group bookings by property for calendar view
   const propertiesWithBookings = propertiesArray.map((property: any) => ({
     ...property,
-    bookings: bookingsArray.filter((b: any) => b.propertyId === property.id)
+    bookings: filteredBookings.filter((b: any) => b.propertyId === property.id)
   })).filter((p: any) => {
-    return (
+    // Only show properties that have bookings matching the current filters
+    return p.bookings.length > 0 || (
       (search === '' || p.name.toLowerCase().includes(search.toLowerCase())) &&
-      (filterArea === 'all' || p.location === filterArea)
+      (filterArea === 'all' || (p.address && p.address.toLowerCase().includes(filterArea.toLowerCase())))
     );
   });
 
@@ -384,7 +396,7 @@ export default function Bookings() {
                           <div className="flex items-center gap-4 text-sm">
                             <div className="flex items-center gap-1">
                               <MapPin className="w-4 h-4" />
-                              <span>{property?.location || 'N/A'}</span>
+                              <span>{property?.address || 'N/A'}</span>
                             </div>
                             {property?.bedrooms && (
                               <div className="flex items-center gap-1">
@@ -433,7 +445,7 @@ export default function Bookings() {
                           <div>
                             <p className="font-medium">{property?.name || 'Property'}</p>
                             <p className="text-sm text-muted-foreground">
-                              {property?.location || 'N/A'}
+                              {property?.address || 'N/A'}
                               {property?.bedrooms && ` • ${property.bedrooms} BR`}
                             </p>
                           </div>
@@ -491,7 +503,7 @@ export default function Bookings() {
                       <div className="flex items-center gap-4 text-sm text-muted-foreground">
                         <div className="flex items-center gap-1">
                           <MapPin className="w-4 h-4" />
-                          <span>Location: {property.location || 'N/A'}</span>
+                          <span>Address: {property.address || 'N/A'}</span>
                         </div>
                         {property.bedrooms && (
                           <div className="flex items-center gap-1">
