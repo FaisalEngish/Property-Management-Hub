@@ -65,6 +65,19 @@ export default function Dashboard() {
     refetchOnMount: true, // Always refetch on mount to show latest bookings
   });
 
+  // Fetch expiring documents (within 30 days)
+  const { data: expiringDocuments = [] } = useQuery({
+    queryKey: ["/api/property-documents/expiring?days=30"],
+    staleTime: 5 * 60 * 1000, // 5 minutes cache for expiry alerts
+    refetchOnMount: true,
+  });
+
+  // Fetch expiring insurance (within 30 days)
+  const { data: expiringInsurance = [] } = useQuery({
+    queryKey: ["/api/property-insurance/expiring/30"],
+    staleTime: 5 * 60 * 1000, // 5 minutes cache for expiry alerts
+    refetchOnMount: true,
+  });
 
   // Use real bookings from API, sorted by creation date (most recent first)
   const recentBookings = bookings
