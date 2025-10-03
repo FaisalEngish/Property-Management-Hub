@@ -289,14 +289,20 @@ function UploadDocumentDialog({ propertyId, onSuccess }: { propertyId: string; o
 
   const uploadMutation = useMutation({
     mutationFn: async (data: z.infer<typeof documentUploadSchema>) => {
-      return apiRequest("POST", "/api/property-documents", {
+      console.log("🚀 Document upload mutation started", data);
+      const payload = {
         ...data,
         propertyId: parseInt(propertyId),
         organizationId: (user as any)?.organizationId || "default-org",
         uploadedBy: (user as any)?.id || "unknown",
-      });
+      };
+      console.log("📦 Payload:", payload);
+      const response = await apiRequest("POST", "/api/property-documents", payload);
+      console.log("✅ Document upload response:", response);
+      return response;
     },
     onSuccess: () => {
+      console.log("✅ Document upload successful");
       // Clear fastCache for expiring documents
       fastCache.delete("/api/property-documents/expiring?days=30");
       
@@ -317,6 +323,7 @@ function UploadDocumentDialog({ propertyId, onSuccess }: { propertyId: string; o
       onSuccess();
     },
     onError: (error: Error) => {
+      console.error("❌ Document upload failed:", error);
       toast({
         title: "Upload Failed",
         description: error.message,
@@ -338,7 +345,11 @@ function UploadDocumentDialog({ propertyId, onSuccess }: { propertyId: string; o
           <DialogTitle>Upload Property Document</DialogTitle>
         </DialogHeader>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit((data) => uploadMutation.mutate(data))} className="space-y-4">
+          <form onSubmit={form.handleSubmit((data) => {
+            console.log("📝 Form submitted with data:", data);
+            console.log("🔍 Form errors:", form.formState.errors);
+            uploadMutation.mutate(data);
+          })} className="space-y-4">
             <FormField
               control={form.control}
               name="docType"
@@ -420,13 +431,19 @@ function AddInsuranceDialog({ propertyId, onSuccess }: { propertyId: string; onS
 
   const insuranceMutation = useMutation({
     mutationFn: async (data: z.infer<typeof insuranceSchema>) => {
-      return apiRequest("POST", "/api/property-insurance", {
+      console.log("🚀 Insurance mutation started", data);
+      const payload = {
         ...data,
         propertyId: parseInt(propertyId),
         uploadedBy: (user as any)?.id || "unknown",
-      });
+      };
+      console.log("📦 Payload:", payload);
+      const response = await apiRequest("POST", "/api/property-insurance", payload);
+      console.log("✅ Insurance response:", response);
+      return response;
     },
     onSuccess: () => {
+      console.log("✅ Insurance added successful");
       // Clear fastCache for expiring insurance
       fastCache.delete("/api/property-insurance/expiring/30");
       
@@ -447,6 +464,7 @@ function AddInsuranceDialog({ propertyId, onSuccess }: { propertyId: string; onS
       onSuccess();
     },
     onError: (error: Error) => {
+      console.error("❌ Insurance failed:", error);
       toast({
         title: "Failed to Add Insurance",
         description: error.message,
@@ -468,7 +486,11 @@ function AddInsuranceDialog({ propertyId, onSuccess }: { propertyId: string; onS
           <DialogTitle>Add Property Insurance</DialogTitle>
         </DialogHeader>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit((data) => insuranceMutation.mutate(data))} className="space-y-4">
+          <form onSubmit={form.handleSubmit((data) => {
+            console.log("📝 Insurance form submitted with data:", data);
+            console.log("🔍 Form errors:", form.formState.errors);
+            insuranceMutation.mutate(data);
+          })} className="space-y-4">
             <FormField
               control={form.control}
               name="insurerName"
