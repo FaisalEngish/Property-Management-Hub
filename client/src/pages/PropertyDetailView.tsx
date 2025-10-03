@@ -307,8 +307,12 @@ function UploadDocumentDialog({ propertyId, onSuccess }: { propertyId: string; o
         title: "Document Uploaded",
         description: "Property document has been uploaded successfully.",
       });
+      
+      // Invalidate and refetch immediately
       queryClient.invalidateQueries({ queryKey: ["/api/property-documents"] });
       queryClient.invalidateQueries({ queryKey: ["/api/property-documents/expiring?days=30"] });
+      queryClient.refetchQueries({ queryKey: ["/api/property-documents/expiring?days=30"] });
+      
       form.reset();
       setIsOpen(false);
       onSuccess();
@@ -434,8 +438,12 @@ function AddInsuranceDialog({ propertyId, onSuccess }: { propertyId: string; onS
         title: "Insurance Added",
         description: "Property insurance has been added successfully.",
       });
+      
+      // Invalidate and refetch immediately
       queryClient.invalidateQueries({ queryKey: ["/api/property-insurance"] });
       queryClient.invalidateQueries({ queryKey: ["/api/property-insurance/expiring/30"] });
+      queryClient.refetchQueries({ queryKey: ["/api/property-insurance/expiring/30"] });
+      
       form.reset();
       setIsOpen(false);
       onSuccess();

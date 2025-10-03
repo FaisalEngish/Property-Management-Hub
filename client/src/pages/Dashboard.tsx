@@ -68,14 +68,14 @@ export default function Dashboard() {
   // Fetch expiring documents (within 30 days)
   const { data: expiringDocuments = [] } = useQuery({
     queryKey: ["/api/property-documents/expiring?days=30"],
-    staleTime: 5 * 60 * 1000, // 5 minutes cache for expiry alerts
+    staleTime: 0, // Always refetch to ensure alerts are up-to-date
     refetchOnMount: true,
   });
 
   // Fetch expiring insurance (within 30 days)
   const { data: expiringInsurance = [] } = useQuery({
     queryKey: ["/api/property-insurance/expiring/30"],
-    staleTime: 5 * 60 * 1000, // 5 minutes cache for expiry alerts
+    staleTime: 0, // Always refetch to ensure alerts are up-to-date
     refetchOnMount: true,
   });
 
