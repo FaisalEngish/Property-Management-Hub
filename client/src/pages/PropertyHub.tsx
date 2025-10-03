@@ -11,7 +11,8 @@ import {
   Grid3X3,
   ClipboardList,
   RefreshCw,
-  LayoutGrid
+  LayoutGrid,
+  Plus
 } from "lucide-react";
 import TopBar from "../components/TopBar";
 import PropertyCard from "../components/PropertyCard";
@@ -25,6 +26,7 @@ import CreateTaskDialog from "../components/CreateTaskDialog";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "../hooks/use-toast";
 import { apiRequest } from "../lib/queryClient";
+import { useFastAuth } from "../lib/fastAuth";
 
 interface PropertyFiltersState {
   search: string;
@@ -41,6 +43,7 @@ interface PropertyFiltersState {
 }
 
 export default function PropertyHub() {
+  const { user } = useFastAuth();
   const [, navigate] = useLocation();
   const [activeTab, setActiveTab] = useState('properties');
   const [selectedProperties, setSelectedProperties] = useState<any[]>([]);
@@ -348,6 +351,16 @@ export default function PropertyHub() {
                 </div>
               </div>
               <div className="flex items-center gap-4">
+                {user?.role === 'admin' && (
+                  <Button 
+                    onClick={() => setIsPropertyDialogOpen(true)}
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white hover:scale-105 transition-all duration-200"
+                    data-testid="button-add-property"
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Property
+                  </Button>
+                )}
                 <Button 
                   variant="outline" 
                   onClick={handleRefresh}
