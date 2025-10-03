@@ -293,6 +293,93 @@ export default function Dashboard() {
             </Card>
           </div>
 
+          {/* Expiry Alerts Section */}
+          {(expiringDocuments.length > 0 || expiringInsurance.length > 0) && (
+            <Card className="border-orange-200 bg-orange-50">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-orange-800">
+                  <AlertTriangle className="h-5 w-5" />
+                  Expiry Alerts ({expiringDocuments.length + expiringInsurance.length})
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {/* Expiring Documents */}
+                  {expiringDocuments.length > 0 && (
+                    <div>
+                      <h3 className="text-sm font-semibold text-orange-900 mb-3">Property Documents Expiring</h3>
+                      <div className="space-y-3">
+                        {expiringDocuments.map((doc: any) => {
+                          const propertyName = propertyMap.get(doc.propertyId) || `Property #${doc.propertyId}`;
+                          const daysUntilExpiry = Math.ceil((new Date(doc.expiryDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+                          const isExpired = daysUntilExpiry < 0;
+                          
+                          return (
+                            <div key={doc.id} className="flex items-center justify-between p-3 bg-white rounded-lg border border-orange-200">
+                              <div className="flex items-center space-x-3">
+                                <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${isExpired ? 'bg-red-100' : 'bg-orange-100'}`}>
+                                  <Building className={`w-5 h-5 ${isExpired ? 'text-red-600' : 'text-orange-600'}`} />
+                                </div>
+                                <div>
+                                  <p className="font-medium text-gray-900">{doc.docType || 'Document'}</p>
+                                  <p className="text-sm text-gray-600">{propertyName}</p>
+                                </div>
+                              </div>
+                              <div className="text-right">
+                                <Badge variant={isExpired ? "destructive" : "outline"} className={isExpired ? '' : 'border-orange-300 text-orange-700'}>
+                                  {isExpired ? 'Expired' : `${daysUntilExpiry} days left`}
+                                </Badge>
+                                <p className="text-xs text-gray-500 mt-1">
+                                  {new Date(doc.expiryDate).toLocaleDateString()}
+                                </p>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Expiring Insurance */}
+                  {expiringInsurance.length > 0 && (
+                    <div>
+                      <h3 className="text-sm font-semibold text-orange-900 mb-3">Property Insurance Expiring</h3>
+                      <div className="space-y-3">
+                        {expiringInsurance.map((insurance: any) => {
+                          const propertyName = propertyMap.get(insurance.propertyId) || `Property #${insurance.propertyId}`;
+                          const daysUntilExpiry = Math.ceil((new Date(insurance.expiryDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+                          const isExpired = daysUntilExpiry < 0;
+                          
+                          return (
+                            <div key={insurance.id} className="flex items-center justify-between p-3 bg-white rounded-lg border border-orange-200">
+                              <div className="flex items-center space-x-3">
+                                <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${isExpired ? 'bg-red-100' : 'bg-blue-100'}`}>
+                                  <Building className={`w-5 h-5 ${isExpired ? 'text-red-600' : 'text-blue-600'}`} />
+                                </div>
+                                <div>
+                                  <p className="font-medium text-gray-900">{insurance.insuranceType || 'Insurance'}</p>
+                                  <p className="text-sm text-gray-600">{propertyName}</p>
+                                </div>
+                              </div>
+                              <div className="text-right">
+                                <Badge variant={isExpired ? "destructive" : "outline"} className={isExpired ? '' : 'border-blue-300 text-blue-700'}>
+                                  {isExpired ? 'Expired' : `${daysUntilExpiry} days left`}
+                                </Badge>
+                                <p className="text-xs text-gray-500 mt-1">
+                                  {new Date(insurance.expiryDate).toLocaleDateString()}
+                                </p>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Quick Actions */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <Button 
