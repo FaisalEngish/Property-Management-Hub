@@ -25,13 +25,22 @@ import {
   TrendingUp,
   Building,
   Edit,
-  ExternalLink
+  ExternalLink,
+  Upload,
+  Shield,
+  Plus
 } from "lucide-react";
 import { formatCurrency } from "@/lib/currency";
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { useAuth } from "@/hooks/useAuth";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { fastCache } from "@/lib/fastCache";
+import { Input } from "@/components/ui/input";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 
 // Mock booking source data - in real app this would come from API
 const mockBookingSources = [
@@ -252,6 +261,272 @@ function BookingPieChart({ data }: BookingPieChartProps) {
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+// Upload Document Dialog Schema
+const documentUploadSchema = z.object({
+  docType: z.string().min(1, "Document type is required"),
+  fileUrl: z.string().min(1, "File URL is required"),
+  expiryDate: z.string().optional(),
+});
+
+// Upload Document Dialog Component
+function UploadDocumentDialog({ propertyId, onSuccess }: { propertyId: string; onSuccess: () => void }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const { toast } = useToast();
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+
+  const form = useForm<z.infer<typeof documentUploadSchema>>({
+    resolver: zodResolver(documentUploadSchema),
+    defaultValues: {
+      docType: "",
+      fileUrl: "",
+      expiryDate: "",
+    },
+  });
+
+  const uploadMutation = useMutation({
+    mutationFn: async (data: z.infer<typeof documentUploadSchema>) => {
+      return apiRequest("/api/property-documents", {
+        method: "POST",
+        body: JSON.stringify({
+          ...data,
+          propertyId: parseInt(propertyId),
+          organizationId: (user as any)?.organizationId || "default-org",
+          uploadedBy: (user as any)?.id || "unknown",
+        }),
+      });
+    },
+    onSuccess: () => {
+      // Clear fastCache for expiring documents
+      fastCache.delete("/api/property-documents/expiring?days=30");
+      
+      toast({
+        title: "Document Uploaded",
+        description: "Property document has been uploaded successfully.",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/property-documents"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/property-documents/expiring?days=30"] });
+      form.reset();
+      setIsOpen(false);
+      onSuccess();
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Upload Failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  return (
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+      <DialogTrigger asChild>
+        <Button className="w-full" data-testid="upload-document-button">
+          <Upload className="w-4 h-4 mr-2" />
+          Upload Document
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Upload Property Document</DialogTitle>
+        </DialogHeader>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit((data) => uploadMutation.mutate(data))} className="space-y-4">
+            <FormField
+              control={form.control}
+              name="docType"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Document Type</FormLabel>
+                  <FormControl>
+                    <Input placeholder="e.g., License, Contract, Invoice" {...field} data-testid="input-doc-type" />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="fileUrl"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Document Name / File URL</FormLabel>
+                  <FormControl>
+                    <Input placeholder="e.g., tourism-license-2025.pdf" {...field} data-testid="input-file-url" />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="expiryDate"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Expiry Date (Optional)</FormLabel>
+                  <FormControl>
+                    <Input type="date" {...field} data-testid="input-expiry-date" />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <div className="flex justify-end gap-2">
+              <Button type="button" variant="outline" onClick={() => setIsOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={uploadMutation.isPending} data-testid="button-submit-document">
+                {uploadMutation.isPending ? "Uploading..." : "Upload"}
+              </Button>
+            </div>
+          </form>
+        </Form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// Add Insurance Dialog Schema
+const insuranceSchema = z.object({
+  insurerName: z.string().min(1, "Insurance provider is required"),
+  policyNumber: z.string().optional(),
+  coverageDetails: z.string().optional(),
+  expiryDate: z.string().optional(),
+});
+
+// Add Insurance Dialog Component
+function AddInsuranceDialog({ propertyId, onSuccess }: { propertyId: string; onSuccess: () => void }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const { toast } = useToast();
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+
+  const form = useForm<z.infer<typeof insuranceSchema>>({
+    resolver: zodResolver(insuranceSchema),
+    defaultValues: {
+      insurerName: "",
+      policyNumber: "",
+      coverageDetails: "",
+      expiryDate: "",
+    },
+  });
+
+  const insuranceMutation = useMutation({
+    mutationFn: async (data: z.infer<typeof insuranceSchema>) => {
+      return apiRequest("/api/property-insurance", {
+        method: "POST",
+        body: JSON.stringify({
+          ...data,
+          propertyId: parseInt(propertyId),
+          uploadedBy: (user as any)?.id || "unknown",
+        }),
+      });
+    },
+    onSuccess: () => {
+      // Clear fastCache for expiring insurance
+      fastCache.delete("/api/property-insurance/expiring/30");
+      
+      toast({
+        title: "Insurance Added",
+        description: "Property insurance has been added successfully.",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/property-insurance"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/property-insurance/expiring/30"] });
+      form.reset();
+      setIsOpen(false);
+      onSuccess();
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Failed to Add Insurance",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  return (
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+      <DialogTrigger asChild>
+        <Button className="w-full" data-testid="add-insurance-button">
+          <Shield className="w-4 h-4 mr-2" />
+          Add Insurance
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Add Property Insurance</DialogTitle>
+        </DialogHeader>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit((data) => insuranceMutation.mutate(data))} className="space-y-4">
+            <FormField
+              control={form.control}
+              name="insurerName"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Insurance Provider</FormLabel>
+                  <FormControl>
+                    <Input placeholder="e.g., AXA Thailand, Bangkok Insurance" {...field} data-testid="input-insurer-name" />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="policyNumber"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Policy Number (Optional)</FormLabel>
+                  <FormControl>
+                    <Input placeholder="e.g., POL-2025-12345" {...field} data-testid="input-policy-number" />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="coverageDetails"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Coverage Details (Optional)</FormLabel>
+                  <FormControl>
+                    <Textarea placeholder="e.g., Fire, flood, theft coverage up to 10M THB" {...field} data-testid="input-coverage-details" />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="expiryDate"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Expiry Date (Optional)</FormLabel>
+                  <FormControl>
+                    <Input type="date" {...field} data-testid="input-insurance-expiry" />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <div className="flex justify-end gap-2">
+              <Button type="button" variant="outline" onClick={() => setIsOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={insuranceMutation.isPending} data-testid="button-submit-insurance">
+                {insuranceMutation.isPending ? "Adding..." : "Add Insurance"}
+              </Button>
+            </div>
+          </form>
+        </Form>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -499,6 +774,51 @@ export default function PropertyDetailView() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Documents & Insurance Section */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
+          {/* Documents Section */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <FileText className="w-5 h-5" />
+                Property Documents
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground mb-4">
+                Upload property documents like licenses, contracts, and permits with expiry dates to receive alerts.
+              </p>
+              <UploadDocumentDialog 
+                propertyId={property.id} 
+                onSuccess={() => {
+                  // Success handled by mutation
+                }} 
+              />
+            </CardContent>
+          </Card>
+
+          {/* Insurance Section */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Shield className="w-5 h-5" />
+                Property Insurance
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground mb-4">
+                Add property insurance details with expiry dates to track coverage and receive renewal alerts.
+              </p>
+              <AddInsuranceDialog 
+                propertyId={property.id} 
+                onSuccess={() => {
+                  // Success handled by mutation
+                }} 
+              />
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </div>
   );
