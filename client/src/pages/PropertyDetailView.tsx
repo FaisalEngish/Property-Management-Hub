@@ -571,18 +571,22 @@ export default function PropertyDetailView() {
   });
 
   // Fetch property documents
-  const { data: documents = [] } = useQuery({
+  const { data: documents = [], refetch: refetchDocuments } = useQuery({
     queryKey: [`/api/property-documents/property/${propertyId}`],
     enabled: !!propertyId,
     staleTime: 0,
   });
 
+  console.log("📄 Documents data:", documents, "Length:", Array.isArray(documents) ? documents.length : "not array");
+
   // Fetch property insurance
-  const { data: insurance = [] } = useQuery({
+  const { data: insurance = [], refetch: refetchInsurance } = useQuery({
     queryKey: [`/api/property-insurance/property/${propertyId}`],
     enabled: !!propertyId,
     staleTime: 0,
   });
+
+  console.log("🛡️ Insurance data:", insurance, "Length:", Array.isArray(insurance) ? insurance.length : "not array");
 
   if (isLoading) {
     return (
@@ -804,9 +808,12 @@ export default function PropertyDetailView() {
               />
               <ActionButton 
                 label="Documents" 
-                href="/property-documents-management" 
+                href="#documents" 
                 icon={FileText}
                 variant="outline"
+                onClick={() => {
+                  document.getElementById('documents-section')?.scrollIntoView({ behavior: 'smooth' });
+                }}
               />
               <ActionButton 
                 label="View Calendar" 
@@ -818,7 +825,7 @@ export default function PropertyDetailView() {
         </Card>
 
         {/* Documents & Insurance Section */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
+        <div id="documents-section" className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
           {/* Documents Section */}
           <Card>
             <CardHeader>
