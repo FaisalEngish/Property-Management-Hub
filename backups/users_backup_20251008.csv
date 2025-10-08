@@ -1,0 +1,6 @@
+id,email,first_name,last_name,profile_image_url,role,created_at,updated_at,organization_id,is_active,last_login_at,password
+demo-admin,admin@test.com,Admin,User,,admin,2025-07-02 12:13:51.083591,2025-10-08 05:33:30.464,default-org,t,,$2b$12$j6jxxsYmX5brTpt7TgsgTe7GzIP3MhCiMQMBddYmdUBF3pNFuB1Fa
+demo-pm,manager@test.com,JOHN,DO,,portfolio-manager,2025-07-02 12:13:51.196241,2025-10-08 05:33:30.885,default-org,t,,$2b$12$mEg4TAlbr0HiTDE3ygOldO51jg7K3cjw0Nh3CR4mMy1EPRQpMHJNa
+demo-staff,staff@test.com,Staff,Member,,staff,2025-07-02 12:13:51.263076,2025-10-08 05:33:31.434,default-org,t,,$2b$12$qttoL/g4XlJlcRoe1e8yd.wQEoEd74VTimmskZ3rOXlzkftX3Xqb2
+demo-owner,owner@test.com,Property,Owner,,owner,2025-07-02 12:13:51.229492,2025-10-08 05:33:31.153,default-org,t,,$2b$12$XKbKbUXPQ1ZkdPcaJc2jJ.pbFWLLVEQKJ0U.MF7OBRcVklCtpyJFq
+user-1759403469284,faridreza44@gmail.com,reza,"",,staff,2025-10-02 11:11:09.553104,2025-10-02 13:47:52.065146,default-org,t,,$2b$12$ITgCyIcJx6xcjOz4CfmLGOXQYq2mELiuoWrlUDU7B4xOHzE0gByBu
