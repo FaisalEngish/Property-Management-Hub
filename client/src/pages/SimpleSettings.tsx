@@ -80,7 +80,7 @@ export default function SimpleSettings() {
 
   // Update profile mutation
   const updateProfileMutation = useMutation({
-    mutationFn: async (data: Partial<UserProfile>) => {
+    mutationFn: async (data: any) => {
       return await apiRequest(`/api/users/${user?.id}`, {
         method: 'PATCH',
         body: JSON.stringify(data),
@@ -89,15 +89,16 @@ export default function SimpleSettings() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/auth/user'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/users'] });
       toast({
         title: "Profile Updated",
         description: "Your profile settings have been saved successfully.",
       });
     },
-    onError: () => {
+    onError: (error: any) => {
       toast({
         title: "Update Failed", 
-        description: "Failed to update profile settings.",
+        description: error?.message || "Failed to update profile settings.",
         variant: "destructive"
       });
     }
@@ -108,11 +109,11 @@ export default function SimpleSettings() {
   };
 
   const handleSaveProfile = () => {
+    const fullName = `${formData.firstName} ${formData.lastName}`.trim();
     updateProfileMutation.mutate({
-      firstName: formData.firstName,
-      lastName: formData.lastName,
+      name: fullName,
       email: formData.email,
-    } as any);
+    });
   };
 
   const handleNotificationToggle = (field: string, value: boolean) => {
