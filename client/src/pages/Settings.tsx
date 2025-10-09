@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -54,6 +54,9 @@ export default function Settings() {
   const [activeTab, setActiveTab] = useState("currency");
   const [showSecrets, setShowSecrets] = useState<Record<string, boolean>>({});
 
+  // Local form state
+  const [formValues, setFormValues] = useState<Record<string, string>>({});
+
   const { data: settings = [], isLoading } = useQuery({
     queryKey: ["/api/admin/settings"],
     retry: (failureCount, error) => {
@@ -61,6 +64,17 @@ export default function Settings() {
       return failureCount < 3;
     },
   });
+
+  // Initialize form values when settings load
+  useEffect(() => {
+    if (settings && Array.isArray(settings) && settings.length > 0) {
+      const initialValues: Record<string, string> = {};
+      (settings as PlatformSetting[]).forEach((setting) => {
+        initialValues[setting.settingKey] = setting.settingValue || "";
+      });
+      setFormValues(initialValues);
+    }
+  }, [settings]);
 
   const updateSettingMutation = useMutation({
     mutationFn: async ({ key, data }: { key: string; data: any }) => {
@@ -98,16 +112,20 @@ export default function Settings() {
   });
 
   const getSetting = (key: string) => {
-    const setting = settings.find((s: PlatformSetting) => s.settingKey === key);
-    return setting?.settingValue || "";
+    return formValues[key] || "";
   };
 
   const getSettingType = (key: string) => {
-    const setting = settings.find((s: PlatformSetting) => s.settingKey === key);
+    const setting = (settings as PlatformSetting[]).find((s) => s.settingKey === key);
     return setting?.settingType || "string";
   };
 
-  const handleUpdateSetting = async (key: string, value: string, type: string, category: string, description?: string, isSecret = false) => {
+  const handleInputChange = (key: string, value: string) => {
+    setFormValues(prev => ({ ...prev, [key]: value }));
+  };
+
+  const handleSaveSetting = async (key: string, type: string, category: string, description?: string, isSecret = false) => {
+    const value = formValues[key] || "";
     updateSettingMutation.mutate({
       key,
       data: {
@@ -126,11 +144,11 @@ export default function Settings() {
   };
 
   const settingsByCategory = {
-    currency: settings.filter((s: PlatformSetting) => s.category === "currency"),
-    commission: settings.filter((s: PlatformSetting) => s.category === "commission"),
-    billing: settings.filter((s: PlatformSetting) => s.category === "billing"),
-    automation: settings.filter((s: PlatformSetting) => s.category === "automation"),
-    api: settings.filter((s: PlatformSetting) => s.category === "api"),
+    currency: (settings as PlatformSetting[]).filter((s) => s.category === "currency"),
+    commission: (settings as PlatformSetting[]).filter((s) => s.category === "commission"),
+    billing: (settings as PlatformSetting[]).filter((s) => s.category === "billing"),
+    automation: (settings as PlatformSetting[]).filter((s) => s.category === "automation"),
+    api: (settings as PlatformSetting[]).filter((s) => s.category === "api"),
   };
 
   const defaultSettings = [
@@ -163,11 +181,10 @@ export default function Settings() {
 
   const ensureDefaultSettings = async () => {
     for (const setting of defaultSettings) {
-      const existing = settings.find((s: PlatformSetting) => s.settingKey === setting.key);
+      const existing = (settings as PlatformSetting[]).find((s) => s.settingKey === setting.key);
       if (!existing) {
-        await handleUpdateSetting(
+        await handleSaveSetting(
           setting.key,
-          setting.value,
           setting.type,
           setting.category,
           setting.description,
@@ -262,9 +279,12 @@ export default function Settings() {
                       <Label htmlFor="currency">Default Currency</Label>
                       <Select 
                         value={getSetting("platform.currency")} 
-                        onValueChange={(value) => handleUpdateSetting("platform.currency", value, "string", "currency", "Default platform currency")}
+                        onValueChange={(value) => {
+                          handleInputChange("platform.currency", value);
+                          handleSaveSetting("platform.currency", "string", "currency", "Default platform currency");
+                        }}
                       >
-                        <SelectTrigger>
+                        <SelectTrigger data-testid="select-currency">
                           <SelectValue placeholder="Select currency" />
                         </SelectTrigger>
                         <SelectContent>
@@ -273,32 +293,53 @@ export default function Settings() {
                           <SelectItem value="GBP">GBP - British Pound</SelectItem>
                           <SelectItem value="AUD">AUD - Australian Dollar</SelectItem>
                           <SelectItem value="CAD">CAD - Canadian Dollar</SelectItem>
+                          <SelectItem value="THB">THB - Thai Baht</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
 
                     <div className="space-y-2">
                       <Label htmlFor="currency-symbol">Currency Symbol</Label>
-                      <Input
-                        id="currency-symbol"
-                        value={getSetting("platform.currency_symbol")}
-                        onChange={(e) => handleUpdateSetting("platform.currency_symbol", e.target.value, "string", "currency", "Currency symbol for display")}
-                        placeholder="$"
-                      />
+                      <div className="flex gap-2">
+                        <Input
+                          id="currency-symbol"
+                          data-testid="input-currency-symbol"
+                          value={getSetting("platform.currency_symbol")}
+                          onChange={(e) => handleInputChange("platform.currency_symbol", e.target.value)}
+                          placeholder="$"
+                        />
+                        <Button 
+                          onClick={() => handleSaveSetting("platform.currency_symbol", "string", "currency", "Currency symbol for display")}
+                          size="sm"
+                          data-testid="button-save-currency-symbol"
+                        >
+                          <Save className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </div>
 
                     <div className="space-y-2">
                       <Label htmlFor="vat-rate">Default VAT Rate (%)</Label>
-                      <Input
-                        id="vat-rate"
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        max="1"
-                        value={parseFloat(getSetting("platform.vat_rate") || "0") * 100}
-                        onChange={(e) => handleUpdateSetting("platform.vat_rate", (parseFloat(e.target.value) / 100).toString(), "number", "currency", "Default VAT rate (decimal)")}
-                        placeholder="10"
-                      />
+                      <div className="flex gap-2">
+                        <Input
+                          id="vat-rate"
+                          data-testid="input-vat-rate"
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          max="100"
+                          value={parseFloat(getSetting("platform.vat_rate") || "0") * 100}
+                          onChange={(e) => handleInputChange("platform.vat_rate", (parseFloat(e.target.value) / 100).toString())}
+                          placeholder="10"
+                        />
+                        <Button 
+                          onClick={() => handleSaveSetting("platform.vat_rate", "number", "currency", "Default VAT rate (decimal)")}
+                          size="sm"
+                          data-testid="button-save-vat-rate"
+                        >
+                          <Save className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 </CardContent>
@@ -318,38 +359,62 @@ export default function Settings() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="retail-commission">Retail Agent Commission (%)</Label>
-                      <Input
-                        id="retail-commission"
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        max="1"
-                        value={parseFloat(getSetting("commission.retail_agent_rate") || "0") * 100}
-                        onChange={(e) => handleUpdateSetting("commission.retail_agent_rate", (parseFloat(e.target.value) / 100).toString(), "number", "commission", "Default retail agent commission rate")}
-                        placeholder="5"
-                      />
+                      <div className="flex gap-2">
+                        <Input
+                          id="retail-commission"
+                          data-testid="input-retail-commission"
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          max="100"
+                          value={parseFloat(getSetting("commission.retail_agent_rate") || "0") * 100}
+                          onChange={(e) => handleInputChange("commission.retail_agent_rate", (parseFloat(e.target.value) / 100).toString())}
+                          placeholder="5"
+                        />
+                        <Button 
+                          onClick={() => handleSaveSetting("commission.retail_agent_rate", "number", "commission", "Default retail agent commission rate")}
+                          size="sm"
+                          data-testid="button-save-retail-commission"
+                        >
+                          <Save className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </div>
 
                     <div className="space-y-2">
                       <Label htmlFor="referral-commission">Referral Agent Commission (%)</Label>
-                      <Input
-                        id="referral-commission"
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        max="1"
-                        value={parseFloat(getSetting("commission.referral_agent_rate") || "0") * 100}
-                        onChange={(e) => handleUpdateSetting("commission.referral_agent_rate", (parseFloat(e.target.value) / 100).toString(), "number", "commission", "Default referral agent commission rate")}
-                        placeholder="3"
-                      />
+                      <div className="flex gap-2">
+                        <Input
+                          id="referral-commission"
+                          data-testid="input-referral-commission"
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          max="100"
+                          value={parseFloat(getSetting("commission.referral_agent_rate") || "0") * 100}
+                          onChange={(e) => handleInputChange("commission.referral_agent_rate", (parseFloat(e.target.value) / 100).toString())}
+                          placeholder="3"
+                        />
+                        <Button 
+                          onClick={() => handleSaveSetting("commission.referral_agent_rate", "number", "commission", "Default referral agent commission rate")}
+                          size="sm"
+                          data-testid="button-save-referral-commission"
+                        >
+                          <Save className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </div>
                   </div>
 
                   <div className="flex items-center space-x-2">
                     <Switch
                       id="auto-calculate"
+                      data-testid="toggle-auto-calculate"
                       checked={getSetting("commission.auto_calculate") === "true"}
-                      onCheckedChange={(checked) => handleUpdateSetting("commission.auto_calculate", checked.toString(), "boolean", "commission", "Automatically calculate commissions")}
+                      onCheckedChange={(checked) => {
+                        handleInputChange("commission.auto_calculate", checked.toString());
+                        handleSaveSetting("commission.auto_calculate", "boolean", "commission", "Automatically calculate commissions");
+                      }}
                     />
                     <Label htmlFor="auto-calculate">Automatically calculate commissions on bookings</Label>
                   </div>
@@ -371,8 +436,12 @@ export default function Settings() {
                     <div className="flex items-center space-x-2">
                       <Switch
                         id="addon-auto-charge"
+                        data-testid="toggle-addon-auto-charge"
                         checked={getSetting("billing.addon_auto_charge") === "true"}
-                        onCheckedChange={(checked) => handleUpdateSetting("billing.addon_auto_charge", checked.toString(), "boolean", "billing", "Automatically charge add-on services")}
+                        onCheckedChange={(checked) => {
+                          handleInputChange("billing.addon_auto_charge", checked.toString());
+                          handleSaveSetting("billing.addon_auto_charge", "boolean", "billing", "Automatically charge add-on services");
+                        }}
                       />
                       <Label htmlFor="addon-auto-charge">Auto-charge add-on services to guest bookings</Label>
                     </div>
@@ -380,23 +449,37 @@ export default function Settings() {
                     <div className="flex items-center space-x-2">
                       <Switch
                         id="utility-tracking"
+                        data-testid="toggle-utility-tracking"
                         checked={getSetting("billing.utility_tracking") === "true"}
-                        onCheckedChange={(checked) => handleUpdateSetting("billing.utility_tracking", checked.toString(), "boolean", "billing", "Enable automatic utility tracking")}
+                        onCheckedChange={(checked) => {
+                          handleInputChange("billing.utility_tracking", checked.toString());
+                          handleSaveSetting("billing.utility_tracking", "boolean", "billing", "Enable automatic utility tracking");
+                        }}
                       />
                       <Label htmlFor="utility-tracking">Enable automatic utility bill tracking</Label>
                     </div>
 
                     <div className="space-y-2">
                       <Label htmlFor="payment-reminder">Payment Reminder (days before due)</Label>
-                      <Input
-                        id="payment-reminder"
-                        type="number"
-                        min="1"
-                        max="30"
-                        value={getSetting("billing.payment_reminder_days")}
-                        onChange={(e) => handleUpdateSetting("billing.payment_reminder_days", e.target.value, "number", "billing", "Days before payment due to send reminder")}
-                        placeholder="7"
-                      />
+                      <div className="flex gap-2">
+                        <Input
+                          id="payment-reminder"
+                          data-testid="input-payment-reminder"
+                          type="number"
+                          min="1"
+                          max="30"
+                          value={getSetting("billing.payment_reminder_days")}
+                          onChange={(e) => handleInputChange("billing.payment_reminder_days", e.target.value)}
+                          placeholder="7"
+                        />
+                        <Button 
+                          onClick={() => handleSaveSetting("billing.payment_reminder_days", "number", "billing", "Days before payment due to send reminder")}
+                          size="sm"
+                          data-testid="button-save-payment-reminder"
+                        >
+                          <Save className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 </CardContent>
@@ -417,8 +500,12 @@ export default function Settings() {
                     <div className="flex items-center space-x-2">
                       <Switch
                         id="task-reminders"
+                        data-testid="toggle-task-reminders"
                         checked={getSetting("automation.task_reminders") === "true"}
-                        onCheckedChange={(checked) => handleUpdateSetting("automation.task_reminders", checked.toString(), "boolean", "automation", "Send automatic task reminders")}
+                        onCheckedChange={(checked) => {
+                          handleInputChange("automation.task_reminders", checked.toString());
+                          handleSaveSetting("automation.task_reminders", "boolean", "automation", "Send automatic task reminders");
+                        }}
                       />
                       <Label htmlFor="task-reminders">Send automatic task reminders to assignees</Label>
                     </div>
@@ -426,28 +513,48 @@ export default function Settings() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label htmlFor="cleanup-cycle">Cleanup Cycle (days)</Label>
-                        <Input
-                          id="cleanup-cycle"
-                          type="number"
-                          min="1"
-                          max="365"
-                          value={getSetting("automation.cleanup_cycle_days")}
-                          onChange={(e) => handleUpdateSetting("automation.cleanup_cycle_days", e.target.value, "number", "automation", "Days after task completion to archive")}
-                          placeholder="30"
-                        />
+                        <div className="flex gap-2">
+                          <Input
+                            id="cleanup-cycle"
+                            data-testid="input-cleanup-cycle"
+                            type="number"
+                            min="1"
+                            max="365"
+                            value={getSetting("automation.cleanup_cycle_days")}
+                            onChange={(e) => handleInputChange("automation.cleanup_cycle_days", e.target.value)}
+                            placeholder="30"
+                          />
+                          <Button 
+                            onClick={() => handleSaveSetting("automation.cleanup_cycle_days", "number", "automation", "Days after task completion to archive")}
+                            size="sm"
+                            data-testid="button-save-cleanup-cycle"
+                          >
+                            <Save className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </div>
 
                       <div className="space-y-2">
                         <Label htmlFor="recurring-advance">Recurring Task Advance (days)</Label>
-                        <Input
-                          id="recurring-advance"
-                          type="number"
-                          min="1"
-                          max="30"
-                          value={getSetting("automation.recurring_task_advance_days")}
-                          onChange={(e) => handleUpdateSetting("automation.recurring_task_advance_days", e.target.value, "number", "automation", "Days in advance to create recurring tasks")}
-                          placeholder="3"
-                        />
+                        <div className="flex gap-2">
+                          <Input
+                            id="recurring-advance"
+                            data-testid="input-recurring-advance"
+                            type="number"
+                            min="1"
+                            max="30"
+                            value={getSetting("automation.recurring_task_advance_days")}
+                            onChange={(e) => handleInputChange("automation.recurring_task_advance_days", e.target.value)}
+                            placeholder="3"
+                          />
+                          <Button 
+                            onClick={() => handleSaveSetting("automation.recurring_task_advance_days", "number", "automation", "Days in advance to create recurring tasks")}
+                            size="sm"
+                            data-testid="button-save-recurring-advance"
+                          >
+                            <Save className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -465,12 +572,12 @@ export default function Settings() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-6">
-                  <div className="p-4 border border-orange-200 bg-orange-50 rounded-lg">
-                    <div className="flex items-center gap-2 text-orange-800">
+                  <div className="p-4 border border-orange-200 bg-orange-50 rounded-lg dark:border-orange-800 dark:bg-orange-950">
+                    <div className="flex items-center gap-2 text-orange-800 dark:text-orange-200">
                       <AlertTriangle className="h-4 w-4" />
                       <span className="font-medium">Security Notice</span>
                     </div>
-                    <p className="text-sm text-orange-700 mt-1">
+                    <p className="text-sm text-orange-700 dark:text-orange-300 mt-1">
                       API credentials are encrypted and stored securely. Only administrators can view or modify these values.
                     </p>
                   </div>
@@ -481,38 +588,59 @@ export default function Settings() {
                     <div className="grid grid-cols-1 gap-4">
                       <div className="space-y-2">
                         <Label htmlFor="hostaway-key">API Key</Label>
-                        <div className="relative">
-                          <Input
-                            id="hostaway-key"
-                            type={showSecrets["hostaway-key"] ? "text" : "password"}
-                            value={getSetting("api.hostaway_api_key")}
-                            onChange={(e) => handleUpdateSetting("api.hostaway_api_key", e.target.value, "string", "api", "Hostaway API key for booking integration", true)}
-                            placeholder="Enter Hostaway API key"
-                          />
-                          <Button
-                            type="button"
-                            variant="ghost"
+                        <div className="flex gap-2">
+                          <div className="relative flex-1">
+                            <Input
+                              id="hostaway-key"
+                              data-testid="input-hostaway-key"
+                              type={showSecrets["hostaway-key"] ? "text" : "password"}
+                              value={getSetting("api.hostaway_api_key")}
+                              onChange={(e) => handleInputChange("api.hostaway_api_key", e.target.value)}
+                              placeholder="Enter Hostaway API key"
+                            />
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                              onClick={() => toggleSecretVisibility("hostaway-key")}
+                              data-testid="button-toggle-hostaway-key"
+                            >
+                              {showSecrets["hostaway-key"] ? (
+                                <EyeOff className="h-4 w-4" />
+                              ) : (
+                                <Eye className="h-4 w-4" />
+                              )}
+                            </Button>
+                          </div>
+                          <Button 
+                            onClick={() => handleSaveSetting("api.hostaway_api_key", "string", "api", "Hostaway API key for booking integration", true)}
                             size="sm"
-                            className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                            onClick={() => toggleSecretVisibility("hostaway-key")}
+                            data-testid="button-save-hostaway-key"
                           >
-                            {showSecrets["hostaway-key"] ? (
-                              <EyeOff className="h-4 w-4" />
-                            ) : (
-                              <Eye className="h-4 w-4" />
-                            )}
+                            <Save className="h-4 w-4" />
                           </Button>
                         </div>
                       </div>
 
                       <div className="space-y-2">
                         <Label htmlFor="hostaway-account">Account ID</Label>
-                        <Input
-                          id="hostaway-account"
-                          value={getSetting("api.hostaway_account_id")}
-                          onChange={(e) => handleUpdateSetting("api.hostaway_account_id", e.target.value, "string", "api", "Hostaway account identifier")}
-                          placeholder="Enter Hostaway account ID"
-                        />
+                        <div className="flex gap-2">
+                          <Input
+                            id="hostaway-account"
+                            data-testid="input-hostaway-account"
+                            value={getSetting("api.hostaway_account_id")}
+                            onChange={(e) => handleInputChange("api.hostaway_account_id", e.target.value)}
+                            placeholder="Enter Hostaway account ID"
+                          />
+                          <Button 
+                            onClick={() => handleSaveSetting("api.hostaway_account_id", "string", "api", "Hostaway account identifier")}
+                            size="sm"
+                            data-testid="button-save-hostaway-account"
+                          >
+                            <Save className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -525,38 +653,59 @@ export default function Settings() {
                     <div className="grid grid-cols-1 gap-4">
                       <div className="space-y-2">
                         <Label htmlFor="pea-key">API Key</Label>
-                        <div className="relative">
-                          <Input
-                            id="pea-key"
-                            type={showSecrets["pea-key"] ? "text" : "password"}
-                            value={getSetting("api.pea_api_key")}
-                            onChange={(e) => handleUpdateSetting("api.pea_api_key", e.target.value, "string", "api", "PEA (Property Exchange Australia) API key", true)}
-                            placeholder="Enter PEA API key"
-                          />
-                          <Button
-                            type="button"
-                            variant="ghost"
+                        <div className="flex gap-2">
+                          <div className="relative flex-1">
+                            <Input
+                              id="pea-key"
+                              data-testid="input-pea-key"
+                              type={showSecrets["pea-key"] ? "text" : "password"}
+                              value={getSetting("api.pea_api_key")}
+                              onChange={(e) => handleInputChange("api.pea_api_key", e.target.value)}
+                              placeholder="Enter PEA API key"
+                            />
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                              onClick={() => toggleSecretVisibility("pea-key")}
+                              data-testid="button-toggle-pea-key"
+                            >
+                              {showSecrets["pea-key"] ? (
+                                <EyeOff className="h-4 w-4" />
+                              ) : (
+                                <Eye className="h-4 w-4" />
+                              )}
+                            </Button>
+                          </div>
+                          <Button 
+                            onClick={() => handleSaveSetting("api.pea_api_key", "string", "api", "PEA API key", true)}
                             size="sm"
-                            className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                            onClick={() => toggleSecretVisibility("pea-key")}
+                            data-testid="button-save-pea-key"
                           >
-                            {showSecrets["pea-key"] ? (
-                              <EyeOff className="h-4 w-4" />
-                            ) : (
-                              <Eye className="h-4 w-4" />
-                            )}
+                            <Save className="h-4 w-4" />
                           </Button>
                         </div>
                       </div>
 
                       <div className="space-y-2">
-                        <Label htmlFor="pea-endpoint">API Endpoint</Label>
-                        <Input
-                          id="pea-endpoint"
-                          value={getSetting("api.pea_endpoint")}
-                          onChange={(e) => handleUpdateSetting("api.pea_endpoint", e.target.value, "string", "api", "PEA API endpoint URL")}
-                          placeholder="https://api.pea.com.au/v1"
-                        />
+                        <Label htmlFor="pea-endpoint">Endpoint URL</Label>
+                        <div className="flex gap-2">
+                          <Input
+                            id="pea-endpoint"
+                            data-testid="input-pea-endpoint"
+                            value={getSetting("api.pea_endpoint")}
+                            onChange={(e) => handleInputChange("api.pea_endpoint", e.target.value)}
+                            placeholder="Enter PEA endpoint URL"
+                          />
+                          <Button 
+                            onClick={() => handleSaveSetting("api.pea_endpoint", "string", "api", "PEA API endpoint URL")}
+                            size="sm"
+                            data-testid="button-save-pea-endpoint"
+                          >
+                            <Save className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </div>
                     </div>
                   </div>
