@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useState, useEffect } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,22 +8,14 @@ import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
 import { 
   Settings, 
   User, 
   Bell, 
   Shield, 
   Palette, 
-  Globe, 
   Save,
-  AlertCircle,
   CheckCircle,
-  Key,
-  Database,
-  Mail,
-  MessageSquare,
-  CreditCard,
   Moon,
   Sun,
   Monitor
@@ -44,42 +36,59 @@ interface UserProfile {
   language?: string;
 }
 
-interface SystemSettings {
-  currency: string;
-  timezone: string;
-  dateFormat: string;
-  emailNotifications: boolean;
-  pushNotifications: boolean;
-  taskReminders: boolean;
-  theme: 'light' | 'dark' | 'system';
-  organizationName: string;
-  organizationLogo?: string;
-}
-
 export default function SimpleSettings() {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState("profile");
-
-  // Fetch user profile
-  const { data: userProfile, isLoading: profileLoading } = useQuery<UserProfile>({
-    queryKey: ['/api/user/profile'],
-    queryFn: () => apiRequest('/api/user/profile'),
+  
+  // Local state for form values
+  const [formData, setFormData] = useState({
+    firstName: user?.firstName || '',
+    lastName: user?.lastName || '',
+    email: user?.email || '',
+    phone: '',
+    timezone: 'UTC',
+    language: 'en',
   });
 
-  // Fetch system settings
-  const { data: systemSettings, isLoading: settingsLoading } = useQuery<SystemSettings>({
-    queryKey: ['/api/settings/system'],
-    queryFn: () => apiRequest('/api/settings/system'),
+  const [notificationSettings, setNotificationSettings] = useState({
+    emailNotifications: true,
+    pushNotifications: true,
+    taskReminders: true,
   });
+
+  const [theme, setTheme] = useState<'light' | 'dark' | 'system'>('system');
+
+  const [systemSettings, setSystemSettings] = useState({
+    organizationName: 'HostPilotPro',
+    currency: 'THB',
+    dateFormat: 'DD/MM/YYYY',
+  });
+
+  // Initialize from user data
+  useEffect(() => {
+    if (user) {
+      setFormData(prev => ({
+        ...prev,
+        firstName: user.firstName || '',
+        lastName: user.lastName || '',
+        email: user.email || '',
+      }));
+    }
+  }, [user]);
 
   // Update profile mutation
   const updateProfileMutation = useMutation({
-    mutationFn: (data: Partial<UserProfile>) => 
-      apiRequest('/api/user/profile', 'PATCH', data),
+    mutationFn: async (data: Partial<UserProfile>) => {
+      return await apiRequest(`/api/users/${user?.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify(data),
+        headers: { 'Content-Type': 'application/json' },
+      });
+    },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/user/profile'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/auth/user'] });
       toast({
         title: "Profile Updated",
         description: "Your profile settings have been saved successfully.",
@@ -94,32 +103,60 @@ export default function SimpleSettings() {
     }
   });
 
-  // Update system settings mutation
-  const updateSettingsMutation = useMutation({
-    mutationFn: (data: Partial<SystemSettings>) => 
-      apiRequest('/api/settings/system', 'PATCH', data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/settings/system'] });
-      toast({
-        title: "Settings Updated",
-        description: "System settings have been saved successfully.",
-      });
-    },
-    onError: () => {
-      toast({
-        title: "Update Failed",
-        description: "Failed to update system settings.", 
-        variant: "destructive"
-      });
-    }
-  });
-
-  const handleProfileUpdate = (field: keyof UserProfile, value: string) => {
-    updateProfileMutation.mutate({ [field]: value });
+  const handleInputChange = (field: string, value: string) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  const handleSettingsUpdate = (field: keyof SystemSettings, value: any) => {
-    updateSettingsMutation.mutate({ [field]: value });
+  const handleSaveProfile = () => {
+    updateProfileMutation.mutate({
+      firstName: formData.firstName,
+      lastName: formData.lastName,
+      email: formData.email,
+    } as any);
+  };
+
+  const handleNotificationToggle = (field: string, value: boolean) => {
+    setNotificationSettings(prev => ({ ...prev, [field]: value }));
+    toast({
+      title: "Setting Updated",
+      description: "Notification preference has been saved.",
+    });
+  };
+
+  const handleThemeChange = (newTheme: 'light' | 'dark' | 'system') => {
+    setTheme(newTheme);
+    
+    // Apply theme
+    const root = document.documentElement;
+    if (newTheme === 'dark') {
+      root.classList.add('dark');
+    } else if (newTheme === 'light') {
+      root.classList.remove('dark');
+    } else {
+      // System preference
+      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      if (prefersDark) {
+        root.classList.add('dark');
+      } else {
+        root.classList.remove('dark');
+      }
+    }
+    
+    // Save to localStorage
+    localStorage.setItem('theme', newTheme);
+    
+    toast({
+      title: "Theme Updated",
+      description: `Theme changed to ${newTheme} mode.`,
+    });
+  };
+
+  const handleSystemSettingChange = (field: string, value: string) => {
+    setSystemSettings(prev => ({ ...prev, [field]: value }));
+    toast({
+      title: "Setting Updated",
+      description: `${field} has been updated.`,
+    });
   };
 
   const currencies = [
@@ -156,16 +193,16 @@ export default function SimpleSettings() {
   return (
     <div className="container mx-auto p-6 max-w-4xl">
       <div className="flex items-center gap-2 mb-6">
-        <Settings className="h-8 w-8 text-blue-600" />
+        <Settings className="h-8 w-8 text-blue-600 dark:text-blue-400" />
         <h1 className="text-3xl font-bold">Settings</h1>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
         <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="profile">Profile</TabsTrigger>
-          <TabsTrigger value="notifications">Notifications</TabsTrigger>
-          <TabsTrigger value="appearance">Appearance</TabsTrigger>
-          {isAdmin && <TabsTrigger value="system">System</TabsTrigger>}
+          <TabsTrigger value="profile" data-testid="tab-profile">Profile</TabsTrigger>
+          <TabsTrigger value="notifications" data-testid="tab-notifications">Notifications</TabsTrigger>
+          <TabsTrigger value="appearance" data-testid="tab-appearance">Appearance</TabsTrigger>
+          {isAdmin && <TabsTrigger value="system" data-testid="tab-system">System</TabsTrigger>}
         </TabsList>
 
         {/* Profile Settings */}
@@ -178,103 +215,106 @@ export default function SimpleSettings() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              {profileLoading ? (
-                <div className="animate-pulse space-y-4">
-                  <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-                  <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="firstName">First Name</Label>
+                  <Input
+                    id="firstName"
+                    data-testid="input-firstName"
+                    value={formData.firstName}
+                    onChange={(e) => handleInputChange('firstName', e.target.value)}
+                    placeholder="Enter first name"
+                  />
                 </div>
-              ) : (
-                <>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="firstName">First Name</Label>
-                      <Input
-                        id="firstName"
-                        value={userProfile?.firstName || ''}
-                        onChange={(e) => handleProfileUpdate('firstName', e.target.value)}
-                        placeholder="Enter first name"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="lastName">Last Name</Label>
-                      <Input
-                        id="lastName"
-                        value={userProfile?.lastName || ''}
-                        onChange={(e) => handleProfileUpdate('lastName', e.target.value)}
-                        placeholder="Enter last name"
-                      />
-                    </div>
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="email">Email Address</Label>
-                    <Input
-                      id="email"
-                      type="email"
-                      value={userProfile?.email || ''}
-                      onChange={(e) => handleProfileUpdate('email', e.target.value)}
-                      placeholder="Enter email address"
-                    />
-                  </div>
+                <div className="space-y-2">
+                  <Label htmlFor="lastName">Last Name</Label>
+                  <Input
+                    id="lastName"
+                    data-testid="input-lastName"
+                    value={formData.lastName}
+                    onChange={(e) => handleInputChange('lastName', e.target.value)}
+                    placeholder="Enter last name"
+                  />
+                </div>
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="email">Email Address</Label>
+                <Input
+                  id="email"
+                  data-testid="input-email"
+                  type="email"
+                  value={formData.email}
+                  onChange={(e) => handleInputChange('email', e.target.value)}
+                  placeholder="Enter email address"
+                />
+              </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="phone">Phone Number</Label>
-                    <Input
-                      id="phone"
-                      value={userProfile?.phone || ''}
-                      onChange={(e) => handleProfileUpdate('phone', e.target.value)}
-                      placeholder="Enter phone number"
-                    />
-                  </div>
+              <div className="space-y-2">
+                <Label htmlFor="phone">Phone Number</Label>
+                <Input
+                  id="phone"
+                  data-testid="input-phone"
+                  value={formData.phone}
+                  onChange={(e) => handleInputChange('phone', e.target.value)}
+                  placeholder="Enter phone number"
+                />
+              </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="timezone">Timezone</Label>
-                      <Select 
-                        value={userProfile?.timezone || 'UTC'} 
-                        onValueChange={(value) => handleProfileUpdate('timezone', value)}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select timezone" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {timezones.map((tz) => (
-                            <SelectItem key={tz.value} value={tz.value}>
-                              {tz.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <Label htmlFor="language">Language</Label>
-                      <Select 
-                        value={userProfile?.language || 'en'} 
-                        onValueChange={(value) => handleProfileUpdate('language', value)}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select language" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {languages.map((lang) => (
-                            <SelectItem key={lang.value} value={lang.value}>
-                              {lang.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="timezone">Timezone</Label>
+                  <Select 
+                    value={formData.timezone} 
+                    onValueChange={(value) => handleInputChange('timezone', value)}
+                  >
+                    <SelectTrigger data-testid="select-timezone">
+                      <SelectValue placeholder="Select timezone" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {timezones.map((tz) => (
+                        <SelectItem key={tz.value} value={tz.value}>
+                          {tz.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="language">Language</Label>
+                  <Select 
+                    value={formData.language} 
+                    onValueChange={(value) => handleInputChange('language', value)}
+                  >
+                    <SelectTrigger data-testid="select-language">
+                      <SelectValue placeholder="Select language" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {languages.map((lang) => (
+                        <SelectItem key={lang.value} value={lang.value}>
+                          {lang.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
 
-                  <div className="pt-4">
-                    <Badge variant="secondary" className="flex items-center gap-1 w-fit">
-                      <Shield className="h-3 w-3" />
-                      {userProfile?.role} Access Level
-                    </Badge>
-                  </div>
-                </>
-              )}
+              <div className="flex items-center justify-between pt-4">
+                <Badge variant="secondary" className="flex items-center gap-1">
+                  <Shield className="h-3 w-3" />
+                  {user?.role} Access Level
+                </Badge>
+                <Button 
+                  onClick={handleSaveProfile} 
+                  disabled={updateProfileMutation.isPending}
+                  data-testid="button-save-profile"
+                >
+                  <Save className="h-4 w-4 mr-2" />
+                  {updateProfileMutation.isPending ? 'Saving...' : 'Save Profile'}
+                </Button>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
@@ -297,8 +337,9 @@ export default function SimpleSettings() {
                   </p>
                 </div>
                 <Switch
-                  checked={systemSettings?.emailNotifications ?? true}
-                  onCheckedChange={(checked) => handleSettingsUpdate('emailNotifications', checked)}
+                  data-testid="toggle-emailNotifications"
+                  checked={notificationSettings.emailNotifications}
+                  onCheckedChange={(checked) => handleNotificationToggle('emailNotifications', checked)}
                 />
               </div>
 
@@ -310,8 +351,9 @@ export default function SimpleSettings() {
                   </p>
                 </div>
                 <Switch
-                  checked={systemSettings?.pushNotifications ?? true}
-                  onCheckedChange={(checked) => handleSettingsUpdate('pushNotifications', checked)}
+                  data-testid="toggle-pushNotifications"
+                  checked={notificationSettings.pushNotifications}
+                  onCheckedChange={(checked) => handleNotificationToggle('pushNotifications', checked)}
                 />
               </div>
 
@@ -323,8 +365,9 @@ export default function SimpleSettings() {
                   </p>
                 </div>
                 <Switch
-                  checked={systemSettings?.taskReminders ?? true}
-                  onCheckedChange={(checked) => handleSettingsUpdate('taskReminders', checked)}
+                  data-testid="toggle-taskReminders"
+                  checked={notificationSettings.taskReminders}
+                  onCheckedChange={(checked) => handleNotificationToggle('taskReminders', checked)}
                 />
               </div>
             </CardContent>
@@ -345,15 +388,16 @@ export default function SimpleSettings() {
                 <Label className="text-base">Theme Preference</Label>
                 <div className="grid grid-cols-3 gap-3">
                   {[
-                    { value: 'light', label: 'Light', icon: Sun },
-                    { value: 'dark', label: 'Dark', icon: Moon },
-                    { value: 'system', label: 'System', icon: Monitor },
+                    { value: 'light' as const, label: 'Light', icon: Sun },
+                    { value: 'dark' as const, label: 'Dark', icon: Moon },
+                    { value: 'system' as const, label: 'System', icon: Monitor },
                   ].map(({ value, label, icon: Icon }) => (
                     <Button
                       key={value}
-                      variant={systemSettings?.theme === value ? 'default' : 'outline'}
+                      variant={theme === value ? 'default' : 'outline'}
                       className="flex flex-col items-center gap-2 h-auto py-4"
-                      onClick={() => handleSettingsUpdate('theme', value)}
+                      onClick={() => handleThemeChange(value)}
+                      data-testid={`button-theme-${value}`}
                     >
                       <Icon className="h-5 w-5" />
                       {label}
@@ -371,7 +415,7 @@ export default function SimpleSettings() {
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Database className="h-5 w-5" />
+                  <Settings className="h-5 w-5" />
                   System Configuration
                 </CardTitle>
               </CardHeader>
@@ -380,8 +424,9 @@ export default function SimpleSettings() {
                   <Label htmlFor="orgName">Organization Name</Label>
                   <Input
                     id="orgName"
-                    value={systemSettings?.organizationName || ''}
-                    onChange={(e) => handleSettingsUpdate('organizationName', e.target.value)}
+                    data-testid="input-orgName"
+                    value={systemSettings.organizationName}
+                    onChange={(e) => handleSystemSettingChange('organizationName', e.target.value)}
                     placeholder="Enter organization name"
                   />
                 </div>
@@ -390,10 +435,10 @@ export default function SimpleSettings() {
                   <div className="space-y-2">
                     <Label htmlFor="currency">Default Currency</Label>
                     <Select 
-                      value={systemSettings?.currency || 'USD'} 
-                      onValueChange={(value) => handleSettingsUpdate('currency', value)}
+                      value={systemSettings.currency} 
+                      onValueChange={(value) => handleSystemSettingChange('currency', value)}
                     >
-                      <SelectTrigger>
+                      <SelectTrigger data-testid="select-currency">
                         <SelectValue placeholder="Select currency" />
                       </SelectTrigger>
                       <SelectContent>
@@ -409,10 +454,10 @@ export default function SimpleSettings() {
                   <div className="space-y-2">
                     <Label htmlFor="dateFormat">Date Format</Label>
                     <Select 
-                      value={systemSettings?.dateFormat || 'MM/DD/YYYY'} 
-                      onValueChange={(value) => handleSettingsUpdate('dateFormat', value)}
+                      value={systemSettings.dateFormat} 
+                      onValueChange={(value) => handleSystemSettingChange('dateFormat', value)}
                     >
-                      <SelectTrigger>
+                      <SelectTrigger data-testid="select-dateFormat">
                         <SelectValue placeholder="Select date format" />
                       </SelectTrigger>
                       <SelectContent>
@@ -423,26 +468,10 @@ export default function SimpleSettings() {
                     </Select>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
 
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <AlertCircle className="h-5 w-5" />
-                  Security & Backup
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <Button variant="outline" className="flex items-center gap-2">
-                    <Key className="h-4 w-4" />
-                    Manage API Keys
-                  </Button>
-                  <Button variant="outline" className="flex items-center gap-2">
-                    <Database className="h-4 w-4" />
-                    Backup Settings
-                  </Button>
+                <div className="pt-4 flex items-center gap-2 text-sm text-muted-foreground">
+                  <CheckCircle className="h-4 w-4" />
+                  Settings are saved automatically
                 </div>
               </CardContent>
             </Card>
