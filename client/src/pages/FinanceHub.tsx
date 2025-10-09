@@ -12,10 +12,12 @@ import {
   ArrowDownRight,
   Receipt,
   CreditCard,
-  Wallet
+  Wallet,
+  Plus
 } from "lucide-react";
 import { useToast } from "../hooks/use-toast";
 import { queryClient } from "../lib/queryClient";
+import CreateFinanceDialog from "../components/CreateFinanceDialog";
 
 interface FinanceAnalytics {
   totalRevenue: number;
@@ -41,6 +43,7 @@ interface FinanceTransaction {
 export default function FinanceHub() {
   const { toast } = useToast();
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
 
   const { data: analytics, isLoading: analyticsLoading } = useQuery<FinanceAnalytics>({
     queryKey: ["/api/finance/analytics"]
@@ -109,15 +112,25 @@ export default function FinanceHub() {
               Financial management and analytics
             </p>
           </div>
-          <Button 
-            onClick={handleRefresh}
-            disabled={isRefreshing}
-            variant="outline"
-            className="flex items-center gap-2"
-          >
-            <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-            Refresh
-          </Button>
+          <div className="flex items-center gap-3">
+            <Button 
+              onClick={() => setIsCreateDialogOpen(true)}
+              className="flex items-center gap-2"
+              data-testid="button-create-transaction"
+            >
+              <Plus className="h-4 w-4" />
+              Add Transaction
+            </Button>
+            <Button 
+              onClick={handleRefresh}
+              disabled={isRefreshing}
+              variant="outline"
+              className="flex items-center gap-2"
+            >
+              <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+              Refresh
+            </Button>
+          </div>
         </div>
 
         {/* Financial Summary Cards */}
@@ -303,6 +316,12 @@ export default function FinanceHub() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Create Finance Dialog */}
+      <CreateFinanceDialog 
+        open={isCreateDialogOpen} 
+        onOpenChange={setIsCreateDialogOpen} 
+      />
     </div>
   );
 }

@@ -190,7 +190,12 @@ export default function CreateFinanceDialog({ open, onOpenChange }: CreateFinanc
       });
     },
     onSuccess: () => {
+      // Invalidate all finance-related queries to ensure data refresh everywhere
       queryClient.invalidateQueries({ queryKey: ["/api/finances"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/finance"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/finance/analytics"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
+      
       toast({
         title: "Finance Record Created",
         description: "The financial record has been added successfully.",

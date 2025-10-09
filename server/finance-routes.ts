@@ -162,6 +162,31 @@ export function registerFinanceRoutes(app: Express) {
       const netProfit = totalRevenue - totalExpenses;
       const profitMargin = totalRevenue > 0 ? (netProfit / totalRevenue) * 100 : 0;
       
+      // Calculate monthly revenue and expenses (current month)
+      const now = new Date();
+      const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+      const currentMonthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+      
+      const monthlyRevenue = filteredFinances
+        .filter(f => {
+          const fDate = new Date(f.date);
+          return f.type === 'income' && fDate >= currentMonthStart && fDate <= currentMonthEnd;
+        })
+        .reduce((sum, f) => {
+          const amount = typeof f.amount === 'number' ? f.amount : parseFloat(f.amount || '0');
+          return sum + (isNaN(amount) ? 0 : amount);
+        }, 0);
+        
+      const monthlyExpenses = filteredFinances
+        .filter(f => {
+          const fDate = new Date(f.date);
+          return f.type === 'expense' && fDate >= currentMonthStart && fDate <= currentMonthEnd;
+        })
+        .reduce((sum, f) => {
+          const amount = typeof f.amount === 'number' ? f.amount : parseFloat(f.amount || '0');
+          return sum + (isNaN(amount) ? 0 : amount);
+        }, 0);
+      
       const analytics = {
         // Summary metrics
         totalRevenue: Math.round(totalRevenue * 100) / 100,
@@ -170,6 +195,10 @@ export function registerFinanceRoutes(app: Express) {
         totalPayouts: Math.round(totalPayouts * 100) / 100,
         netProfit: Math.round(netProfit * 100) / 100,
         profitMargin: Math.round(profitMargin * 100) / 100,
+        
+        // Monthly metrics (current month)
+        monthlyRevenue: Math.round(monthlyRevenue * 100) / 100,
+        monthlyExpenses: Math.round(monthlyExpenses * 100) / 100,
         
         // Transaction metrics
         transactionCount: filteredFinances.length,
