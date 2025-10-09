@@ -181,7 +181,12 @@ export default function CreateFinanceDialog({ open, onOpenChange }: CreateFinanc
         propertyId: data.propertyId ? parseInt(data.propertyId) : null,
         bookingId: data.bookingId ? parseInt(data.bookingId) : null,
         processedBy: (user as any)?.id,
+        organizationId: (user as any)?.organizationId || "default-org",
+        department: "administration", // Default department
+        currency: "THB", // Default currency (Thailand Baht)
       };
+
+      console.log("Creating finance record with data:", financeData);
 
       return await apiRequest("/api/finances", {
         method: "POST",
