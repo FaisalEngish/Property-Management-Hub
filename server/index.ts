@@ -87,12 +87,10 @@ app.use((req, res, next) => {
   mountIntegrationRoutes(app);
   mountPmsRoutes(app);
   
-  // Register Property Document routes (clean file without LSP errors)
-  console.log("[INIT] About to import property-document-routes...");
-  const { registerPropertyDocumentRoutes } = await import('./property-document-routes');
-  console.log("[INIT] Property-document-routes imported successfully");
-  registerPropertyDocumentRoutes(app);
-  console.log("[INIT] Property-document-routes registered successfully");
+  // Register Property Document routes using Express Router (isolated from routes.ts errors)
+  const { propertyDocRouter } = await import('./property-document-routes');
+  app.use("/api/property-documents", propertyDocRouter);
+  console.log("[INIT] Alternate property-document-routes mounted ✅");
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
