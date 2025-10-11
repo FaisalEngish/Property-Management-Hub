@@ -1961,6 +1961,11 @@ Be specific and actionable in your recommendations.`;
       const task = await storage.createTask(taskData);
       console.log("Created task:", task);
       
+      // Clear tasks cache to ensure new task appears immediately
+      const { clearCache } = await import("./performanceOptimizer");
+      clearCache("tasks");
+      console.log("✅ Tasks cache cleared after creating task ID", task.id);
+      
       // Send notification to assigned user if different from creator
       if (task.assignedTo && task.assignedTo !== userId) {
         try {
@@ -1989,6 +1994,10 @@ Be specific and actionable in your recommendations.`;
         return res.status(404).json({ message: "Task not found" });
       }
       
+      // Clear tasks cache to ensure updates appear immediately
+      const { clearCache } = await import("./performanceOptimizer");
+      clearCache("tasks");
+      
       res.json(task);
     } catch (error) {
       console.error("Error updating task:", error);
@@ -2008,6 +2017,10 @@ Be specific and actionable in your recommendations.`;
       if (!task) {
         return res.status(404).json({ message: "Task not found" });
       }
+      
+      // Clear tasks cache to ensure updates appear immediately
+      const { clearCache } = await import("./performanceOptimizer");
+      clearCache("tasks");
       
       res.json(task);
     } catch (error) {
@@ -2032,6 +2045,10 @@ Be specific and actionable in your recommendations.`;
         return res.status(404).json({ message: "Task not found" });
       }
       
+      // Clear tasks cache to ensure updates appear immediately
+      const { clearCache } = await import("./performanceOptimizer");
+      clearCache("tasks");
+      
       res.json(task);
     } catch (error) {
       console.error("Error skipping task:", error);
@@ -2055,6 +2072,10 @@ Be specific and actionable in your recommendations.`;
         return res.status(404).json({ message: "Task not found" });
       }
       
+      // Clear tasks cache to ensure updates appear immediately
+      const { clearCache } = await import("./performanceOptimizer");
+      clearCache("tasks");
+      
       res.json(task);
     } catch (error) {
       console.error("Error rescheduling task:", error);
@@ -2072,6 +2093,10 @@ Be specific and actionable in your recommendations.`;
       if (!task) {
         return res.status(404).json({ message: "Task not found" });
       }
+      
+      // Clear tasks cache to ensure updates appear immediately
+      const { clearCache } = await import("./performanceOptimizer");
+      clearCache("tasks");
       
       res.json(task);
     } catch (error) {
@@ -28498,8 +28523,6 @@ async function processGuestIssueForAI(issueReport: any) {
       res.status(500).json({ message: "Failed to create water refill" });
     }
   });
-
-  // Update water
 
   return server;
 }
