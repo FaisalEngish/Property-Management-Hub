@@ -5,6 +5,26 @@ import { isDemoAuthenticated } from "./demoAuth";
 export function registerPropertyDocumentRoutes(app: Express) {
   console.log("=== REGISTERING PROPERTY DOCUMENT ROUTES ===");
 
+  // Get property documents by property ID
+  app.get("/api/property-documents/property/:propertyId", async (req, res) => {
+    try {
+      const { propertyId } = req.params;
+      const organizationId = req.user?.organizationId || "default-org";
+      
+      console.log(`[PROPERTY-DOCS] GET - Fetching documents for property ${propertyId}, org ${organizationId}`);
+      
+      const documents = await storage.getPropertyDocuments(organizationId, {
+        propertyId: parseInt(propertyId)
+      });
+      
+      console.log(`[PROPERTY-DOCS] GET - Found ${documents?.length || 0} documents`);
+      res.json(documents);
+    } catch (error) {
+      console.error("[PROPERTY-DOCS] GET - Error fetching documents:", error);
+      res.status(500).json({ message: "Failed to fetch documents by property" });
+    }
+  });
+
   // Create new property document
   app.post("/api/property-documents", isDemoAuthenticated, async (req, res) => {
     console.log("[PROPERTY-DOCS] POST endpoint hit");
