@@ -31655,31 +31655,30 @@ async function processGuestIssueForAI(issueReport: any) {
   // Create new property document
   // Create new property document
   app.post("/api/property-documents", isDemoAuthenticated, async (req, res) => {
-    console.log("🚨 PROPERTY DOCUMENT POST ENDPOINT HIT!");
-    console.log("📄 Request body:", JSON.stringify(req.body, null, 2));
-    console.log("📄 User:", req.user);
+    console.log("[PROPERTY-DOCS] POST endpoint hit");
+    console.log("[PROPERTY-DOCS] Request body:", JSON.stringify(req.body, null, 2));
+    console.log("[PROPERTY-DOCS] User:", req.user);
     try {
       const organizationId = req.user?.organizationId || "default-org";
       const documentData = req.body;
       
-      console.log("📄 POST /api/property-documents - Received data:", JSON.stringify(documentData));
-      console.log("📄 Organization ID:", organizationId);
+      console.log("[PROPERTY-DOCS] Received data:", JSON.stringify(documentData));
+      console.log("[PROPERTY-DOCS] Organization ID:", organizationId);
       
       if (!documentData.docType || !documentData.fileUrl || !documentData.uploadedBy) {
-        console.log("❌ Validation failed - missing required fields");
+        console.log("[PROPERTY-DOCS] ERROR: Validation failed - missing required fields");
         return res.status(400).json({ message: "Document type, file URL, and uploader are required" });
       }
 
-      console.log("✅ Validation passed, calling storage.createPropertyDocument...");
+      console.log("[PROPERTY-DOCS] Validation passed, calling storage.createPropertyDocument...");
       const created = await storage.createPropertyDocument(organizationId, documentData);
-      console.log("📄 Document created successfully:", JSON.stringify(created, null, 2));
+      console.log("[PROPERTY-DOCS] Document created successfully:", JSON.stringify(created, null, 2));
       res.json(created);
     } catch (error) {
-      console.error("❌ Error creating property document:", error);
+      console.error("[PROPERTY-DOCS] ERROR creating property document:", error);
       res.status(500).json({ message: "Failed to create property document" });
     }
   });
-
   // Update property document
   app.put("/api/property-documents/:documentId", async (req, res) => {
     try {
