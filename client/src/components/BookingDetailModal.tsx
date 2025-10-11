@@ -86,6 +86,10 @@ export default function BookingDetailModal({ open, onOpenChange, bookingId }: Bo
     }
   };
 
+  const handleGenerateInvoice = () => {
+    window.open(`/api/bookings/${bookingId}/invoice`, "_blank");
+  };
+
   const getStatusColor = (status: string) => {
     switch (status?.toLowerCase()) {
       case 'confirmed':
@@ -300,7 +304,7 @@ export default function BookingDetailModal({ open, onOpenChange, bookingId }: Bo
               <Button variant="outline" className="flex-1" onClick={() => onOpenChange(false)}>
                 Close
               </Button>
-              <Button className="flex-1" disabled>
+              <Button className="flex-1" onClick={handleGenerateInvoice}>
                 <FileText className="w-4 h-4 mr-2" />
                 Generate Invoice
               </Button>

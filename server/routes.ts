@@ -2231,6 +2231,189 @@ Be specific and actionable in your recommendations.`;
     }
   });
 
+  // Generate invoice for booking
+  app.get("/api/bookings/:id/invoice", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId } = req.user;
+      const bookingId = parseInt(req.params.id);
+      
+      if (isNaN(bookingId)) {
+        return res.status(400).send("<h1>Invalid booking ID</h1>");
+      }
+
+      // Get booking details
+      const booking = await storage.getBooking(bookingId);
+      if (!booking) {
+        return res.status(404).send("<h1>Booking not found</h1>");
+      }
+
+      // Verify booking belongs to user's organization
+      if (booking.organizationId !== organizationId) {
+        return res.status(403).send("<h1>Unauthorized access</h1>");
+      }
+
+      // Get property details
+      const property = await storage.getProperty(booking.propertyId);
+      const propertyName = property?.name || "Unknown Property";
+
+      // Generate HTML invoice
+      const invoiceHTML = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>Invoice - Booking #${booking.id}</title>
+          <style>
+            body {
+              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+              line-height: 1.6;
+              color: #333;
+              max-width: 800px;
+              margin: 0 auto;
+              padding: 20px;
+              background: #f5f5f5;
+            }
+            .invoice-container {
+              background: white;
+              padding: 40px;
+              border-radius: 8px;
+              box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            }
+            .header {
+              border-bottom: 3px solid #2563eb;
+              padding-bottom: 20px;
+              margin-bottom: 30px;
+            }
+            .header h1 {
+              margin: 0;
+              color: #2563eb;
+              font-size: 28px;
+            }
+            .header p {
+              margin: 5px 0 0 0;
+              color: #666;
+            }
+            .info-section {
+              margin-bottom: 30px;
+            }
+            .info-section h2 {
+              color: #2563eb;
+              font-size: 18px;
+              margin-bottom: 15px;
+              border-bottom: 2px solid #e5e7eb;
+              padding-bottom: 8px;
+            }
+            .info-grid {
+              display: grid;
+              grid-template-columns: 150px 1fr;
+              gap: 10px;
+            }
+            .info-label {
+              font-weight: 600;
+              color: #666;
+            }
+            .info-value {
+              color: #333;
+            }
+            .amount-section {
+              background: #f8fafc;
+              padding: 20px;
+              border-radius: 8px;
+              margin-top: 30px;
+            }
+            .amount-row {
+              display: flex;
+              justify-content: space-between;
+              padding: 10px 0;
+              font-size: 24px;
+              font-weight: 700;
+              color: #2563eb;
+            }
+            .footer {
+              margin-top: 40px;
+              padding-top: 20px;
+              border-top: 1px solid #e5e7eb;
+              text-align: center;
+              color: #666;
+              font-size: 14px;
+            }
+            @media print {
+              body {
+                background: white;
+              }
+              .invoice-container {
+                box-shadow: none;
+              }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="invoice-container">
+            <div class="header">
+              <h1>INVOICE</h1>
+              <p>Booking Reference: #${booking.id}</p>
+            </div>
+
+            <div class="info-section">
+              <h2>Guest Information</h2>
+              <div class="info-grid">
+                <div class="info-label">Name:</div>
+                <div class="info-value">${booking.guestName}</div>
+                <div class="info-label">Email:</div>
+                <div class="info-value">${booking.guestEmail || 'N/A'}</div>
+                <div class="info-label">Phone:</div>
+                <div class="info-value">${booking.guestPhone || 'N/A'}</div>
+                <div class="info-label">Guests:</div>
+                <div class="info-value">${booking.guests} ${booking.guests === 1 ? 'guest' : 'guests'}</div>
+              </div>
+            </div>
+
+            <div class="info-section">
+              <h2>Property Details</h2>
+              <div class="info-grid">
+                <div class="info-label">Property:</div>
+                <div class="info-value">${propertyName}</div>
+                <div class="info-label">Check-in:</div>
+                <div class="info-value">${new Date(booking.checkIn).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</div>
+                <div class="info-label">Check-out:</div>
+                <div class="info-value">${new Date(booking.checkOut).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</div>
+                <div class="info-label">Status:</div>
+                <div class="info-value" style="text-transform: capitalize;">${booking.status}</div>
+              </div>
+            </div>
+
+            ${booking.specialRequests ? `
+            <div class="info-section">
+              <h2>Special Requests</h2>
+              <p>${booking.specialRequests}</p>
+            </div>
+            ` : ''}
+
+            <div class="amount-section">
+              <div class="amount-row">
+                <span>Total Amount:</span>
+                <span>${booking.currency || 'USD'} ${parseFloat(booking.totalAmount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+              </div>
+            </div>
+
+            <div class="footer">
+              <p>Thank you for your booking!</p>
+              <p style="margin-top: 10px; font-size: 12px;">Generated on ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
+            </div>
+          </div>
+        </body>
+        </html>
+      `;
+
+      res.setHeader('Content-Type', 'text/html');
+      res.send(invoiceHTML);
+    } catch (error) {
+      console.error("Error generating invoice:", error);
+      res.status(500).send("<h1>Failed to generate invoice</h1>");
+    }
+  });
+
   // Finance routes
   app.get("/api/finances", isDemoAuthenticated, async (req, res) => {
     try {
@@ -28471,22 +28654,4 @@ async function processGuestIssueForAI(issueReport: any) {
       const { platform, status, dateRange, search } = req.query;
 
       // Only admin, portfolio-manager, and owners can access revenue data
-      if (!['admin', 'portfolio-manager', 'owner'].includes(role)) {
-        return res.status(403).json({ message: "Insufficient permissions" });
-      }
-
-      const bookings = await storage.getBookingRevenueData(organizationId, {
-        platform,
-        status,
-        dateRange,
-        search,
-        ownerId: role === 'owner' ? req.user.id : undefined
-      });
-
-      res.json(bookings);
-    } catch (error) {
-      console.error("Error fetching booking revenue data:", error);
-      res.status(500).json({ message: "Failed to fetch booking revenue data" });
-    }
-  });
-}
+      if (!['admin', 'portfolio-man
