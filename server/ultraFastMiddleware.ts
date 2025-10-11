@@ -28,6 +28,19 @@ export function ultraFastCache(ttlMinutes: number = 10) {
   };
 }
 
+// Export function to clear ultra-fast cache
+export function clearUltraFastCache(pattern?: string) {
+  if (pattern) {
+    for (const key of responseCache.keys()) {
+      if (key.includes(pattern)) {
+        responseCache.delete(key);
+      }
+    }
+  } else {
+    responseCache.clear();
+  }
+}
+
 // Clean up cache every 10 minutes
 setInterval(() => {
   const now = Date.now();

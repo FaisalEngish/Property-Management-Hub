@@ -1961,10 +1961,13 @@ Be specific and actionable in your recommendations.`;
       const task = await storage.createTask(taskData);
       console.log("Created task:", task);
       
-      // Clear tasks cache to ensure new task appears immediately
+      // Clear BOTH cache systems to ensure new task appears immediately
       const { clearCache } = await import("./performanceOptimizer");
+      const { clearUltraFastCache } = await import("./ultraFastMiddleware");
       clearCache("tasks");
-      console.log("✅ Tasks cache cleared after creating task ID", task.id);
+      clearUltraFastCache("/api/tasks");
+      clearUltraFastCache("/api/dashboard");
+      console.log("✅ All task caches cleared after creating task ID", task.id);
       
       // Send notification to assigned user if different from creator
       if (task.assignedTo && task.assignedTo !== userId) {
@@ -1994,9 +1997,12 @@ Be specific and actionable in your recommendations.`;
         return res.status(404).json({ message: "Task not found" });
       }
       
-      // Clear tasks cache to ensure updates appear immediately
+      // Clear BOTH cache systems to ensure updates appear immediately
       const { clearCache } = await import("./performanceOptimizer");
+      const { clearUltraFastCache } = await import("./ultraFastMiddleware");
       clearCache("tasks");
+      clearUltraFastCache("/api/tasks");
+      clearUltraFastCache("/api/dashboard");
       
       res.json(task);
     } catch (error) {
@@ -2018,9 +2024,12 @@ Be specific and actionable in your recommendations.`;
         return res.status(404).json({ message: "Task not found" });
       }
       
-      // Clear tasks cache to ensure updates appear immediately
+      // Clear BOTH cache systems to ensure updates appear immediately
       const { clearCache } = await import("./performanceOptimizer");
+      const { clearUltraFastCache } = await import("./ultraFastMiddleware");
       clearCache("tasks");
+      clearUltraFastCache("/api/tasks");
+      clearUltraFastCache("/api/dashboard");
       
       res.json(task);
     } catch (error) {
@@ -2045,9 +2054,12 @@ Be specific and actionable in your recommendations.`;
         return res.status(404).json({ message: "Task not found" });
       }
       
-      // Clear tasks cache to ensure updates appear immediately
+      // Clear BOTH cache systems to ensure updates appear immediately
       const { clearCache } = await import("./performanceOptimizer");
+      const { clearUltraFastCache } = await import("./ultraFastMiddleware");
       clearCache("tasks");
+      clearUltraFastCache("/api/tasks");
+      clearUltraFastCache("/api/dashboard");
       
       res.json(task);
     } catch (error) {
@@ -2072,9 +2084,12 @@ Be specific and actionable in your recommendations.`;
         return res.status(404).json({ message: "Task not found" });
       }
       
-      // Clear tasks cache to ensure updates appear immediately
+      // Clear BOTH cache systems to ensure updates appear immediately
       const { clearCache } = await import("./performanceOptimizer");
+      const { clearUltraFastCache } = await import("./ultraFastMiddleware");
       clearCache("tasks");
+      clearUltraFastCache("/api/tasks");
+      clearUltraFastCache("/api/dashboard");
       
       res.json(task);
     } catch (error) {
@@ -2094,9 +2109,12 @@ Be specific and actionable in your recommendations.`;
         return res.status(404).json({ message: "Task not found" });
       }
       
-      // Clear tasks cache to ensure updates appear immediately
+      // Clear BOTH cache systems to ensure updates appear immediately
       const { clearCache } = await import("./performanceOptimizer");
+      const { clearUltraFastCache } = await import("./ultraFastMiddleware");
       clearCache("tasks");
+      clearUltraFastCache("/api/tasks");
+      clearUltraFastCache("/api/dashboard");
       
       res.json(task);
     } catch (error) {
@@ -28496,31 +28514,11 @@ async function processGuestIssueForAI(issueReport: any) {
       if (!refill) {
         return res.status(404).json({ message: "Water refill not found" });
       }
-
+      
       res.json(refill);
     } catch (error) {
-      console.error("Error fetching water refill:", error);
-      res.status(500).json({ message: "Failed to fetch water refill" });
-    }
-  });
-
-  // Create water refill
-  app.post("/api/water-refills", isDemoAuthenticated, requireWaterRefillManagement, async (req: any, res) => {
-    try {
-      const organizationId = req.user.organizationId || "default-org";
-      const { WaterRefillStorage } = await import("./waterRefillStorage");
-      const waterRefillStorage = new WaterRefillStorage(organizationId);
-      
-      const refillData = {
-        ...req.body,
-        createdBy: req.user.id,
-      };
-      
-      const refill = await waterRefillStorage.createWaterRefill(refillData);
-      res.status(201).json(refill);
-    } catch (error) {
-      console.error("Error creating water refill:", error);
-      res.status(500).json({ message: "Failed to create water refill" });
+      console.error("Error getting water refill:", error);
+      res.status(500).json({ message: "Failed to get water refill" });
     }
   });
 
