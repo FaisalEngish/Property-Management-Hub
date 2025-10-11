@@ -86,6 +86,13 @@ app.use((req, res, next) => {
   // Register PMS integration routes
   mountIntegrationRoutes(app);
   mountPmsRoutes(app);
+  
+  // Register Property Document routes (clean file without LSP errors)
+  console.log("[INIT] About to import property-document-routes...");
+  const { registerPropertyDocumentRoutes } = await import('./property-document-routes');
+  console.log("[INIT] Property-document-routes imported successfully");
+  registerPropertyDocumentRoutes(app);
+  console.log("[INIT] Property-document-routes registered successfully");
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
