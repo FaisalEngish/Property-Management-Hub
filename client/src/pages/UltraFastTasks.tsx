@@ -422,11 +422,22 @@ export default function UltraFastTasks() {
 
   const handleSaveTask = () => {
     if (editingTask) {
-      // Convert dueDate string to Date object if present
-      const updateData = { ...editForm };
-      if (updateData.dueDate) {
-        updateData.dueDate = new Date(updateData.dueDate);
+      // Clean up the update data - convert dates and remove undefined values
+      const updateData: any = {};
+      
+      if (editForm.title) updateData.title = editForm.title;
+      if (editForm.description) updateData.description = editForm.description;
+      if (editForm.type) updateData.type = editForm.type;
+      if (editForm.priority) updateData.priority = editForm.priority;
+      if (editForm.status) updateData.status = editForm.status;
+      if (editForm.assignedTo) updateData.assignedTo = editForm.assignedTo;
+      if (editForm.propertyId) updateData.propertyId = editForm.propertyId;
+      if (editForm.dueDate) {
+        // Convert date string to Date object
+        updateData.dueDate = new Date(editForm.dueDate);
       }
+      
+      console.log('Sending update data:', updateData);
       
       updateTaskMutation.mutate({
         id: editingTask.id,

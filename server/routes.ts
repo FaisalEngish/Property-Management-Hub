@@ -1991,6 +1991,12 @@ Be specific and actionable in your recommendations.`;
     try {
       const id = parseInt(req.params.id);
       const taskData = req.body;
+      
+      // Convert date strings to Date objects if present
+      if (taskData.dueDate && typeof taskData.dueDate === 'string') {
+        taskData.dueDate = new Date(taskData.dueDate);
+      }
+      
       const task = await storage.updateTask(id, taskData);
       
       if (!task) {
@@ -28490,16 +28496,77 @@ async function processGuestIssueForAI(issueReport: any) {
       if (status) filters.status = status as string;
       if (waterType) filters.waterType = waterType as string;
       if (billingRoute) filters.billingRoute = billingRoute as string;
-      if (fromDate) filters.fromDate = new Date(fromDate as string);
-      if (toDate) filters.toDate = new Date(toDate as string);
+      if (fromDate) filters.fromDate = fromDate as string;
+      if (toDate) filters.toDate = toDate as string;
       
       const refills = await waterRefillStorage.getWaterRefills(filters);
       res.json(refills);
     } catch (error) {
-      console.error("Error getting water refills:", error);
-      res.status(500).json({ message: "Failed to get water refills" });
+      console.error("Error fetching water refills:", error);
+      res.status(500).json({ message: "Failed to fetch water refills" });
     }
   });
 
-  return server;
+  // Create water refill
+  app.post("/api/water-refills", isDemoAuthenticated, requireWaterRefillManagement, async (req: any, res) => {
+    try {
+      const organizationId = req.user.organizationId || "default-org";
+      const { WaterRefillStorage } = await import("./waterRefillStorage");
+      const waterRefillStorage = new WaterRefillStorage(organizationId);
+      
+      const refillData = {
+        ...req.body,
+        organizationId,
+        createdBy: req.user.claims.sub
+      };
+      
+      const refill = await waterRefillStorage.createWaterRefill(refillData);
+      res.status(201).json(refill);
+    } catch (error) {
+      console.error("Error creating water refill:", error);
+      res.status(500).json({ message: "Failed to create water refill" });
+    }
+  });
+
+  // Update water refill
+  app.put("/api/water-refills/:id", isDemoAuthenticated, requireWaterRefillManagement, async (req: any, res) => {
+    try {
+      const organizationId = req.user.organizationId || "default-org";
+      const { WaterRefillStorage } = await import("./waterRefillStorage");
+      const waterRefillStorage = new WaterRefillStorage(organizationId);
+      
+      const id = parseInt(req.params.id);
+      const refill = await waterRefillStorage.updateWaterRefill(id, req.body);
+      
+      if (!refill) {
+        return res.status(404).json({ message: "Water refill not found" });
+      }
+      
+      res.json(refill);
+    } catch (error) {
+      console.error("Error updating water refill:", error);
+      res.status(500).json({ message: "Failed to update water refill" });
+    }
+  });
+
+  // Delete water refill
+  app.delete("/api/water-refills/:id", isDemoAuthenticated, requireWaterRefillManagement, async (req: any, res) => {
+    try {
+      const organizationId = req.user.organizationId || "default-org";
+      const { WaterRefillStorage } = await import("./waterRefillStorage");
+      const waterRefillStorage = new WaterRefillStorage(organizationId);
+      
+      const id = parseInt(req.params.id);
+      const success = await waterRefillStorage.deleteWaterRefill(id);
+      
+      if (!success) {
+        return res.status(404).json({ message: "Water refill not found" });
+      }
+      
+      res.json({ message: "Water refill deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting water refill:", error);
+      res.status(500).json({ message: "Failed to delete water refill" });
+    }
+  });
 }
