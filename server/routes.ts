@@ -2146,6 +2146,11 @@ Be specific and actionable in your recommendations.`;
       });
       
       const booking = await storage.createBooking(bookingData);
+      
+      // Clear bookings cache to ensure new booking appears immediately
+      const { clearCache } = await import("./performanceOptimizer");
+      clearCache("bookings");
+      
       res.status(201).json(booking);
     } catch (error) {
       if (error instanceof z.ZodError) {
