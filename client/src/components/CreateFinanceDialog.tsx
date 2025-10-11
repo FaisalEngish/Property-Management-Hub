@@ -178,8 +178,8 @@ export default function CreateFinanceDialog({ open, onOpenChange }: CreateFinanc
       const financeData = {
         ...data,
         amount: parseFloat(data.amount),
-        date: new Date(data.date).toISOString(),
-        dueDate: data.dueDate ? new Date(data.dueDate).toISOString() : null,
+        date: data.date, // Keep as YYYY-MM-DD format
+        dueDate: data.dueDate || null,
         propertyId: data.propertyId ? parseInt(data.propertyId) : null,
         bookingId: data.bookingId ? parseInt(data.bookingId) : null,
         processedBy: (user as any)?.id,
