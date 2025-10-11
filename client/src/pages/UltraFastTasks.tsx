@@ -422,9 +422,15 @@ export default function UltraFastTasks() {
 
   const handleSaveTask = () => {
     if (editingTask) {
+      // Convert dueDate string to Date object if present
+      const updateData = { ...editForm };
+      if (updateData.dueDate) {
+        updateData.dueDate = new Date(updateData.dueDate);
+      }
+      
       updateTaskMutation.mutate({
         id: editingTask.id,
-        data: editForm
+        data: updateData
       });
     }
   };
