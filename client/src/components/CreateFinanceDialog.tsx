@@ -190,11 +190,7 @@ export default function CreateFinanceDialog({ open, onOpenChange }: CreateFinanc
 
       console.log("Creating finance record with data:", financeData);
 
-      return await apiRequest("/api/finances", {
-        method: "POST",
-        body: JSON.stringify(financeData),
-        headers: { "Content-Type": "application/json" },
-      });
+      return await apiRequest("POST", "/api/finances", financeData);
     },
     onSuccess: async () => {
       // Invalidate and refetch all finance-related queries to ensure instant data refresh
