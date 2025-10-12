@@ -175,13 +175,16 @@ export default function CreateFinanceDialog({ open, onOpenChange }: CreateFinanc
 
   const createFinanceMutation = useMutation({
     mutationFn: async (data: z.infer<typeof financeFormSchema>) => {
+      // Remove fields that don't exist in the database or aren't needed
+      const { referenceNumber: _, isRecurring: __, recurringType: ___, ...cleanData } = data;
+      
       const financeData = {
-        ...data,
-        amount: parseFloat(data.amount),
-        date: data.date, // Keep as YYYY-MM-DD format
-        dueDate: data.dueDate || null,
-        propertyId: data.propertyId ? parseInt(data.propertyId) : null,
-        bookingId: data.bookingId ? parseInt(data.bookingId) : null,
+        ...cleanData,
+        amount: parseFloat(cleanData.amount),
+        date: cleanData.date, // Keep as YYYY-MM-DD format
+        dueDate: cleanData.dueDate || null,
+        propertyId: cleanData.propertyId ? parseInt(cleanData.propertyId) : null,
+        bookingId: cleanData.bookingId ? parseInt(cleanData.bookingId) : null,
         processedBy: (user as any)?.id,
         organizationId: (user as any)?.organizationId || "default-org",
         department: "administration", // Default department
