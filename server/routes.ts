@@ -13519,12 +13519,17 @@ Be specific and actionable in your recommendations.`;
     try {
       const organizationId = req.user?.organizationId || "default-org";
       
-      // Fetch counts from database
-      const properties = await storage.getProperties(organizationId);
-      const users = await storage.getUsers({ organizationId });
-      const tasks = await storage.getTasks({ organizationId, userId: req.user?.id });
-      const bookings = await storage.getBookings(organizationId);
-      const finances = await storage.getFinances(organizationId);
+      // Use direct count queries for accurate counts
+      const propertiesCount = await storage.getProperties(organizationId).then(p => p.length);
+      const usersCount = await storage.getUsers({ organizationId }).then(u => u.length);
+      
+      // Use optimized count methods that are working correctly
+      const financeCount = await storage.getFinanceCount({ organizationId });
+      const bookingsCount = await storage.getBookings(organizationId).then(b => b.length);
+      
+      // Get all tasks and filter by organization
+      const allTasks = await storage.getTasks();
+      const tasksCount = allTasks.filter(t => t.organizationId === organizationId).length;
       
       // Build system info response
       const systemInfo = {
@@ -13537,11 +13542,11 @@ Be specific and actionable in your recommendations.`;
           cache: "strong"
         },
         modules: {
-          properties: { active: true, count: properties.length },
-          users: { active: true, count: users.length },
-          finance: { active: true, count: finances.length },
-          tasks: { active: true, count: tasks.length },
-          bookings: { active: true, count: bookings.length }
+          properties: { active: true, count: propertiesCount },
+          users: { active: true, count: usersCount },
+          finance: { active: true, count: financeCount },
+          tasks: { active: true, count: tasksCount },
+          bookings: { active: true, count: bookingsCount }
         },
         apiConfigs: {
           hasStripe: !!process.env.STRIPE_SECRET_KEY,
@@ -13561,8 +13566,6 @@ Be specific and actionable in your recommendations.`;
       res.status(500).json({ message: "Failed to fetch system information" });
     }
   });
-
-  // User Management Routes
   app.get("/api/users", isDemoAuthenticated, async (req: any, res) => {
     try {
       const organizationId = req.user?.organizationId || "default-org";
@@ -28472,7 +28475,7 @@ async function processGuestIssueForAI(issueReport: any) {
       
       if (!updatedSuggestion) {
         return res.status(404).json({ message: "Water upgrade suggestion not found" });
-      }
+  }
 
       res.json(updatedSuggestion);
     } catch (error) {
@@ -28520,4 +28523,6 @@ async function processGuestIssueForAI(issueReport: any) {
 
   // ===== WATER UTILITY EMERGENCY TRUCK REFILL LOG ROUTES =====
 
-  // Middleware for water refill acc
+  // Middleware for water refill access control
+}
+
