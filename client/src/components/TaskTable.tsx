@@ -25,6 +25,11 @@ export default function TaskTable({ tasks, isLoading }: TaskTableProps) {
   const [editingTask, setEditingTask] = useState<any>(null);
   const [editForm, setEditForm] = useState<any>({});
 
+  // Get current user for achievement checks
+  const { data: user } = useQuery({
+    queryKey: ["/api/auth/user"],
+  });
+
   // Get staff members for assignee dropdown
   const { data: users = [] } = useQuery({
     queryKey: ["/api/users"],
@@ -33,8 +38,9 @@ export default function TaskTable({ tasks, isLoading }: TaskTableProps) {
   const updateTaskMutation = useMutation({
     mutationFn: async ({ id, data }: { id: number; data: any }) => {
       await apiRequest("PUT", `/api/tasks/${id}`, data);
+      return data;
     },
-    onSuccess: () => {
+    onSuccess: async (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
       setEditingTask(null);
       setEditForm({});
@@ -42,6 +48,17 @@ export default function TaskTable({ tasks, isLoading }: TaskTableProps) {
         title: "Success",
         description: "Task updated successfully",
       });
+
+      // Trigger achievement check if task was marked completed or approved
+      if ((data.status === 'completed' || data.status === 'approved') && user?.id) {
+        try {
+          await apiRequest("POST", "/api/achievements/check", { userId: user.id });
+          queryClient.invalidateQueries({ queryKey: [`/api/achievements/user/${user.id}`] });
+          queryClient.invalidateQueries({ queryKey: ["/api/achievements/definitions"] });
+        } catch (error) {
+          console.error("Achievement check failed:", error);
+        }
+      }
     },
     onError: () => {
       toast({
@@ -56,12 +73,23 @@ export default function TaskTable({ tasks, isLoading }: TaskTableProps) {
     mutationFn: async (id: number) => {
       await apiRequest("PUT", `/api/tasks/${id}`, { status: 'approved' });
     },
-    onSuccess: () => {
+    onSuccess: async () => {
       queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
       toast({
         title: "Task Approved",
         description: "Task has been approved and can now be started",
       });
+
+      // Trigger achievement check for task approval
+      if (user?.id) {
+        try {
+          await apiRequest("POST", "/api/achievements/check", { userId: user.id });
+          queryClient.invalidateQueries({ queryKey: [`/api/achievements/user/${user.id}`] });
+          queryClient.invalidateQueries({ queryKey: ["/api/achievements/definitions"] });
+        } catch (error) {
+          console.error("Achievement check failed:", error);
+        }
+      }
     },
   });
 
