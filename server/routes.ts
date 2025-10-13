@@ -13518,32 +13518,22 @@ Be specific and actionable in your recommendations.`;
   app.get("/api/system", isDemoAuthenticated, async (req: any, res) => {
     try {
       const organizationId = req.user?.organizationId || "default-org";
-      console.log("[SYSTEM-HUB] Fetching system info for organizationId:", organizationId);
       
-      // Use direct count queries for accurate counts
-      const properties = await storage.getProperties(organizationId);
-      console.log("[SYSTEM-HUB] Properties retrieved:", properties.length);
-      const propertiesCount = properties.length;
+      // DIRECT SQL QUERIES - bypass storage layer completely
+      const propertiesResult = await db.execute(sql`SELECT COUNT(*) FROM properties WHERE organization_id = ${organizationId}`);
+      const propertiesCount = Number(propertiesResult.rows[0]?.count || 0);
       
-      const users = await storage.getUsers({ organizationId });
-      console.log("[SYSTEM-HUB] Users retrieved:", users.length);
-      const usersCount = users.length;
+      const usersResult = await db.execute(sql`SELECT COUNT(*) FROM users WHERE organization_id = ${organizationId}`);
+      const usersCount = Number(usersResult.rows[0]?.count || 0);
       
-      // Debug finance count
-      const financeCount = await storage.getFinanceCount({ organizationId });
-      console.log("[SYSTEM-HUB] Finance count from getFinanceCount:", financeCount);
+      const financeResult = await db.execute(sql`SELECT COUNT(*) FROM finances WHERE organization_id = ${organizationId}`);
+      const financeCount = Number(financeResult.rows[0]?.count || 0);
       
-      // Debug bookings
-      const bookings = await storage.getBookings(organizationId);
-      console.log("[SYSTEM-HUB] Bookings retrieved:", bookings.length);
-      const bookingsCount = bookings.length;
+      const bookingsResult = await db.execute(sql`SELECT COUNT(*) FROM bookings WHERE organization_id = ${organizationId}`);
+      const bookingsCount = Number(bookingsResult.rows[0]?.count || 0);
       
-      // Debug tasks
-      const allTasks = await storage.getTasks();
-      console.log("[SYSTEM-HUB] All tasks retrieved:", allTasks.length);
-      const filteredTasks = allTasks.filter(t => t.organizationId === organizationId);
-      console.log("[SYSTEM-HUB] Tasks filtered for org:", filteredTasks.length);
-      const tasksCount = filteredTasks.length;
+      const tasksResult = await db.execute(sql`SELECT COUNT(*) FROM tasks WHERE organization_id = ${organizationId}`);
+      const tasksCount = Number(tasksResult.rows[0]?.count || 0);
       
       // Build system info response
       const systemInfo = {
@@ -13586,6 +13576,35 @@ Be specific and actionable in your recommendations.`;
       res.status(500).json({ message: "Failed to fetch system information" });
     }
   });
+  // NEW DIAGNOSTIC ENDPOINT - bypasses TSX cache
+  app.get("/api/system-diag", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = req.user?.organizationId || "default-org";
+      
+      const financeCount = await storage.getFinanceCount({ organizationId });
+      const bookings = await storage.getBookings(organizationId);
+      const allTasks = await storage.getTasks();
+      const tasks = allTasks.filter(t => t.organizationId === organizationId);
+      
+      res.json({
+        endpoint: "DIAGNOSTIC-V1",
+        organizationId,
+        counts: {
+          finance: financeCount,
+          bookings: bookings.length,
+          tasks: tasks.length
+        },
+        raw: {
+          bookingsArray: bookings.map(b => ({ id: b.id, org: b.organizationId })),
+          tasksArray: tasks.slice(0, 3).map(t => ({ id: t.id, org: t.organizationId }))
+        }
+      });
+    } catch (error) {
+      console.error("Diagnostic error:", error);
+      res.status(500).json({ error: String(error) });
+    }
+  });
+
   app.get("/api/users", isDemoAuthenticated, async (req: any, res) => {
     try {
       const organizationId = req.user?.organizationId || "default-org";
