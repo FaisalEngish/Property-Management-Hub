@@ -183,7 +183,7 @@ export default function CreateFinanceDialog({ open, onOpenChange }: CreateFinanc
         type: cleanData.type,
         source: cleanData.source,
         category: cleanData.category,
-        amount: parseFloat(cleanData.amount),
+        amount: cleanData.amount, // Keep as string - backend expects decimal as string
         date: cleanData.date, // Keep as YYYY-MM-DD format
         processedBy: (user as any)?.id,
         organizationId: (user as any)?.organizationId || "default-org",
