@@ -178,18 +178,29 @@ export default function CreateFinanceDialog({ open, onOpenChange }: CreateFinanc
       // Remove fields that don't exist in the database or aren't needed
       const { referenceNumber: _, isRecurring: __, recurringType: ___, ...cleanData } = data;
       
-      const financeData = {
-        ...cleanData,
+      // Build the finance data object, only including fields that have values
+      const financeData: any = {
+        type: cleanData.type,
+        source: cleanData.source,
+        category: cleanData.category,
         amount: parseFloat(cleanData.amount),
         date: cleanData.date, // Keep as YYYY-MM-DD format
-        dueDate: cleanData.dueDate || null,
-        propertyId: cleanData.propertyId ? parseInt(cleanData.propertyId) : null,
-        bookingId: cleanData.bookingId ? parseInt(cleanData.bookingId) : null,
         processedBy: (user as any)?.id,
         organizationId: (user as any)?.organizationId || "default-org",
         department: "administration", // Default department
         currency: "THB", // Default currency (Thailand Baht)
+        status: cleanData.status || "pending",
       };
+
+      // Only add optional fields if they have values
+      if (cleanData.sourceType) financeData.sourceType = cleanData.sourceType;
+      if (cleanData.subcategory) financeData.subcategory = cleanData.subcategory;
+      if (cleanData.description) financeData.description = cleanData.description;
+      if (cleanData.dueDate) financeData.dueDate = cleanData.dueDate;
+      if (cleanData.propertyId) financeData.propertyId = parseInt(cleanData.propertyId);
+      if (cleanData.bookingId) financeData.bookingId = parseInt(cleanData.bookingId);
+      if (cleanData.ownerId) financeData.ownerId = cleanData.ownerId;
+      if (cleanData.agentId) financeData.agentId = cleanData.agentId;
 
       console.log("Creating finance record with data:", financeData);
 

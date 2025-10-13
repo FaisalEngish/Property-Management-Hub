@@ -28475,4 +28475,11 @@ async function processGuestIssueForAI(issueReport: any) {
   // Middleware for water refill access control
   const requireWaterRefillAccess = (req: any, res: any, next: any) => {
     const userRole = req.user?.role;
-    if (!['admin', 'portfolio-manager', 'owner'].includes(us
+    if (!['admin', 'portfolio-manager', 'owner'].includes(userRole)) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+    next();
+  };
+
+  return app;
+}
