@@ -11,6 +11,7 @@ import { apiRequest } from "../lib/queryClient";
 import { useToast } from "../hooks/use-toast";
 import { Plus, ExternalLink, Loader2 } from "lucide-react";
 import { fastCache } from "../lib/fastCache";
+import { useFastAuth } from "../lib/fastAuth";
 
 // Add debugging for property creation issues
 console.log("🏠 Property Dialog component loaded");
@@ -37,6 +38,7 @@ export default function CreatePropertyDialog({ open, onOpenChange }: CreatePrope
 
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { user } = useFastAuth();
 
   const createMutation = useMutation({
     mutationFn: async (data: any) => {
@@ -46,7 +48,7 @@ export default function CreatePropertyDialog({ open, onOpenChange }: CreatePrope
       console.log("✅ Frontend: Property created successfully:", result);
       return result;
     },
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
       console.log("🎉 Frontend: Property creation successful, invalidating cache");
       
       // CRITICAL: Clear fastCache entries FIRST before invalidating TanStack queries
@@ -64,6 +66,18 @@ export default function CreatePropertyDialog({ open, onOpenChange }: CreatePrope
       queryClient.refetchQueries({ queryKey: ["/api/properties"] });
       queryClient.refetchQueries({ queryKey: ["/api/dashboard/stats"] });
       queryClient.refetchQueries({ queryKey: ["/api/dashboard"] });
+      
+      // Trigger achievement check for property creation
+      if (user?.id) {
+        try {
+          await apiRequest("POST", "/api/achievements/check", { userId: user.id });
+          // Invalidate achievement queries to refetch updated stats
+          queryClient.invalidateQueries({ queryKey: [`/api/achievements/user/${user.id}`] });
+          queryClient.invalidateQueries({ queryKey: ["/api/achievements/definitions"] });
+        } catch (error) {
+          console.error("Achievement check failed:", error);
+        }
+      }
       
       toast({
         title: "Success", 

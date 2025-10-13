@@ -91,7 +91,7 @@ export default function AchievementSystem({ userId, organizationId }: Achievemen
 
   // Fetch user game stats
   const { data: userStats, isLoading: statsLoading } = useQuery<UserGameStats>({
-    queryKey: ['/api/achievements/user', userId],
+    queryKey: [`/api/achievements/user/${userId}`],
     enabled: !!userId,
   });
 
