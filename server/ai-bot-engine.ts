@@ -90,6 +90,7 @@ export class AIBotEngine {
       utilityBills,
       ownerPayouts,
       propertyDocuments,
+      expiringDocuments,
       invoices,
       utilityAccounts
     ] = await Promise.all([
@@ -103,6 +104,7 @@ export class AIBotEngine {
       this.storage.getUtilityBills().catch(() => []),
       this.storage.getOwnerPayouts().catch(() => []),
       this.storage.getPropertyDocuments(context.organizationId).catch(() => []),
+      this.storage.getExpiringDocuments(context.organizationId, 30).catch(() => []),
       this.storage.getInvoices(context.organizationId).catch(() => []),
       this.storage.getPropertyUtilityAccounts().catch(() => [])
     ]);
@@ -117,6 +119,7 @@ export class AIBotEngine {
       utilityBills: utilityBills.length,
       ownerPayouts: ownerPayouts.length,
       propertyDocuments: propertyDocuments.length,
+      expiringDocuments: expiringDocuments.length,
       invoices: invoices.length,
       utilityAccounts: utilityAccounts.length,
       hasFinanceAnalytics: !!financeAnalytics
@@ -199,7 +202,17 @@ export class AIBotEngine {
       overdue: allOrgUtilityBills.filter((u: any) => u.paymentStatus === 'overdue').length
     };
     
-    console.log('📊 LIVE DATABASE STATS:', { taskStats, bookingStats, financeStats, utilityStats });
+    // Calculate document statistics
+    const allOrgDocuments = propertyDocuments.filter((d: any) => d.organizationId === context.organizationId);
+    const now = new Date();
+    const documentStats = {
+      total: allOrgDocuments.length,
+      expiring: expiringDocuments.length,
+      expired: expiringDocuments.filter((d: any) => d.expirationDate && new Date(d.expirationDate) < now).length,
+      expiringNames: expiringDocuments.map((d: any) => d.title || d.originalFilename).join(', ')
+    };
+    
+    console.log('📊 LIVE DATABASE STATS:', { taskStats, bookingStats, financeStats, utilityStats, documentStats });
 
     // Limit data to prevent context overflow - take only recent/relevant items for details
     const recentTasks = allOrgTasks
@@ -346,11 +359,13 @@ export class AIBotEngine {
       bookingStats: bookingStats,
       financeStats: financeStats,
       utilityStats: utilityStats,
+      documentStats: documentStats,
       staffUsers: staffUsers,
       staffSalaries: filteredSalaries,
       utilityBills: filteredUtilityBills,
       ownerPayouts: filteredOwnerPayouts,
       propertyDocuments: filteredDocuments,
+      expiringDocuments: expiringDocuments,
       invoices: filteredInvoices,
       utilityAccounts: filteredUtilityAccounts
     };
@@ -387,7 +402,8 @@ Available data across ALL modules (LIVE DATABASE COUNTS):
 - Staff Users: ${organizationData.staffUsers.length} users with staff role
 - Staff Salaries: ${organizationData.staffSalaries.length} salary records
 - Owner Payouts: ${organizationData.ownerPayouts.length} payout records
-- Property Documents: ${organizationData.propertyDocuments.length} documents
+- Property Documents: ${documentStats.total} TOTAL documents (${documentStats.expiring} expiring within 30 days, ${documentStats.expired} already expired)
+- Expiring Documents: ${documentStats.expiringNames || 'None'}
 - Invoices: ${organizationData.invoices.length} invoices
 
 IMPORTANT: When answering questions about TOTALS or COUNTS, use the statistics above (e.g., ${taskStats.total} total tasks, ${taskStats.completed} completed tasks). The detailed task/booking/finance lists below are LIMITED SAMPLES for context only.`;
@@ -439,6 +455,9 @@ ${organizationData.ownerPayouts.length > 0 ? organizationData.ownerPayouts.map((
 
 Property Documents (${organizationData.propertyDocuments.length}):
 ${organizationData.propertyDocuments.length > 0 ? organizationData.propertyDocuments.map((d: any) => `- ${d.documentType}: ${d.documentName}, Property: ${d.propertyName || d.propertyId}, Expires: ${d.expiryDate || 'N/A'}`).join('\n') : 'No documents found'}
+
+Expiring Documents within 30 days (${organizationData.expiringDocuments.length}):
+${organizationData.expiringDocuments.length > 0 ? organizationData.expiringDocuments.map((d: any) => `- ${d.title || d.originalFilename} (Category: ${d.category}, Expires: ${d.expirationDate}, Property: ${d.propertyId})`).join('\n') : 'No expiring documents'}
 
 Invoices (${organizationData.invoices.length}):
 ${organizationData.invoices.length > 0 ? organizationData.invoices.map((i: any) => `- #${i.invoiceNumber}: ฿${i.totalAmount}, Type: ${i.type}, Status: ${i.status}, Due: ${i.dueDate}`).join('\n') : 'No invoices found'}`;
