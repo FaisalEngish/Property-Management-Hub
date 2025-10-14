@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '../lib/queryClient';
 import { useToast } from '../hooks/use-toast';
+import { useFastAuth } from '@/lib/fastAuth';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
@@ -135,6 +136,7 @@ const SUMMARY_STATS = {
 };
 
 export default function UltraFastTasks() {
+  const { user } = useFastAuth();
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [priorityFilter, setPriorityFilter] = useState("all");
@@ -278,6 +280,15 @@ export default function UltraFastTasks() {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['/api/tasks'] });
       await queryClient.refetchQueries({ queryKey: ['/api/tasks'] });
+      
+      // Invalidate and refetch achievement cache
+      if (user?.id) {
+        console.log('🎮 Task completed! Invalidating achievement cache for user:', user.id);
+        await queryClient.invalidateQueries({ queryKey: [`/api/achievements/user/${user.id}`] });
+        await queryClient.invalidateQueries({ queryKey: ["/api/achievements/definitions"] });
+        await queryClient.refetchQueries({ queryKey: [`/api/achievements/user/${user.id}`] });
+      }
+      
       toast({
         title: 'Success',
         description: 'Task completed successfully',
@@ -297,9 +308,18 @@ export default function UltraFastTasks() {
     mutationFn: async ({ id, data }: { id: number; data: any }) => {
       return await apiRequest('PUT', `/api/tasks/${id}`, data);
     },
-    onSuccess: async () => {
+    onSuccess: async (response: any, variables: { id: number; data: any }) => {
       await queryClient.invalidateQueries({ queryKey: ['/api/tasks'] });
       await queryClient.refetchQueries({ queryKey: ['/api/tasks'] });
+      
+      // Invalidate and refetch achievement cache if task status changed to completed or approved
+      if ((variables.data.status === 'completed' || variables.data.status === 'approved') && user?.id) {
+        console.log('🎮 Task status updated! Invalidating achievement cache for user:', user.id, 'status:', variables.data.status);
+        await queryClient.invalidateQueries({ queryKey: [`/api/achievements/user/${user.id}`] });
+        await queryClient.invalidateQueries({ queryKey: ["/api/achievements/definitions"] });
+        await queryClient.refetchQueries({ queryKey: [`/api/achievements/user/${user.id}`] });
+      }
+      
       setIsEditDialogOpen(false);
       setEditingTask(null);
       setEditForm({});
