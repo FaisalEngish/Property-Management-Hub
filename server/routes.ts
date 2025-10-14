@@ -9,6 +9,9 @@ import { setupDemoAuth, isDemoAuthenticated } from "./demoAuth";
 import { setupSecureAuth, requireAuth, requireRole, requirePermission } from "./secureAuth";
 import { authenticatedTenantMiddleware, getTenantContext } from "./multiTenant";
 import { insertPropertySchema, insertTaskSchema, insertBookingSchema, insertFinanceSchema, insertPlatformSettingSchema, insertAddonServiceSchema, insertAddonBookingSchema, insertUtilityBillSchema, insertPropertyUtilityAccountSchema, insertUtilityBillReminderSchema, insertOwnerActivityTimelineSchema, insertOwnerPayoutRequestSchema, insertOwnerInvoiceSchema, insertOwnerPreferencesSchema, insertOwnerSettingsSchema, insertMarketingPackSchema, insertGuestServiceRequestSchema, insertGuestConfirmedServiceSchema, insertBookingLinkedTaskSchema, insertBookingRevenueSchema, insertOtaPlatformSettingsSchema, insertBookingRevenueCommissionSchema } from "@shared/schema";
+import { db } from "./db";
+import { achievements, userAchievements, userGameStats } from "@shared/schema";
+import { eq, and } from "drizzle-orm";
 
 // Import staff management routes
 import {
@@ -1991,6 +1994,8 @@ Be specific and actionable in your recommendations.`;
     try {
       const id = parseInt(req.params.id);
       const taskData = req.body;
+      const userData = req.user as any;
+      const userId = userData?.claims?.sub || userData?.id;
       
       // Convert date strings to Date objects if present
       if (taskData.dueDate && typeof taskData.dueDate === 'string') {
@@ -2010,6 +2015,70 @@ Be specific and actionable in your recommendations.`;
       clearUltraFastCache("tasks");  // Clears ultra-fast cache (includes tasks-admin-demo-admin, etc.)
       clearUltraFastCache("/api/tasks");  // Clears route-based cache
       clearUltraFastCache("/api/dashboard");  // Clears dashboard cache
+      
+      // Trigger achievement check if task was marked completed or approved
+      if ((taskData.status === 'completed' || taskData.status === 'approved') && userId) {
+        try {
+          // Recalculate achievement progress for the user
+          const organizationId = userData?.organizationId || "default-org";
+          
+          // Get user stats
+          const [userStats] = await db
+            .select()
+            .from(userGameStats)
+            .where(and(
+              eq(userGameStats.userId, userId),
+              eq(userGameStats.organizationId, organizationId)
+            ));
+
+          if (userStats) {
+            // Get all achievements not yet earned
+            const allAchievements = await db
+              .select()
+              .from(achievements)
+              .where(eq(achievements.organizationId, organizationId));
+
+            // Check each achievement
+            for (const achievement of allAchievements) {
+              const alreadyEarned = await db
+                .select()
+                .from(userAchievements)
+                .where(and(
+                  eq(userAchievements.userId, userId),
+                  eq(userAchievements.achievementId, achievement.id)
+                ));
+
+              if (alreadyEarned.length === 0) {
+                let earned = false;
+                
+                if (achievement.type === 'task' && userStats.tasksCompleted >= achievement.threshold) {
+                  earned = true;
+                } else if (achievement.type === 'booking' && userStats.bookingsProcessed >= achievement.threshold) {
+                  earned = true;
+                } else if (achievement.type === 'property' && userStats.propertiesManaged >= achievement.threshold) {
+                  earned = true;
+                } else if (achievement.type === 'finance' && userStats.revenueGenerated >= achievement.threshold) {
+                  earned = true;
+                }
+
+                if (earned) {
+                  await db.insert(userAchievements).values({
+                    userId,
+                    achievementId: achievement.id,
+                    organizationId,
+                    unlockedAt: new Date()
+                  });
+                }
+              }
+            }
+          }
+          
+          console.log(`✅ Achievement check completed for user ${userId} after task update`);
+        } catch (achievementError) {
+          console.error("Achievement check failed:", achievementError);
+          // Don't fail the task update if achievement check fails
+        }
+      }
       
       res.json(task);
     } catch (error) {
