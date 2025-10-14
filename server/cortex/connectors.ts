@@ -72,14 +72,14 @@ export async function fetchProperties(
   try {
     const data = await executeWithRetry(async () => {
       if (options.id) {
-        return await storage.getProperty(options.id, options.organizationId);
+        return await storage.getProperty(options.id);
       } else if (options.name) {
-        const allProperties = await storage.getAllProperties(options.organizationId);
-        return allProperties.filter(p => 
+        const allProperties = await storage.getProperties(options.organizationId);
+        return allProperties.filter((p: any) => 
           p.name.toLowerCase().includes(options.name!.toLowerCase())
         );
       } else {
-        return await storage.getAllProperties(options.organizationId);
+        return await storage.getProperties(options.organizationId);
       }
     }, options.maxRetries, options.timeout);
     
@@ -125,22 +125,22 @@ export async function fetchUtilityBills(
   
   try {
     const data = await executeWithRetry(async () => {
-      const allBills = await storage.getAllUtilityBills(options.organizationId);
+      const allBills = await storage.getUtilityBills(options.organizationId);
       
       let filtered = allBills;
       
       if (options.propertyId) {
-        filtered = filtered.filter(b => b.propertyId === options.propertyId);
+        filtered = filtered.filter((b: any) => b.propertyId === options.propertyId);
       }
       
       if (options.type) {
-        filtered = filtered.filter(b => 
+        filtered = filtered.filter((b: any) => 
           b.utilityType?.toLowerCase() === options.type?.toLowerCase()
         );
       }
       
       if (options.month && options.year) {
-        filtered = filtered.filter(b => {
+        filtered = filtered.filter((b: any) => {
           const billDate = new Date(b.billMonth);
           return (
             billDate.getMonth() + 1 === parseInt(options.month!) &&
@@ -192,20 +192,20 @@ export async function fetchTasks(
   
   try {
     const data = await executeWithRetry(async () => {
-      const allTasks = await storage.getAllTasks(options.organizationId);
+      const allTasks = await storage.getTasks(options.organizationId);
       
       let filtered = allTasks;
       
       if (options.status) {
-        filtered = filtered.filter(t => t.status === options.status);
+        filtered = filtered.filter((t: any) => t.status === options.status);
       }
       
       if (options.assignedTo) {
-        filtered = filtered.filter(t => t.assignedTo === options.assignedTo);
+        filtered = filtered.filter((t: any) => t.assignedTo === options.assignedTo);
       }
       
       if (options.propertyId) {
-        filtered = filtered.filter(t => t.propertyId === options.propertyId);
+        filtered = filtered.filter((t: any) => t.propertyId === options.propertyId);
       }
       
       return filtered;
@@ -251,19 +251,19 @@ export async function fetchBookings(
   
   try {
     const data = await executeWithRetry(async () => {
-      const allBookings = await storage.getAllBookings(options.organizationId);
+      const allBookings = await storage.getBookings(options.organizationId);
       
       let filtered = allBookings;
       
       if (options.propertyId) {
-        filtered = filtered.filter(b => b.propertyId === options.propertyId);
+        filtered = filtered.filter((b: any) => b.propertyId === options.propertyId);
       }
       
       if (options.dateFrom && options.dateTo) {
         const from = new Date(options.dateFrom);
         const to = new Date(options.dateTo);
         
-        filtered = filtered.filter(b => {
+        filtered = filtered.filter((b: any) => {
           const checkIn = new Date(b.checkInDate);
           const checkOut = new Date(b.checkOutDate);
           
@@ -315,16 +315,16 @@ export async function fetchFinances(
   
   try {
     const data = await executeWithRetry(async () => {
-      const allFinances = await storage.getAllFinances(options.organizationId);
+      const allFinances = await storage.getFinances(options.organizationId);
       
       let filtered = allFinances;
       
       if (options.type) {
-        filtered = filtered.filter(f => f.type === options.type);
+        filtered = filtered.filter((f: any) => f.type === options.type);
       }
       
       if (options.month && options.year) {
-        filtered = filtered.filter(f => {
+        filtered = filtered.filter((f: any) => {
           const financeDate = new Date(f.date);
           return (
             financeDate.getMonth() + 1 === parseInt(options.month!) &&

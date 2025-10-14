@@ -115,6 +115,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const optimizedRoutes = await import('./optimizedRoutes');
   app.use(optimizedRoutes.default);
 
+  // === Captain Cortex AI - Internal DB-grounded Q&A ===
+  const { processQuestion, invalidateCache: invalidateCortexCache } = await import('./cortex/index');
+  
+  app.post('/api/cortex/answer', isDemoAuthenticated, async (req, res) => {
+    try {
+      const { question } = req.body;
+      
+      if (!question || typeof question !== 'string') {
+        return res.status(400).json({ 
+          error: 'Question is required and must be a string' 
+        });
+      }
+
+      const user = req.user as any;
+      const organizationId = user?.organizationId || 'default-org';
+      const userId = user?.id;
+
+      const result = await processQuestion({
+        question,
+        organizationId,
+        userId
+      });
+
+      res.json(result);
+    } catch (error: any) {
+      console.error('[CORTEX API] Error:', error);
+      res.status(500).json({ 
+        error: 'Failed to process question',
+        message: error.message 
+      });
+    }
+  });
+
+  // Cache invalidation endpoint (for debugging)
+  app.post('/api/cortex/cache/invalidate', isDemoAuthenticated, async (req, res) => {
+    try {
+      const { pattern } = req.body;
+      invalidateCortexCache(pattern);
+      res.json({ success: true, message: 'Cache invalidated' });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  console.log('[INIT] Captain Cortex AI routes mounted ✅');
+
   // === Smart Pricing API Routes (prevent crashes) ===
   
   app.get('/api/smart-pricing/dashboard', isDemoAuthenticated, (req, res) => {
@@ -28474,12 +28520,9 @@ async function processGuestIssueForAI(issueReport: any) {
   const requireWaterDeliveryAccess = (req: any, res: any, next: any) => {
     const userRole = req.user?.role;
     if (!['admin', 'portfolio-manager', 'owner'].includes(userRole)) {
-      return res.status(403).json({ message: "Access denied. Admin, Portfolio Manager, or Owner role required." });
     }
     next();
   };
 
-
-  const httpServer = createServer(app);
   return httpServer;
 }
