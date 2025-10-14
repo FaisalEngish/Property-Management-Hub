@@ -62,6 +62,9 @@ export function setupAchievementRoutes(app: Express) {
           eq(tasks.status, 'completed')
         ));
 
+      console.log('🎮 Achievement Debug - Task Stats:', taskStats);
+      console.log('🎮 Achievement Debug - Organization:', organizationId, 'User:', userId);
+
       const [propertyStats] = await db
         .select({ count: sql<number>`COUNT(*)` })
         .from(properties)
@@ -84,6 +87,8 @@ export function setupAchievementRoutes(app: Express) {
       const tasksCompleted = Number(taskStats?.count || 0);
       const bookingsProcessed = Number(bookingStats?.count || 0);
       const propertiesManaged = Number(propertyStats?.count || 0);
+
+      console.log('🎮 Achievement Counts - Tasks:', tasksCompleted, 'Bookings:', bookingsProcessed, 'Properties:', propertiesManaged);
 
       const totalPoints = (tasksCompleted * 10) + (bookingsProcessed * 25) + (propertiesManaged * 50);
       const level = calculateLevel(totalPoints);
