@@ -121,12 +121,25 @@ export async function setupDemoAuth(app: Express) {
   app.set("trust proxy", 1);
   app.use(getDemoSession());
 
-  // Seed demo users
-  await seedDemoUsers();
+  // Seed demo users (non-blocking on error)
+  try {
+    await seedDemoUsers();
+  } catch (error) {
+    console.error("⚠️ Failed to seed demo users (continuing anyway):", error);
+  }
   
-  // Seed demo commission data
-  await seedDemoCommissionData();
-  await seedUtilityData();
+  // Seed demo commission data (non-blocking on error)
+  try {
+    await seedDemoCommissionData();
+  } catch (error) {
+    console.error("⚠️ Failed to seed commission data (continuing anyway):", error);
+  }
+  
+  try {
+    await seedUtilityData();
+  } catch (error) {
+    console.error("⚠️ Failed to seed utility data (continuing anyway):", error);
+  }
 
   // Demo login route
   app.post("/api/auth/demo-login", async (req: any, res) => {
