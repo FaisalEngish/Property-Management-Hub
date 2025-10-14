@@ -11,7 +11,7 @@ interface CacheEntry<T> {
   key: string;
 }
 
-const CACHE_TTL = 60 * 1000; // 60 seconds
+const CACHE_TTL = 0; // DISABLED - Always fetch real-time data
 const cache = new Map<string, CacheEntry<any>>();
 
 /**

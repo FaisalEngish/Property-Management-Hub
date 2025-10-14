@@ -28,7 +28,7 @@ export class AIBotEngine {
   private openai: OpenAI;
   private storage: DatabaseStorage;
   private cache: Map<string, { response: string; timestamp: number }> = new Map();
-  private CACHE_TTL = 5 * 60 * 1000; // 5 minutes cache
+  private CACHE_TTL = 0; // DISABLED - Always fetch real-time data from database
 
   constructor() {
     if (!process.env.OPENAI_API_KEY) {
@@ -156,9 +156,53 @@ export class AIBotEngine {
         listingUrl: p.listingUrl
       }));
 
-    // Limit data to prevent context overflow - take only recent/relevant items
-    const recentTasks = tasks
-      .filter((t: any) => t.organizationId === context.organizationId)
+    // Calculate summary statistics from ALL data BEFORE limiting
+    const allOrgTasks = tasks.filter((t: any) => t.organizationId === context.organizationId);
+    const allOrgBookings = bookings.filter((b: any) => b.organizationId === context.organizationId);
+    const allOrgFinances = finances.filter((f: any) => f.organizationId === context.organizationId);
+    
+    const taskStats = {
+      total: allOrgTasks.length,
+      completed: allOrgTasks.filter((t: any) => t.status === 'completed').length,
+      pending: allOrgTasks.filter((t: any) => t.status === 'pending').length,
+      inProgress: allOrgTasks.filter((t: any) => t.status === 'in-progress').length,
+      approved: allOrgTasks.filter((t: any) => t.status === 'approved').length,
+      highPriority: allOrgTasks.filter((t: any) => t.priority === 'high').length,
+      overdue: allOrgTasks.filter((t: any) => t.dueDate && new Date(t.dueDate) < new Date() && t.status !== 'completed').length
+    };
+    
+    const bookingStats = {
+      total: allOrgBookings.length,
+      confirmed: allOrgBookings.filter((b: any) => b.status === 'confirmed').length,
+      pending: allOrgBookings.filter((b: any) => b.status === 'pending').length,
+      completed: allOrgBookings.filter((b: any) => b.status === 'completed').length,
+      cancelled: allOrgBookings.filter((b: any) => b.status === 'cancelled').length
+    };
+    
+    const financeStats = {
+      total: allOrgFinances.length,
+      income: allOrgFinances.filter((f: any) => f.type === 'income').length,
+      expense: allOrgFinances.filter((f: any) => f.type === 'expense').length,
+      totalIncome: allOrgFinances.filter((f: any) => f.type === 'income').reduce((sum: number, f: any) => sum + parseFloat(f.amount || 0), 0),
+      totalExpense: allOrgFinances.filter((f: any) => f.type === 'expense').reduce((sum: number, f: any) => sum + parseFloat(f.amount || 0), 0)
+    };
+    
+    const allOrgUtilityBills = utilityBills.filter((u: any) => u.organizationId === context.organizationId);
+    const utilityStats = {
+      total: allOrgUtilityBills.length,
+      electricity: allOrgUtilityBills.filter((u: any) => u.utilityType === 'electricity').length,
+      water: allOrgUtilityBills.filter((u: any) => u.utilityType === 'water').length,
+      internet: allOrgUtilityBills.filter((u: any) => u.utilityType === 'internet').length,
+      gas: allOrgUtilityBills.filter((u: any) => u.utilityType === 'gas').length,
+      paid: allOrgUtilityBills.filter((u: any) => u.paymentStatus === 'paid').length,
+      pending: allOrgUtilityBills.filter((u: any) => u.paymentStatus === 'pending').length,
+      overdue: allOrgUtilityBills.filter((u: any) => u.paymentStatus === 'overdue').length
+    };
+    
+    console.log('📊 LIVE DATABASE STATS:', { taskStats, bookingStats, financeStats, utilityStats });
+
+    // Limit data to prevent context overflow - take only recent/relevant items for details
+    const recentTasks = allOrgTasks
       .slice(0, 20) // Limit to 20 most recent tasks
       .map((t: any) => ({
         id: t.id,
@@ -169,8 +213,7 @@ export class AIBotEngine {
         dueDate: t.dueDate
       }));
 
-    const recentBookings = bookings
-      .filter((b: any) => b.organizationId === context.organizationId)
+    const recentBookings = allOrgBookings
       .slice(0, 15) // Limit to 15 most recent bookings
       .map((b: any) => ({
         id: b.id,
@@ -182,8 +225,7 @@ export class AIBotEngine {
         status: b.status
       }));
 
-    const recentFinances = finances
-      .filter((f: any) => f.organizationId === context.organizationId)
+    const recentFinances = allOrgFinances
       .slice(0, 20) // Limit to 20 most recent finance records
       .map((f: any) => ({
         id: f.id,
@@ -300,6 +342,10 @@ export class AIBotEngine {
       bookings: recentBookings,
       finances: recentFinances,
       financeAnalytics: financeAnalytics,
+      taskStats: taskStats,
+      bookingStats: bookingStats,
+      financeStats: financeStats,
+      utilityStats: utilityStats,
       staffUsers: staffUsers,
       staffSalaries: filteredSalaries,
       utilityBills: filteredUtilityBills,
@@ -330,19 +376,21 @@ Guidelines:
 
 Current date: ${new Date().toISOString().split('T')[0]}
 
-Available data across ALL modules:
-- Properties: ${organizationData.properties.length} live properties with comprehensive metrics
-- Tasks: ${organizationData.tasks.length} tasks (recent)
-- Bookings: ${organizationData.bookings.length} bookings (recent)
-- Financial Records: ${organizationData.finances.length} transactions (recent)
-- Finance Analytics: ${financeAnalytics ? 'Available with comprehensive metrics' : 'Not available'}
+Available data across ALL modules (LIVE DATABASE COUNTS):
+- Properties: ${organizationData.properties.length} total properties (${organizationData.properties.filter((p: any) => p.status === 'active').length} active, ${organizationData.properties.filter((p: any) => p.status === 'inactive').length} inactive)
+- Tasks: ${taskStats.total} TOTAL tasks (${taskStats.completed} completed, ${taskStats.pending} pending, ${taskStats.inProgress} in-progress, ${taskStats.approved} approved, ${taskStats.highPriority} high priority, ${taskStats.overdue} overdue)
+- Bookings: ${bookingStats.total} TOTAL bookings (${bookingStats.confirmed} confirmed, ${bookingStats.pending} pending, ${bookingStats.completed} completed, ${bookingStats.cancelled} cancelled)
+- Finance: ${financeStats.total} TOTAL transactions (${financeStats.income} income: ฿${financeStats.totalIncome.toLocaleString()}, ${financeStats.expense} expense: ฿${financeStats.totalExpense.toLocaleString()}, Net: ฿${(financeStats.totalIncome - financeStats.totalExpense).toLocaleString()})
+- Finance Analytics: ${financeAnalytics ? `Revenue: ฿${financeAnalytics.totalRevenue?.toLocaleString()}, Expenses: ฿${financeAnalytics.totalExpenses?.toLocaleString()}, Net Profit: ฿${financeAnalytics.netProfit?.toLocaleString()}` : 'Not available'}
+- Utility Bills: ${utilityStats.total} TOTAL utility bills (${utilityStats.electricity} electricity, ${utilityStats.water} water, ${utilityStats.internet} internet, ${utilityStats.gas} gas | Payment: ${utilityStats.paid} paid, ${utilityStats.pending} pending, ${utilityStats.overdue} overdue)
+- Utility Accounts: ${organizationData.utilityAccounts.length} utility accounts
 - Staff Users: ${organizationData.staffUsers.length} users with staff role
 - Staff Salaries: ${organizationData.staffSalaries.length} salary records
-- Utility Bills: ${organizationData.utilityBills.length} utility bills
-- Utility Accounts: ${organizationData.utilityAccounts.length} utility accounts
 - Owner Payouts: ${organizationData.ownerPayouts.length} payout records
 - Property Documents: ${organizationData.propertyDocuments.length} documents
-- Invoices: ${organizationData.invoices.length} invoices`;
+- Invoices: ${organizationData.invoices.length} invoices
+
+IMPORTANT: When answering questions about TOTALS or COUNTS, use the statistics above (e.g., ${taskStats.total} total tasks, ${taskStats.completed} completed tasks). The detailed task/booking/finance lists below are LIMITED SAMPLES for context only.`;
 
     // Log property metrics for debugging
     console.log('🏠 Property Metrics Sample:', organizationData.properties.slice(0, 3).map((p: any) => ({
