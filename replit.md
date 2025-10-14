@@ -18,7 +18,7 @@ The platform utilizes Radix UI primitives with shadcn/ui for a modern design sys
 - **API Design**: RESTful endpoints with role-based authorization.
 - **Multi-Tenant Architecture**: Supports separate company domains, encrypted API key storage per organization, and tenant-aware database queries.
 - **Performance Optimization**: Multi-layer caching (in-memory, React Query), fast API endpoints, and lazy loading for modules ensure instant navigation.
-- **AI Integration**: Custom OpenAI Assistant (`asst_OATIDMTgutnkdOJpTrQ9Mf7u`) for the Captain Cortex AI bot, with intelligent fallback and response caching and a data-grounded Q&A system.
+- **AI Integration**: Custom OpenAI Assistant (`asst_OATIDMTgutnkdOJpTrQ9Mf7u`) for the Captain Cortex AI bot with real-time database-grounded Q&A. **Cache disabled (TTL=0)** to ensure live data matching dashboard numbers. Comprehensive statistics calculated from ALL data before limiting context, providing accurate totals for tasks, bookings, finances, and utilities.
 
 ### Feature Specifications
 - **Authentication**: Replit Auth with OIDC, persistent sessions, and seven distinct user roles with granular authorization.
