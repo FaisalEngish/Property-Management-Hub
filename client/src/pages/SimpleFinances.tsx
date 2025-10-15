@@ -3,7 +3,8 @@ import { useQuery } from "@tanstack/react-query";
 import { formatCurrency } from "@/lib/currency";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { DollarSign, TrendingUp, TrendingDown, Wallet } from "lucide-react";
+import { DollarSign, TrendingUp, TrendingDown, Wallet, Calendar, Clock } from "lucide-react";
+import { differenceInDays, parseISO, startOfDay, startOfMonth, endOfMonth, addDays, isBefore, isAfter } from "date-fns";
 
 interface Property {
   id: number;
@@ -20,6 +21,19 @@ interface Finance {
   description?: string;
 }
 
+interface Booking {
+  id: number;
+  propertyId: number;
+  guestName: string;
+  checkIn: string;
+  checkOut: string;
+  status: string;
+  platformPayout?: string;
+  guestTotalPrice?: string;
+  totalAmount?: string;
+  bookingPlatform?: string;
+}
+
 export default function SimpleFinances() {
   const [selectedProperty, setSelectedProperty] = useState<string>('all');
 
@@ -33,21 +47,84 @@ export default function SimpleFinances() {
     queryKey: ["/api/finance"],
   });
 
+  // Fetch bookings
+  const { data: bookings = [] } = useQuery<Booking[]>({
+    queryKey: ["/api/bookings"],
+  });
+
   // Filter finances by selected property
   const filteredFinances = selectedProperty === 'all' 
     ? finances 
     : finances.filter(f => f.propertyId.toString() === selectedProperty);
 
-  // Calculate totals
-  const totalRevenue = filteredFinances
+  // Filter bookings by selected property
+  const filteredBookings = selectedProperty === 'all'
+    ? bookings
+    : bookings.filter(b => b.propertyId.toString() === selectedProperty);
+
+  // Calculate booking revenue (platformPayout or fallback to totalAmount)
+  const bookingRevenue = filteredBookings
+    .filter(b => b.status !== 'cancelled')
+    .reduce((sum, b) => {
+      const amount = parseFloat(b.platformPayout || b.totalAmount || '0');
+      return sum + amount;
+    }, 0);
+
+  // Calculate finance transaction revenue
+  const financeRevenue = filteredFinances
     .filter(f => f.type === 'income')
     .reduce((sum, f) => sum + parseFloat(f.amount || '0'), 0);
+
+  // Total revenue combines booking revenue and other income
+  const totalRevenue = bookingRevenue + financeRevenue;
 
   const totalExpenses = filteredFinances
     .filter(f => f.type === 'expense')
     .reduce((sum, f) => sum + parseFloat(f.amount || '0'), 0);
 
   const netProfit = totalRevenue - totalExpenses;
+
+  // Calculate occupancy rate based on current month
+  const today = startOfDay(new Date());
+  const currentMonthStart = startOfMonth(today);
+  const currentMonthEnd = endOfMonth(today);
+  const daysInCurrentMonth = differenceInDays(currentMonthEnd, currentMonthStart) + 1;
+  
+  const totalBookingDays = filteredBookings
+    .filter(b => b.status !== 'cancelled')
+    .reduce((sum, b) => {
+      const checkIn = startOfDay(parseISO(b.checkIn));
+      const checkOut = startOfDay(parseISO(b.checkOut));
+      
+      // Calculate overlap with current month (use exclusive end date)
+      const monthEndExclusive = addDays(currentMonthEnd, 1);
+      const overlapStart = checkIn > currentMonthStart ? checkIn : currentMonthStart;
+      const overlapEnd = checkOut < monthEndExclusive ? checkOut : monthEndExclusive;
+      
+      if (overlapStart < overlapEnd) {
+        return sum + differenceInDays(overlapEnd, overlapStart);
+      }
+      return sum;
+    }, 0);
+
+  // Calculate available days based on current month
+  const propertyCount = selectedProperty === 'all' ? properties.length : 1;
+  const totalAvailableDays = propertyCount * daysInCurrentMonth;
+  const occupancyRate = totalAvailableDays > 0 
+    ? (totalBookingDays / totalAvailableDays * 100).toFixed(1)
+    : '0';
+
+  // Calculate pending payments (confirmed bookings not yet checked-in)
+  const pendingPayments = filteredBookings
+    .filter(b => b.status === 'confirmed' && isBefore(today, parseISO(b.checkIn)))
+    .reduce((sum, b) => {
+      const amount = parseFloat(b.platformPayout || b.totalAmount || '0');
+      return sum + amount;
+    }, 0);
+
+  const pendingBookingsCount = filteredBookings
+    .filter(b => b.status === 'confirmed' && isBefore(today, parseISO(b.checkIn)))
+    .length;
 
   // Get recent transactions (last 10)
   const recentTransactions = [...filteredFinances]
@@ -113,11 +190,58 @@ export default function SimpleFinances() {
               {formatCurrency(totalRevenue)}
             </div>
             <p className="text-xs text-muted-foreground mt-1">
-              {filteredFinances.filter(f => f.type === 'income').length} transactions
+              Bookings: {formatCurrency(bookingRevenue)} + Other: {formatCurrency(financeRevenue)}
             </p>
           </CardContent>
         </Card>
 
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Booking Revenue</CardTitle>
+            <Calendar className="h-4 w-4 text-blue-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-blue-600" data-testid="text-booking-revenue">
+              {formatCurrency(bookingRevenue)}
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              {filteredBookings.filter(b => b.status !== 'cancelled').length} bookings
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Occupancy Rate</CardTitle>
+            <Calendar className="h-4 w-4 text-purple-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-purple-600" data-testid="text-occupancy-rate">
+              {occupancyRate}%
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              {totalBookingDays} of {totalAvailableDays} days booked
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Pending Payments</CardTitle>
+            <Clock className="h-4 w-4 text-orange-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-orange-600" data-testid="text-pending-payments">
+              {formatCurrency(pendingPayments)}
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              {pendingBookingsCount} upcoming booking{pendingBookingsCount !== 1 ? 's' : ''}
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Expenses</CardTitle>

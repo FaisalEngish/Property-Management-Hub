@@ -48,6 +48,19 @@ interface Finance {
   department?: string;
 }
 
+interface Booking {
+  id: number;
+  propertyId: number;
+  guestName: string;
+  checkIn: string;
+  checkOut: string;
+  status: string;
+  platformPayout?: string;
+  guestTotalPrice?: string;
+  totalAmount?: string;
+  bookingPlatform?: string;
+}
+
 const CHART_COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316'];
 
 export default function AdvancedFinancialAnalytics() {
@@ -65,6 +78,11 @@ export default function AdvancedFinancialAnalytics() {
   // Fetch finances
   const { data: finances = [] } = useQuery<Finance[]>({
     queryKey: ["/api/finance"],
+  });
+
+  // Fetch bookings
+  const { data: bookings = [] } = useQuery<Booking[]>({
+    queryKey: ["/api/bookings"],
   });
 
   // Extract unique categories
@@ -92,10 +110,51 @@ export default function AdvancedFinancialAnalytics() {
     });
   }, [finances, selectedProperty, selectedType, selectedCategory, dateFrom, dateTo]);
 
-  // Calculate metrics
-  const totalRevenue = filteredFinances
+  // Filter bookings based on criteria - includes bookings that overlap the date range
+  const filteredBookings = useMemo(() => {
+    return bookings.filter(b => {
+      if (b.status === 'cancelled') return false;
+      
+      const propertyMatch = selectedProperty === 'all' || b.propertyId.toString() === selectedProperty;
+      
+      let dateMatch = true;
+      if (dateFrom || dateTo) {
+        const checkIn = parseISO(b.checkIn);
+        const checkOut = parseISO(b.checkOut);
+        
+        // Booking overlaps if: checkIn <= rangeEnd AND checkOut >= rangeStart
+        if (dateFrom && dateTo) {
+          const rangeStart = parseISO(dateFrom);
+          const rangeEnd = parseISO(dateTo);
+          dateMatch = checkIn <= rangeEnd && checkOut >= rangeStart;
+        } else if (dateFrom) {
+          // Only start date: booking must end after or on start date
+          const rangeStart = parseISO(dateFrom);
+          dateMatch = checkOut >= rangeStart;
+        } else if (dateTo) {
+          // Only end date: booking must start before or on end date
+          const rangeEnd = parseISO(dateTo);
+          dateMatch = checkIn <= rangeEnd;
+        }
+      }
+      
+      return propertyMatch && dateMatch;
+    });
+  }, [bookings, selectedProperty, dateFrom, dateTo]);
+
+  // Calculate booking revenue
+  const bookingRevenue = filteredBookings.reduce((sum, b) => {
+    const amount = parseFloat(b.platformPayout || b.totalAmount || '0');
+    return sum + amount;
+  }, 0);
+
+  // Calculate finance transaction revenue
+  const financeRevenue = filteredFinances
     .filter(f => f.type === 'income')
     .reduce((sum, f) => sum + parseFloat(f.amount || '0'), 0);
+
+  // Total revenue includes both booking revenue and other income
+  const totalRevenue = bookingRevenue + financeRevenue;
 
   const totalExpenses = filteredFinances
     .filter(f => f.type === 'expense')
@@ -104,9 +163,16 @@ export default function AdvancedFinancialAnalytics() {
   const netProfit = totalRevenue - totalExpenses;
   const profitMargin = totalRevenue > 0 ? (netProfit / totalRevenue * 100) : 0;
 
-  // Revenue by Category (Pie Chart Data)
+  // Revenue by Category (Pie Chart Data) - includes booking revenue
   const categoryData = useMemo(() => {
     const categoryMap = new Map<string, number>();
+    
+    // Add booking revenue as a category
+    if (bookingRevenue > 0) {
+      categoryMap.set('Booking Revenue', bookingRevenue);
+    }
+    
+    // Add other finance income
     filteredFinances
       .filter(f => f.type === 'income')
       .forEach(f => {
@@ -117,7 +183,7 @@ export default function AdvancedFinancialAnalytics() {
     return Array.from(categoryMap.entries())
       .map(([name, value]) => ({ name, value }))
       .sort((a, b) => b.value - a.value);
-  }, [filteredFinances]);
+  }, [filteredFinances, bookingRevenue]);
 
   // Expense by Category (Pie Chart Data)
   const expenseCategoryData = useMemo(() => {
@@ -134,15 +200,24 @@ export default function AdvancedFinancialAnalytics() {
       .sort((a, b) => b.value - a.value);
   }, [filteredFinances]);
 
-  // Property Comparison (Bar Chart Data)
+  // Property Comparison (Bar Chart Data) - includes booking revenue
   const propertyComparisonData = useMemo(() => {
     if (selectedProperty !== 'all') return [];
     
     return properties.map(prop => {
       const propFinances = filteredFinances.filter(f => f.propertyId === prop.id);
-      const revenue = propFinances
+      const propBookings = filteredBookings.filter(b => b.propertyId === prop.id);
+      
+      const financeRevenue = propFinances
         .filter(f => f.type === 'income')
         .reduce((sum, f) => sum + parseFloat(f.amount || '0'), 0);
+      
+      const bookingRevenue = propBookings.reduce((sum, b) => {
+        const amount = parseFloat(b.platformPayout || b.totalAmount || '0');
+        return sum + amount;
+      }, 0);
+      
+      const revenue = financeRevenue + bookingRevenue;
       const expenses = propFinances
         .filter(f => f.type === 'expense')
         .reduce((sum, f) => sum + parseFloat(f.amount || '0'), 0);
@@ -154,12 +229,13 @@ export default function AdvancedFinancialAnalytics() {
         profit: revenue - expenses
       };
     }).filter(p => p.revenue > 0 || p.expenses > 0);
-  }, [properties, filteredFinances, selectedProperty]);
+  }, [properties, filteredFinances, filteredBookings, selectedProperty]);
 
-  // Monthly Trend (Line Chart Data)
+  // Monthly Trend (Line Chart Data) - includes booking revenue
   const monthlyTrendData = useMemo(() => {
     const monthMap = new Map<string, { revenue: number; expenses: number; sortDate: Date }>();
     
+    // Add finance transactions
     filteredFinances.forEach(f => {
       if (!f.date) return;
       const dateObj = parseISO(f.date);
@@ -177,6 +253,20 @@ export default function AdvancedFinancialAnalytics() {
       monthMap.set(monthKey, current);
     });
     
+    // Add booking revenue by check-in month
+    filteredBookings.forEach(b => {
+      if (!b.checkIn) return;
+      const dateObj = parseISO(b.checkIn);
+      const monthStart = startOfMonth(dateObj);
+      const monthKey = monthStart.toISOString();
+      
+      const current = monthMap.get(monthKey) || { revenue: 0, expenses: 0, sortDate: monthStart };
+      const amount = parseFloat(b.platformPayout || b.totalAmount || '0');
+      current.revenue += amount;
+      
+      monthMap.set(monthKey, current);
+    });
+    
     return Array.from(monthMap.entries())
       .map(([monthKey, data]) => ({
         month: format(data.sortDate, 'MMM yyyy'),
@@ -186,7 +276,7 @@ export default function AdvancedFinancialAnalytics() {
         sortDate: data.sortDate
       }))
       .sort((a, b) => a.sortDate.getTime() - b.sortDate.getTime());
-  }, [filteredFinances]);
+  }, [filteredFinances, filteredBookings]);
 
   // Top performing properties
   const topProperties = useMemo(() => {
