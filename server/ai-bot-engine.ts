@@ -182,12 +182,79 @@ export class AIBotEngine {
       cancelled: allOrgBookings.filter((b: any) => b.status === 'cancelled').length
     };
     
+    // Calculate booking revenue (synchronized with dashboards)
+    const activeBookings = allOrgBookings.filter((b: any) => b.status !== 'cancelled');
+    const totalBookingRevenue = activeBookings.reduce((sum: number, b: any) => {
+      const revenue = b.platformPayout || b.totalAmount || 0;
+      return sum + parseFloat(revenue.toString());
+    }, 0);
+    
+    // Calculate pending payments (confirmed bookings with future check-in) - synchronized with dashboard
+    const today = new Date();
+    const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const pendingPayments = allOrgBookings.filter((b: any) => {
+      if (b.status !== 'confirmed') return false;
+      const checkInDate = new Date(b.checkIn);
+      const checkInDay = new Date(checkInDate.getFullYear(), checkInDate.getMonth(), checkInDate.getDate());
+      return checkInDay > startOfToday;
+    });
+    const totalPendingAmount = pendingPayments.reduce((sum: number, b: any) => {
+      const amount = b.platformPayout || b.totalAmount || 0;
+      return sum + parseFloat(amount.toString());
+    }, 0);
+    
+    // Calculate current month booking revenue and occupancy - synchronized with dashboard
+    const currentMonthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+    const currentMonthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+    const monthEndExclusive = new Date(today.getFullYear(), today.getMonth() + 1, 1);
+    const daysInMonth = currentMonthEnd.getDate();
+    
+    const currentMonthBookings = activeBookings.filter((b: any) => {
+      const checkIn = new Date(b.checkIn);
+      const checkInDay = new Date(checkIn.getFullYear(), checkIn.getMonth(), checkIn.getDate());
+      const checkOut = new Date(b.checkOut);
+      const checkOutDay = new Date(checkOut.getFullYear(), checkOut.getMonth(), checkOut.getDate());
+      return checkInDay < monthEndExclusive && checkOutDay > currentMonthStart;
+    });
+    
+    const currentMonthRevenue = currentMonthBookings.reduce((sum: number, b: any) => {
+      const revenue = b.platformPayout || b.totalAmount || 0;
+      return sum + parseFloat(revenue.toString());
+    }, 0);
+    
+    // Calculate occupancy rate for current month - synchronized with dashboard
+    const totalBookingDays = currentMonthBookings.reduce((sum: number, b: any) => {
+      const checkIn = new Date(b.checkIn);
+      const checkInDay = new Date(checkIn.getFullYear(), checkIn.getMonth(), checkIn.getDate());
+      const checkOut = new Date(b.checkOut);
+      const checkOutDay = new Date(checkOut.getFullYear(), checkOut.getMonth(), checkOut.getDate());
+      
+      const overlapStart = checkInDay > currentMonthStart ? checkInDay : currentMonthStart;
+      const overlapEnd = checkOutDay < monthEndExclusive ? checkOutDay : monthEndExclusive;
+      
+      if (overlapStart < overlapEnd) {
+        const days = Math.ceil((overlapEnd.getTime() - overlapStart.getTime()) / (1000 * 60 * 60 * 24));
+        return sum + days;
+      }
+      return sum;
+    }, 0);
+    
+    const propertyCount = filteredProperties.length;
+    const totalAvailableDays = propertyCount * daysInMonth;
+    const occupancyRate = totalAvailableDays > 0 ? Math.round((totalBookingDays / totalAvailableDays) * 100) : 0;
+    
     const financeStats = {
       total: allOrgFinances.length,
       income: allOrgFinances.filter((f: any) => f.type === 'income').length,
       expense: allOrgFinances.filter((f: any) => f.type === 'expense').length,
       totalIncome: allOrgFinances.filter((f: any) => f.type === 'income').reduce((sum: number, f: any) => sum + parseFloat(f.amount || 0), 0),
-      totalExpense: allOrgFinances.filter((f: any) => f.type === 'expense').reduce((sum: number, f: any) => sum + parseFloat(f.amount || 0), 0)
+      totalExpense: allOrgFinances.filter((f: any) => f.type === 'expense').reduce((sum: number, f: any) => sum + parseFloat(f.amount || 0), 0),
+      // Booking revenue (synchronized with dashboards)
+      totalBookingRevenue,
+      currentMonthRevenue,
+      pendingPaymentsCount: pendingPayments.length,
+      totalPendingAmount,
+      occupancyRate
     };
     
     const allOrgUtilityBills = utilityBills.filter((u: any) => u.organizationId === context.organizationId);
@@ -300,7 +367,14 @@ export class AIBotEngine {
         });
       }
       
-      // Calculate total revenue (all time)
+      // Calculate booking revenue (synchronized with dashboards)
+      const activePropertyBookings = propertyBookings.filter((b: any) => b.status !== 'cancelled');
+      const bookingRevenue = activePropertyBookings.reduce((sum: number, b: any) => {
+        const revenue = b.platformPayout || b.totalAmount || 0;
+        return sum + parseFloat(revenue.toString());
+      }, 0);
+      
+      // Calculate total revenue from finance transactions (all time)
       const totalRevenue = propertyFinances
         .filter((f: any) => f.type === 'income')
         .reduce((sum: number, f: any) => sum + parseFloat(f.amount || 0), 0);
@@ -342,6 +416,7 @@ export class AIBotEngine {
         occupancyRate,
         monthlyRevenue,
         totalRevenue,
+        bookingRevenue, // Total booking revenue (synchronized with dashboards)
         lastBookingDate: lastBooking ? lastBooking.checkIn : null,
         roi: Math.round(roi * 10) / 10,
         bookingCount: propertyBookings.length,
@@ -388,6 +463,9 @@ Guidelines:
 7. Keep responses concise but data-rich
 8. Use ALL real property data including comprehensive metrics (occupancy, ROI, revenue, bookings)
 9. Cross-reference data between modules (e.g., property revenue + utility costs + staff salaries)
+10. For revenue questions, ALWAYS use Booking Revenue (Real-Time) data - it's synchronized with the financial dashboards
+11. For pending payments, use the Pending Payments count and total amount
+12. For occupancy questions, use the Current Occupancy Rate stat
 
 Current date: ${new Date().toISOString().split('T')[0]}
 
@@ -396,6 +474,9 @@ Available data across ALL modules (LIVE DATABASE COUNTS):
 - Tasks: ${taskStats.total} TOTAL tasks (${taskStats.completed} completed, ${taskStats.pending} pending, ${taskStats.inProgress} in-progress, ${taskStats.approved} approved, ${taskStats.highPriority} high priority, ${taskStats.overdue} overdue)
 - Bookings: ${bookingStats.total} TOTAL bookings (${bookingStats.confirmed} confirmed, ${bookingStats.pending} pending, ${bookingStats.completed} completed, ${bookingStats.cancelled} cancelled)
 - Finance: ${financeStats.total} TOTAL transactions (${financeStats.income} income: ฿${financeStats.totalIncome.toLocaleString()}, ${financeStats.expense} expense: ฿${financeStats.totalExpense.toLocaleString()}, Net: ฿${(financeStats.totalIncome - financeStats.totalExpense).toLocaleString()})
+- Booking Revenue (Real-Time): Total All-Time: ฿${financeStats.totalBookingRevenue.toLocaleString()}, Current Month: ฿${financeStats.currentMonthRevenue.toLocaleString()}
+- Pending Payments: ${financeStats.pendingPaymentsCount} bookings awaiting payment (Total: ฿${financeStats.totalPendingAmount.toLocaleString()})
+- Current Occupancy Rate: ${financeStats.occupancyRate}% across all properties
 - Finance Analytics: ${financeAnalytics ? `Revenue: ฿${financeAnalytics.totalRevenue?.toLocaleString()}, Expenses: ฿${financeAnalytics.totalExpenses?.toLocaleString()}, Net Profit: ฿${financeAnalytics.netProfit?.toLocaleString()}` : 'Not available'}
 - Utility Bills: ${utilityStats.total} TOTAL utility bills (${utilityStats.electricity} electricity, ${utilityStats.water} water, ${utilityStats.internet} internet, ${utilityStats.gas} gas | Payment: ${utilityStats.paid} paid, ${utilityStats.pending} pending, ${utilityStats.overdue} overdue)
 - Utility Accounts: ${organizationData.utilityAccounts.length} utility accounts
@@ -415,12 +496,13 @@ IMPORTANT: When answering questions about TOTALS or COUNTS, use the statistics a
       roi: p.roi,
       monthlyRevenue: p.monthlyRevenue,
       totalRevenue: p.totalRevenue,
+      bookingRevenue: p.bookingRevenue,
       bookings: p.bookingCount
     })));
 
     // Create a more concise data summary to reduce token usage
     const dataSummary = `Properties (${organizationData.properties.length}):
-${organizationData.properties.map((p: any) => `- ${p.name}: ${p.bedrooms}BR/${p.bathrooms}BA, ฿${p.pricePerNight?.toLocaleString()}/night, Status: ${p.status}, Occupancy: ${p.occupancyRate}%, ROI: ${p.roi}%, Monthly Revenue: ฿${p.monthlyRevenue?.toLocaleString()}, Total Revenue: ฿${p.totalRevenue?.toLocaleString()}, Last Booking: ${p.lastBookingDate || 'None'}, Total Bookings: ${p.bookingCount}, Recent Bookings (30d): ${p.recentBookingCount}`).join('\n')}
+${organizationData.properties.map((p: any) => `- ${p.name}: ${p.bedrooms}BR/${p.bathrooms}BA, ฿${p.pricePerNight?.toLocaleString()}/night, Status: ${p.status}, Occupancy: ${p.occupancyRate}%, ROI: ${p.roi}%, Monthly Revenue: ฿${p.monthlyRevenue?.toLocaleString()}, Total Revenue: ฿${p.totalRevenue?.toLocaleString()}, Booking Revenue: ฿${p.bookingRevenue?.toLocaleString()}, Last Booking: ${p.lastBookingDate || 'None'}, Total Bookings: ${p.bookingCount}, Recent Bookings (30d): ${p.recentBookingCount}`).join('\n')}
 
 Recent Tasks (${organizationData.tasks.length}):
 ${organizationData.tasks.map(t => `- ${t.title} (${t.status}, ${t.priority}, ${t.propertyName}, due: ${t.dueDate})`).join('\n')}
