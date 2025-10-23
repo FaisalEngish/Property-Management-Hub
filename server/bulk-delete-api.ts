@@ -1,18 +1,23 @@
 // Bulk delete operations for tasks
 import { Express } from 'express';
 
-// Bulk delete task functions using Drizzle ORM
-async function deleteExpiredTasks() {
+// Bulk delete task functions using Drizzle ORM with organization filtering
+async function deleteExpiredTasks(organizationId: string) {
   const thirtyDaysAgo = new Date();
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
   
   try {
     const { db } = await import('./db');
     const { tasks } = await import('../shared/schema');
-    const { lt, sql } = await import('drizzle-orm');
+    const { lt, and, eq } = await import('drizzle-orm');
     
     const result = await db.delete(tasks)
-      .where(lt(tasks.createdAt, thirtyDaysAgo))
+      .where(
+        and(
+          eq(tasks.organizationId, organizationId),
+          lt(tasks.createdAt, thirtyDaysAgo)
+        )
+      )
       .returning({ id: tasks.id });
     
     return result.length;
@@ -22,14 +27,19 @@ async function deleteExpiredTasks() {
   }
 }
 
-async function deleteCompletedTasks() {
+async function deleteCompletedTasks(organizationId: string) {
   try {
     const { db } = await import('./db');
     const { tasks } = await import('../shared/schema');
-    const { eq } = await import('drizzle-orm');
+    const { and, eq } = await import('drizzle-orm');
     
     const result = await db.delete(tasks)
-      .where(eq(tasks.status, 'completed'))
+      .where(
+        and(
+          eq(tasks.organizationId, organizationId),
+          eq(tasks.status, 'completed')
+        )
+      )
       .returning({ id: tasks.id });
     
     return result.length;
@@ -39,17 +49,22 @@ async function deleteCompletedTasks() {
   }
 }
 
-async function deleteOldTasks() {
+async function deleteOldTasks(organizationId: string) {
   const ninetyDaysAgo = new Date();
   ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
   
   try {
     const { db } = await import('./db');
     const { tasks } = await import('../shared/schema');
-    const { lt } = await import('drizzle-orm');
+    const { lt, and, eq } = await import('drizzle-orm');
     
     const result = await db.delete(tasks)
-      .where(lt(tasks.createdAt, ninetyDaysAgo))
+      .where(
+        and(
+          eq(tasks.organizationId, organizationId),
+          lt(tasks.createdAt, ninetyDaysAgo)
+        )
+      )
       .returning({ id: tasks.id });
     
     return result.length;
@@ -68,10 +83,19 @@ export function registerBulkDeleteRoutes(app: Express) {
     next();
   };
 
-  // Bulk delete routes for tasks
+  // Bulk delete routes for tasks with organization filtering and cache invalidation
   app.delete('/api/tasks/bulk-delete/expired', isDemoAuthenticated, async (req: any, res) => {
     try {
-      const deletedCount = await deleteExpiredTasks();
+      const organizationId = req.session.user.organizationId;
+      const deletedCount = await deleteExpiredTasks(organizationId);
+      
+      // Clear caches for real-time UI updates
+      const { clearCache } = await import("./performanceOptimizer");
+      clearCache("tasks");
+      clearCache("properties");
+      
+      console.log(`✅ Bulk deleted ${deletedCount} expired tasks for org: ${organizationId}`);
+      
       res.json({ 
         deletedCount, 
         message: `Successfully deleted ${deletedCount} expired tasks` 
@@ -84,7 +108,16 @@ export function registerBulkDeleteRoutes(app: Express) {
 
   app.delete('/api/tasks/bulk-delete/completed', isDemoAuthenticated, async (req: any, res) => {
     try {
-      const deletedCount = await deleteCompletedTasks();
+      const organizationId = req.session.user.organizationId;
+      const deletedCount = await deleteCompletedTasks(organizationId);
+      
+      // Clear caches for real-time UI updates
+      const { clearCache } = await import("./performanceOptimizer");
+      clearCache("tasks");
+      clearCache("properties");
+      
+      console.log(`✅ Bulk deleted ${deletedCount} completed tasks for org: ${organizationId}`);
+      
       res.json({ 
         deletedCount, 
         message: `Successfully deleted ${deletedCount} completed tasks` 
@@ -97,7 +130,16 @@ export function registerBulkDeleteRoutes(app: Express) {
 
   app.delete('/api/tasks/bulk-delete/old', isDemoAuthenticated, async (req: any, res) => {
     try {
-      const deletedCount = await deleteOldTasks();
+      const organizationId = req.session.user.organizationId;
+      const deletedCount = await deleteOldTasks(organizationId);
+      
+      // Clear caches for real-time UI updates
+      const { clearCache } = await import("./performanceOptimizer");
+      clearCache("tasks");
+      clearCache("properties");
+      
+      console.log(`✅ Bulk deleted ${deletedCount} old tasks for org: ${organizationId}`);
+      
       res.json({ 
         deletedCount, 
         message: `Successfully deleted ${deletedCount} old tasks` 
