@@ -65,6 +65,7 @@ export default function BookingDetailModal({ open, onOpenChange, bookingId }: Bo
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/bookings"], exact: false });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard"], exact: false });
+      queryClient.invalidateQueries({ queryKey: ["/api/properties"], exact: false });
       
       toast({
         title: "Success",

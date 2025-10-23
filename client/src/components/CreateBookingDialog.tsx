@@ -51,12 +51,14 @@ export default function CreateBookingDialog({ open, onOpenChange }: CreateBookin
       // Invalidate ALL booking-related queries (exact: false to catch all variants)
       queryClient.invalidateQueries({ queryKey: ["/api/bookings"], exact: false });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard"], exact: false });
+      queryClient.invalidateQueries({ queryKey: ["/api/properties"], exact: false });
       
-      console.log("🔄 Cache invalidated, triggering refetch...");
+      console.log("🔄 Cache invalidated (bookings, dashboard, properties), triggering refetch...");
       
       // Force immediate refetch to update UI
       queryClient.refetchQueries({ queryKey: ["/api/bookings"], exact: false });
       queryClient.refetchQueries({ queryKey: ["/api/dashboard"], exact: false });
+      queryClient.refetchQueries({ queryKey: ["/api/properties"], exact: false });
       
       // Invalidate achievement cache - backend recalculates on GET request
       if (user?.id) {

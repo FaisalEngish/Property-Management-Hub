@@ -100,6 +100,8 @@ export function MultiPropertyCalendar({ properties, bookings, onBookingReschedul
     onSuccess: (data, variables) => {
       // Invalidate and refetch bookings to ensure consistency
       queryClient.invalidateQueries({ queryKey: ['/api/bookings'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/properties'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/dashboard'] });
       toast({
         title: "✅ Booking Rescheduled",
         description: `Successfully moved booking to new dates`,
