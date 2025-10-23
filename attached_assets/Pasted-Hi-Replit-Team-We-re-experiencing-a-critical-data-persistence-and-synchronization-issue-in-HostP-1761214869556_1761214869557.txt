@@ -1,0 +1,53 @@
+Hi Replit Team 👋
+
+We’re experiencing a critical data persistence and synchronization issue in HostPilotPro’s Property Management Hub.
+
+🧩 Current Problem
+
+Property information does not retain or update data from previous bookings or assigned tasks.
+
+After creating a new booking or assigning a task, the Property Dashboard refreshes but shows empty/default values — all key stats reset (Last Booking, Occupancy Rate, Monthly Revenue, Maintenance/Revenue, ROI).
+
+The assigned task count also disappears after refresh and does not sync with the Task Management Hub.
+
+Data only updates after a full manual page reload, which breaks the real-time experience.
+
+⚙️ Expected Behavior
+
+Property cards should automatically update and persist real-time data for:
+
+Last Booking Date
+
+Occupancy Rate
+
+Monthly Revenue
+
+Maintenance/Revenue Ratio
+
+ROI and Assigned Task Counts
+
+When a booking or task is created, edited, or deleted, the updated data should reflect instantly — without requiring a page reload.
+
+All dashboard statistics must stay synchronized with the Task Management module and Booking module.
+
+Delete actions should trigger a proper backend request and update the UI immediately.
+
+🧠 What to Check
+
+Ensure that after any booking or task update, a refresh call to /properties/:id/stats or /properties/:id/summary runs automatically.
+
+Verify that property cards subscribe to real-time updates (via WebSocket or manual re-fetch).
+
+Confirm that the frontend isn’t overwriting the state with empty defaults after an update.
+
+Check that Delete button actions send valid requests and return success responses.
+
+✅ Goal
+
+Implement full synchronization between Property Management, Booking, and Task Management modules so that all property data stays consistent in real time — with no manual refresh required.
+
+Please reproduce the issue, identify the root cause, apply the necessary fixes, and confirm once real-time updates and data persistence are functioning as expected.
+Do not modify unrelated code or styling.
+
+Thanks,
+Farid

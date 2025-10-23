@@ -2501,6 +2501,7 @@ Be specific and actionable in your recommendations.`;
       const { clearCache } = await import("./performanceOptimizer");
       console.log(`🗑️ Clearing bookings cache for organizationId: ${organizationId}`);
       clearCache("bookings");
+      clearCache("properties");  // Clear properties cache for real-time sync of Last Booking, Occupancy, Revenue
       console.log(`✅ Bookings cache cleared after creating booking ID ${booking.id}`);
       
       res.status(201).json(booking);
@@ -2572,6 +2573,7 @@ Be specific and actionable in your recommendations.`;
       
       // Clear bookings cache to ensure updated status appears immediately
       const { clearCache } = await import("./performanceOptimizer");
+      clearCache("properties");  // Clear properties cache for real-time sync
       clearCache("bookings");
       
       res.json(updatedBooking);
