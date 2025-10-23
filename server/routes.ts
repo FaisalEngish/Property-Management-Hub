@@ -2058,9 +2058,6 @@ Be specific and actionable in your recommendations.`;
       });
     }
   });
-      });
-    }
-  });
 
   // Task routes with caching
   app.get("/api/tasks", isDemoAuthenticated, async (req: any, res) => {
