@@ -1839,10 +1839,11 @@ Be specific and actionable in your recommendations.`;
       const { clearCache } = await import("./performanceOptimizer");
       clearCache("properties");
       
-      // Get all properties and bookings
+      // Get all properties and bookings for the organization
+      const orgId = req.user?.organizationId || 'default-org';
       const [allProperties, allBookings, allTasks] = await Promise.all([
         storage.getProperties(),
-        storage.getBookings(),
+        storage.getBookings(orgId),
         storage.getTasks()
       ]);
       
@@ -1917,6 +1918,13 @@ Be specific and actionable in your recommendations.`;
       res.setHeader('Pragma', 'no-cache');
       res.setHeader('Expires', '0');
       
+      console.log(`🏠 Enhanced ${enhancedProperties.length} properties with booking stats`);
+      
+      // Set no-cache headers to prevent browser caching
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+      
       res.json(enhancedProperties);
     } catch (error) {
       console.error("❌ Error fetching properties:", error);
@@ -1924,7 +1932,6 @@ Be specific and actionable in your recommendations.`;
     }
   });
 
-      
 
 
   app.get("/api/properties/:id", isDemoAuthenticated, async (req, res) => {

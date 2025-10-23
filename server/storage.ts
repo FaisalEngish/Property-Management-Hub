@@ -2240,6 +2240,14 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteProperty(id: number): Promise<boolean> {
+    // Delete all related records first to avoid foreign key constraints
+    await db.delete(bookings).where(eq(bookings.propertyId, id));
+    await db.delete(tasks).where(eq(tasks.propertyId, id));
+    await db.delete(propertyDocuments).where(eq(propertyDocuments.propertyId, id));
+    await db.delete(propertyInsurance).where(eq(propertyInsurance.propertyId, id));
+    await db.delete(finance).where(eq(finance.propertyId, id));
+    
+    // Now delete the property
     const result = await db.delete(properties).where(eq(properties.id, id));
     return result.rowCount > 0;
   }
