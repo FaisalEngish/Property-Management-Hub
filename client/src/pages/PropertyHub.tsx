@@ -644,7 +644,7 @@ export default function PropertyHub() {
                     const cardContent = (
                       <Card 
                         key={item.href} 
-                        className={`group cursor-pointer transition-all duration-500 ease-in-out bg-gradient-to-br from-white via-slate-50/40 to-emerald-50/20 backdrop-blur-sm border border-slate-200/60 hover:border-emerald-300/50 hover:shadow-2xl hover:shadow-emerald-500/30 hover:scale-[1.05] hover:-translate-y-2 relative overflow-hidden ${item.isComingSoon ? 'opacity-85' : ''}`}
+                        className={`h-full flex flex-col group cursor-pointer transition-all duration-500 ease-in-out bg-gradient-to-br from-white via-slate-50/40 to-emerald-50/20 backdrop-blur-sm border border-slate-200/60 hover:border-emerald-300/50 hover:shadow-2xl hover:shadow-emerald-500/30 hover:scale-[1.05] hover:-translate-y-2 relative overflow-hidden ${item.isComingSoon ? 'opacity-85' : ''}`}
                         onClick={() => !item.isComingSoon && navigate(item.href)}
                       >
                         {/* Enhanced Glassmorphism overlay with glow effect */}
@@ -660,35 +660,35 @@ export default function PropertyHub() {
                           </div>
                         )}
                         
-                        <CardHeader className="pb-3 relative z-10">
-                          <div className="flex items-center justify-between mb-3">
-                            <div className="flex items-center space-x-3">
-                              <div className="p-3 bg-gradient-to-br from-emerald-100/80 via-emerald-50/60 to-white/40 backdrop-blur-sm rounded-xl shadow-xl border border-emerald-200/50 group-hover:shadow-emerald-300/60 group-hover:scale-110 group-hover:rotate-3 transition-all duration-500 ease-out">
-                                <IconComponent className="h-6 w-6 text-emerald-700 group-hover:text-emerald-800 transition-colors duration-300" />
+                        <CardHeader className="pb-3 relative z-10 flex-shrink-0">
+                          <div className="flex items-start justify-between mb-3 gap-2">
+                            <div className="flex items-center space-x-2 min-w-0 flex-1">
+                              <div className="p-2.5 bg-gradient-to-br from-emerald-100/80 via-emerald-50/60 to-white/40 backdrop-blur-sm rounded-xl shadow-xl border border-emerald-200/50 group-hover:shadow-emerald-300/60 group-hover:scale-110 group-hover:rotate-3 transition-all duration-500 ease-out flex-shrink-0">
+                                <IconComponent className="h-5 w-5 text-emerald-700 group-hover:text-emerald-800 transition-colors duration-300" />
                               </div>
-                              <CardTitle className="text-lg font-semibold text-slate-800 group-hover:text-slate-900 transition-colors duration-300">{item.title}</CardTitle>
+                              <CardTitle className="text-base font-semibold text-slate-800 group-hover:text-slate-900 transition-colors duration-300 line-clamp-2">{item.title}</CardTitle>
                             </div>
-                            <Badge className="bg-gradient-to-r from-emerald-100/90 via-emerald-50/70 to-white/50 text-emerald-800 border-emerald-300/60 shadow-lg backdrop-blur-sm group-hover:shadow-emerald-200/80 transition-all duration-300">
+                            <Badge className="bg-gradient-to-r from-emerald-100/90 via-emerald-50/70 to-white/50 text-emerald-800 border-emerald-300/60 shadow-lg backdrop-blur-sm group-hover:shadow-emerald-200/80 transition-all duration-300 text-xs whitespace-nowrap flex-shrink-0">
                               <span className="mr-1">{item.badgeIcon}</span>
                               {item.badge}
                             </Badge>
                           </div>
                           
                           {/* Enhanced Quick Stats */}
-                          <div className="bg-gradient-to-r from-slate-50/80 via-white/60 to-slate-50/80 backdrop-blur-sm rounded-lg p-3 border border-slate-200/60 group-hover:border-emerald-200/60 group-hover:bg-gradient-to-r group-hover:from-emerald-50/40 group-hover:via-white/70 group-hover:to-emerald-50/40 transition-all duration-300">
-                            <p className="text-sm font-medium text-slate-700 group-hover:text-emerald-800 transition-colors duration-300">{item.stats}</p>
+                          <div className="bg-gradient-to-r from-slate-50/80 via-white/60 to-slate-50/80 backdrop-blur-sm rounded-lg p-2.5 border border-slate-200/60 group-hover:border-emerald-200/60 group-hover:bg-gradient-to-r group-hover:from-emerald-50/40 group-hover:via-white/70 group-hover:to-emerald-50/40 transition-all duration-300">
+                            <p className="text-xs font-medium text-slate-700 group-hover:text-emerald-800 transition-colors duration-300 truncate">{item.stats}</p>
                           </div>
                         </CardHeader>
 
-                        <CardContent className="space-y-4 relative z-10">
-                          <p className="text-sm text-slate-600 leading-relaxed group-hover:text-slate-700 transition-colors duration-300">
+                        <CardContent className="flex flex-col flex-1 relative z-10 pt-0">
+                          <p className="text-sm text-slate-600 leading-relaxed group-hover:text-slate-700 transition-colors duration-300 line-clamp-3 mb-4 flex-1">
                             {item.description}
                           </p>
                           
                           {/* Enhanced Quick Action Button */}
                           <Button 
                             size="sm" 
-                            className={`w-full bg-gradient-to-r from-emerald-500 via-emerald-600 to-emerald-500 hover:from-emerald-600 hover:via-emerald-700 hover:to-emerald-600 text-white shadow-xl hover:shadow-2xl hover:shadow-emerald-500/40 transition-all duration-300 group-hover:scale-110 group-hover:-translate-y-1 backdrop-blur-sm border border-emerald-400/30 hover:border-emerald-300/50 ${item.isComingSoon ? 'opacity-60 cursor-not-allowed' : ''}`}
+                            className={`w-full bg-gradient-to-r from-emerald-500 via-emerald-600 to-emerald-500 hover:from-emerald-600 hover:via-emerald-700 hover:to-emerald-600 text-white shadow-xl hover:shadow-2xl hover:shadow-emerald-500/40 transition-all duration-300 group-hover:scale-105 backdrop-blur-sm border border-emerald-400/30 hover:border-emerald-300/50 mt-auto ${item.isComingSoon ? 'opacity-60 cursor-not-allowed' : ''}`}
                             disabled={item.isComingSoon}
                             onClick={(e) => {
                               e.stopPropagation();
@@ -709,7 +709,7 @@ export default function PropertyHub() {
                               }
                             }}
                           >
-                            <span className="mr-2 text-lg group-hover:scale-110 transition-transform duration-200">{item.actionIcon}</span>
+                            <span className="mr-2 text-base group-hover:scale-110 transition-transform duration-200">{item.actionIcon}</span>
                             {item.isComingSoon ? 'Coming Soon' : item.actionText}
                           </Button>
                         </CardContent>

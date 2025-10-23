@@ -1,0 +1,47 @@
+Title: Card title overlaps action button on Property Hub — text positioning / font-size issue
+
+Environment:
+- App: HostPilotPro (Replit dev)
+- URL: https://<your-repl>.replit.dev/property-hub
+- Browser: (tested on Chrome desktop) — screenshots attached
+- Time: 10/24/2025 ~01:10 AM
+- User: Admin
+
+Description:
+On the Property Management Hub (cards under Maintenance/Tools), the title text is overlapping the green action buttons at the bottom of each card. Titles are too large for the available area and do not wrap or truncate correctly, causing text to sit on top of the buttons and reduce readability and clickability.
+
+Steps to reproduce:
+1. Open the Property Management Hub page.
+2. Observe the card panels (Property List / Calendar & Bookings / Property Tasks etc).
+3. Note that the title text and small labels overlap with the action buttons in the lower area of each card.
+
+Actual result:
+- Title text overlaps and sits over the action buttons.
+- Buttons may be partially obscured and layout looks broken on the card.
+
+Expected result:
+- Title text should remain inside the content area and never overlap buttons.
+- Either the title should wrap cleanly and leave space for actions, or be truncated with an ellipsis.
+- Buttons should remain visually distinct and fully clickable.
+- Typography and spacing should scale responsively across screen sizes.
+
+Additional notes / suggested fix:
+- Likely causes: missing bottom padding on card body, absolute-positioned buttons without reserved space, lack of `text-overflow`/`white-space`/`word-break` rules, or no responsive font-size rules.
+- Quick recommended CSS:
+  1. Reserve space for buttons: `.property-card { padding-bottom: 70px; }`
+  2. Truncate title if single-line: `.card-title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: calc(100% - 120px); }`
+  3. Or allow controlled wrapping: `.card-title { word-break: break-word; max-height: 3.6em; overflow: hidden; }`
+  4. Add responsive font-size media queries or `clamp()` to scale title font on smaller screens.
+- Please check the DOM structure: if actions are absolutely positioned, the card-body must reserve the space (padding-bottom) so content cannot overlap.
+
+Attachments:
+- Screenshots (showing overlap)
+
+Priority:
+- Medium — affects visuals and clickability but not critical dataflow. UX should be fixed before wider QA.
+
+If you want, I can:
+- create a small code diff/PR with the CSS changes above for quick testing, or
+- run a CSS patch live on the dev repl and paste the changes.
+
+Please let me know which you prefer and I’ll prepare the PR/patch.
