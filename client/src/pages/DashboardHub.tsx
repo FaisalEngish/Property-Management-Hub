@@ -124,24 +124,24 @@ export default function DashboardHub() {
             const IconComponent = item.icon;
             return (
               <Link key={item.href} href={item.href}>
-                <Card className={`cursor-pointer transition-all duration-300 ease-in-out hover:shadow-xl hover:shadow-emerald-100/50 hover:-translate-y-1 hover:scale-[1.02] rounded-2xl border-2 shadow-lg bg-gradient-to-br from-emerald-50/30 to-white ${item.color}`}>
+                <Card className={`cursor-pointer transition-all duration-300 ease-in-out hover:shadow-xl hover:shadow-emerald-100/50 hover:-translate-y-1 hover:scale-[1.02] rounded-2xl border-2 shadow-lg bg-gradient-to-br from-emerald-50/30 to-white h-full flex flex-col ${item.color}`}>
                   <CardHeader className="pb-4 pt-6 px-6">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-4">
-                        <div className="p-3 bg-white/80 backdrop-blur-sm rounded-xl shadow-md border border-white/20">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-start gap-3 flex-1 min-w-0">
+                        <div className="p-3 bg-white/80 backdrop-blur-sm rounded-xl shadow-md border border-white/20 flex-shrink-0">
                           <IconComponent className="h-7 w-7 text-emerald-700" />
                         </div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-2xl">{item.emoji}</span>
-                          <CardTitle className="text-xl font-bold text-slate-800 dark:text-slate-100">{item.title}</CardTitle>
+                        <div className="flex items-start gap-2 flex-1 min-w-0">
+                          <span className="text-2xl flex-shrink-0">{item.emoji}</span>
+                          <CardTitle className="text-lg font-bold text-slate-800 dark:text-slate-100 leading-tight">{item.title}</CardTitle>
                         </div>
                       </div>
-                      <Badge variant="secondary" className="bg-emerald-100 text-emerald-700 border-emerald-200 rounded-md px-2 py-0.5 font-semibold text-xs">
+                      <Badge variant="secondary" className="bg-emerald-100 text-emerald-700 border-emerald-200 rounded-md px-2 py-0.5 font-semibold text-xs flex-shrink-0">
                         {item.badge}
                       </Badge>
                     </div>
                   </CardHeader>
-                  <CardContent className="px-6 pb-6">
+                  <CardContent className="px-6 pb-6 flex-1">
                     <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed font-medium">
                       {item.description}
                     </p>
