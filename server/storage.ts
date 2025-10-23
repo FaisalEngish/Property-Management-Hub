@@ -2243,11 +2243,22 @@ export class DatabaseStorage implements IStorage {
     try {
       console.log(`🗑️ Deleting property ${id} and all related records...`);
       
-      // Delete from ALL tables that reference properties (in order to avoid foreign key constraints)
-      // Core property data
+      // Core booking and task data
       await db.delete(bookings).where(eq(bookings.propertyId, id));
       await db.delete(tasks).where(eq(tasks.propertyId, id));
+      await db.delete(recurringTasks).where(eq(recurringTasks.propertyId, id));
+      await db.delete(taskHistory).where(eq(taskHistory.propertyId, id));
+      await db.delete(taskSchedule).where(eq(taskSchedule.propertyId, id));
+      
+      // Financial data
       await db.delete(finance).where(eq(finance.propertyId, id));
+      await db.delete(ownerBalanceTrackers).where(eq(ownerBalanceTrackers.propertyId, id));
+      await db.delete(securityDeposits).where(eq(securityDeposits.propertyId, id));
+      await db.delete(propertyFinanceSettings).where(eq(propertyFinanceSettings.propertyId, id));
+      await db.delete(propertyTaskBilling).where(eq(propertyTaskBilling.propertyId, id));
+      await db.delete(propertyPayoutSettings).where(eq(propertyPayoutSettings.propertyId, id));
+      
+      // Property documentation and insurance
       await db.delete(propertyDocuments).where(eq(propertyDocuments.propertyId, id));
       await db.delete(propertyInsurance).where(eq(propertyInsurance.propertyId, id));
       
@@ -2255,10 +2266,14 @@ export class DatabaseStorage implements IStorage {
       await db.delete(propertyAppliances).where(eq(propertyAppliances.propertyId, id));
       await db.delete(propertyUtilities).where(eq(propertyUtilities.propertyId, id));
       await db.delete(propertyUtilityAccounts).where(eq(propertyUtilityAccounts.propertyId, id));
+      await db.delete(propertyUtilityAccountsEnhanced).where(eq(propertyUtilityAccountsEnhanced.propertyId, id));
+      await db.delete(utilityBills).where(eq(utilityBills.propertyId, id));
+      await db.delete(utilityBillLogsEnhanced).where(eq(utilityBillLogsEnhanced.propertyId, id));
+      await db.delete(utilityBillAlerts).where(eq(utilityBillAlerts.propertyId, id));
+      
+      // Property content
       await db.delete(propertyReviews).where(eq(propertyReviews.propertyId, id));
       await db.delete(propertyAmenities).where(eq(propertyAmenities.propertyId, id));
-      
-      // Property media and content
       await db.delete(propertyMedia).where(eq(propertyMedia.propertyId, id));
       await db.delete(propertyGuides).where(eq(propertyGuides.propertyId, id));
       
@@ -2266,21 +2281,38 @@ export class DatabaseStorage implements IStorage {
       await db.delete(maintenanceLog).where(eq(maintenanceLog.propertyId, id));
       await db.delete(propertyMaintenanceHistory).where(eq(propertyMaintenanceHistory.propertyId, id));
       await db.delete(propertyServiceHistory).where(eq(propertyServiceHistory.propertyId, id));
+      await db.delete(maintenanceServiceIntervals).where(eq(maintenanceServiceIntervals.propertyId, id));
+      await db.delete(maintenanceBudgetForecasts).where(eq(maintenanceBudgetForecasts.propertyId, id));
+      await db.delete(warrantyAlerts).where(eq(warrantyAlerts.propertyId, id));
       
       // Guest services
       await db.delete(guestCheckIns).where(eq(guestCheckIns.propertyId, id));
       await db.delete(guestCheckOuts).where(eq(guestCheckOuts.propertyId, id));
       await db.delete(guestServiceRequests).where(eq(guestServiceRequests.propertyId, id));
       
-      // Financial tracking
-      await db.delete(ownerBalanceTrackers).where(eq(ownerBalanceTrackers.propertyId, id));
-      await db.delete(securityDeposits).where(eq(securityDeposits.propertyId, id));
-      await db.delete(utilityBills).where(eq(utilityBills.propertyId, id));
-      
       // Property management
       await db.delete(propertyTimeline).where(eq(propertyTimeline.propertyId, id));
+      await db.delete(propertyTimelineEvents).where(eq(propertyTimelineEvents.propertyId, id));
       await db.delete(propertyInternalNotes).where(eq(propertyInternalNotes.propertyId, id));
       await db.delete(propertyAlerts).where(eq(propertyAlerts.propertyId, id));
+      await db.delete(propertyStatus).where(eq(propertyStatus.propertyId, id));
+      await db.delete(propertyOwnerAssignment).where(eq(propertyOwnerAssignment.propertyId, id));
+      await db.delete(propertyBankAccounts).where(eq(propertyBankAccounts.propertyId, id));
+      await db.delete(propertyCommissions).where(eq(propertyCommissions.propertyId, id));
+      await db.delete(propertyAccessControl).where(eq(propertyAccessControl.propertyId, id));
+      await db.delete(propertyAccessCredentials).where(eq(propertyAccessCredentials.propertyId, id));
+      await db.delete(propertyAgents).where(eq(propertyAgents.propertyId, id));
+      await db.delete(propertyAvailability).where(eq(propertyAvailability.propertyId, id));
+      await db.delete(propertyGoals).where(eq(propertyGoals.propertyId, id));
+      await db.delete(propertyInvestments).where(eq(propertyInvestments.propertyId, id));
+      await db.delete(propertyLocalContacts).where(eq(propertyLocalContacts.propertyId, id));
+      await db.delete(propertyPlannedUpgrades).where(eq(propertyPlannedUpgrades.propertyId, id));
+      await db.delete(propertyPlatformRules).where(eq(propertyPlatformRules.propertyId, id));
+      await db.delete(propertySearchIndex).where(eq(propertySearchIndex.propertyId, id));
+      await db.delete(userPropertyAssignments).where(eq(userPropertyAssignments.propertyId, id));
+      await db.delete(portfolioAssignments).where(eq(portfolioAssignments.propertyId, id));
+      await db.delete(recurringServices).where(eq(recurringServices.propertyId, id));
+      await db.delete(waterDeliveryAlerts).where(eq(waterDeliveryAlerts.propertyId, id));
       
       console.log(`✅ Deleted all related records for property ${id}`);
       
@@ -2290,11 +2322,15 @@ export class DatabaseStorage implements IStorage {
       return result.rowCount > 0;
     } catch (error) {
       console.error(`❌ Error deleting property ${id}:`, error);
+      console.error('Error name:', error.name);
+      console.error('Error message:', error.message);
+      if (error.code) console.error('Error code:', error.code);
+      if (error.constraint) console.error('Constraint:', error.constraint);
+      if (error.table) console.error('Table:', error.table);
       throw error;
     }
   }
 
-  // Task operations
   async getTasks(): Promise<Task[]> {
     return await db.select().from(tasks).orderBy(desc(tasks.createdAt));
   }
