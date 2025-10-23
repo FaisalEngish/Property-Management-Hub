@@ -35,8 +35,8 @@ export function PropertyCard({ property, isSelected, onSelect, onViewDetails, on
     return `฿${amount?.toLocaleString() || '0'}`;
   };
 
-  const formatDate = (dateString: string) => {
-    if (!dateString) return 'Never';
+  const formatDate = (dateString: string | null) => {
+    if (!dateString) return 'No bookings yet';
     return new Date(dateString).toLocaleDateString('en-US', {
       month: 'short',
       day: 'numeric',
@@ -44,16 +44,16 @@ export function PropertyCard({ property, isSelected, onSelect, onViewDetails, on
     });
   };
 
-  // Calculate KPIs
-  const occupancyRate = property.occupancyRate || Math.floor(Math.random() * 30) + 60; // 60-90%
-  const monthlyRevenue = property.monthlyRevenue || Math.floor(Math.random() * 100000) + 50000;
-  const maintenanceCosts = property.maintenanceCosts || Math.floor(Math.random() * 10000) + 5000;
-  const maintenanceRatio = ((maintenanceCosts / monthlyRevenue) * 100).toFixed(1);
-  const lastBookingDate = property.lastBookingDate || '2024-12-15';
-  const roi = property.roi || (Math.random() * 20 + 5).toFixed(1);
+  // Calculate KPIs - Initialize with 0 or null, not random values
+  const occupancyRate = property.occupancyRate || 0;
+  const monthlyRevenue = property.monthlyRevenue || 0;
+  const maintenanceCosts = property.maintenanceCosts || 0;
+  const maintenanceRatio = monthlyRevenue > 0 ? ((maintenanceCosts / monthlyRevenue) * 100).toFixed(1) : '0.0';
+  const lastBookingDate = property.lastBookingDate || null;
+  const roi = property.roi || 0;
   
-  // Priority maintenance tasks (moved before getAnalyticsTags)
-  const maintenanceTasks = property.maintenanceTasks || Math.floor(Math.random() * 5) + 1;
+  // Priority maintenance tasks - Initialize with 0, not random values
+  const maintenanceTasks = property.maintenanceTasks || 0;
   const urgentTasks = Math.floor(maintenanceTasks * 0.3);
 
   // Smart Analytics Tags

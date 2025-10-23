@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 
 import TopBar from "@/components/TopBar";
 import PropertyCard from "@/components/PropertyCard";
@@ -11,6 +12,8 @@ import { useToast } from "@/hooks/use-toast";
 
 export default function Properties() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [selectedProperties, setSelectedProperties] = useState<Set<number>>(new Set());
+  const [, navigate] = useLocation();
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -45,6 +48,22 @@ export default function Properties() {
     if (window.confirm("Are you sure you want to delete this property?")) {
       deleteMutation.mutate(id);
     }
+  };
+
+  const handleSelectProperty = (id: number, selected: boolean) => {
+    setSelectedProperties(prev => {
+      const newSet = new Set(prev);
+      if (selected) {
+        newSet.add(id);
+      } else {
+        newSet.delete(id);
+      }
+      return newSet;
+    });
+  };
+
+  const handleViewDetails = (propertyId: number) => {
+    navigate(`/property/${propertyId}`);
   };
 
   return (
@@ -85,6 +104,9 @@ export default function Properties() {
                 <PropertyCard
                   key={`property-${property.id}`}
                   property={property}
+                  isSelected={selectedProperties.has(property.id)}
+                  onSelect={(selected) => handleSelectProperty(property.id, selected)}
+                  onViewDetails={() => handleViewDetails(property.id)}
                   onDelete={() => handleDeleteProperty(property.id)}
                 />
               ))}

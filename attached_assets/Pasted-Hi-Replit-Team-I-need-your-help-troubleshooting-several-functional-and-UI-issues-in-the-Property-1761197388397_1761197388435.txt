@@ -1,0 +1,92 @@
+Hi Replit Team 👋
+
+I need your help troubleshooting several functional and UI issues in the Property Management Hub of the HostPilotPro v2.0 Enterprise system (screenshot attached). Below is the detailed behavior and what needs to be corrected.
+
+🧩 Observed Issues
+
+Add Property button intermittently invisible
+
+The green “+ Add Property” button on the Properties page sometimes doesn’t appear or becomes unclickable.
+
+This may be due to a z-index, overflow, or layout rendering issue when other overlays (like the chat widget or maintenance tags) are present.
+
+Newly added property displays random info
+
+After adding a new property, the info fields such as Last Booking, Monthly Revenue, Occupancy Rate, and Maintenance/Revenue show inconsistent or random values.
+
+“Assigned Task” count also shows 2 or 3 before any manual task assignment.
+
+This likely occurs because of state reuse or asynchronous data-fetching without proper initialization.
+
+Delete functionality not working
+
+Clicking “Delete” does nothing. There’s no UI change or backend call confirmation.
+
+Possible causes: missing click handler, incorrect HTTP method, or API endpoint issue.
+
+View Details not working
+
+The “View Details” button doesn’t open the property details view or modal.
+
+Could be blocked by overlapping UI layers, missing route binding, or a broken click handler.
+
+🧠 Expected Behavior
+
+The Add Property button should always remain visible, clickable, and accessible across all viewport sizes.
+
+After adding a property, all stats fields should initialize with default values (0 or null) until the real-time data loads from the backend.
+
+The “Assigned Task” field should show 0 until actual tasks are assigned.
+
+The Delete button should correctly call the API (DELETE /api/properties/:id), remove the property, and update the UI immediately.
+
+The View Details action should properly open or navigate to the property’s detail page without overlay interference.
+
+🔍 What I’d like you to do
+
+Reproduce all 4 issues on the /properties page.
+
+Inspect and log findings:
+
+Check computed CSS for the Add button (display, z-index, visibility, position).
+
+Observe frontend state changes after creating a property (before and after API calls).
+
+Check network activity for property creation, deletion, and detail-view routes.
+
+Identify missing or misconfigured event listeners for Delete and View Details.
+
+Implement fixes:
+
+Make the Add Property button fixed/sticky with proper z-index.
+
+Initialize stats fields to default values before fetching actual data.
+
+Verify backend route and fix Delete handler if needed.
+
+Ensure View Details correctly opens or routes to the right component.
+
+Validate results:
+
+Confirm all actions (Add, View, Delete) work smoothly.
+
+Ensure data displayed is consistent with the backend API response.
+
+Test responsiveness on standard resolutions (1366x768, 1440x900, 1920x1080).
+
+✅ Deliverables
+
+Please provide:
+
+Root cause summary for each issue.
+
+Implemented code fixes (with file names and line changes).
+
+A brief QA confirmation (how you verified each fix).
+
+Optional: one small automated test or script confirming correct behavior for Add/View/Delete flow.
+
+Thank you for your excellent work so far — once these fixes are applied, the Property Management Hub should be fully stable and consistent across UI and backend.
+
+Best regards,
+Farid
