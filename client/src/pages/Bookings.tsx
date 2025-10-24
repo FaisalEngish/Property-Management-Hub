@@ -188,9 +188,9 @@ export default function Bookings() {
     // In the future, this could be based on property owner or assigned staff
     const matchesManager = filterManager === 'all'; // Always true for now
     
-    // Status filter: exact match on booking status
+    // Status filter: case-insensitive match on booking status
     const matchesStatus = filterStatus === 'all' || 
-      booking.status === filterStatus;
+      booking.status?.toLowerCase() === filterStatus.toLowerCase();
     
     return matchesSearch && matchesArea && matchesManager && matchesStatus;
   });
@@ -381,10 +381,10 @@ export default function Bookings() {
               <div className="space-y-3">
                 {filteredBookings.map((booking: any) => {
                   const property = propertiesArray.find((p: any) => p.id === booking.propertyId);
-                  const checkInDate = booking.checkInDate ? new Date(booking.checkInDate).toLocaleDateString() : 'N/A';
-                  const checkOutDate = booking.checkOutDate ? new Date(booking.checkOutDate).toLocaleDateString() : 'N/A';
-                  const nights = booking.checkInDate && booking.checkOutDate 
-                    ? Math.ceil((new Date(booking.checkOutDate).getTime() - new Date(booking.checkInDate).getTime()) / (1000 * 60 * 60 * 24))
+                  const checkInDate = booking.checkIn ? new Date(booking.checkIn).toLocaleDateString() : 'N/A';
+                  const checkOutDate = booking.checkOut ? new Date(booking.checkOut).toLocaleDateString() : 'N/A';
+                  const nights = booking.checkIn && booking.checkOut 
+                    ? Math.ceil((new Date(booking.checkOut).getTime() - new Date(booking.checkIn).getTime()) / (1000 * 60 * 60 * 24))
                     : 0;
                   
                   return (
@@ -440,8 +440,8 @@ export default function Bookings() {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {filteredBookings.map((booking: any) => {
                   const property = propertiesArray.find((p: any) => p.id === booking.propertyId);
-                  const checkInDate = booking.checkInDate ? new Date(booking.checkInDate).toLocaleDateString() : 'N/A';
-                  const checkOutDate = booking.checkOutDate ? new Date(booking.checkOutDate).toLocaleDateString() : 'N/A';
+                  const checkInDate = booking.checkIn ? new Date(booking.checkIn).toLocaleDateString() : 'N/A';
+                  const checkOutDate = booking.checkOut ? new Date(booking.checkOut).toLocaleDateString() : 'N/A';
                   
                   return (
                     <Card 
@@ -545,8 +545,8 @@ export default function Bookings() {
                       ) : (
                         <div className="space-y-3">
                           {property.bookings.map((booking: any) => {
-                            const checkInDate = booking.checkInDate ? new Date(booking.checkInDate).toLocaleDateString() : 'N/A';
-                            const checkOutDate = booking.checkOutDate ? new Date(booking.checkOutDate).toLocaleDateString() : 'N/A';
+                            const checkInDate = booking.checkIn ? new Date(booking.checkIn).toLocaleDateString() : 'N/A';
+                            const checkOutDate = booking.checkOut ? new Date(booking.checkOut).toLocaleDateString() : 'N/A';
                             
                             return (
                               <div key={booking.id} className="flex items-center justify-between p-3 border rounded-lg bg-muted/30">
@@ -602,8 +602,8 @@ export default function Bookings() {
               <BookingCalendar 
                 bookings={bookingsArray.map((booking: any) => ({
                   ...booking,
-                  checkIn: booking.checkInDate,
-                  checkOut: booking.checkOutDate,
+                  checkIn: booking.checkIn || booking.checkInDate,
+                  checkOut: booking.checkOut || booking.checkOutDate,
                 }))}
               />
             )}
@@ -622,8 +622,8 @@ export default function Bookings() {
                   <div className="space-y-3">
                     {filteredBookings.slice(0, 10).map((booking: any) => {
                       const property = propertiesArray.find((p: any) => p.id === booking.propertyId);
-                      const checkInDate = booking.checkInDate ? new Date(booking.checkInDate).toLocaleDateString() : 'N/A';
-                      const checkOutDate = booking.checkOutDate ? new Date(booking.checkOutDate).toLocaleDateString() : 'N/A';
+                      const checkInDate = booking.checkIn ? new Date(booking.checkIn).toLocaleDateString() : 'N/A';
+                      const checkOutDate = booking.checkOut ? new Date(booking.checkOut).toLocaleDateString() : 'N/A';
                       
                       return (
                         <div key={booking.id} className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/30 transition-colors">
