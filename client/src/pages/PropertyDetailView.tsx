@@ -130,10 +130,7 @@ function EditMapLinkDialog({ property, onUpdate }: EditMapLinkDialogProps) {
 
   const updatePropertyMutation = useMutation({
     mutationFn: async (data: { googleMapsLink: string }) => {
-      return apiRequest(`/api/properties/${property.id}`, {
-        method: "PATCH",
-        body: JSON.stringify(data),
-      });
+      return apiRequest("PATCH", `/api/properties/${property.id}`, data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/properties/${property.id}`] });
