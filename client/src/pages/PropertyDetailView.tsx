@@ -755,7 +755,7 @@ export default function PropertyDetailView() {
               </div>
               <div className="flex items-center gap-1">
                 <Users className="w-4 h-4" />
-                <span>{property.capacity} Guests</span>
+                <span>{property.maxGuests || 'N/A'} Guests</span>
               </div>
               <div className="flex items-center gap-1">
                 <DollarSign className="w-4 h-4" />
