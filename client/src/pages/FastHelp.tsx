@@ -26,8 +26,9 @@ export default function FastHelp() {
         <Button 
           variant="outline" 
           size="sm" 
-          onClick={() => setLocation("/dashboard")}
+          onClick={() => setLocation("/")}
           className="mb-4"
+          data-testid="button-back-dashboard"
         >
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back to Dashboard
