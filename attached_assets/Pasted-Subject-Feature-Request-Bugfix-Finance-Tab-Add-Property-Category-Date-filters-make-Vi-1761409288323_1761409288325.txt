@@ -1,0 +1,151 @@
+Subject: ⭐ Feature Request / Bugfix — Finance Tab: Add Property / Category / Date filters & make “View Report” property-specific
+
+Priority: P2 (high usability; finance reporting is essential)
+
+Summary
+Implement property-specific finance filtering and UI controls in the Finance Hub so users can view financial data per property and per period. Currently, the View Report button under each property routes users to the Finance Hub but shows collective data for all properties. This must be changed so the finance view is property-specific when invoked. Also add filter controls to the Finance tab for Property, Category (Income / Expense / Marketing / etc.), and Date Range.
+
+Requirements / Acceptance Criteria
+1) Route / deep-link behaviour
+
+Clicking the View Report button for a property (e.g. from Property Details or Dashboard) should open the Finance Hub with filters pre-applied to that property.
+
+The URL must reflect filters using query parameters so links are shareable/bookmarkable:
+
+Example: /finance-hub?propertyId=47&category=income&start=2025-10-01&end=2025-10-31
+
+If no query params present, show default Finance Hub (all properties / default date range).
+
+2) UI: Filter controls on Finance Hub
+
+Add a filter bar at the top of the Finance Hub with:
+
+Property: dropdown (select single property or “All properties”). Show property name and ID.
+
+Category: multi-select or single-select tags (Income, Expense, Marketing, Refund, Payout, Other).
+
+Date Range: date picker with start + end; quick presets (This month, Last month, All time).
+
+Apply / Reset buttons (Apply applies chosen filters, Reset clears all filters to default).
+
+View Report button (optional) which runs the current filters and updates charts/totals.
+
+Show active filter badges (small removable chips) once filters applied.
+
+3) Data & Filtering behavior
+
+All summaries, charts, totals, and the Recent Transactions list must respect the selected filters and display only records matching:
+
+propertyId (if set)
+
+category (if set)
+
+transactionDate between start and end
+
+When filters are applied, widgets should show the filtered totals and include the filter context in their labels (e.g., “Total Revenue — Hotel Blue Moon (Oct 2025)”).
+
+If propertyId is set but there is no finance data, show a friendly empty state: “No transactions found for Hotel Blue Moon in selected period.”
+
+4) Backend / API contract suggestions
+
+Finance list endpoint should accept query params: propertyId, category, startDate, endDate, page, pageSize.
+
+Example: GET /api/finances?propertyId=47&category=expense&start=2025-10-01&end=2025-10-31&page=1&pageSize=20
+
+Summary endpoints (total revenue, total expenses, net profit) should accept same filters or the frontend should call a filtered summary endpoint:
+
+GET /api/finances/summary?propertyId=47&start=...&end=...
+
+Ensure date-time zones are handled consistently (server expects ISO8601 YYYY-MM-DD or UTC timestamps).
+
+5) Frontend changes
+
+Update the View Report button to include the target property’s ID in the route link, e.g.:
+
+to={/finance-hub?propertyId=${property.id}&start=${start}&end=${end}}
+
+Finance Hub must parse location.search and initialize filter state from query params.
+
+When filters change and user clicks Apply, update the URL query params to match (use history.pushState / router).
+
+Debounce network calls where appropriate and show skeleton/loading states while fetching filtered data.
+
+6) Edge cases & UX
+
+If user lands on the Finance Hub with malformed query params, gracefully ignore invalid params and show default view.
+
+If user has no property access permission, hide property dropdown or show only allowed properties.
+
+Persist last-used filters per user (optional enhancement): localStorage or user preferences.
+
+Implementation checklist for devs
+
+Frontend
+
+ Add filter bar component (Property dropdown, Category selector, Date range picker).
+
+ Parse URL query params on mount and populate filter state.
+
+ Update View Report buttons to route to /finance-hub?propertyId=....
+
+ Call filtered summary + transactions endpoints and update widgets.
+
+ Update URL whenever filters are applied (so page is shareable).
+
+ Show filtered labels and empty states.
+
+Backend
+
+ Extend finance endpoints with query param handling (propertyId, category, start, end).
+
+ Add filtered summary endpoint or modify existing so it accepts filters.
+
+ Add tests to ensure filters return correct aggregated totals and transactions.
+
+QA / Testing
+
+ Test clicking View Report from a property routes to Finance Hub and shows only that property’s data.
+
+ Test combining filters (property + category + date range).
+
+ Test url share: copy /finance-hub?propertyId=47&start=...&end=... to incognito and verify it initializes same filters.
+
+ Test fallback for invalid params.
+
+ Test no-data empty state for property/date combinations with no transactions.
+
+Example user stories (for product / testers)
+
+As an admin, when I click View Report on Hotel Blue Moon, I should see Finance Hub values only for Hotel Blue Moon for the default date range.
+
+As an accountant, I should be able to filter Finance Hub by Category = Expense and Date Range = Last Quarter to see only expense transactions for the selected property.
+
+As a manager, I should be able to share a URL to a colleague that opens the Finance Hub with the same property and date filters.
+
+Suggested priority & timeline
+
+Priority: High (improves data accuracy and usability)
+
+Estimate: Frontend + backend: 1–3 days depending on existing API support. (Please confirm if summary endpoint already supports filters; if not, backend change required first.)
+
+Example ready-to-send bug/feature message (copy/paste)
+
+Subject: Feature Request — Finance Hub: Add Property/Category/Date filters + make View Report property-specific
+
+Hi team,
+
+Please implement the following updates to the Finance Hub so reports are property-specific and filterable:
+
+Add filter controls: Property, Category (Income / Expense / Marketing / …), and Date Range.
+
+Clicking a property’s View Report should open /finance-hub with propertyId set in query params and show only that property’s financial data.
+
+All widgets, summaries and transactions must respect selected filters and the URL must reflect filters for shareable reports.
+
+Backend endpoints must support query params (propertyId, category, start, end) for transactions and summaries.
+
+See details, acceptance criteria, and QA checklist in the attached spec.
+
+Please confirm whether the finance summary endpoint already accepts filters; if not, we’ll need a small backend change first. Marking this as high-priority.
+
+Thanks!
