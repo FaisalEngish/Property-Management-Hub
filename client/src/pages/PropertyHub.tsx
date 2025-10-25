@@ -343,6 +343,8 @@ export default function PropertyHub() {
     propertyId: b.propertyId || (Math.floor(Math.random() * propertiesArray.length) + 1),
     propertyName: b.propertyName || 'Unknown Property',
     guestName: b.guestName || 'Guest',
+    guestEmail: b.guestEmail,
+    guestPhone: b.guestPhone,
     checkIn: b.checkInDate || b.checkIn || '2024-08-01',
     checkOut: b.checkOutDate || b.checkOut || '2024-08-02',
     status: b.status || 'confirmed',
