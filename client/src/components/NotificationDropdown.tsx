@@ -145,7 +145,11 @@ export function NotificationDropdown() {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => markAllReadMutation.mutate()}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                markAllReadMutation.mutate();
+              }}
               disabled={markAllReadMutation.isPending}
             >
               <Check className="h-3 w-3 mr-1" />
@@ -166,7 +170,11 @@ export function NotificationDropdown() {
               <DropdownMenuItem
                 key={notification.id}
                 className="flex flex-col items-start p-3 cursor-pointer relative"
-                onClick={() => handleNotificationClick(notification)}
+                onSelect={(e) => e.preventDefault()}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleNotificationClick(notification);
+                }}
               >
                 <div className="flex items-start justify-between w-full">
                   <div className="flex items-center space-x-2 flex-1">

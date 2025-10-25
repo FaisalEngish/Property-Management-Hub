@@ -97,15 +97,15 @@ export function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModalProps) {
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl max-h-[80vh] p-0">
-        <DialogHeader className="px-6 py-4 border-b">
+      <DialogContent className="max-w-2xl p-0 flex flex-col" style={{ maxHeight: "80vh" }}>
+        <DialogHeader className="px-6 py-4 border-b shrink-0">
           <DialogTitle className="flex items-center gap-2">
             <Search className="h-5 w-5" />
             Global Search
           </DialogTitle>
         </DialogHeader>
         
-        <div className="px-6 py-4 border-b">
+        <div className="px-6 py-4 border-b shrink-0">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
             <Input
@@ -129,7 +129,7 @@ export function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModalProps) {
           </div>
         </div>
 
-        <div className="px-6 py-4 overflow-y-auto" style={{ maxHeight: "400px" }}>
+        <div className="px-6 py-4 overflow-y-auto flex-1 min-h-0">
             {isLoading ? (
               <div className="flex items-center justify-center py-8">
                 <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
@@ -212,7 +212,7 @@ export function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModalProps) {
         </div>
 
         {searchResults.length > 0 && (
-          <div className="px-6 py-3 border-t bg-muted/30">
+          <div className="px-6 py-3 border-t bg-muted/30 shrink-0">
             <p className="text-xs text-muted-foreground text-center">
               Press <kbd className="px-1.5 py-0.5 text-xs bg-muted border rounded">Enter</kbd> to open first result, 
               <kbd className="px-1.5 py-0.5 text-xs bg-muted border rounded ml-1">Esc</kbd> to close
