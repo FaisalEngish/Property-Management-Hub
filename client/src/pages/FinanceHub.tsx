@@ -158,15 +158,26 @@ export default function FinanceHub() {
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
     
-    // Filter bookings for selected property and date range
+    // Filter bookings for selected property
     const propertyBookings = bookings.filter((b: any) => {
       if (propertyFilter !== "all" && String(b.propertyId) !== String(propertyFilter)) {
         return false;
       }
-      return b.status !== 'cancelled';
+      if (b.status === 'cancelled') {
+        return false;
+      }
+      
+      // Apply date range filter if specified
+      if (dateFrom || dateTo) {
+        const checkIn = new Date(b.checkIn);
+        if (dateFrom && checkIn < new Date(dateFrom)) return false;
+        if (dateTo && checkIn > new Date(dateTo)) return false;
+      }
+      
+      return true;
     });
     
-    // Calculate booking revenue (matches Property Dashboard logic)
+    // Calculate booking revenue (monthly - for current month stats)
     const bookingMonthlyRevenue = propertyBookings
       .filter((b: any) => {
         const checkIn = new Date(b.checkIn);
@@ -174,10 +185,18 @@ export default function FinanceHub() {
       })
       .reduce((sum: number, b: any) => sum + parseFloat(String(b.platformPayout || b.totalAmount) || '0'), 0);
     
-    // Calculate totals from FILTERED transactions (affected by property, category, AND date range)
-    const totalRevenue = filteredTransactions
-      .filter(t => t.type === 'income')
-      .reduce((sum, t) => sum + parseFloat(String(t.amount) || '0'), 0);
+    // When property is filtered, use booking revenue for total revenue
+    // Sum all booking amounts since property creation (or within date range)
+    let totalRevenue: number;
+    if (propertyFilter !== "all") {
+      totalRevenue = propertyBookings.reduce((sum: number, b: any) => 
+        sum + parseFloat(String(b.platformPayout || b.totalAmount) || '0'), 0);
+    } else {
+      // For "all properties", use finance transaction revenue
+      totalRevenue = filteredTransactions
+        .filter(t => t.type === 'income')
+        .reduce((sum, t) => sum + parseFloat(String(t.amount) || '0'), 0);
+    }
     
     const totalExpenses = filteredTransactions
       .filter(t => t.type === 'expense')
@@ -214,7 +233,7 @@ export default function FinanceHub() {
       monthlyExpenses,
       bookingMonthlyRevenue
     };
-  }, [filteredTransactions, bookings, propertyFilter]);
+  }, [filteredTransactions, bookings, propertyFilter, dateFrom, dateTo]);
 
   const recentTransactions = filteredTransactions.slice(0, 10);
 
