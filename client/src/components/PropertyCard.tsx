@@ -152,7 +152,7 @@ export function PropertyCard({ property, isSelected, onSelect, onViewDetails, on
           className="h-8 w-8 p-0 bg-white/90 backdrop-blur-sm shadow-sm hover:bg-emerald-50 hover:scale-110 transition-all duration-200"
           onClick={(e) => {
             e.stopPropagation();
-            navigate(`/finance-hub?property=${property.id}`);
+            navigate(`/finance-hub?propertyId=${property.id}`);
           }}
           title="View Reports"
         >
