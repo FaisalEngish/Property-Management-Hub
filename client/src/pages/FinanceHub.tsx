@@ -162,11 +162,11 @@ export default function FinanceHub() {
 
     const totalRevenue = filteredTransactions
       .filter(t => t.type === 'income')
-      .reduce((sum, t) => sum + t.amount, 0);
+      .reduce((sum, t) => sum + parseFloat(String(t.amount) || '0'), 0);
     
     const totalExpenses = filteredTransactions
       .filter(t => t.type === 'expense')
-      .reduce((sum, t) => sum + Math.abs(t.amount), 0);
+      .reduce((sum, t) => sum + Math.abs(parseFloat(String(t.amount) || '0')), 0);
     
     const netProfit = totalRevenue - totalExpenses;
     const profitMargin = totalRevenue > 0 ? (netProfit / totalRevenue) * 100 : 0;
@@ -181,11 +181,11 @@ export default function FinanceHub() {
 
     const monthlyRevenue = monthlyTransactions
       .filter(t => t.type === 'income')
-      .reduce((sum, t) => sum + t.amount, 0);
+      .reduce((sum, t) => sum + parseFloat(String(t.amount) || '0'), 0);
     
     const monthlyExpenses = monthlyTransactions
       .filter(t => t.type === 'expense')
-      .reduce((sum, t) => sum + Math.abs(t.amount), 0);
+      .reduce((sum, t) => sum + Math.abs(parseFloat(String(t.amount) || '0')), 0);
 
     return {
       totalRevenue,
