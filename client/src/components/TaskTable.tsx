@@ -13,7 +13,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { CheckCircle, XCircle, Edit, User, DollarSign } from "lucide-react";
+import { CheckCircle, XCircle, Edit, User, DollarSign, Upload, X } from "lucide-react";
 import { Link } from "wouter";
 
 interface TaskTableProps {
@@ -26,6 +26,7 @@ export default function TaskTable({ tasks, isLoading }: TaskTableProps) {
   const { toast } = useToast();
   const [editingTask, setEditingTask] = useState<any>(null);
   const [editForm, setEditForm] = useState<any>({});
+  const [evidencePhotos, setEvidencePhotos] = useState<string[]>([]);
 
   // Get current user for achievement checks
   const { data: user } = useQuery({
@@ -46,6 +47,7 @@ export default function TaskTable({ tasks, isLoading }: TaskTableProps) {
       queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
       setEditingTask(null);
       setEditForm({});
+      setEvidencePhotos([]);
       toast({
         title: "Success",
         description: "Task updated successfully",
@@ -128,13 +130,50 @@ export default function TaskTable({ tasks, isLoading }: TaskTableProps) {
       assignedTo: task.assignedTo,
       dueDate: task.dueDate ? task.dueDate.split('T')[0] : '',
     });
+    setEvidencePhotos(task.evidencePhotos || []);
+  };
+
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (!files) return;
+
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png'];
+    const newPhotos: string[] = [];
+
+    Array.from(files).forEach((file) => {
+      if (!allowedTypes.includes(file.type)) {
+        toast({
+          title: "Invalid file type",
+          description: "Only .jpg and .png files are allowed",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        if (reader.result) {
+          setEvidencePhotos(prev => [...prev, reader.result as string]);
+        }
+      };
+      reader.readAsDataURL(file);
+    });
+
+    event.target.value = '';
+  };
+
+  const removePhoto = (index: number) => {
+    setEvidencePhotos(prev => prev.filter((_, i) => i !== index));
   };
 
   const handleSaveTask = () => {
     if (editingTask) {
       updateTaskMutation.mutate({
         id: editingTask.id,
-        data: editForm
+        data: {
+          ...editForm,
+          evidencePhotos: evidencePhotos.length > 0 ? evidencePhotos : undefined
+        }
       });
     }
   };
@@ -337,7 +376,12 @@ export default function TaskTable({ tasks, isLoading }: TaskTableProps) {
       </CardContent>
 
       {/* Task Edit Dialog */}
-      <Dialog open={!!editingTask} onOpenChange={(open) => !open && setEditingTask(null)}>
+      <Dialog open={!!editingTask} onOpenChange={(open) => {
+        if (!open) {
+          setEditingTask(null);
+          setEvidencePhotos([]);
+        }
+      }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Edit Task</DialogTitle>
@@ -450,13 +494,60 @@ export default function TaskTable({ tasks, isLoading }: TaskTableProps) {
               </Alert>
             )}
             
-            <div className="flex justify-end space-x-2">
-              <Button variant="outline" onClick={() => setEditingTask(null)}>
-                Cancel
-              </Button>
-              <Button onClick={handleSaveTask} disabled={updateTaskMutation.isPending}>
-                Save Changes
-              </Button>
+            {/* Evidence Photos Upload Section */}
+            {evidencePhotos.length > 0 && (
+              <div>
+                <Label>Evidence Photos ({evidencePhotos.length})</Label>
+                <div className="grid grid-cols-3 gap-2 mt-2">
+                  {evidencePhotos.map((photo, index) => (
+                    <div key={index} className="relative group">
+                      <img 
+                        src={photo} 
+                        alt={`Evidence ${index + 1}`}
+                        className="w-full h-20 object-cover rounded border"
+                      />
+                      <button
+                        onClick={() => removePhoto(index)}
+                        className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                        data-testid={`button-remove-photo-${index}`}
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            <div className="flex justify-between items-center space-x-2">
+              <div>
+                <input
+                  type="file"
+                  id="evidence-upload"
+                  accept=".jpg,.jpeg,.png"
+                  multiple
+                  onChange={handleFileUpload}
+                  className="hidden"
+                  data-testid="input-evidence-upload"
+                />
+                <Button 
+                  variant="outline" 
+                  onClick={() => document.getElementById('evidence-upload')?.click()}
+                  className="bg-blue-600 text-white hover:bg-blue-700"
+                  data-testid="button-upload-evidence"
+                >
+                  <Upload className="h-4 w-4 mr-2" />
+                  Upload Evidence
+                </Button>
+              </div>
+              <div className="flex space-x-2">
+                <Button variant="outline" onClick={() => setEditingTask(null)}>
+                  Cancel
+                </Button>
+                <Button onClick={handleSaveTask} disabled={updateTaskMutation.isPending}>
+                  Save Changes
+                </Button>
+              </div>
             </div>
           </div>
         </DialogContent>
