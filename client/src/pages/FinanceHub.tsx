@@ -127,15 +127,7 @@ export default function FinanceHub() {
 
   // Filter transactions based on ALL selected criteria (property, category, date range)
   const filteredTransactions = useMemo(() => {
-    console.log('💰 Finance Hub - Filtering transactions:', {
-      totalTransactions: transactions.length,
-      propertyFilter,
-      categoryFilter,
-      dateFrom,
-      dateTo
-    });
-
-    const filtered = transactions.filter((transaction) => {
+    return transactions.filter((transaction) => {
       // Property filter - compare as strings to handle both numeric and string IDs
       if (propertyFilter !== "all" && String(transaction.propertyId) !== String(propertyFilter)) {
         return false;
@@ -156,13 +148,6 @@ export default function FinanceHub() {
 
       return true;
     });
-
-    console.log('💰 Filtered result:', {
-      filteredCount: filtered.length,
-      samplePropertyIds: filtered.slice(0, 3).map(t => ({ id: t.propertyId, amount: t.amount, type: t.type }))
-    });
-
-    return filtered;
   }, [transactions, propertyFilter, categoryFilter, dateFrom, dateTo]);
 
   // Calculate analytics based on filtered transactions
@@ -190,23 +175,16 @@ export default function FinanceHub() {
       .reduce((sum: number, b: any) => sum + parseFloat(String(b.platformPayout || b.totalAmount) || '0'), 0);
     
     // Calculate totals from FILTERED transactions (affected by property, category, AND date range)
-    const incomeTransactions = filteredTransactions.filter(t => t.type === 'income');
-    const totalRevenue = incomeTransactions.reduce((sum, t) => sum + parseFloat(String(t.amount) || '0'), 0);
+    const totalRevenue = filteredTransactions
+      .filter(t => t.type === 'income')
+      .reduce((sum, t) => sum + parseFloat(String(t.amount) || '0'), 0);
     
-    const expenseTransactions = filteredTransactions.filter(t => t.type === 'expense');
-    const totalExpenses = expenseTransactions.reduce((sum, t) => sum + Math.abs(parseFloat(String(t.amount) || '0')), 0);
+    const totalExpenses = filteredTransactions
+      .filter(t => t.type === 'expense')
+      .reduce((sum, t) => sum + Math.abs(parseFloat(String(t.amount) || '0')), 0);
     
     const netProfit = totalRevenue - totalExpenses;
     const profitMargin = totalRevenue > 0 ? (netProfit / totalRevenue) * 100 : 0;
-
-    console.log('📊 Finance Hub - Calculated Analytics:', {
-      totalRevenue,
-      totalExpenses,
-      netProfit,
-      incomeCount: incomeTransactions.length,
-      expenseCount: expenseTransactions.length,
-      propertyFilter
-    });
 
     // Calculate monthly values for current month
     const currentMonth = new Date().getMonth();
