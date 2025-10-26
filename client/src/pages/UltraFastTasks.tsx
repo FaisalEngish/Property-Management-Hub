@@ -912,14 +912,14 @@ export default function UltraFastTasks() {
 
       {/* Edit Task Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="sm:max-w-2xl">
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col">
           <DialogHeader>
             <DialogTitle>Edit Task</DialogTitle>
             <DialogDescription>
               Update task details and save changes
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4 py-4">
+          <div className="grid gap-4 py-4 overflow-y-auto max-h-[60vh]">
             <div className="grid grid-cols-4 items-center gap-4">
               <label htmlFor="title" className="text-right font-medium">
                 Title
