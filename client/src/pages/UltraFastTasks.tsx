@@ -453,8 +453,8 @@ export default function UltraFastTasks() {
 
     const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png'];
     const MAX_PHOTOS = 6;
-    const MAX_WIDTH = 794; // 8.27 inches at 96 DPI
-    const MAX_HEIGHT = 1122; // 11.69 inches at 96 DPI
+    const MAX_WIDTH = 1920; // Full HD width
+    const MAX_HEIGHT = 1080; // Full HD height
 
     // Check if adding these files would exceed max photos
     if (evidencePhotos.length + files.length > MAX_PHOTOS) {
@@ -482,11 +482,11 @@ export default function UltraFastTasks() {
         if (reader.result) {
           const img = new Image();
           img.onload = () => {
-            // Check dimensions (max A4 size: 8.27" x 11.69" at 96 DPI)
+            // Check dimensions (max Full HD: 1920 x 1080)
             if (img.width > MAX_WIDTH || img.height > MAX_HEIGHT) {
               toast({
                 title: "Photo too large",
-                description: `Photo dimensions must not exceed ${MAX_WIDTH}×${MAX_HEIGHT} pixels (A4 paper size). This photo is ${img.width}×${img.height} pixels.`,
+                description: `Photo dimensions must not exceed ${MAX_WIDTH}×${MAX_HEIGHT} pixels (Full HD). This photo is ${img.width}×${img.height} pixels.`,
                 variant: "destructive",
               });
               return;
