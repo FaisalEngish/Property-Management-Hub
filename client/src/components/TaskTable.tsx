@@ -138,7 +138,6 @@ export default function TaskTable({ tasks, isLoading }: TaskTableProps) {
     if (!files) return;
 
     const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png'];
-    const newPhotos: string[] = [];
 
     Array.from(files).forEach((file) => {
       if (!allowedTypes.includes(file.type)) {
@@ -172,7 +171,7 @@ export default function TaskTable({ tasks, isLoading }: TaskTableProps) {
         id: editingTask.id,
         data: {
           ...editForm,
-          evidencePhotos: evidencePhotos.length > 0 ? evidencePhotos : undefined
+          evidencePhotos: evidencePhotos
         }
       });
     }
