@@ -51,6 +51,17 @@ export default function TaskTable({ tasks, isLoading }: TaskTableProps) {
         description: "Task updated successfully",
       });
 
+      // Invalidate finance cache if task was completed (auto-link creates finance record)
+      if (data.status === 'completed') {
+        console.log('💰 Invalidating finance cache for auto-linked expense');
+        queryClient.invalidateQueries({ queryKey: ["/api/finance"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/finance/analytics"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
+        // Force refetch to show new finance record immediately
+        queryClient.refetchQueries({ queryKey: ["/api/finance"] });
+        queryClient.refetchQueries({ queryKey: ["/api/finance/analytics"] });
+      }
+
       // Invalidate achievement cache if task was marked completed or approved
       // Backend already recalculates achievements in PUT /api/tasks/:id
       if ((data.status === 'completed' || data.status === 'approved') && user?.id) {
