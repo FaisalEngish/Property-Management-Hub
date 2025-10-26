@@ -2338,7 +2338,7 @@ Be specific and actionable in your recommendations.`;
           });
           
           // Invalidate finance cache to ensure Finance Hub shows the new expense immediately
-          const { clearCache } = await import("./cacheMiddleware");
+          const { clearCache } = await import("./performanceOptimizer");
           clearCache("finance");
           
           console.log(`✅ Finance record auto-created for task ${task.id} with ${task.actualCost ? 'actual' : 'estimated'} cost of ${costAmount}`);

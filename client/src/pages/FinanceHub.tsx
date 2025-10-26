@@ -125,7 +125,7 @@ export default function FinanceHub() {
     return new Intl.NumberFormat('en-US').format(num);
   };
 
-  // Filter transactions based on selected criteria
+  // Filter transactions for DISPLAY (includes date range filter)
   const filteredTransactions = useMemo(() => {
     return transactions.filter((transaction) => {
       // Property filter
@@ -150,7 +150,25 @@ export default function FinanceHub() {
     });
   }, [transactions, propertyFilter, categoryFilter, dateFrom, dateTo]);
 
-  // Recalculate analytics based on filtered transactions
+  // Filter transactions for TOTALS (ALL TIME - no date filter, only property/category)
+  const allTimeTransactions = useMemo(() => {
+    return transactions.filter((transaction) => {
+      // Property filter only for totals
+      if (propertyFilter !== "all" && transaction.propertyId !== parseInt(propertyFilter)) {
+        return false;
+      }
+
+      // Category filter
+      if (categoryFilter !== "all" && transaction.category !== categoryFilter) {
+        return false;
+      }
+
+      // NO DATE FILTER - we want all-time totals
+      return true;
+    });
+  }, [transactions, propertyFilter, categoryFilter]);
+
+  // Recalculate analytics - TOTALS from all time, MONTHLY from current month
   const filteredAnalytics = useMemo(() => {
     // Calculate booking-based revenue (matches Property Dashboard)
     const now = new Date();
@@ -173,36 +191,22 @@ export default function FinanceHub() {
       })
       .reduce((sum: number, b: any) => sum + parseFloat(String(b.platformPayout || b.totalAmount) || '0'), 0);
     
-    // If no transactions, return zeros but include booking revenue
-    if (!filteredTransactions.length) {
-      return {
-        totalRevenue: 0,
-        totalExpenses: 0,
-        netProfit: 0,
-        profitMargin: 0,
-        transactionCount: 0,
-        averageTransaction: 0,
-        monthlyRevenue: 0,
-        monthlyExpenses: 0,
-        bookingMonthlyRevenue // Add booking-based revenue
-      };
-    }
-
-    const totalRevenue = filteredTransactions
+    // Calculate ALL-TIME totals (not affected by date range filter)
+    const totalRevenue = allTimeTransactions
       .filter(t => t.type === 'income')
       .reduce((sum, t) => sum + parseFloat(String(t.amount) || '0'), 0);
     
-    const totalExpenses = filteredTransactions
+    const totalExpenses = allTimeTransactions
       .filter(t => t.type === 'expense')
       .reduce((sum, t) => sum + Math.abs(parseFloat(String(t.amount) || '0')), 0);
     
     const netProfit = totalRevenue - totalExpenses;
     const profitMargin = totalRevenue > 0 ? (netProfit / totalRevenue) * 100 : 0;
 
-    // Calculate monthly values for current month from transactions
+    // Calculate monthly values for current month from ALL TIME transactions
     const currentMonth = new Date().getMonth();
     const currentYear = new Date().getFullYear();
-    const monthlyTransactions = filteredTransactions.filter(t => {
+    const monthlyTransactions = allTimeTransactions.filter(t => {
       const date = new Date(t.date);
       return date.getMonth() === currentMonth && date.getFullYear() === currentYear;
     });
@@ -220,14 +224,14 @@ export default function FinanceHub() {
       totalExpenses,
       netProfit,
       profitMargin,
-      transactionCount: filteredTransactions.length,
-      averageTransaction: filteredTransactions.length > 0 ? 
-        (totalRevenue + totalExpenses) / filteredTransactions.length : 0,
+      transactionCount: allTimeTransactions.length, // Total transaction count
+      averageTransaction: allTimeTransactions.length > 0 ? 
+        (totalRevenue + totalExpenses) / allTimeTransactions.length : 0,
       monthlyRevenue,
       monthlyExpenses,
       bookingMonthlyRevenue // Add booking-based revenue to match Property Dashboard
     };
-  }, [filteredTransactions, bookings, propertyFilter]);
+  }, [allTimeTransactions, bookings, propertyFilter]);
 
   const recentTransactions = filteredTransactions.slice(0, 10);
 
