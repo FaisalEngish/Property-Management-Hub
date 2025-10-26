@@ -650,6 +650,9 @@ export const tasks: any = pgTable("tasks", {
   // AI and Auto-assignment fields
   autoAssigned: boolean("auto_assigned").default(false),
   aiConfidence: decimal("ai_confidence", { precision: 4, scale: 2 }),
+  // Finance linking
+  financeRecordId: integer("finance_record_id").references(() => finances.id),
+  financeLinkedAt: timestamp("finance_linked_at"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
