@@ -40,14 +40,6 @@ export default function UpgradedAdminDashboard() {
   const recentBookings = Array.isArray(bookings) ? bookings.slice(0, 5) : [];
   const recentFinances = Array.isArray(finances) ? finances.slice(0, 5) : [];
 
-  // Debug booking amounts
-  console.log('📊 Admin Dashboard - Recent Bookings:', recentBookings.map(b => ({
-    id: b.id,
-    guest: b.guestName,
-    totalAmount: b.totalAmount,
-    type: typeof b.totalAmount
-  })));
-
   // Create property lookup map for bookings - safe array operation
   const propertyMap = new Map();
   if (Array.isArray(properties)) {
@@ -247,10 +239,10 @@ export default function UpgradedAdminDashboard() {
                           <MoreVertical className="h-4 w-4" />
                         </Button>
                       </div>
-                      <TaskProgressBar 
-                        status={task.status} 
-                        priority={task.priority} 
-                      />
+                      <div className="flex gap-2">
+                        <Badge variant="outline" className="text-xs">{task.status}</Badge>
+                        <Badge variant="outline" className="text-xs">{task.priority}</Badge>
+                      </div>
                       <p className="text-xs text-slate-500 font-medium">
                         Due: {formatDate(task.dueDate)}
                       </p>
@@ -322,11 +314,10 @@ export default function UpgradedAdminDashboard() {
                             {task.type}
                           </Badge>
                         </div>
-                        <TaskProgressBar 
-                          status={task.status} 
-                          priority={task.priority}
-                          className="mb-3"
-                        />
+                        <div className="flex gap-2 mb-3">
+                          <Badge variant="outline" className="text-xs">{task.status}</Badge>
+                          <Badge variant="outline" className="text-xs">{task.priority}</Badge>
+                        </div>
                         <p className="text-sm text-slate-500 font-medium">
                           Assigned to: <span className="text-slate-700 font-semibold">{task.assignedTo}</span> | Due: <span className="text-slate-700 font-semibold">{formatDate(task.dueDate)}</span>
                         </p>
