@@ -7,61 +7,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "../components/ui/alert-dialog";
 import { Plus, Eye, Pencil, Trash2 } from "lucide-react";
 
-// Simple demo data
-const initialStaff = [
-  {
-    id: 1,
-    employeeId: 'EMP001',
-    name: 'Sarah Johnson',
-    position: 'Property Manager',
-    department: 'Operations',
-    salary: 45000,
-    status: 'Active'
-  },
-  {
-    id: 2,
-    employeeId: 'EMP002', 
-    name: 'Mike Chen',
-    position: 'Maintenance Technician',
-    department: 'Maintenance',
-    salary: 35000,
-    status: 'Active'
-  },
-  {
-    id: 3,
-    employeeId: 'EMP003',
-    name: 'Emily Rodriguez',
-    position: 'Guest Services',
-    department: 'Customer Service',
-    salary: 32000,
-    status: 'Active'
-  }
-];
+// Simple demo data - cleared for production
+const initialStaff: any[] = [];
 
-const demoPayroll = [
-  {
-    id: 1,
-    staffId: 1,
-    period: 'Jan 2025',
-    baseSalary: 45000,
-    overtime: 0,
-    bonus: 2000,
-    gross: 47000,
-    net: 38000,
-    status: 'Paid'
-  },
-  {
-    id: 2,
-    staffId: 2,
-    period: 'Jan 2025', 
-    baseSalary: 35000,
-    overtime: 150,
-    bonus: 0,
-    gross: 35150,
-    net: 28500,
-    status: 'Pending'
-  }
-];
+const demoPayroll: any[] = [];
 
 interface Staff {
   id: number;
