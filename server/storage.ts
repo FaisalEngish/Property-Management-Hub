@@ -2295,7 +2295,6 @@ export class DatabaseStorage implements IStorage {
     
     return await query.orderBy(desc(tasks.createdAt));
   }
-  }
 
   async getTask(id: number): Promise<Task | undefined> {
     const [task] = await db.select().from(tasks).where(eq(tasks.id, id));

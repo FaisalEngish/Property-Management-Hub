@@ -10,6 +10,7 @@ import { Badge } from "../components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui/table";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../components/ui/dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../components/ui/dropdown-menu";
 import CreateTaskDialog from "../components/CreateTaskDialog";
 import { 
   Plus, 
@@ -143,6 +144,8 @@ export default function UltraFastTasks() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [priorityFilter, setPriorityFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
+  const [dateFilter, setDateFilter] = useState("all");
+  const [dateRange, setDateRange] = useState<{ from: string; to: string } | null>(null);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isBulkDialogOpen, setIsBulkDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -153,9 +156,80 @@ export default function UltraFastTasks() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Fetch actual tasks from database with debugging
+  // Helper function to calculate date ranges
+  const getDateRange = (filter: string) => {
+    const today = new Date();
+    const from = new Date();
+    const to = new Date();
+
+    switch (filter) {
+      case 'today':
+        from.setHours(0, 0, 0, 0);
+        to.setHours(23, 59, 59, 999);
+        break;
+      case 'this-week':
+        from.setDate(today.getDate() - today.getDay());
+        from.setHours(0, 0, 0, 0);
+        to.setDate(from.getDate() + 6);
+        to.setHours(23, 59, 59, 999);
+        break;
+      case 'next-7-days':
+        from.setHours(0, 0, 0, 0);
+        to.setDate(today.getDate() + 7);
+        to.setHours(23, 59, 59, 999);
+        break;
+      case 'next-30-days':
+        from.setHours(0, 0, 0, 0);
+        to.setDate(today.getDate() + 30);
+        to.setHours(23, 59, 59, 999);
+        break;
+      case 'next-90-days':
+        from.setHours(0, 0, 0, 0);
+        to.setDate(today.getDate() + 90);
+        to.setHours(23, 59, 59, 999);
+        break;
+      default:
+        return null;
+    }
+
+    return {
+      from: from.toISOString().split('T')[0],
+      to: to.toISOString().split('T')[0]
+    };
+  };
+
+  // Handle date filter change
+  const handleDateFilterChange = (filter: string) => {
+    setDateFilter(filter);
+    if (filter === 'all') {
+      setDateRange(null);
+    } else if (filter === 'custom') {
+      // Custom range will be set separately
+      return;
+    } else {
+      const range = getDateRange(filter);
+      setDateRange(range);
+    }
+  };
+
+  // Build query parameters for tasks API
+  const tasksQueryParams = useMemo(() => {
+    const params = new URLSearchParams();
+    if (dateRange) {
+      params.append('due_from', dateRange.from);
+      params.append('due_to', dateRange.to);
+    }
+    return params.toString();
+  }, [dateRange]);
+
+  // Fetch actual tasks from database with date filtering
   const { data: tasks = [], isLoading: tasksLoading, error: tasksError } = useQuery({
-    queryKey: ['/api/tasks'],
+    queryKey: ['/api/tasks', tasksQueryParams],
+    queryFn: async () => {
+      const url = `/api/tasks${tasksQueryParams ? `?${tasksQueryParams}` : ''}`;
+      const response = await fetch(url);
+      return response.json();
+    },
     staleTime: 0, // Always refetch
     gcTime: 0, // Don't cache (replaces cacheTime in newer versions)
   });
@@ -690,6 +764,41 @@ export default function UltraFastTasks() {
           />
         </div>
         <div className="flex gap-2">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="w-44">
+                <Calendar className="h-4 w-4 mr-2" />
+                {dateFilter === 'all' && 'All Dates'}
+                {dateFilter === 'today' && 'Today'}
+                {dateFilter === 'this-week' && 'This Week'}
+                {dateFilter === 'next-7-days' && 'Next 7 Days'}
+                {dateFilter === 'next-30-days' && 'Next 30 Days'}
+                {dateFilter === 'next-90-days' && 'Next 90 Days'}
+                {dateFilter === 'custom' && 'Custom Range'}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => handleDateFilterChange('all')}>
+                All Dates
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleDateFilterChange('today')}>
+                Today
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleDateFilterChange('this-week')}>
+                This Week
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleDateFilterChange('next-7-days')}>
+                Next 7 Days
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleDateFilterChange('next-30-days')}>
+                Next 30 Days
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleDateFilterChange('next-90-days')}>
+                Next 90 Days
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          
           <Select value={statusFilter} onValueChange={setStatusFilter}>
             <SelectTrigger className="w-40">
               <Filter className="h-4 w-4 mr-2" />
