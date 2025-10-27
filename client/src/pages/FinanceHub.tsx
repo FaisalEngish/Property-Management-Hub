@@ -17,7 +17,8 @@ import {
   CreditCard,
   Wallet,
   Plus,
-  X
+  X,
+  CheckCircle2
 } from "lucide-react";
 import { useToast } from "../hooks/use-toast";
 import { queryClient } from "../lib/queryClient";
@@ -43,6 +44,7 @@ interface FinanceTransaction {
   type: 'income' | 'expense';
   category: string;
   propertyId?: number | string;
+  attachments?: string[];
 }
 
 export default function FinanceHub() {
@@ -550,6 +552,9 @@ export default function FinanceHub() {
                             <Badge variant="outline" className="text-xs">
                               {transaction.category}
                             </Badge>
+                            {transaction.attachments && transaction.attachments.length > 0 && (
+                              <CheckCircle2 className="h-4 w-4 text-green-600 ml-1" title="Evidence attached" />
+                            )}
                           </div>
                         </div>
                       </div>
