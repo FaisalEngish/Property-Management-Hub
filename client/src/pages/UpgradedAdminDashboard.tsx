@@ -48,8 +48,10 @@ export default function UpgradedAdminDashboard() {
     });
   }
 
-  const formatCurrency = (amount: number) => {
-    return `฿${amount?.toLocaleString() || '0'}`;
+  const formatCurrency = (amount: number | string) => {
+    const numAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
+    const validAmount = Number.isFinite(numAmount) ? numAmount : 0;
+    return `฿${validAmount.toLocaleString()}`;
   };
 
   const formatDate = (dateString: string) => {
