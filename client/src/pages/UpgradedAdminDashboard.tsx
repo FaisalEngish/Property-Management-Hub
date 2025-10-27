@@ -40,6 +40,14 @@ export default function UpgradedAdminDashboard() {
   const recentBookings = Array.isArray(bookings) ? bookings.slice(0, 5) : [];
   const recentFinances = Array.isArray(finances) ? finances.slice(0, 5) : [];
 
+  // Debug booking amounts
+  console.log('📊 Admin Dashboard - Recent Bookings:', recentBookings.map(b => ({
+    id: b.id,
+    guest: b.guestName,
+    totalAmount: b.totalAmount,
+    type: typeof b.totalAmount
+  })));
+
   // Create property lookup map for bookings - safe array operation
   const propertyMap = new Map();
   if (Array.isArray(properties)) {
