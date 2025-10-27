@@ -110,6 +110,7 @@ const getRoleBasedMenus = (role: string): MenuSection[] => {
         { label: "Property", icon: Building2, href: "/property-hub", description: "Complete property management tools" },
         { label: "Finance", icon: DollarSign, href: "/finance-hub", description: "Financial management and analytics" },
         { label: "System", icon: Settings, href: "/system-hub", description: "System settings and administration" },
+        { label: "Staff Salaries", icon: Calculator, href: "/salaries-wages", description: "Manage staff salaries and wages" },
         { label: "Achievements", icon: Trophy, href: "/achievements", description: "Track your progress and unlock rewards" },
       ]
     }

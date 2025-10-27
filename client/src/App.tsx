@@ -50,8 +50,10 @@ import OtaRevenueNetPayoutCalculation from "./pages/OtaRevenueNetPayoutCalculati
 import OtaPayoutLogicSmartRevenue from "./pages/OtaPayoutLogicSmartRevenue";
 import LoyaltyGuestTracker from "./pages/LoyaltyGuestTracker";
 import InvoiceGenerator from "./pages/InvoiceGenerator";
+import StaffAdvanceSalaryOvertimeTracker from "./pages/StaffAdvanceSalaryOvertimeTracker";
 import SystemWideDemoIntegration from "./pages/SystemWideDemoIntegration";
 import MaintenanceLogWarrantyTracker from "./pages/MaintenanceLogWarrantyTracker";
+import StaffProfilePayroll from "./pages/StaffProfilePayroll";
 import SystemIntegrityCheck from "./pages/SystemIntegrityCheck";
 import UtilityTracker from "./pages/UtilityTracker";
 import AiNotificationsReminders from "./pages/AiNotificationsReminders";
@@ -77,6 +79,9 @@ import SaasManagement from "./pages/admin/SaasManagement";
 
 // Import Achievement System
 import AchievementsPage from "./pages/AchievementsPage";
+
+// Import Salaries & Wages Management
+import SimpleSalariesWages from "./pages/SimpleSalariesWages";
 
 // Import Property Appliances Management
 import PropertyAppliancesManagement from "./pages/PropertyAppliancesManagement";
@@ -230,12 +235,14 @@ function AppRoutes() {
         <Route path="/loyalty-tracker" component={LoyaltyGuestTracker} />
         <Route path="/invoice-generator" component={InvoiceGenerator} />
         <Route path="/invoices" component={InvoiceGenerator} />
+        <Route path="/staff-advance-salary-overtime-tracker" component={StaffAdvanceSalaryOvertimeTracker} />
         <Route path="/staff-wallet-petty-cash" component={StaffWalletPettyCash} />
         <Route path="/staff-cash-collection" component={StaffCashCollection} />
         <Route path="/staff-expense-management" component={StaffExpenseManagement} />
         <Route path="/admin/staff-permission-management" component={StaffPermissionManagement} />
         <Route path="/system-wide-demo-integration" component={SystemWideDemoIntegration} />
         <Route path="/maintenance-log-warranty-tracker" component={MaintenanceLogWarrantyTracker} />
+        <Route path="/staff-profile-payroll" component={StaffProfilePayroll} />
         <Route path="/admin/system-integrity-check" component={SystemIntegrityCheck} />
         <Route path="/utility-tracker" component={UtilityTracker} />
         <Route path="/ai-notifications-reminders" component={AiNotificationsReminders} />
@@ -309,6 +316,11 @@ function AppRoutes() {
         
         {/* Achievement System */}
         <Route path="/achievements" component={AchievementsPage} />
+        
+        {/* Salaries & Wages Management */}
+        <Route path="/salaries-wages" component={SimpleSalariesWages} />
+        <Route path="/staff-salaries" component={SimpleSalariesWages} />
+        <Route path="/admin/salaries-wages" component={SimpleSalariesWages} />
         
         <Route component={NotFound} />
       </Switch>
