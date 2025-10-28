@@ -64,7 +64,15 @@ export default function SimpleSalariesWages() {
 
   // Fetch staff members from database
   const { data: staffList = [], isLoading: staffLoading } = useQuery<StaffMember[]>({
-    queryKey: ["/api/staff-members", { organizationId }],
+    queryKey: ["/api/staff-members", organizationId],
+    queryFn: async () => {
+      const response = await fetch(`/api/staff-members?organizationId=${organizationId}`);
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to fetch staff members');
+      }
+      return response.json();
+    },
     enabled: !!organizationId
   });
 

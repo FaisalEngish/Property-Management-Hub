@@ -1,0 +1,75 @@
+Task: Fix staff data persistence & fetch error
+
+Context: When adding a staff member the UI shows an error:
+Failed to execute 'fetch' on 'Window': '/api/staff-members' is not a valid HTTP method.
+The SimpleSalariesWages.tsx component currently uses local state instead of calling the backend; we need full CRUD via the existing /api/staff-members endpoints so data persists in PostgreSQL.
+
+Files to inspect & change
+
+client/src/pages/SimpleSalariesWages.tsx (or whichever component handles Add Staff modal).
+
+Any helper API file like client/src/client/api/staff.js if present.
+
+Server route file(s): e.g. server/routes/staff-members.ts or server/api/staff-members and server/storage.ts.
+
+Exact changes to make
+
+Replace incorrect fetch() usage with correct calls. Example for create (copy-paste):
+
+// client/src/client/api/staff.js
+export async function createStaffMember(data) {
+  const res = await fetch('/api/staff-members', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+
+In SimpleSalariesWages.tsx wire up React Query (or simple fetch + setState + refresh) to call createStaffMember and re-fetch the staff list after success. Example mutation pattern with React Query:
+
+const { data: staff } = useQuery(['staff-members'], getStaffMembers);
+const createMutation = useMutation(createStaffMember, { onSuccess: () => queryClient.invalidateQueries(['staff-members']) });
+
+
+Verify update (PUT) and delete (DELETE) follow the same correct fetch(url, { method: 'PUT'|'DELETE', ... }) pattern.
+
+Server checks
+
+Confirm server route handlers accept the expected methods and paths and respond with JSON + correct codes.
+
+If body parsing missing, add app.use(express.json()).
+
+If dev client/server origins differ, ensure CORS allows calls from the client origin.
+
+Testing checklist (perform & attach screenshots/logs)
+
+Start the server and the client.
+
+Open the Add Staff modal and add a staff entry.
+
+Confirm request is sent correctly (DevTools Network → POST /api/staff-members with JSON body).
+
+Confirm server response is 200/201 and returns created object.
+
+Refresh page and confirm the new staff still shows (persisted in DB).
+
+Test edit and delete and confirm persistence and UI updates.
+
+If any fetch error still occurs, paste the exact failing fetch call snippet and the console error.
+
+Commit message: fix(staff): use API for staff CRUD, correct fetch signatures, persist staff data
+
+Return: After fix, attach:
+
+1 screenshot of successful add (Network and UI showing the new staff after refresh), and
+
+the exact diff for SimpleSalariesWages.tsx and any new client/src/client/api/staff.js.
+
+Notes:
+
+If you find a fetch call that looks like fetch('POST', '/api/staff-members', ...) or fetch({ method: '/api/staff-members', ... }) that is the root cause — change it to the correct form immediately.
+
+If you prefer, implement quick helper functions getStaffMembers/createStaffMember/updateStaffMember/deleteStaffMember and import them into the component.
