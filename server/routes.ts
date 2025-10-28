@@ -2359,7 +2359,7 @@ Be specific and actionable in your recommendations.`;
           console.log(`💰 Auto-creating finance record for completed task ${task.id} with cost ${costAmount} (actual: ${task.actualCost}, estimated: ${task.estimatedCost})`);
           
           // Create finance record for task completion
-          await storage.createFinance({
+          const financeRecord = await storage.createFinance({
             organizationId,
             propertyId: task.propertyId,
             type: 'expense',
@@ -2378,7 +2378,15 @@ Be specific and actionable in your recommendations.`;
             notes: task.evidencePhotos && task.evidencePhotos.length > 0 
               ? `Completed with ${task.evidencePhotos.length} evidence photo(s)` 
               : 'Task completed',
+            attachments: task.evidencePhotos || [],
           });
+          
+          // Link the finance record back to the task
+          if (financeRecord && financeRecord.id) {
+            await storage.updateTask(id, { financeRecordId: financeRecord.id });
+            task.financeRecordId = financeRecord.id; // Update the task object being returned
+            console.log(`🔗 Linked finance record ${financeRecord.id} to task ${task.id}`);
+          }
           
           // Invalidate finance cache to ensure Finance Hub shows the new expense immediately
           const { clearCache } = await import("./performanceOptimizer");
