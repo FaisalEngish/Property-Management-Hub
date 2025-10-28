@@ -19589,6 +19589,48 @@ Plant Care:
     return { staffOverview };
   }
 
+  // ===== STAFF MEMBERS MANAGEMENT (SALARIES & WAGES) =====
+
+  async getStaffMembers(organizationId: string, filters?: { department?: string; status?: string }): Promise<StaffMember[]> {
+    const conditions = [eq(staffMembers.organizationId, organizationId)];
+    
+    if (filters?.department) {
+      conditions.push(eq(staffMembers.department, filters.department));
+    }
+    if (filters?.status) {
+      conditions.push(eq(staffMembers.status, filters.status));
+    }
+
+    return await db.select().from(staffMembers).where(and(...conditions)).orderBy(staffMembers.dateJoined);
+  }
+
+  async getStaffMember(id: number): Promise<StaffMember | undefined> {
+    const [member] = await db
+      .select()
+      .from(staffMembers)
+      .where(eq(staffMembers.id, id));
+    return member;
+  }
+
+  async createStaffMember(member: Omit<StaffMember, 'id' | 'createdAt' | 'updatedAt'>): Promise<StaffMember> {
+    const [newMember] = await db.insert(staffMembers).values(member as any).returning();
+    return newMember;
+  }
+
+  async updateStaffMember(id: number, updates: Partial<StaffMember>): Promise<StaffMember | undefined> {
+    const [updated] = await db
+      .update(staffMembers)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(staffMembers.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteStaffMember(id: number): Promise<boolean> {
+    const result = await db.delete(staffMembers).where(eq(staffMembers.id, id));
+    return result.rowCount !== null && result.rowCount > 0;
+  }
+
   // ===== STAFF ADVANCE & OVERTIME TRACKING METHODS =====
 
   // Salary Advance Request Methods

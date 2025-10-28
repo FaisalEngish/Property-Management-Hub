@@ -69,7 +69,7 @@ export default function SimpleSalariesWages() {
   // Create staff member mutation
   const createMutation = useMutation({
     mutationFn: async (data: any) => {
-      return apiRequest('/api/staff-members', 'POST', data);
+      return apiRequest('POST', '/api/staff-members', data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/staff-members'] });
@@ -92,7 +92,7 @@ export default function SimpleSalariesWages() {
   // Update staff member mutation
   const updateMutation = useMutation({
     mutationFn: async ({ id, data }: { id: number; data: any }) => {
-      return apiRequest(`/api/staff-members/${id}`, 'PUT', data);
+      return apiRequest('PUT', `/api/staff-members/${id}`, data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/staff-members'] });
@@ -115,7 +115,7 @@ export default function SimpleSalariesWages() {
   // Delete staff member mutation
   const deleteMutation = useMutation({
     mutationFn: async (id: number) => {
-      return apiRequest(`/api/staff-members/${id}`, 'DELETE');
+      return apiRequest('DELETE', `/api/staff-members/${id}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/staff-members'] });
