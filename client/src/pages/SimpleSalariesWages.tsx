@@ -1,246 +1,148 @@
 import { useState } from 'react';
-import { useQuery, useMutation } from '@tanstack/react-query';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "../components/ui/dialog";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "../components/ui/alert-dialog";
-import { Plus, Eye, Pencil, Trash2, RefreshCw } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
-import { queryClient, apiRequest } from "@/lib/queryClient";
+import { Plus, Eye, Pencil, Trash2 } from "lucide-react";
 
-interface StaffMember {
+// Simple demo data - cleared for production
+const initialStaff: any[] = [];
+
+const demoPayroll: any[] = [];
+
+interface Staff {
   id: number;
-  organizationId: string;
   employeeId: string;
-  firstName: string;
-  lastName: string;
+  name: string;
   position: string;
   department: string;
-  salaryType: string;
-  monthlySalary: string;
+  salary: number;
   status: string;
-  email?: string;
-  phone?: string;
-  hireDate?: string;
 }
 
 export default function SimpleSalariesWages() {
-  const { toast } = useToast();
   const [activeTab, setActiveTab] = useState('staff');
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const [selectedStaff, setSelectedStaff] = useState<StaffMember | null>(null);
+  const [staffList, setStaffList] = useState(initialStaff);
+  const [selectedStaff, setSelectedStaff] = useState<Staff | null>(null);
   
   // Form state for add
   const [newStaff, setNewStaff] = useState({
-    firstName: '',
-    lastName: '',
+    name: '',
     position: '',
     department: '',
-    monthlySalary: '',
-    contactEmail: '',
-    contactPhone: ''
+    salary: ''
   });
 
   // Form state for edit
   const [editStaff, setEditStaff] = useState({
-    firstName: '',
-    lastName: '',
+    name: '',
     position: '',
     department: '',
-    monthlySalary: '',
-    contactEmail: '',
-    contactPhone: ''
+    salary: ''
   });
 
-  // Fetch staff members from database
-  const { data: staffList = [], isLoading, refetch } = useQuery<StaffMember[]>({
-    queryKey: ['/api/staff-members'],
-    queryFn: async () => {
-      const response = await fetch('/api/staff-members?organizationId=default-org');
-      if (!response.ok) throw new Error('Failed to fetch staff members');
-      return response.json();
-    }
-  });
-
-  // Create staff member mutation
-  const createMutation = useMutation({
-    mutationFn: async (data: any) => {
-      return apiRequest('POST', '/api/staff-members', data);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/staff-members'] });
-      toast({
-        title: "Success",
-        description: "Staff member added successfully",
-      });
-      setIsAddDialogOpen(false);
-      setNewStaff({ firstName: '', lastName: '', position: '', department: '', monthlySalary: '', contactEmail: '', contactPhone: '' });
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to add staff member",
-        variant: "destructive",
-      });
-    }
-  });
-
-  // Update staff member mutation
-  const updateMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: number; data: any }) => {
-      return apiRequest('PUT', `/api/staff-members/${id}`, data);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/staff-members'] });
-      toast({
-        title: "Success",
-        description: "Staff member updated successfully",
-      });
-      setIsEditDialogOpen(false);
-      setSelectedStaff(null);
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to update staff member",
-        variant: "destructive",
-      });
-    }
-  });
-
-  // Delete staff member mutation
-  const deleteMutation = useMutation({
-    mutationFn: async (id: number) => {
-      return apiRequest('DELETE', `/api/staff-members/${id}`);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/staff-members'] });
-      toast({
-        title: "Success",
-        description: "Staff member deleted successfully",
-      });
-      setIsDeleteDialogOpen(false);
-      setSelectedStaff(null);
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to delete staff member",
-        variant: "destructive",
-      });
-    }
-  });
-
-  const formatCurrency = (amount: number | string) => {
-    const num = typeof amount === 'string' ? parseFloat(amount) : amount;
-    return `฿${num.toLocaleString()}`;
+  const formatCurrency = (amount: number) => {
+    return `฿${amount.toLocaleString()}`;
   };
 
   const getStatusColor = (status: string) => {
-    return status === 'active' 
+    return status === 'Active' || status === 'Paid' 
       ? 'bg-green-100 text-green-800 px-2 py-1 rounded text-xs'
       : 'bg-yellow-100 text-yellow-800 px-2 py-1 rounded text-xs';
   };
 
   const handleAddStaff = () => {
-    if (!newStaff.firstName || !newStaff.lastName || !newStaff.position || !newStaff.department || !newStaff.monthlySalary || !newStaff.contactEmail) {
-      toast({
-        title: "Validation Error",
-        description: "Please fill in all required fields (including email)",
-        variant: "destructive",
-      });
+    if (!newStaff.name || !newStaff.position || !newStaff.department || !newStaff.salary) {
+      alert('Please fill in all fields');
       return;
     }
 
-    const employeeId = `EMP${Date.now().toString().slice(-6)}`;
+    const nextId = Math.max(...staffList.map(s => s.id)) + 1;
+    const nextEmpId = `EMP${String(nextId).padStart(3, '0')}`;
     
-    createMutation.mutate({
-      organizationId: 'default-org',
-      employeeId: employeeId,
-      firstName: newStaff.firstName,
-      lastName: newStaff.lastName,
+    const staff = {
+      id: nextId,
+      employeeId: nextEmpId,
+      name: newStaff.name,
       position: newStaff.position,
       department: newStaff.department,
-      salaryType: 'monthly',
-      monthlySalary: newStaff.monthlySalary,
-      status: 'active',
-      email: newStaff.contactEmail,
-      phone: newStaff.contactPhone || '',
-      hireDate: new Date().toISOString().split('T')[0]
-    });
+      salary: parseInt(newStaff.salary),
+      status: 'Active'
+    };
+
+    // Update staff list - this will trigger automatic re-render of metrics
+    setStaffList(prevList => [...prevList, staff]);
+    setIsAddDialogOpen(false);
+    setNewStaff({ name: '', position: '', department: '', salary: '' });
   };
 
-  const handleViewStaff = (staff: StaffMember) => {
+  const handleViewStaff = (staff: Staff) => {
     setSelectedStaff(staff);
     setIsViewDialogOpen(true);
   };
 
-  const handleEditClick = (staff: StaffMember) => {
+  const handleEditClick = (staff: Staff) => {
     setSelectedStaff(staff);
     setEditStaff({
-      firstName: staff.firstName,
-      lastName: staff.lastName,
+      name: staff.name,
       position: staff.position,
       department: staff.department,
-      monthlySalary: staff.monthlySalary,
-      contactEmail: staff.email || '',
-      contactPhone: staff.phone || ''
+      salary: staff.salary.toString()
     });
     setIsEditDialogOpen(true);
   };
 
   const handleSaveEdit = () => {
-    if (!selectedStaff || !editStaff.firstName || !editStaff.lastName || !editStaff.position || !editStaff.department || !editStaff.monthlySalary) {
-      toast({
-        title: "Validation Error",
-        description: "Please fill in all required fields",
-        variant: "destructive",
-      });
+    if (!selectedStaff || !editStaff.name || !editStaff.position || !editStaff.department || !editStaff.salary) {
+      alert('Please fill in all fields');
       return;
     }
 
-    updateMutation.mutate({
-      id: selectedStaff.id,
-      data: {
-        firstName: editStaff.firstName,
-        lastName: editStaff.lastName,
-        position: editStaff.position,
-        department: editStaff.department,
-        monthlySalary: editStaff.monthlySalary,
-        email: editStaff.contactEmail || null,
-        phone: editStaff.contactPhone || null,
-      }
-    });
+    // Update the staff member
+    setStaffList(prevList => 
+      prevList.map(s => 
+        s.id === selectedStaff.id 
+          ? {
+              ...s,
+              name: editStaff.name,
+              position: editStaff.position,
+              department: editStaff.department,
+              salary: parseInt(editStaff.salary)
+            }
+          : s
+      )
+    );
+
+    setIsEditDialogOpen(false);
+    setSelectedStaff(null);
+    setEditStaff({ name: '', position: '', department: '', salary: '' });
   };
 
-  const handleDeleteClick = (staff: StaffMember) => {
+  const handleDeleteClick = (staff: Staff) => {
     setSelectedStaff(staff);
     setIsDeleteDialogOpen(true);
   };
 
   const handleConfirmDelete = () => {
     if (!selectedStaff) return;
-    deleteMutation.mutate(selectedStaff.id);
+
+    // Remove the staff member
+    setStaffList(prevList => prevList.filter(s => s.id !== selectedStaff.id));
+    setIsDeleteDialogOpen(false);
+    setSelectedStaff(null);
   };
 
-  const handleRefresh = async () => {
-    await refetch();
-    toast({
-      title: "Refreshed",
-      description: "Staff data has been updated",
-    });
-  };
-
-  // Calculate statistics
+  // Calculate statistics - these will automatically update when staffList changes
   const totalStaff = staffList.length;
-  const monthlyPayroll = staffList.reduce((sum, s) => sum + parseFloat(s.monthlySalary || '0'), 0);
+  const monthlyPayroll = staffList.reduce((sum, s) => sum + s.salary, 0);
   const averageSalary = totalStaff > 0 ? Math.round(monthlyPayroll / totalStaff) : 0;
-  const pendingPayments = 0; // Payroll records will be added later
+  const pendingPayments = demoPayroll.filter(p => p.status === 'Pending').length;
 
   return (
     <div className="container mx-auto p-6 space-y-6">
@@ -252,24 +154,14 @@ export default function SimpleSalariesWages() {
             Admin-only staff salary and wage management system
           </p>
         </div>
-        <div className="flex gap-2">
-          <Button 
-            onClick={handleRefresh}
-            variant="outline"
-            disabled={isLoading}
-            data-testid="button-refresh-staff"
-          >
-            <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
-          </Button>
-          <Button 
-            onClick={() => setIsAddDialogOpen(true)}
-            className="bg-blue-600 hover:bg-blue-700 flex items-center gap-2"
-            data-testid="button-add-staff"
-          >
-            <Plus className="h-4 w-4" />
-            Add Staff Member
-          </Button>
-        </div>
+        <Button 
+          onClick={() => setIsAddDialogOpen(true)}
+          className="bg-blue-600 hover:bg-blue-700 flex items-center gap-2"
+          data-testid="button-add-staff"
+        >
+          <Plus className="h-4 w-4" />
+          Add Staff Member
+        </Button>
       </div>
 
       {/* Analytics Cards */}
@@ -360,82 +252,103 @@ export default function SimpleSalariesWages() {
           {activeTab === 'staff' && (
             <div>
               <h3 className="text-lg font-semibold mb-4">Staff Members</h3>
-              {isLoading ? (
-                <div className="flex justify-center items-center py-8">
-                  <RefreshCw className="h-8 w-8 animate-spin text-gray-400" />
-                </div>
-              ) : staffList.length === 0 ? (
-                <div className="text-center py-8">
-                  <p className="text-gray-500">No staff members found</p>
-                  <p className="text-sm text-gray-400 mt-1">Click "Add Staff Member" to get started</p>
-                </div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Employee ID</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Position</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Department</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Salary</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Employee ID</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Position</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Department</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Salary</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {staffList.map((staff) => (
+                      <tr key={staff.id} data-testid={`row-staff-${staff.id}`}>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{staff.employeeId}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{staff.name}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{staff.position}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{staff.department}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{formatCurrency(staff.salary)}</td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className={getStatusColor(staff.status)}>{staff.status}</span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          <div className="flex gap-2">
+                            <button 
+                              className="text-blue-600 hover:text-blue-900 p-1"
+                              onClick={() => handleViewStaff(staff)}
+                              data-testid={`button-view-${staff.id}`}
+                              title="View Details"
+                            >
+                              <Eye className="h-4 w-4" />
+                            </button>
+                            <button 
+                              className="text-yellow-600 hover:text-yellow-900 p-1"
+                              onClick={() => handleEditClick(staff)}
+                              data-testid={`button-edit-${staff.id}`}
+                              title="Edit Staff"
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </button>
+                            <button 
+                              className="text-red-600 hover:text-red-900 p-1"
+                              onClick={() => handleDeleteClick(staff)}
+                              data-testid={`button-delete-${staff.id}`}
+                              title="Delete Staff"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </div>
+                        </td>
                       </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {staffList.map((staff) => (
-                        <tr key={staff.id} data-testid={`row-staff-${staff.id}`}>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{staff.employeeId}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{staff.firstName} {staff.lastName}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{staff.position}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{staff.department}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{formatCurrency(staff.monthlySalary)}</td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span className={getStatusColor(staff.status)}>{staff.status}</span>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            <div className="flex gap-2">
-                              <button 
-                                className="text-blue-600 hover:text-blue-900 p-1"
-                                onClick={() => handleViewStaff(staff)}
-                                data-testid={`button-view-${staff.id}`}
-                                title="View Details"
-                              >
-                                <Eye className="h-4 w-4" />
-                              </button>
-                              <button 
-                                className="text-yellow-600 hover:text-yellow-900 p-1"
-                                onClick={() => handleEditClick(staff)}
-                                data-testid={`button-edit-${staff.id}`}
-                                title="Edit Staff"
-                              >
-                                <Pencil className="h-4 w-4" />
-                              </button>
-                              <button 
-                                className="text-red-600 hover:text-red-900 p-1"
-                                onClick={() => handleDeleteClick(staff)}
-                                data-testid={`button-delete-${staff.id}`}
-                                title="Delete Staff"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
 
           {activeTab === 'payroll' && (
             <div>
               <h3 className="text-lg font-semibold mb-4">Payroll Records</h3>
-              <div className="text-center py-8">
-                <p className="text-gray-500">Payroll records feature coming soon</p>
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Period</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Staff Member</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Base Salary</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Overtime</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Bonus</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Gross Pay</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Net Pay</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {demoPayroll.map((record) => {
+                      const staff = staffList.find(s => s.id === record.staffId);
+                      return (
+                        <tr key={record.id}>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{record.period}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{staff?.name}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{formatCurrency(record.baseSalary)}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{formatCurrency(record.overtime)}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{formatCurrency(record.bonus)}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{formatCurrency(record.gross)}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-green-600">{formatCurrency(record.net)}</td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className={getStatusColor(record.status)}>{record.status}</span>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
             </div>
           )}
@@ -444,26 +357,45 @@ export default function SimpleSalariesWages() {
             <div>
               <h3 className="text-lg font-semibold mb-4">Department Overview</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {['Operations', 'Maintenance', 'Customer Service', 'Finance', 'Management', 'IT'].map((dept) => {
-                  const deptStaff = staffList.filter(s => s.department === dept);
-                  const deptTotal = deptStaff.reduce((sum, s) => sum + parseFloat(s.monthlySalary || '0'), 0);
-                  
-                  return (
-                    <div key={dept} className="bg-white border rounded-lg p-4">
-                      <h4 className="font-semibold text-lg mb-2">{dept}</h4>
-                      <div className="space-y-2">
-                        <div className="flex justify-between text-sm">
-                          <span className="text-gray-600">Staff Count:</span>
-                          <span className="font-medium">{deptStaff.length}</span>
-                        </div>
-                        <div className="flex justify-between text-sm">
-                          <span className="text-gray-600">Total Salary:</span>
-                          <span className="font-medium">{formatCurrency(deptTotal)}</span>
-                        </div>
-                      </div>
+                <div className="bg-white border rounded-lg p-4">
+                  <h4 className="font-semibold text-lg mb-2">Operations</h4>
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Staff Count:</span>
+                      <span className="font-medium">{staffList.filter(s => s.department === 'Operations').length}</span>
                     </div>
-                  );
-                })}
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Total Salary:</span>
+                      <span className="font-medium">{formatCurrency(staffList.filter(s => s.department === 'Operations').reduce((sum, s) => sum + s.salary, 0))}</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="bg-white border rounded-lg p-4">
+                  <h4 className="font-semibold text-lg mb-2">Maintenance</h4>
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Staff Count:</span>
+                      <span className="font-medium">{staffList.filter(s => s.department === 'Maintenance').length}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Total Salary:</span>
+                      <span className="font-medium">{formatCurrency(staffList.filter(s => s.department === 'Maintenance').reduce((sum, s) => sum + s.salary, 0))}</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="bg-white border rounded-lg p-4">
+                  <h4 className="font-semibold text-lg mb-2">Customer Service</h4>
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Staff Count:</span>
+                      <span className="font-medium">{staffList.filter(s => s.department === 'Customer Service').length}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Total Salary:</span>
+                      <span className="font-medium">{formatCurrency(staffList.filter(s => s.department === 'Customer Service').reduce((sum, s) => sum + s.salary, 0))}</span>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           )}
@@ -478,31 +410,19 @@ export default function SimpleSalariesWages() {
           </DialogHeader>
           
           <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="grid gap-2">
-                <Label htmlFor="add-first-name">First Name *</Label>
-                <Input
-                  id="add-first-name"
-                  placeholder="Enter first name"
-                  value={newStaff.firstName}
-                  onChange={(e) => setNewStaff({...newStaff, firstName: e.target.value})}
-                  data-testid="input-add-first-name"
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="add-last-name">Last Name *</Label>
-                <Input
-                  id="add-last-name"
-                  placeholder="Enter last name"
-                  value={newStaff.lastName}
-                  onChange={(e) => setNewStaff({...newStaff, lastName: e.target.value})}
-                  data-testid="input-add-last-name"
-                />
-              </div>
+            <div className="grid gap-2">
+              <Label htmlFor="add-name">Full Name</Label>
+              <Input
+                id="add-name"
+                placeholder="Enter staff name"
+                value={newStaff.name}
+                onChange={(e) => setNewStaff({...newStaff, name: e.target.value})}
+                data-testid="input-add-name"
+              />
             </div>
             
             <div className="grid gap-2">
-              <Label htmlFor="add-position">Position *</Label>
+              <Label htmlFor="add-position">Position</Label>
               <Input
                 id="add-position"
                 placeholder="Enter position"
@@ -513,7 +433,7 @@ export default function SimpleSalariesWages() {
             </div>
             
             <div className="grid gap-2">
-              <Label htmlFor="add-department">Department *</Label>
+              <Label htmlFor="add-department">Department</Label>
               <Select value={newStaff.department} onValueChange={(value) => setNewStaff({...newStaff, department: value})}>
                 <SelectTrigger data-testid="select-add-department">
                   <SelectValue placeholder="Select department" />
@@ -530,59 +450,24 @@ export default function SimpleSalariesWages() {
             </div>
             
             <div className="grid gap-2">
-              <Label htmlFor="add-salary">Monthly Salary (฿) *</Label>
+              <Label htmlFor="add-salary">Monthly Salary (฿)</Label>
               <Input
                 id="add-salary"
                 type="number"
                 placeholder="Enter salary amount"
-                value={newStaff.monthlySalary}
-                onChange={(e) => setNewStaff({...newStaff, monthlySalary: e.target.value})}
+                value={newStaff.salary}
+                onChange={(e) => setNewStaff({...newStaff, salary: e.target.value})}
                 data-testid="input-add-salary"
-              />
-            </div>
-
-            <div className="grid gap-2">
-              <Label htmlFor="add-email">Email *</Label>
-              <Input
-                id="add-email"
-                type="email"
-                placeholder="staff@example.com"
-                value={newStaff.contactEmail}
-                onChange={(e) => setNewStaff({...newStaff, contactEmail: e.target.value})}
-                data-testid="input-add-email"
-                required
-              />
-            </div>
-
-            <div className="grid gap-2">
-              <Label htmlFor="add-phone">Phone (Optional)</Label>
-              <Input
-                id="add-phone"
-                type="tel"
-                placeholder="+66 XX XXX XXXX"
-                value={newStaff.contactPhone}
-                onChange={(e) => setNewStaff({...newStaff, contactPhone: e.target.value})}
-                data-testid="input-add-phone"
               />
             </div>
           </div>
           
           <DialogFooter>
-            <Button 
-              variant="outline" 
-              onClick={() => setIsAddDialogOpen(false)} 
-              data-testid="button-cancel-add"
-              disabled={createMutation.isPending}
-            >
+            <Button variant="outline" onClick={() => setIsAddDialogOpen(false)} data-testid="button-cancel-add">
               Cancel
             </Button>
-            <Button 
-              onClick={handleAddStaff} 
-              className="bg-blue-600 hover:bg-blue-700" 
-              data-testid="button-confirm-add"
-              disabled={createMutation.isPending}
-            >
-              {createMutation.isPending ? 'Adding...' : 'Add Staff Member'}
+            <Button onClick={handleAddStaff} className="bg-blue-600 hover:bg-blue-700" data-testid="button-confirm-add">
+              Add Staff Member
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -610,7 +495,7 @@ export default function SimpleSalariesWages() {
               
               <div>
                 <Label className="text-sm text-gray-500">Full Name</Label>
-                <p className="font-medium" data-testid="view-name">{selectedStaff.firstName} {selectedStaff.lastName}</p>
+                <p className="font-medium" data-testid="view-name">{selectedStaff.name}</p>
               </div>
               
               <div>
@@ -625,29 +510,8 @@ export default function SimpleSalariesWages() {
               
               <div>
                 <Label className="text-sm text-gray-500">Monthly Salary</Label>
-                <p className="font-medium text-lg" data-testid="view-salary">{formatCurrency(selectedStaff.monthlySalary)}</p>
+                <p className="font-medium text-lg" data-testid="view-salary">{formatCurrency(selectedStaff.salary)}</p>
               </div>
-
-              {selectedStaff.email && (
-                <div>
-                  <Label className="text-sm text-gray-500">Email</Label>
-                  <p className="font-medium">{selectedStaff.email}</p>
-                </div>
-              )}
-
-              {selectedStaff.phone && (
-                <div>
-                  <Label className="text-sm text-gray-500">Phone</Label>
-                  <p className="font-medium">{selectedStaff.phone}</p>
-                </div>
-              )}
-
-              {selectedStaff.hireDate && (
-                <div>
-                  <Label className="text-sm text-gray-500">Hire Date</Label>
-                  <p className="font-medium">{new Date(selectedStaff.hireDate).toLocaleDateString()}</p>
-                </div>
-              )}
             </div>
           )}
           
@@ -667,31 +531,22 @@ export default function SimpleSalariesWages() {
           </DialogHeader>
           
           <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="grid gap-2">
-                <Label htmlFor="edit-first-name">First Name *</Label>
-                <Input
-                  id="edit-first-name"
-                  value={editStaff.firstName}
-                  onChange={(e) => setEditStaff({...editStaff, firstName: e.target.value})}
-                  data-testid="input-edit-first-name"
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="edit-last-name">Last Name *</Label>
-                <Input
-                  id="edit-last-name"
-                  value={editStaff.lastName}
-                  onChange={(e) => setEditStaff({...editStaff, lastName: e.target.value})}
-                  data-testid="input-edit-last-name"
-                />
-              </div>
+            <div className="grid gap-2">
+              <Label htmlFor="edit-name">Full Name</Label>
+              <Input
+                id="edit-name"
+                placeholder="Enter staff name"
+                value={editStaff.name}
+                onChange={(e) => setEditStaff({...editStaff, name: e.target.value})}
+                data-testid="input-edit-name"
+              />
             </div>
             
             <div className="grid gap-2">
-              <Label htmlFor="edit-position">Position *</Label>
+              <Label htmlFor="edit-position">Position</Label>
               <Input
                 id="edit-position"
+                placeholder="Enter position"
                 value={editStaff.position}
                 onChange={(e) => setEditStaff({...editStaff, position: e.target.value})}
                 data-testid="input-edit-position"
@@ -699,10 +554,10 @@ export default function SimpleSalariesWages() {
             </div>
             
             <div className="grid gap-2">
-              <Label htmlFor="edit-department">Department *</Label>
+              <Label htmlFor="edit-department">Department</Label>
               <Select value={editStaff.department} onValueChange={(value) => setEditStaff({...editStaff, department: value})}>
                 <SelectTrigger data-testid="select-edit-department">
-                  <SelectValue />
+                  <SelectValue placeholder="Select department" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="Operations">Operations</SelectItem>
@@ -716,55 +571,24 @@ export default function SimpleSalariesWages() {
             </div>
             
             <div className="grid gap-2">
-              <Label htmlFor="edit-salary">Monthly Salary (฿) *</Label>
+              <Label htmlFor="edit-salary">Monthly Salary (฿)</Label>
               <Input
                 id="edit-salary"
                 type="number"
-                value={editStaff.monthlySalary}
-                onChange={(e) => setEditStaff({...editStaff, monthlySalary: e.target.value})}
+                placeholder="Enter salary amount"
+                value={editStaff.salary}
+                onChange={(e) => setEditStaff({...editStaff, salary: e.target.value})}
                 data-testid="input-edit-salary"
-              />
-            </div>
-
-            <div className="grid gap-2">
-              <Label htmlFor="edit-email">Email (Optional)</Label>
-              <Input
-                id="edit-email"
-                type="email"
-                value={editStaff.contactEmail}
-                onChange={(e) => setEditStaff({...editStaff, contactEmail: e.target.value})}
-                data-testid="input-edit-email"
-              />
-            </div>
-
-            <div className="grid gap-2">
-              <Label htmlFor="edit-phone">Phone (Optional)</Label>
-              <Input
-                id="edit-phone"
-                type="tel"
-                value={editStaff.contactPhone}
-                onChange={(e) => setEditStaff({...editStaff, contactPhone: e.target.value})}
-                data-testid="input-edit-phone"
               />
             </div>
           </div>
           
           <DialogFooter>
-            <Button 
-              variant="outline" 
-              onClick={() => setIsEditDialogOpen(false)} 
-              data-testid="button-cancel-edit"
-              disabled={updateMutation.isPending}
-            >
+            <Button variant="outline" onClick={() => setIsEditDialogOpen(false)} data-testid="button-cancel-edit">
               Cancel
             </Button>
-            <Button 
-              onClick={handleSaveEdit} 
-              className="bg-blue-600 hover:bg-blue-700" 
-              data-testid="button-confirm-edit"
-              disabled={updateMutation.isPending}
-            >
-              {updateMutation.isPending ? 'Saving...' : 'Save Changes'}
+            <Button onClick={handleSaveEdit} className="bg-blue-600 hover:bg-blue-700" data-testid="button-save-edit">
+              Save Changes
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -776,18 +600,18 @@ export default function SimpleSalariesWages() {
           <AlertDialogHeader>
             <AlertDialogTitle>Are you sure?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete the staff member{selectedStaff && `: ${selectedStaff.firstName} ${selectedStaff.lastName}`}. This action cannot be undone.
+              This will permanently delete <strong>{selectedStaff?.name}</strong> ({selectedStaff?.employeeId}) from the staff database.
+              This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel data-testid="button-cancel-delete">Cancel</AlertDialogCancel>
             <AlertDialogAction 
-              onClick={handleConfirmDelete} 
+              onClick={handleConfirmDelete}
               className="bg-red-600 hover:bg-red-700"
               data-testid="button-confirm-delete"
-              disabled={deleteMutation.isPending}
             >
-              {deleteMutation.isPending ? 'Deleting...' : 'Delete'}
+              Delete Staff
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

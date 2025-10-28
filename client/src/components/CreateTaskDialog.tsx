@@ -154,20 +154,9 @@ export default function CreateTaskDialog({ isOpen, onOpenChange, trigger }: Crea
     queryKey: ['/api/users'],
   });
 
-  // Fetch staff members from Salaries & Wages module
-  const { data: staffMembers = [] } = useQuery({
-    queryKey: ['/api/staff-members'],
-    queryFn: async () => {
-      const response = await fetch('/api/staff-members?organizationId=default-org');
-      if (!response.ok) return [];
-      return response.json();
-    }
-  });
-
   // Type assertions for safety
   const propertiesArray = Array.isArray(properties) ? properties : [];
   const usersArray = Array.isArray(users) ? users : [];
-  const staffArray = Array.isArray(staffMembers) ? staffMembers : [];
 
   const form = useForm<CreateTaskForm>({
     resolver: zodResolver(createTaskSchema),
@@ -449,15 +438,8 @@ export default function CreateTaskDialog({ isOpen, onOpenChange, trigger }: Crea
                     </FormControl>
                     <SelectContent>
                       <SelectItem value="unassigned">Unassigned</SelectItem>
-                      {/* Staff from Salaries & Wages module */}
-                      {staffArray.filter((staff: any) => staff.status === 'active').map((staff: any) => (
-                        <SelectItem key={`staff-${staff.id}`} value={staff.employeeId}>
-                          {staff.firstName} {staff.lastName} ({staff.position})
-                        </SelectItem>
-                      ))}
-                      {/* System users with staff/admin roles */}
                       {usersArray.filter((user: any) => user.role === 'staff' || user.role === 'admin').map((user: any) => (
-                        <SelectItem key={`user-${user.id}`} value={user.id}>
+                        <SelectItem key={user.id} value={user.id}>
                           {user.name} ({user.role})
                         </SelectItem>
                       ))}
