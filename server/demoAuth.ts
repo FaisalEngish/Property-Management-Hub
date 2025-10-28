@@ -135,11 +135,12 @@ export async function setupDemoAuth(app: Express) {
     console.error("⚠️ Failed to seed commission data (continuing anyway):", error);
   }
   
-  try {
-    await seedUtilityData();
-  } catch (error) {
-    console.error("⚠️ Failed to seed utility data (continuing anyway):", error);
-  }
+  // Utility data seeding disabled - user preference for clean data
+  // try {
+  //   await seedUtilityData();
+  // } catch (error) {
+  //   console.error("⚠️ Failed to seed utility data (continuing anyway):", error);
+  // }
 
   // Demo login route
   app.post("/api/auth/demo-login", async (req: any, res) => {
