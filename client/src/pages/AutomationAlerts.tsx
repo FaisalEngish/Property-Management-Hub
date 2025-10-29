@@ -121,7 +121,14 @@ export default function AutomationAlerts() {
       // Return a context object with the snapshotted value
       return { previousAutomations };
     },
-    onSuccess: () => {
+    onSuccess: (updatedAutomation: Automation) => {
+      // Update cache with the actual server response
+      queryClient.setQueryData(["/api/automations"], (old: any) => {
+        if (!old) return old;
+        return old.map((automation: Automation) => 
+          automation.id === updatedAutomation.id ? updatedAutomation : automation
+        );
+      });
       toast({
         title: "Automation Updated",
         description: "Automation status has been updated",
@@ -135,14 +142,8 @@ export default function AutomationAlerts() {
         description: error.message || "Failed to toggle automation",
         variant: "destructive",
       });
-    },
-    onSettled: () => {
-      // Always refetch after error or success to ensure we're in sync
-      queryClient.invalidateQueries({ queryKey: ["/api/automations"] });
     }
   });
-
-  // Toggle automation mutation
 
   // Delete automation mutation
   const deleteAutomationMutation = useMutation({
