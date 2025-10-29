@@ -48,10 +48,11 @@ export default function UpgradedAdminDashboard() {
     });
   }
 
-  const formatCurrency = (amount: number | string) => {
+  const formatCurrency = (amount: number | string | undefined | null) => {
+    if (amount === undefined || amount === null) return '฿0';
     const numAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
-    const validAmount = Number.isFinite(numAmount) ? numAmount : 0;
-    return `฿${validAmount.toLocaleString()}`;
+    const validAmount = Number.isFinite(numAmount) && numAmount > 0 ? numAmount : 0;
+    return `฿${validAmount.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
   };
 
   const formatDate = (dateString: string) => {
@@ -264,6 +265,8 @@ export default function UpgradedAdminDashboard() {
                 <CardContent className="space-y-4 px-6 pb-6">
                   {recentBookings.map((booking: any) => {
                     const propertyName = propertyMap.get(booking.propertyId) || `Property #${booking.propertyId}`;
+                    // Try multiple amount fields in order of preference
+                    const amount = booking.totalAmount || booking.guestTotalPrice || booking.platformPayout || booking.netHostPayout || 0;
                     return (
                       <div key={booking.id} className="flex items-center justify-between p-3 bg-gradient-to-r from-cyan-50/50 to-slate-50/80 rounded-lg border border-cyan-100/30">
                         <div>
@@ -274,7 +277,7 @@ export default function UpgradedAdminDashboard() {
                           </p>
                         </div>
                         <div className="text-right">
-                          <p className="font-bold text-sm text-slate-800">{formatCurrency(booking.totalAmount)}</p>
+                          <p className="font-bold text-sm text-slate-800">{formatCurrency(amount)}</p>
                           <Badge 
                             variant={booking.status === 'confirmed' ? 'default' : 'secondary'}
                             className={booking.status === 'confirmed' ? 'bg-emerald-100 text-emerald-700 border-emerald-200' : 'bg-slate-100 text-slate-600 border-slate-200'}
@@ -349,6 +352,8 @@ export default function UpgradedAdminDashboard() {
                 <div className="space-y-4">
                   {Array.isArray(bookings) && bookings.map((booking: any) => {
                     const propertyName = propertyMap.get(booking.propertyId) || `Property #${booking.propertyId}`;
+                    // Try multiple amount fields in order of preference
+                    const amount = booking.totalAmount || booking.guestTotalPrice || booking.platformPayout || booking.netHostPayout || 0;
                     return (
                       <div key={booking.id} className="flex items-center justify-between p-4 bg-gradient-to-r from-cyan-50/50 to-slate-50/80 rounded-xl border-2 border-cyan-100/30 hover:border-cyan-200/50 transition-all duration-200 hover:shadow-md">
                         <div className="flex-1">
@@ -375,7 +380,7 @@ export default function UpgradedAdminDashboard() {
                           </p>
                         </div>
                         <div className="text-right">
-                          <p className="font-bold text-xl text-slate-800 mb-1">{formatCurrency(booking.totalAmount)}</p>
+                          <p className="font-bold text-xl text-slate-800 mb-1">{formatCurrency(amount)}</p>
                           <p className="text-sm text-slate-500 font-medium">{booking.source || 'Direct'}</p>
                         </div>
                       </div>
