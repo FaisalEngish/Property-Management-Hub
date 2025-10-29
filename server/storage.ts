@@ -688,6 +688,17 @@ import {
   type InsertAlertRule,
   type AlertLog,
   type InsertAlertLog,
+  // Reports & Analytics
+  reports,
+  type Report,
+  type InsertReport,
+  // Automation & Alerts
+  automations,
+  automationLogs,
+  type Automation,
+  type InsertAutomation,
+  type AutomationLog,
+  type InsertAutomationLog
 } from "@shared/schema";
 
 // Guest Portal Smart Requests & AI Chat imports
@@ -2162,6 +2173,27 @@ export interface IStorage {
   updateContactTemplateZone(id: number, template: Partial<InsertContactTemplateZone>): Promise<ContactTemplateZone | undefined>;
   deleteContactTemplateZone(id: number): Promise<boolean>;
   applyContactTemplate(propertyId: number, templateId: number, createdBy: string): Promise<PropertyLocalContact[]>;
+  
+  // Reports & Analytics operations
+  getReports(organizationId: string): Promise<Report[]>;
+  getReportsByType(organizationId: string, type: string): Promise<Report[]>;
+  getReport(id: number): Promise<Report | undefined>;
+  createReport(report: InsertReport): Promise<Report>;
+  deleteReport(id: number): Promise<boolean>;
+  generateReport(organizationId: string, type: string, userId?: string): Promise<Report>;
+  
+  // Automation & Alerts operations
+  getAutomations(organizationId: string): Promise<Automation[]>;
+  getActiveAutomations(organizationId: string): Promise<Automation[]>;
+  getAutomation(id: number): Promise<Automation | undefined>;
+  createAutomation(automation: InsertAutomation): Promise<Automation>;
+  updateAutomation(id: number, automation: Partial<InsertAutomation>): Promise<Automation | undefined>;
+  deleteAutomation(id: number): Promise<boolean>;
+  toggleAutomation(id: number, isActive: boolean): Promise<Automation | undefined>;
+  
+  // Automation Logs operations
+  getAutomationLogs(automationId: number): Promise<AutomationLog[]>;
+  createAutomationLog(log: InsertAutomationLog): Promise<AutomationLog>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -28919,6 +28951,198 @@ Plant Care:
       }, {} as Record<string, number>)
     };
   }
-}
-// Export storage instance
+
+  // ===== REPORTS & ANALYTICS OPERATIONS =====
+  
+  async getReports(organizationId: string): Promise<Report[]> {
+    return await db.select().from(reports).where(eq(reports.organizationId, organizationId)).orderBy(desc(reports.createdAt));
+  }
+
+  async getReportsByType(organizationId: string, type: string): Promise<Report[]> {
+    return await db.select().from(reports)
+      .where(and(eq(reports.organizationId, organizationId), eq(reports.type, type)))
+      .orderBy(desc(reports.createdAt));
+  }
+
+  async getReport(id: number): Promise<Report | undefined> {
+    const [report] = await db.select().from(reports).where(eq(reports.id, id));
+    return report;
+  }
+
+  async createReport(report: InsertReport): Promise<Report> {
+    const [created] = await db.insert(reports).values(report).returning();
+    return created;
+  }
+
+  async deleteReport(id: number): Promise<boolean> {
+    await db.delete(reports).where(eq(reports.id, id));
+    return true;
+  }
+
+  async generateReport(organizationId: string, type: string, userId?: string): Promise<Report> {
+    // Generate report based on type
+    let reportData: any = {};
+    let title = '';
+
+    switch (type) {
+      case 'bookings':
+        const bookings = await this.getBookings(organizationId);
+        const activeBookings = bookings.filter(b => b.status === 'confirmed' || b.status === 'active');
+        title = 'Bookings Summary Report';
+        reportData = {
+          summary: {
+            total: bookings.length,
+            active: activeBookings.length,
+            totalRevenue: bookings.reduce((sum, b) => sum + parseFloat(b.totalAmount || '0'), 0)
+          },
+          details: bookings.map(b => ({
+            id: b.id,
+            guestName: b.guestName,
+            checkIn: b.checkInDate,
+            checkOut: b.checkOutDate,
+            status: b.status,
+            amount: b.totalAmount
+          }))
+        };
+        break;
+
+      case 'finances':
+        const finances = await this.getFinances();
+        const revenue = finances.filter(f => f.type === 'income');
+        const expenses = finances.filter(f => f.type === 'expense');
+        title = 'Financial Summary Report';
+        reportData = {
+          summary: {
+            totalRevenue: revenue.reduce((sum, f) => sum + parseFloat(f.amount || '0'), 0),
+            totalExpenses: expenses.reduce((sum, f) => sum + parseFloat(f.amount || '0'), 0),
+            netProfit: revenue.reduce((sum, f) => sum + parseFloat(f.amount || '0'), 0) - 
+                      expenses.reduce((sum, f) => sum + parseFloat(f.amount || '0'), 0)
+          },
+          details: finances.map(f => ({
+            id: f.id,
+            type: f.type,
+            category: f.category,
+            amount: f.amount,
+            date: f.date
+          }))
+        };
+        break;
+
+      case 'tasks':
+        const tasks = await this.getTasks();
+        const completedTasks = tasks.filter(t => t.status === 'completed');
+        const pendingTasks = tasks.filter(t => t.status === 'pending');
+        title = 'Tasks Summary Report';
+        reportData = {
+          summary: {
+            total: tasks.length,
+            completed: completedTasks.length,
+            pending: pendingTasks.length,
+            completionRate: tasks.length > 0 ? (completedTasks.length / tasks.length * 100).toFixed(2) : 0
+          },
+          details: tasks.map(t => ({
+            id: t.id,
+            title: t.title,
+            status: t.status,
+            priority: t.priority,
+            dueDate: t.dueDate
+          }))
+        };
+        break;
+
+      case 'properties':
+        const properties = await this.getProperties();
+        const activeProperties = properties.filter(p => p.status === 'active');
+        title = 'Properties Summary Report';
+        reportData = {
+          summary: {
+            total: properties.length,
+            active: activeProperties.length,
+            totalValue: properties.reduce((sum, p) => sum + parseFloat(p.estimatedValue || '0'), 0)
+          },
+          details: properties.map(p => ({
+            id: p.id,
+            name: p.name,
+            address: p.address,
+            status: p.status,
+            estimatedValue: p.estimatedValue
+          }))
+        };
+        break;
+
+      default:
+        title = 'General Report';
+        reportData = { summary: {}, details: [] };
+    }
+
+    const report: InsertReport = {
+      organizationId,
+      title,
+      type,
+      data: reportData,
+      generatedBy: userId
+    };
+
+    return await this.createReport(report);
+  }
+
+  // ===== AUTOMATION & ALERTS OPERATIONS =====
+  
+  async getAutomations(organizationId: string): Promise<Automation[]> {
+    return await db.select().from(automations)
+      .where(eq(automations.organizationId, organizationId))
+      .orderBy(desc(automations.createdAt));
+  }
+
+  async getActiveAutomations(organizationId: string): Promise<Automation[]> {
+    return await db.select().from(automations)
+      .where(and(eq(automations.organizationId, organizationId), eq(automations.isActive, true)))
+      .orderBy(desc(automations.createdAt));
+  }
+
+  async getAutomation(id: number): Promise<Automation | undefined> {
+    const [automation] = await db.select().from(automations).where(eq(automations.id, id));
+    return automation;
+  }
+
+  async createAutomation(automation: InsertAutomation): Promise<Automation> {
+    const [created] = await db.insert(automations).values(automation).returning();
+    return created;
+  }
+
+  async updateAutomation(id: number, automation: Partial<InsertAutomation>): Promise<Automation | undefined> {
+    const [updated] = await db.update(automations)
+      .set({ ...automation, updatedAt: new Date() })
+      .where(eq(automations.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteAutomation(id: number): Promise<boolean> {
+    await db.delete(automations).where(eq(automations.id, id));
+    return true;
+  }
+
+  async toggleAutomation(id: number, isActive: boolean): Promise<Automation | undefined> {
+    const [updated] = await db.update(automations)
+      .set({ isActive, updatedAt: new Date() })
+      .where(eq(automations.id, id))
+      .returning();
+    return updated;
+  }
+
+  // ===== AUTOMATION LOGS OPERATIONS =====
+  
+  async getAutomationLogs(automationId: number): Promise<AutomationLog[]> {
+    return await db.select().from(automationLogs)
+      .where(eq(automationLogs.automationId, automationId))
+      .orderBy(desc(automationLogs.executedAt));
+  }
+
+  async createAutomationLog(log: InsertAutomationLog): Promise<AutomationLog> {
+    const [created] = await db.insert(automationLogs).values(log).returning();
+    return created;
+  }
+  }
+
 export const storage = new DatabaseStorage();

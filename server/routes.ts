@@ -21122,6 +21122,218 @@ Be specific and actionable in your recommendations.`;
   });
 
   const httpServer = createServer(app);
+
+  // ===== REPORTS & ANALYTICS ROUTES =====
+  
+  // Get all reports for organization
+  app.get("/api/reports", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = req.user.organizationId || "default-org";
+      const reports = await storage.getReports(organizationId);
+      res.json(reports);
+    } catch (error) {
+      console.error("Error fetching reports:", error);
+      res.status(500).json({ message: "Failed to fetch reports" });
+    }
+  });
+
+  // Get reports by type
+  app.get("/api/reports/type/:type", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = req.user.organizationId || "default-org";
+      const { type } = req.params;
+      const reports = await storage.getReportsByType(organizationId, type);
+      res.json(reports);
+    } catch (error) {
+      console.error("Error fetching reports by type:", error);
+      res.status(500).json({ message: "Failed to fetch reports" });
+    }
+  });
+
+  // Get single report
+  app.get("/api/reports/:id", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const report = await storage.getReport(parseInt(req.params.id));
+      if (!report) {
+        return res.status(404).json({ message: "Report not found" });
+      }
+      res.json(report);
+    } catch (error) {
+      console.error("Error fetching report:", error);
+      res.status(500).json({ message: "Failed to fetch report" });
+    }
+  });
+
+  // Generate new report
+  app.post("/api/reports/generate", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = req.user.organizationId || "default-org";
+      const { type } = req.body;
+      
+      if (!type) {
+        return res.status(400).json({ message: "Report type is required" });
+      }
+      
+      const report = await storage.generateReport(organizationId, type, req.user.id);
+      res.status(201).json(report);
+    } catch (error) {
+      console.error("Error generating report:", error);
+      res.status(500).json({ message: "Failed to generate report" });
+    }
+  });
+
+  // Export report to CSV
+  app.get("/api/reports/:id/export", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const report = await storage.getReport(parseInt(req.params.id));
+      
+      if (!report) {
+        return res.status(404).json({ message: "Report not found" });
+      }
+
+      const { Parser } = await import('json2csv');
+      const fields = report.data.details && report.data.details.length > 0 
+        ? Object.keys(report.data.details[0])
+        : [];
+      
+      const parser = new Parser({ fields });
+      const csv = parser.parse(report.data.details || []);
+      
+      res.header("Content-Type", "text/csv");
+      res.attachment(`${report.type}_report_${report.id}.csv`);
+      res.send(csv);
+    } catch (error) {
+      console.error("Error exporting report:", error);
+      res.status(500).json({ message: "Failed to export report" });
+    }
+  });
+
+  // Delete report
+  app.delete("/api/reports/:id", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const success = await storage.deleteReport(parseInt(req.params.id));
+      if (!success) {
+        return res.status(404).json({ message: "Report not found" });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting report:", error);
+      res.status(500).json({ message: "Failed to delete report" });
+    }
+  });
+
+  // ===== AUTOMATION & ALERTS ROUTES =====
+  
+  // Get all automations
+  app.get("/api/automations", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = req.user.organizationId || "default-org";
+      const automations = await storage.getAutomations(organizationId);
+      res.json(automations);
+    } catch (error) {
+      console.error("Error fetching automations:", error);
+      res.status(500).json({ message: "Failed to fetch automations" });
+    }
+  });
+
+  // Get active automations only
+  app.get("/api/automations/active", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = req.user.organizationId || "default-org";
+      const automations = await storage.getActiveAutomations(organizationId);
+      res.json(automations);
+    } catch (error) {
+      console.error("Error fetching active automations:", error);
+      res.status(500).json({ message: "Failed to fetch automations" });
+    }
+  });
+
+  // Get single automation
+  app.get("/api/automations/:id", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const automation = await storage.getAutomation(parseInt(req.params.id));
+      if (!automation) {
+        return res.status(404).json({ message: "Automation not found" });
+      }
+      res.json(automation);
+    } catch (error) {
+      console.error("Error fetching automation:", error);
+      res.status(500).json({ message: "Failed to fetch automation" });
+    }
+  });
+
+  // Create automation
+  app.post("/api/automations", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = req.user.organizationId || "default-org";
+      const automationData = {
+        ...req.body,
+        organizationId,
+        createdBy: req.user.id
+      };
+      
+      const automation = await storage.createAutomation(automationData);
+      res.status(201).json(automation);
+    } catch (error) {
+      console.error("Error creating automation:", error);
+      res.status(500).json({ message: "Failed to create automation" });
+    }
+  });
+
+  // Update automation
+  app.put("/api/automations/:id", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const automation = await storage.updateAutomation(parseInt(req.params.id), req.body);
+      if (!automation) {
+        return res.status(404).json({ message: "Automation not found" });
+      }
+      res.json(automation);
+    } catch (error) {
+      console.error("Error updating automation:", error);
+      res.status(500).json({ message: "Failed to update automation" });
+    }
+  });
+
+  // Toggle automation active/inactive
+  app.patch("/api/automations/:id/toggle", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { isActive } = req.body;
+      const automation = await storage.toggleAutomation(parseInt(req.params.id), isActive);
+      if (!automation) {
+        return res.status(404).json({ message: "Automation not found" });
+      }
+      res.json(automation);
+    } catch (error) {
+      console.error("Error toggling automation:", error);
+      res.status(500).json({ message: "Failed to toggle automation" });
+    }
+  });
+
+  // Delete automation
+  app.delete("/api/automations/:id", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const success = await storage.deleteAutomation(parseInt(req.params.id));
+      if (!success) {
+        return res.status(404).json({ message: "Automation not found" });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting automation:", error);
+      res.status(500).json({ message: "Failed to delete automation" });
+    }
+  });
+
+  // Get automation logs
+  app.get("/api/automations/:id/logs", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const logs = await storage.getAutomationLogs(parseInt(req.params.id));
+      res.json(logs);
+    } catch (error) {
+      console.error("Error fetching automation logs:", error);
+      res.status(500).json({ message: "Failed to fetch automation logs" });
+    }
+  });
+
   return httpServer;
 }
 

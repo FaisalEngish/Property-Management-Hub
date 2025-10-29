@@ -130,6 +130,8 @@ import EnhancedAdminDashboard from "./pages/EnhancedAdminDashboard";
 import DocumentCenter from "./pages/DocumentCenter";
 import PropertyDocumentCenter from "./pages/PropertyDocumentCenter";
 import PropertyDocumentUpload from "./pages/PropertyDocumentUpload";
+import ReportsAnalytics from "./pages/ReportsAnalytics";
+import AutomationAlerts from "./pages/AutomationAlerts";
 
 // QueryClient is now imported from lib/queryClient for better performance
 
@@ -321,6 +323,14 @@ function AppRoutes() {
         <Route path="/salaries-wages" component={SimpleSalariesWages} />
         <Route path="/staff-salaries" component={SimpleSalariesWages} />
         <Route path="/admin/salaries-wages" component={SimpleSalariesWages} />
+        
+        {/* Reports & Analytics */}
+        <Route path="/reports" component={ReportsAnalytics} />
+        <Route path="/reports-analytics" component={ReportsAnalytics} />
+        
+        {/* Automation & Alerts */}
+        <Route path="/automation" component={AutomationAlerts} />
+        <Route path="/automation-alerts" component={AutomationAlerts} />
         
         <Route component={NotFound} />
       </Switch>

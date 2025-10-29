@@ -626,8 +626,7 @@ export default function PropertyHub() {
                       badgeIcon: "📊",
                       stats: "3 reports ready",
                       actionText: "Generate Report",
-                      actionIcon: "📈",
-                      isComingSoon: true
+                      actionIcon: "📈"
                     },
                     {
                       title: "Automation & Alerts",
@@ -638,8 +637,7 @@ export default function PropertyHub() {
                       badgeIcon: "🤖",
                       stats: "5 active rules",
                       actionText: "Setup Alert",
-                      actionIcon: "⚡",
-                      isComingSoon: true
+                      actionIcon: "⚡"
                     }
                   ].map((item) => {
                     const IconComponent = item.icon;

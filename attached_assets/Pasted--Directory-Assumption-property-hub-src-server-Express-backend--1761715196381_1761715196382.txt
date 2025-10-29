@@ -1,0 +1,261 @@
+✅ Directory Assumption
+/property-hub
+├── src
+│   ├── server                # Express backend
+│   │   ├── routes/
+│   │   ├── db/
+│   │   ├── drizzle/
+│   │   └── index.ts          # entrypoint for Express
+│   ├── client                # React + Vite frontend
+│   │   ├── src/
+│   │   └── index.html
+│   └── shared                # shared schema/types between backend & frontend
+│       ├── schema.ts
+│       ├── types.ts
+│       └── drizzle.config.ts
+├── drizzle.config.ts
+├── package.json
+├── tsconfig.json
+└── vite.config.ts
+
+🧩 Step-by-Step Instruction for Replit Agent
+
+Please execute from project root /property-hub
+
+1️⃣ Verify project environment
+
+Before proceeding:
+
+node -v && npm -v
+tsc --version
+psql --version || echo "⚠️ PostgreSQL CLI not found"
+
+
+Ensure the following env vars exist (if not, create in Replit secrets):
+
+DATABASE_URL=postgresql://<user>:<pass>@<host>:<port>/<dbname>
+
+2️⃣ Create database tables for new modules
+src/shared/schema.ts — Add new Drizzle models
+import { pgTable, serial, varchar, integer, timestamp, jsonb } from "drizzle-orm/pg-core";
+
+export const reports = pgTable("reports", {
+  id: serial("id").primaryKey(),
+  title: varchar("title", { length: 255 }),
+  type: varchar("type", { length: 50 }).notNull(), // e.g., bookings, finances
+  data: jsonb("data").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const automations = pgTable("automations", {
+  id: serial("id").primaryKey(),
+  name: varchar("name", { length: 255 }),
+  trigger: varchar("trigger", { length: 100 }),
+  action: varchar("action", { length: 100 }),
+  schedule: varchar("schedule", { length: 50 }),
+  active: integer("active").default(1),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+
+Then run:
+
+npx drizzle-kit generate
+npx drizzle-kit push
+
+3️⃣ Backend — Express Routes (TypeScript)
+Create: src/server/routes/reports.ts
+import { Router } from "express";
+import { db } from "../db";
+import { reports } from "../../shared/schema";
+import { eq } from "drizzle-orm";
+import { Parser } from "json2csv";
+
+const router = Router();
+
+router.get("/summary", async (_, res) => {
+  try {
+    const data = await db.select().from(reports).all();
+    res.json({ count: data.length, items: data });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to fetch reports" });
+  }
+});
+
+router.post("/generate", async (req, res) => {
+  try {
+    const { type, data } = req.body;
+    const inserted = await db.insert(reports).values({ title: `${type} Report`, type, data }).returning();
+    res.json(inserted[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Report generation failed" });
+  }
+});
+
+router.get("/export/:type", async (req, res) => {
+  try {
+    const rows = await db.select().from(reports).where(eq(reports.type, req.params.type));
+    const parser = new Parser();
+    const csv = parser.parse(rows);
+    res.header("Content-Type", "text/csv");
+    res.attachment(`${req.params.type}.csv`);
+    res.send(csv);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Export failed" });
+  }
+});
+
+export default router;
+
+Create: src/server/routes/automations.ts
+import { Router } from "express";
+import { db } from "../db";
+import { automations } from "../../shared/schema";
+import { eq } from "drizzle-orm";
+
+const router = Router();
+
+router.get("/", async (_, res) => {
+  const rules = await db.select().from(automations).all();
+  res.json(rules);
+});
+
+router.post("/", async (req, res) => {
+  const rule = req.body;
+  const inserted = await db.insert(automations).values(rule).returning();
+  res.json(inserted[0]);
+});
+
+router.put("/:id", async (req, res) => {
+  const id = parseInt(req.params.id);
+  const updated = await db.update(automations).set(req.body).where(eq(automations.id, id)).returning();
+  res.json(updated[0]);
+});
+
+router.delete("/:id", async (req, res) => {
+  const id = parseInt(req.params.id);
+  await db.delete(automations).where(eq(automations.id, id));
+  res.status(204).send();
+});
+
+export default router;
+
+Register routes in src/server/index.ts
+import express from "express";
+import cors from "cors";
+import reportsRouter from "./routes/reports";
+import automationsRouter from "./routes/automations";
+
+const app = express();
+app.use(cors());
+app.use(express.json());
+
+app.use("/api/reports", reportsRouter);
+app.use("/api/automations", automationsRouter);
+
+const PORT = process.env.PORT || 4000;
+app.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`));
+
+4️⃣ Frontend — React + Vite Integration
+
+In src/client/src/pages/Reports.tsx
+
+import React, { useEffect, useState } from "react";
+import axios from "axios";
+const API = import.meta.env.VITE_API_URL || "http://localhost:4000";
+
+export default function Reports() {
+  const [reports, setReports] = useState([]);
+  useEffect(() => { axios.get(`${API}/api/reports/summary`).then(r => setReports(r.data.items)); }, []);
+
+  return (
+    <div>
+      <h2>Reports & Analytics</h2>
+      {reports.map((r: any) => (
+        <div key={r.id}>{r.title} — {r.type}</div>
+      ))}
+      <button onClick={() => axios.get(`${API}/api/reports/export/bookings`, { responseType: 'blob' }).then(r => {
+        const url = URL.createObjectURL(r.data);
+        const a = document.createElement("a");
+        a.href = url; a.download = "bookings.csv"; a.click();
+      })}>
+        Export CSV
+      </button>
+    </div>
+  );
+}
+
+
+In src/client/src/pages/Automation.tsx
+
+import React, { useEffect, useState } from "react";
+import axios from "axios";
+const API = import.meta.env.VITE_API_URL || "http://localhost:4000";
+
+export default function Automation() {
+  const [rules, setRules] = useState([]);
+  const [form, setForm] = useState({ name: "", trigger: "", action: "" });
+
+  useEffect(() => { axios.get(`${API}/api/automations`).then(r => setRules(r.data)); }, []);
+
+  return (
+    <div>
+      <h2>Automation & Alerts</h2>
+      <input placeholder="Name" value={form.name} onChange={e => setForm({...form, name: e.target.value})}/>
+      <input placeholder="Trigger" value={form.trigger} onChange={e => setForm({...form, trigger: e.target.value})}/>
+      <input placeholder="Action" value={form.action} onChange={e => setForm({...form, action: e.target.value})}/>
+      <button onClick={() => axios.post(`${API}/api/automations`, form).then(() => window.location.reload())}>Add</button>
+
+      <ul>{rules.map((r:any)=> <li key={r.id}>{r.name} — {r.trigger} — {r.action}</li>)}</ul>
+    </div>
+  );
+}
+
+
+Update your router (e.g., src/client/src/App.tsx) to add:
+
+<Route path="/reports" element={<Reports />} />
+<Route path="/automation" element={<Automation />} />
+
+5️⃣ Wire Dashboard Cards
+
+In your dashboard component:
+
+import { useNavigate } from "react-router-dom";
+const navigate = useNavigate();
+
+<button onClick={() => navigate("/reports")}>Reports & Analytics</button>
+<button onClick={() => navigate("/automation")}>Automation & Alerts</button>
+
+6️⃣ Run and Verify
+npm run build
+npm run dev
+
+
+Then verify:
+
+/api/reports/summary → returns JSON
+
+/api/reports/export/bookings → returns CSV
+
+/api/automations → CRUD works
+
+✅ Replit Agent Deliverables
+
+Return JSON like:
+
+{
+  "status": "success",
+  "features": ["Reports & Analytics", "Automation & Alerts"],
+  "backend": "Express + TypeScript",
+  "database": "PostgreSQL + Drizzle ORM",
+  "frontend": "React + Vite",
+  "tests": [
+    { "endpoint": "/api/reports/summary", "status": 200 },
+    { "endpoint": "/api/automations", "status": 200 }
+  ],
+  "notes": "Modules integrated safely with shared schema and Drizzle types"
+}

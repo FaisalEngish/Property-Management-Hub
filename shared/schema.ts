@@ -12901,3 +12901,106 @@ export const insertPropertyInsuranceSchema = createInsertSchema(propertyInsuranc
 });
 
 export type PropertyInsurance = typeof propertyInsurance.$inferSelect;
+export type InsertPropertyInsurance = z.infer<typeof insertPropertyInsuranceSchema>;
+
+// ===== REPORTS & ANALYTICS SYSTEM =====
+
+export const reports = pgTable("reports", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  title: varchar("title", { length: 255 }).notNull(),
+  type: varchar("type", { length: 50 }).notNull(), // bookings, finances, tasks, properties, etc.
+  data: jsonb("data").$type<{
+    summary?: Record<string, any>;
+    details?: Record<string, any>[];
+    charts?: Record<string, any>;
+    metadata?: Record<string, any>;
+  }>().notNull(),
+  generatedBy: varchar("generated_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_reports_org").on(table.organizationId),
+  index("IDX_reports_type").on(table.type),
+  index("IDX_reports_created").on(table.createdAt),
+]);
+
+export const insertReportSchema = createInsertSchema(reports).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type Report = typeof reports.$inferSelect;
+export type InsertReport = z.infer<typeof insertReportSchema>;
+
+// ===== AUTOMATION & ALERTS SYSTEM =====
+
+export const automations = pgTable("automations", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  name: varchar("name", { length: 255 }).notNull(),
+  description: text("description"),
+  trigger: varchar("trigger", { length: 100 }).notNull(), // booking_due, task_overdue, payment_pending, utility_threshold, etc.
+  triggerCondition: jsonb("trigger_condition").$type<{
+    type?: string;
+    value?: any;
+    operator?: string;
+    threshold?: number;
+  }>(),
+  action: varchar("action", { length: 100 }).notNull(), // send_email, send_sms, create_task, send_notification, etc.
+  actionConfig: jsonb("action_config").$type<{
+    recipients?: string[];
+    message?: string;
+    template?: string;
+    priority?: string;
+  }>(),
+  schedule: varchar("schedule", { length: 50 }), // cron expression or interval
+  isActive: boolean("is_active").default(true),
+  lastTriggered: timestamp("last_triggered"),
+  triggerCount: integer("trigger_count").default(0),
+  createdBy: varchar("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_automations_org").on(table.organizationId),
+  index("IDX_automations_trigger").on(table.trigger),
+  index("IDX_automations_active").on(table.isActive),
+  index("IDX_automations_created").on(table.createdAt),
+]);
+
+export const insertAutomationSchema = createInsertSchema(automations).omit({
+  id: true,
+  triggerCount: true,
+  lastTriggered: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type Automation = typeof automations.$inferSelect;
+export type InsertAutomation = z.infer<typeof insertAutomationSchema>;
+
+// Automation execution logs
+export const automationLogs = pgTable("automation_logs", {
+  id: serial("id").primaryKey(),
+  automationId: integer("automation_id").references(() => automations.id).notNull(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  status: varchar("status", { length: 50 }).notNull(), // success, failed, pending
+  triggerData: jsonb("trigger_data"),
+  result: jsonb("result"),
+  error: text("error"),
+  executedAt: timestamp("executed_at").defaultNow(),
+}, (table) => [
+  index("IDX_automation_logs_automation").on(table.automationId),
+  index("IDX_automation_logs_org").on(table.organizationId),
+  index("IDX_automation_logs_status").on(table.status),
+  index("IDX_automation_logs_executed").on(table.executedAt),
+]);
+
+export const insertAutomationLogSchema = createInsertSchema(automationLogs).omit({
+  id: true,
+  executedAt: true,
+});
+
+export type AutomationLog = typeof automationLogs.$inferSelect;
+export type InsertAutomationLog = z.infer<typeof insertAutomationLogSchema>;
