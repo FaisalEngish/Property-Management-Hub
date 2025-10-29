@@ -259,6 +259,7 @@ function AppRoutes() {
         {/* Document Management */}
         <Route path="/document-center" component={DocumentCenter} />
         <Route path="/property-document-center" component={PropertyDocumentCenter} />
+        <Route path="/property-documents-management" component={PropertyDocumentCenter} />
         <Route path="/property-document-upload" component={PropertyDocumentUpload} />
         
         {/* AI Testing */}
