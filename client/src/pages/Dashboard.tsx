@@ -260,6 +260,8 @@ export default function Dashboard() {
                   <div className="space-y-4">
                     {recentBookings.map((booking: any) => {
                       const propertyName = propertyMap.get(booking.propertyId) || booking.property || `Property #${booking.propertyId}`;
+                      // Try multiple amount fields in order of preference
+                      const amount = booking.totalAmount || booking.guestTotalPrice || booking.platformPayout || booking.netHostPayout || 0;
                       return (
                         <div key={booking.id} className="flex items-center justify-between py-3 border-b border-gray-100 last:border-0">
                           <div className="flex items-center space-x-3">
@@ -275,7 +277,7 @@ export default function Dashboard() {
                             <p className="text-sm font-medium text-gray-900">
                               {new Date(booking.checkIn).toLocaleDateString()} - {new Date(booking.checkOut).toLocaleDateString()}
                             </p>
-                            <p className="text-sm text-gray-500">{formatCurrency(booking.totalAmount)}</p>
+                            <p className="text-sm text-gray-500">{formatCurrency(amount)}</p>
                           </div>
                         </div>
                       );
@@ -537,6 +539,8 @@ export default function Dashboard() {
                 ) : (
                   bookings.map((booking: any) => {
                     const propertyName = propertyMap.get(booking.propertyId) || booking.property || `Property #${booking.propertyId}`;
+                    // Try multiple amount fields in order of preference
+                    const amount = booking.totalAmount || booking.guestTotalPrice || booking.platformPayout || booking.netHostPayout || 0;
                     return (
                       <Card key={booking.id}>
                         <CardContent className="p-4">
@@ -550,7 +554,7 @@ export default function Dashboard() {
                                 {new Date(booking.checkIn).toLocaleDateString()} → {new Date(booking.checkOut).toLocaleDateString()}
                               </p>
                               <p className="text-sm font-medium text-green-600">
-                                {formatCurrency(booking.totalAmount)}
+                                {formatCurrency(amount)}
                               </p>
                             </div>
                             <Badge variant={getStatusBadgeVariant(booking.status)}>
