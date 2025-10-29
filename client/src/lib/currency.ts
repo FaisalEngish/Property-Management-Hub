@@ -2,8 +2,17 @@
  * Currency formatting utilities for Thai Baht (THB)
  */
 
-export function formatCurrency(amount: number): string {
-  if (typeof amount !== 'number' || isNaN(amount)) {
+export function formatCurrency(amount: number | string | null | undefined): string {
+  // Handle null/undefined
+  if (amount == null) {
+    return '฿0';
+  }
+  
+  // Convert string to number if needed
+  const numAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
+  
+  // Check if it's a valid number
+  if (typeof numAmount !== 'number' || isNaN(numAmount)) {
     return '฿0';
   }
   
@@ -13,11 +22,20 @@ export function formatCurrency(amount: number): string {
     currency: 'THB',
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
-  }).format(amount);
+  }).format(numAmount);
 }
 
-export function formatCurrencyWithDecimals(amount: number): string {
-  if (typeof amount !== 'number' || isNaN(amount)) {
+export function formatCurrencyWithDecimals(amount: number | string | null | undefined): string {
+  // Handle null/undefined
+  if (amount == null) {
+    return '฿0.00';
+  }
+  
+  // Convert string to number if needed
+  const numAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
+  
+  // Check if it's a valid number
+  if (typeof numAmount !== 'number' || isNaN(numAmount)) {
     return '฿0.00';
   }
   
@@ -26,7 +44,7 @@ export function formatCurrencyWithDecimals(amount: number): string {
     currency: 'THB',
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
-  }).format(amount);
+  }).format(numAmount);
 }
 
 export function formatNumber(amount: number): string {
