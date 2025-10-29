@@ -50,6 +50,8 @@ export default function AutomationAlerts() {
   // Fetch automations
   const { data: automations = [], isLoading } = useQuery<Automation[]>({
     queryKey: ["/api/automations"],
+    refetchOnWindowFocus: false,
+    staleTime: 30000, // Consider data fresh for 30 seconds
   });
 
   // Create automation mutation
