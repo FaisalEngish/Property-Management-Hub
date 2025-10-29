@@ -512,7 +512,7 @@ export default function Dashboard() {
                                   {propertyName} • {task.type}
                                 </p>
                                 <p className="text-sm text-muted-foreground">
-                                  Due: {task.scheduledDate ? new Date(task.scheduledDate).toLocaleDateString() : 'No date'}
+                                  Due Date: {task.dueDate ? new Date(task.dueDate).toLocaleDateString() : task.scheduledDate ? new Date(task.scheduledDate).toLocaleDateString() : 'No date'}
                                 </p>
                               </div>
                             </div>
