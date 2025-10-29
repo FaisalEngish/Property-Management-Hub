@@ -1,0 +1,208 @@
+TASK: Create & wire the Reports & Automation modules, install dependencies, update UI card routes, and start backend + frontend. Use safe backups and environment variables (no hard-coded ports/URLs).
+
+PRECONDITIONS (agent):
+
+Run from project root (assume /property-hub).
+
+Have filesystem write permissions.
+
+Have node and npm available in the environment.
+
+1) Set variables (no hardcoding)
+
+Use these environment variables (fallbacks provided). The agent must use these values instead of hardcoded constants:
+
+ROOT="$(pwd)"                         # project root (should be /property-hub)
+BACKEND_DIR="$ROOT/backend"
+FRONTEND_DIR="$ROOT/frontend"
+BACKEND_PORT="${BACKEND_PORT:-4000}"
+FRONTEND_PORT="${FRONTEND_PORT:-5173}"   # Vite default dev port
+API_URL="${API_URL:-http://localhost:$BACKEND_PORT}"
+
+
+If Replit provides a way to persist env vars, set VITE_API_URL=$API_URL for the frontend service.
+
+2) Safety: backup any existing files before changing
+
+If backend/ or frontend/ exist, move them to backups with timestamps:
+
+ts=$(date +%s)
+[ -d "$BACKEND_DIR" ] && mv "$BACKEND_DIR" "${BACKEND_DIR}.backup.$ts"
+[ -d "$FRONTEND_DIR" ] && mv "$FRONTEND_DIR" "${FRONTEND_DIR}.backup.$ts"
+
+
+Log a short summary file setup_log.txt in project root with actions taken.
+
+3) Create the setup script (if not present) and run it
+
+If setup_replit_agent.sh exists, ensure executable; otherwise write the script file (use templated content that references the variables above). The script should:
+
+Create backend/ and frontend/ directories and write the required files (server, routes, db.json, React pages).
+
+Install backend deps: npm install express lowdb cors body-parser json2csv
+
+Install frontend deps: npm install react react-dom react-router-dom axios chart.js react-chartjs-2 vite --save
+
+Add package.json scripts:
+
+Backend: "start": "node server.js"
+
+Frontend: "dev": "vite"
+
+Exit with non-zero on any failure.
+
+Make it executable and run it:
+
+chmod +x setup_replit_agent.sh
+./setup_replit_agent.sh
+
+
+Capture stdout/stderr to setup_log.txt for debugging:
+
+./setup_replit_agent.sh > setup_log.txt 2>&1 || { echo "setup script failed, see setup_log.txt"; exit 1; }
+
+4) Configure environment for frontend <-> backend communication
+
+Ensure VITE_API_URL is set to the API URL Replit should expose:
+
+Set VITE_API_URL=$API_URL in Replit environment settings (or create .env in frontend/ with VITE_API_URL=$API_URL).
+
+Verify frontend/src/api.js uses import.meta.env.VITE_API_URL and falls back to http://localhost:$BACKEND_PORT.
+
+5) Start backend and frontend (non-blocking / supervised)
+
+Start both processes so the Replit environment serves them and you can access the UI.
+
+Option A — simple background (acceptable in Replit shell):
+
+# start backend
+cd "$BACKEND_DIR"
+BACKEND_PORT="$BACKEND_PORT" node server.js > "$ROOT/backend.log" 2>&1 & echo $! > "$ROOT/backend.pid"
+
+# start frontend (Vite)
+cd "$FRONTEND_DIR"
+npm run dev > "$ROOT/frontend.log" 2>&1 & echo $! > "$ROOT/frontend.pid"
+
+
+Option B — use npx concurrently if available to manage both (optional):
+
+# in project root (if concurrently installed)
+npx concurrently "node backend/server.js --port $BACKEND_PORT" "npm --prefix frontend run dev"
+
+
+Note: Use whichever method is compatible with the Replit execution model. Always write PIDs and logs.
+
+6) Wire-up dashboard UI cards
+
+Locate your dashboard card components (where "Coming Soon" buttons appear) and change the button click handlers to navigate to the new pages. Do this safely by searching for the current strings and updating them:
+
+Search for Coming Soon or the specific card component file (example commands):
+
+grep -R "Coming Soon" -n || true
+
+
+Replace the disabled button with calls to the router navigation (example; the agent must adapt to project component style):
+
+// Example replacement
+// OLD: <button className="coming-soon" disabled>Coming Soon</button>
+// NEW:
+import { useNavigate } from 'react-router-dom';
+const navigate = useNavigate();
+<button onClick={() => navigate('/reports')}>Reports & Analytics</button>
+<button onClick={() => navigate('/automation')}>Automation & Alerts</button>
+
+
+Important: Before replacing, create per-file backups:
+
+cp file.js file.js.bak.$ts
+
+7) Remove “Coming Soon” styles
+
+Remove any disabled, aria-disabled, pointer-events-none, or greyed-out CSS classes from these buttons once navigation is wired.
+
+If the UI uses a state flag (isFeatureAvailable), set it to true for these two features.
+
+8) Verify API & frontend
+
+Wait 3–5 seconds, then verify the backend endpoint is live:
+
+curl -sS "$API_URL/api/reports/summary" || { echo "reports/summary failed"; cat backend.log; exit 1; }
+
+
+Expected: JSON response (may be empty arrays initially).
+
+Verify frontend loads and pages respond:
+
+If Replit exposes the frontend at a public URL, open $REPL_PUBLIC_URL/reports (agent should fetch the URL or use curl to the Vite dev server).
+
+Or test with curl http://localhost:$FRONTEND_PORT/ to ensure Vite returns HTML.
+
+Test exports:
+
+curl -X POST "$API_URL/api/reports/export" -H "Content-Type: application/json" -d '{"type":"bookings"}' --output bookings.csv
+file bookings.csv || true
+
+
+This confirms CSV export endpoint is reachable.
+
+Test automations endpoints:
+
+curl "$API_URL/api/automations"  # should return []
+curl -X POST "$API_URL/api/automations" -H "Content-Type: application/json" -d '{"name":"test","trigger":"booking_due","action":"email"}'
+curl "$API_URL/api/automations"
+
+
+Capture all results and append them to setup_log.txt.
+
+9) Failure handling & rollback
+
+If any step fails, restore backups made in step 2:
+
+# Example rollback restore
+[ -d "${BACKEND_DIR}.backup.$ts" ] && rm -rf "$BACKEND_DIR" && mv "${BACKEND_DIR}.backup.$ts" "$BACKEND_DIR"
+[ -d "${FRONTEND_DIR}.backup.$ts" ] && rm -rf "$FRONTEND_DIR" && mv "${FRONTEND_DIR}.backup.$ts" "$FRONTEND_DIR"
+
+
+Also include setup_log.txt and backend.log / frontend.log for debugging.
+
+10) Post-setup deliverables (what the agent must return)
+
+At the end of the run, reply with a concise JSON object in the agent’s response containing:
+
+status: "success" or "failed"
+
+backend_url: URL used for API (value of $API_URL)
+
+frontend_url: Replit public URL or http://localhost:$FRONTEND_PORT
+
+endpoints_tested: array of tested endpoints and statuses, e.g.
+[{"endpoint":"/api/reports/summary","status":"200"},{"endpoint":"/api/reports/export","status":"200"}]
+
+log_files: list of log paths (setup_log.txt, backend.log, frontend.log)
+
+notes: any warnings or manual actions required
+
+Example output (agent must follow format):
+
+{
+  "status": "success",
+  "backend_url": "http://localhost:4000",
+  "frontend_url": "https://<repl-url>",
+  "endpoints_tested": [
+    { "endpoint": "/api/reports/summary", "status": 200 },
+    { "endpoint": "/api/reports/export", "status": 200 },
+    { "endpoint": "/api/automations", "status": 200 }
+  ],
+  "log_files": ["setup_log.txt", "backend.log", "frontend.log"],
+  "notes": "Frontend env VITE_API_URL set. No DB data present; lowdb initialized."
+}
+
+Extra recommended improvements (optional)
+
+Replace lowdb with the project’s production DB and update route queries.
+
+Add authentication checks on API endpoints.
+
+Add a scheduled worker (cron) that triggers automations (use node-cron or an external scheduler).
+
+Configure Replit run settings to keep both services running automatically (Replit-specific).
