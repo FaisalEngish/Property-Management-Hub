@@ -111,6 +111,8 @@ export default function CreateAddonBookingDialog({
       duration: "",
       quantity: "1",
       billingType: "auto-bill-guest",
+      price: "",
+      dateDue: "",
       giftReason: "",
       notes: "",
       internalNotes: "",
@@ -481,6 +483,53 @@ export default function CreateAddonBookingDialog({
                     )}
                   />
                 )}
+
+                {/* Custom Price Input - only for non-gift bookings */}
+                {!isGiftBooking && (
+                  <FormField
+                    control={form.control}
+                    name="price"
+                    render={({ field }) => (
+                      <FormItem className="mt-4">
+                        <FormLabel>Custom Price (Optional)</FormLabel>
+                        <FormControl>
+                          <Input 
+                            {...field} 
+                            type="number" 
+                            step="0.01"
+                            placeholder={calculatedPrice > 0 ? formatCurrency(calculatedPrice) : "0.00"} 
+                          />
+                        </FormControl>
+                        <FormDescription>
+                          Override the calculated price if needed
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                )}
+
+                {/* Date Due - optional for all bookings */}
+                <FormField
+                  control={form.control}
+                  name="dateDue"
+                  render={({ field }) => (
+                    <FormItem className="mt-4">
+                      <FormLabel>Payment Due Date (Optional)</FormLabel>
+                      <FormControl>
+                        <Input 
+                          {...field} 
+                          type="date" 
+                          min={new Date().toISOString().split('T')[0]}
+                        />
+                      </FormControl>
+                      <FormDescription>
+                        When should this payment be due?
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
                 {/* Price Display */}
                 <div className="mt-4 p-4 bg-gray-50 rounded-lg">

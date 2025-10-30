@@ -24,9 +24,22 @@ export default function Services() {
     queryKey: ["/api/addon-bookings"],
   });
 
+  const { data: serviceBookings = [] } = useQuery({
+    queryKey: ["/api/service-bookings"],
+  });
+
   const { data: utilityBills = [] } = useQuery({
     queryKey: ["/api/utility-bills"],
   });
+
+  const formatPrice = (cents: number | null | undefined): string => {
+    if (cents === null || cents === undefined) return "$0.00";
+    const dollars = cents / 100;
+    return new Intl.NumberFormat('en-AU', {
+      style: 'currency',
+      currency: 'AUD',
+    }).format(dollars);
+  };
 
   const getServiceIcon = (category: string) => {
     switch (category) {
@@ -173,7 +186,7 @@ export default function Services() {
                 <CardTitle>Service Bookings</CardTitle>
               </CardHeader>
               <CardContent>
-                {addonBookings.length === 0 ? (
+                {serviceBookings.length === 0 ? (
                   <div className="text-center py-8">
                     <Calendar className="w-12 h-12 text-gray-400 mx-auto mb-4" />
                     <p className="text-gray-500">No service bookings found</p>
@@ -183,28 +196,34 @@ export default function Services() {
                     <Table>
                       <TableHeader>
                         <TableRow>
+                          <TableHead>Booking ID</TableHead>
                           <TableHead>Service</TableHead>
                           <TableHead>Guest</TableHead>
                           <TableHead>Property</TableHead>
                           <TableHead>Scheduled Date</TableHead>
                           <TableHead>Price</TableHead>
-                          <TableHead>Charged To</TableHead>
-                          <TableHead>Status</TableHead>
+                          <TableHead>Billing Type</TableHead>
+                          <TableHead>Due Date</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {addonBookings.map((booking: any) => (
+                        {serviceBookings.map((booking: any) => (
                           <TableRow key={booking.id}>
-                            <TableCell>{booking.serviceName}</TableCell>
+                            <TableCell className="font-mono text-xs">{booking.bookingIdRef || 'N/A'}</TableCell>
+                            <TableCell>{booking.serviceName || 'Unknown'}</TableCell>
                             <TableCell>{booking.guestName}</TableCell>
                             <TableCell>Property {booking.propertyId}</TableCell>
                             <TableCell>{new Date(booking.scheduledDate).toLocaleDateString()}</TableCell>
-                            <TableCell>${booking.totalPrice}</TableCell>
-                            <TableCell className="capitalize">{booking.chargedTo}</TableCell>
                             <TableCell>
-                              <Badge variant={getStatusColor(booking.status)}>
-                                {booking.status}
-                              </Badge>
+                              {booking.priceCents ? formatPrice(booking.priceCents) : (
+                                <Badge variant="secondary">Complimentary</Badge>
+                              )}
+                            </TableCell>
+                            <TableCell className="capitalize">
+                              {booking.billingType?.replace('_', ' ') || 'N/A'}
+                            </TableCell>
+                            <TableCell>
+                              {booking.dateDue ? new Date(booking.dateDue).toLocaleDateString() : '-'}
                             </TableCell>
                           </TableRow>
                         ))}
