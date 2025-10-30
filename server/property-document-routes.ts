@@ -144,7 +144,19 @@ propertyDocRouter.post("/", isDemoAuthenticated, async (req, res) => {
       return res.status(400).json({ message: "Missing required fields" });
     }
     
-    const created = await storage.createPropertyDocument(orgId, data);
+    // Add defaults for new fields to ensure backward compatibility
+    const documentData = {
+      ...data,
+      fileName: data.fileName || null,
+      fileSize: data.fileSize || null,
+      mimeType: data.mimeType || null,
+      category: data.category || data.docType,
+      tags: data.tags || [],
+      description: data.description || null,
+      updatedAt: new Date()
+    };
+    
+    const created = await storage.createPropertyDocument(orgId, documentData);
     console.log("[ALT-ROUTE] POST created document:", JSON.stringify(created));
     res.json(created);
   } catch (err) {

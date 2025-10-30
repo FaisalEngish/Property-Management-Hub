@@ -40,14 +40,17 @@ const DOCUMENT_CATEGORIES = [
 
 // Helper function to extract filename from fileUrl
 const extractFilenameFromUrl = (fileUrl: string): string => {
+  if (!fileUrl) return 'document';
   const parts = fileUrl.split('/');
   const filename = parts[parts.length - 1];
-  return filename.replace(/^\d+_/, '');
+  return filename.replace(/^\d+_/, '') || 'document';
 };
 
 // Helper function to get display filename
 const getDisplayFilename = (document: any): string => {
-  return document.fileName || extractFilenameFromUrl(document.fileUrl || '');
+  if (document.fileName) return document.fileName;
+  if (document.fileUrl) return extractFilenameFromUrl(document.fileUrl);
+  return 'document';
 };
 
 export default function PropertyDocumentCenter() {
@@ -64,6 +67,15 @@ export default function PropertyDocumentCenter() {
 
   // Download handler
   const handleDownload = (document: any) => {
+    if (!document.fileUrl) {
+      toast({
+        title: "Download Failed",
+        description: "File URL is missing for this document.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     const link = window.document.createElement('a');
     link.href = document.fileUrl;
     link.download = getDisplayFilename(document);
