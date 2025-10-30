@@ -75,6 +75,19 @@ export default function Services() {
       <div className="flex-1 flex flex-col lg:ml-0">
         <TopBar 
           title="Services & Utilities" 
+          action={
+            <Button 
+              className="bg-primary hover:bg-primary/90"
+              onClick={() => {
+                setSelectedServiceId(undefined);
+                setShowBookingDialog(true);
+              }}
+              data-testid="button-add-service"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Add Service
+            </Button>
+          }
         />
         
         <main className="flex-1 overflow-auto p-6">
