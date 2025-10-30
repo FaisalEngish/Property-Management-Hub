@@ -1,0 +1,188 @@
+Hi — please debug why an Administrator user sees the “Access Restricted — Document Center is only accessible to Admin, Portfolio Manager, and Owner roles.” message. Do only the steps below (don’t change unrelated behaviour). When finished, paste the grep output, modified files / commit link, and any error logs.
+
+1) Reproduce & capture
+
+Start the app on Replit in dev mode.
+
+Log in as the admin@test.com account (the one that sees the message).
+
+Open browser devtools → Network and Console tabs.
+
+Navigate to Document Center and reproduce the message.
+
+Copy the exact UI string (screenshot attached already is fine) and note time.
+
+Record:
+
+Exact time you reproduced it.
+
+Any network requests made when the page loads (name, URL, response status).
+
+2) Search for the hardcoded string in repo
+
+Run these commands from project root and attach outputs:
+
+# find the exact UI string
+grep -R --line-number "Access Restricted" .
+grep -R --line-number "Document Center is only accessible" .
+
+# also search for "Document Center" broadly
+grep -R --line-number "Document Center" .
+
+
+Check results for files under src/components, src/pages, public, or server-side templates.
+
+3) Check frontend role-guard logic
+
+Look for the component that renders the restriction banner (results from step 2). Typical patterns to inspect:
+
+A React guard like:
+
+if (!user || !user.roles.includes('Admin')) {
+  return <AccessRestricted />;
+}
+
+
+Or role name comparisons with different strings (Administrator vs Admin).
+
+Actions:
+
+Open the component and paste the guard code here (or attach file).
+
+Verify: what property on user is used (user.role, user.roles, user.isAdmin)?
+
+If code checks roles.includes('Admin') but DB stores Administrator, note that mismatch.
+
+Suggested quick fixes (apply only after confirming mismatch):
+
+// safer role check (frontend)
+const allowed = ['Admin','Administrator','Portfolio Manager','Owner'];
+const hasAccess = user?.roles?.some(r => allowed.includes(r));
+if (!hasAccess) return <AccessRestricted />;
+
+
+Also confirm the frontend reads the current user from the correct source (context/store) — AuthContext, redux, or window.__USER__.
+
+4) Check backend permission middleware / API ACL
+
+On server routes that serve Document Center data (e.g., /api/documents, /api/document-center, or /api/menus), look for middleware enforcing RBAC (names like ensureAdmin, requireRole, checkRole).
+
+Commands to find middleware and document routes:
+
+grep -R --line-number "documents" server || true
+grep -R --line-number "document-center" server || true
+grep -R --line-number "requireRole" server || true
+grep -R --line-number "ensureAdmin" server || true
+grep -R --line-number "roles" server || true
+
+
+Actions:
+
+Open the route and middleware. Confirm middleware checks for the same role names as frontend.
+
+Confirm API returns 200 for admin user when called from browser (see Network tab). If API returns 403/401, capture the response JSON and server logs.
+
+Example backend bug patterns:
+
+Middleware checks for role === 'admin' but DB stores 'Administrator' (case / string mismatch).
+
+Middleware expects req.user.role but actual token has req.user.roles (array).
+
+Role check uses == vs includes incorrectly.
+
+Suggested robust middleware pattern:
+
+// Example (Express)
+const ALLOWED = ['Admin','Administrator','Portfolio Manager','Owner'];
+function requireDocumentCenter(req, res, next) {
+  const roles = req.user?.roles || (req.user?.role ? [req.user.role] : []);
+  if (!roles.some(r => ALLOWED.includes(r))) {
+    return res.status(403).json({ error: 'forbidden' });
+  }
+  next();
+}
+
+5) Verify current user payload / session
+
+From the browser devtools → Application (or Network → the user info API) fetch whichever endpoint returns user info (commonly /api/me, /api/user).
+
+Actions:
+
+Call the user-info endpoint and paste the JSON response (remove secrets). Confirm which field contains role(s) and exact role string(s).
+
+If the frontend obtains minimal user details from a JWT in cookie/localStorage, decode the JWT to inspect role claims.
+
+Common mismatch to look for:
+
+Frontend expects user.roles = ['Admin'] but API returns { role: 'Administrator' }.
+
+Role field is nested (user.profile.role).
+
+6) Investigate caching / stale state
+
+If code looked correct but still shows restricted to an admin:
+
+Check if a cached build or service worker is serving an old JS bundle:
+
+In dev mode, ensure localhost isn't using cached files. Disable cache in devtools and reload.
+
+Confirm server-side rendered pages (if SSR) were updated.
+
+7) Quick tests to run
+
+Run these manual tests and paste results:
+
+Directly call document-list API with admin credentials (curl or Postman):
+
+curl -i -H "Cookie: <your-session-cookie>" https://<dev-url>/api/documents
+
+
+→ Expect 200 with JSON. If 403, backend denies access.
+
+Print console.log(user) in the frontend guard component (temporarily) to confirm what the component sees for the logged-in user.
+
+Change role-check temporarily to allow admin (for debugging only) and confirm the Document Center renders real content. If this fixes it, revert and implement robust fix.
+
+8) Likely causes checklist (look through each)
+
+ Hardcoded UI string in a placeholder file (replace with dynamic check).
+
+ Frontend role strings don't match backend role values (e.g., Admin vs Administrator).
+
+ Frontend reading the wrong user object (null or stale).
+
+ Backend middleware returns 403 due to string/case mismatch or array vs string difference.
+
+ CORS or credential issues causing API to return 401 (session not sent).
+
+ Service worker or cached JS serving old access logic.
+
+9) Minimal code samples to fix common mistakes
+
+Frontend (React) — robust role check
+
+// Example guard
+const ALLOWED = ['Admin','Administrator','Portfolio Manager','Owner'];
+const roles = user?.roles ?? (user?.role ? [user.role] : []);
+const hasAccess = Array.isArray(roles) && roles.some(r => ALLOWED.includes(r));
+if (!hasAccess) return <AccessRestricted />;
+
+
+Backend (Express) — robust middleware
+
+const ALLOWED = new Set(['Admin','Administrator','Portfolio Manager','Owner']);
+function requireDocumentCenter(req, res, next) {
+  const roles = req.user?.roles || (req.user?.role ? [req.user.role] : []);
+  if (!Array.isArray(roles) || !roles.some(r => ALLOWED.has(r))) {
+    return res.status(403).json({ error: 'Access restricted' });
+  }
+  next();
+}
+
+10) Acceptance criteria (what I will check)
+
+Admin user sees Document Center content (not the restriction banner).
+
+Network tab shows relevant API calls return 200.
+
+No security regression: only Admin/Portfolio Manager/Owner can access (verify with a non-privileged user).

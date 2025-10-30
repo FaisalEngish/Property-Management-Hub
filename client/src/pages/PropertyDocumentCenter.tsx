@@ -51,7 +51,7 @@ export default function PropertyDocumentCenter() {
 
   // Check user permissions
   const { data: user, isLoading: isUserLoading } = useQuery({
-    queryKey: ["/api/auth/demo-user"],
+    queryKey: ["/api/auth/user"],
     retry: false,
   });
 
