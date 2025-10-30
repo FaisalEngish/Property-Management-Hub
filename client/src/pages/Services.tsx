@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 
 import TopBar from "@/components/TopBar";
 import CreateAddonBookingDialog from "@/components/CreateAddonBookingDialog";
@@ -8,13 +8,31 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Plus, Utensils, Heart, Car, MapPin, Users, Calendar } from "lucide-react";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 
 export default function Services() {
+  const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("addon-services");
   const [showBookingDialog, setShowBookingDialog] = useState(false);
   const [selectedServiceId, setSelectedServiceId] = useState<number>();
   const [selectedPropertyId, setSelectedPropertyId] = useState<number>();
+  
+  // New booking form state
+  const [newBooking, setNewBooking] = useState({
+    serviceId: "",
+    propertyId: "",
+    guestName: "",
+    guestEmail: "",
+    scheduledDate: "",
+    billingType: "auto_guest",
+    price: "",
+    dateDue: "",
+    notes: "",
+  });
 
   const { data: addonServices = [] } = useQuery({
     queryKey: ["/api/addon-services"],
@@ -39,6 +57,70 @@ export default function Services() {
   const { data: systemSettings } = useQuery({
     queryKey: ["/api/system-settings"],
   });
+
+  const { data: properties = [] } = useQuery({
+    queryKey: ["/api/properties"],
+  });
+
+  const createBookingMutation = useMutation({
+    mutationFn: async (bookingData: any) => {
+      const response = await apiRequest("POST", "/api/service-bookings", bookingData);
+      return response;
+    },
+    onSuccess: () => {
+      toast({
+        title: "Service Booked Successfully",
+        description: "The service booking has been created",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/service-bookings"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/addon-bookings"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/finances"] });
+      // Reset form
+      setNewBooking({
+        serviceId: "",
+        propertyId: "",
+        guestName: "",
+        guestEmail: "",
+        scheduledDate: "",
+        billingType: "auto_guest",
+        price: "",
+        dateDue: "",
+        notes: "",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error Creating Booking",
+        description: error.message || "Failed to create service booking",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleCreateBooking = () => {
+    if (!newBooking.serviceId || !newBooking.propertyId || !newBooking.guestName || !newBooking.scheduledDate) {
+      toast({
+        title: "Missing Required Fields",
+        description: "Please fill in Service, Property, Guest Name, and Scheduled Date",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const bookingData = {
+      addon_service_id: parseInt(newBooking.serviceId),
+      property_id: parseInt(newBooking.propertyId),
+      guest_name: newBooking.guestName,
+      guest_email: newBooking.guestEmail || null,
+      billing_type: newBooking.billingType,
+      price: newBooking.price ? newBooking.price : null,
+      date_due: newBooking.dateDue || null,
+      scheduled_date: new Date(newBooking.scheduledDate).toISOString(),
+      notes: newBooking.notes || null,
+    };
+
+    createBookingMutation.mutate(bookingData);
+  };
 
   const formatPrice = (cents: number | null | undefined): string => {
     if (cents === null || cents === undefined) return "$0.00";
@@ -194,58 +276,187 @@ export default function Services() {
 
           {/* Service Bookings Tab */}
           {activeTab === "service-bookings" && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Service Bookings</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {serviceBookings.length === 0 ? (
-                  <div className="text-center py-8">
-                    <Calendar className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                    <p className="text-gray-500">No service bookings found</p>
+            <div className="space-y-6">
+              {/* Add New Booking Form */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Add New Service Booking</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+                    <div>
+                      <Label>Service *</Label>
+                      <Select value={newBooking.serviceId} onValueChange={(value) => setNewBooking({...newBooking, serviceId: value})}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select service" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {addonServices.map((service: any) => (
+                            <SelectItem key={service.id} value={service.id.toString()}>
+                              {service.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    
+                    <div>
+                      <Label>Property *</Label>
+                      <Select value={newBooking.propertyId} onValueChange={(value) => setNewBooking({...newBooking, propertyId: value})}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select property" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {properties.map((property: any) => (
+                            <SelectItem key={property.id} value={property.id.toString()}>
+                              {property.name || `Property ${property.id}`}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    
+                    <div>
+                      <Label>Guest Name *</Label>
+                      <Input 
+                        value={newBooking.guestName} 
+                        onChange={(e) => setNewBooking({...newBooking, guestName: e.target.value})}
+                        placeholder="Enter guest name"
+                      />
+                    </div>
+                    
+                    <div>
+                      <Label>Guest Email</Label>
+                      <Input 
+                        type="email"
+                        value={newBooking.guestEmail} 
+                        onChange={(e) => setNewBooking({...newBooking, guestEmail: e.target.value})}
+                        placeholder="guest@email.com"
+                      />
+                    </div>
                   </div>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Booking ID</TableHead>
-                          <TableHead>Service</TableHead>
-                          <TableHead>Guest</TableHead>
-                          <TableHead>Property</TableHead>
-                          <TableHead>Scheduled Date</TableHead>
-                          <TableHead>Price</TableHead>
-                          <TableHead>Billing Type</TableHead>
-                          <TableHead>Due Date</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {serviceBookings.map((booking: any) => (
-                          <TableRow key={booking.id}>
-                            <TableCell className="font-mono text-xs">{booking.bookingIdRef || 'N/A'}</TableCell>
-                            <TableCell>{booking.serviceName || 'Unknown'}</TableCell>
-                            <TableCell>{booking.guestName}</TableCell>
-                            <TableCell>Property {booking.propertyId}</TableCell>
-                            <TableCell>{new Date(booking.scheduledDate).toLocaleDateString()}</TableCell>
-                            <TableCell>
-                              {booking.priceCents ? formatPrice(booking.priceCents) : (
-                                <Badge variant="secondary">Complimentary</Badge>
-                              )}
-                            </TableCell>
-                            <TableCell className="capitalize">
-                              {booking.billingType?.replace('_', ' ') || 'N/A'}
-                            </TableCell>
-                            <TableCell>
-                              {booking.dateDue ? new Date(booking.dateDue).toLocaleDateString() : '-'}
-                            </TableCell>
+
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+                    <div>
+                      <Label>Scheduled Date & Time *</Label>
+                      <Input 
+                        type="datetime-local"
+                        value={newBooking.scheduledDate} 
+                        onChange={(e) => setNewBooking({...newBooking, scheduledDate: e.target.value})}
+                      />
+                    </div>
+                    
+                    <div>
+                      <Label>Billing Type</Label>
+                      <Select value={newBooking.billingType} onValueChange={(value) => setNewBooking({...newBooking, billingType: value})}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="auto_guest">Auto Bill Guest</SelectItem>
+                          <SelectItem value="auto_owner">Auto Bill Owner</SelectItem>
+                          <SelectItem value="owner_gift">Owner Gift</SelectItem>
+                          <SelectItem value="company_gift">Company Gift</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    
+                    <div>
+                      <Label>Price ($)</Label>
+                      <Input 
+                        type="number"
+                        step="0.01"
+                        value={newBooking.price} 
+                        onChange={(e) => setNewBooking({...newBooking, price: e.target.value})}
+                        placeholder="0.00"
+                      />
+                    </div>
+                    
+                    <div>
+                      <Label>Due Date</Label>
+                      <Input 
+                        type="date"
+                        value={newBooking.dateDue} 
+                        onChange={(e) => setNewBooking({...newBooking, dateDue: e.target.value})}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-4 mb-4">
+                    <div>
+                      <Label>Notes</Label>
+                      <Input 
+                        value={newBooking.notes} 
+                        onChange={(e) => setNewBooking({...newBooking, notes: e.target.value})}
+                        placeholder="Optional notes"
+                      />
+                    </div>
+                  </div>
+
+                  <Button 
+                    onClick={handleCreateBooking}
+                    disabled={createBookingMutation.isPending}
+                    className="bg-primary hover:bg-primary/90"
+                  >
+                    {createBookingMutation.isPending ? "Creating..." : "Create Booking"}
+                  </Button>
+                </CardContent>
+              </Card>
+
+              {/* Existing Bookings Table */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Service Bookings</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {serviceBookings.length === 0 ? (
+                    <div className="text-center py-8">
+                      <Calendar className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                      <p className="text-gray-500">No service bookings found</p>
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Booking ID</TableHead>
+                            <TableHead>Service</TableHead>
+                            <TableHead>Guest</TableHead>
+                            <TableHead>Property</TableHead>
+                            <TableHead>Scheduled Date</TableHead>
+                            <TableHead>Price</TableHead>
+                            <TableHead>Billing Type</TableHead>
+                            <TableHead>Due Date</TableHead>
                           </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+                        </TableHeader>
+                        <TableBody>
+                          {serviceBookings.map((booking: any) => (
+                            <TableRow key={booking.id}>
+                              <TableCell className="font-mono text-xs">{booking.bookingIdRef || 'N/A'}</TableCell>
+                              <TableCell>{booking.serviceName || 'Unknown'}</TableCell>
+                              <TableCell>{booking.guestName}</TableCell>
+                              <TableCell>Property {booking.propertyId}</TableCell>
+                              <TableCell>{new Date(booking.scheduledDate).toLocaleDateString()}</TableCell>
+                              <TableCell>
+                                {booking.priceCents ? formatPrice(booking.priceCents) : (
+                                  <Badge variant="secondary">Complimentary</Badge>
+                                )}
+                              </TableCell>
+                              <TableCell className="capitalize">
+                                {booking.billingType?.replace('_', ' ') || 'N/A'}
+                              </TableCell>
+                              <TableCell>
+                                {booking.dateDue ? new Date(booking.dateDue).toLocaleDateString() : '-'}
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
           )}
 
           {/* Utility Bills Tab */}
