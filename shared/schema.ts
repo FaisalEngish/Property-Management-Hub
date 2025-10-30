@@ -1185,6 +1185,7 @@ export const addonServices = pgTable("addon_services", {
   category: varchar("category").notNull(), // cleaning, massage, chef, transportation, activities, concierge
   pricingModel: varchar("pricing_model").notNull().default("fixed"), // fixed, variable, complimentary
   basePrice: decimal("base_price", { precision: 10, scale: 2 }),
+  defaultPriceCents: integer("default_price_cents"), // Price in cents for standardized handling
   hourlyRate: decimal("hourly_rate", { precision: 10, scale: 2 }),
   minimumCharge: decimal("minimum_charge", { precision: 10, scale: 2 }),
   duration: integer("duration"), // in minutes for fixed services
@@ -1202,19 +1203,22 @@ export const addonServices = pgTable("addon_services", {
 export const addonBookings = pgTable("addon_bookings", {
   id: serial("id").primaryKey(),
   organizationId: varchar("organization_id").notNull(),
+  bookingIdRef: varchar("booking_id_ref", { length: 32 }).unique(), // BK-YYYYMMDD-XXXX format
   serviceId: integer("service_id").references(() => addonServices.id).notNull(),
   bookingId: integer("booking_id").references(() => bookings.id),
   propertyId: integer("property_id").references(() => properties.id).notNull(),
   guestName: varchar("guest_name").notNull(),
   guestEmail: varchar("guest_email"),
   guestPhone: varchar("guest_phone"),
+  billingType: varchar("billing_type", { length: 32 }).notNull(), // auto_guest, auto_owner, owner_gift, company_gift
+  priceCents: integer("price_cents"), // Price in cents, null for complimentary
+  dateDue: date("date_due"), // Optional due date
   scheduledDate: timestamp("scheduled_date").notNull(),
   duration: integer("duration"), // actual duration for variable pricing
   quantity: integer("quantity").default(1), // for multiple units
   basePrice: decimal("base_price", { precision: 10, scale: 2 }),
   totalPrice: decimal("total_price", { precision: 10, scale: 2 }).notNull(),
   status: varchar("status").notNull().default("pending"), // pending, confirmed, completed, cancelled
-  billingType: varchar("billing_type").notNull(), // auto-bill-guest, auto-bill-owner, owner-gift, company-gift
   chargedTo: varchar("charged_to"), // guest, owner, company (derived from billingType)
   giftReason: text("gift_reason"), // reason for gift bookings
   bookedBy: varchar("booked_by").references(() => users.id).notNull(), // user who made the booking

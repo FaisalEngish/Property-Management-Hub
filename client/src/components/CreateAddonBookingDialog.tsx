@@ -78,6 +78,8 @@ const bookingFormSchema = z.object({
   duration: z.string().optional(),
   quantity: z.string().default("1"),
   billingType: z.enum(["auto-bill-guest", "auto-bill-owner", "owner-gift", "company-gift"]),
+  price: z.string().optional(), // Custom price input
+  dateDue: z.string().optional(), // Optional due date
   giftReason: z.string().optional(),
   notes: z.string().optional(),
   internalNotes: z.string().optional(),
@@ -159,29 +161,34 @@ export default function CreateAddonBookingDialog({
 
   const mutation = useMutation({
     mutationFn: async (data: BookingFormData) => {
-      const bookingData = {
-        ...data,
-        serviceId: parseInt(data.serviceId),
-        propertyId: parseInt(data.propertyId),
-        quantity: parseInt(data.quantity),
-        duration: data.duration ? parseInt(data.duration) : null,
-        totalPrice: calculatedPrice,
-        basePrice: selectedService?.basePrice || calculatedPrice,
-        bookedByRole: bookerRole,
-        scheduledDate: new Date(data.scheduledDate).toISOString(),
+      // Map billing types to new format
+      const billingTypeMap: Record<string, string> = {
+        "auto-bill-guest": "auto_guest",
+        "auto-bill-owner": "auto_owner",
+        "owner-gift": "owner_gift",
+        "company-gift": "company_gift",
       };
 
-      return await apiRequest("/api/addon-bookings", {
-        method: "POST",
-        body: JSON.stringify(bookingData),
-        headers: { "Content-Type": "application/json" },
-      });
+      const bookingData = {
+        service_id: parseInt(data.serviceId),
+        property_id: parseInt(data.propertyId),
+        guest_name: data.guestName,
+        guest_email: data.guestEmail || null,
+        guest_phone: data.guestPhone || null,
+        billing_type: billingTypeMap[data.billingType],
+        price: data.price || (calculatedPrice > 0 ? calculatedPrice.toString() : null),
+        date_due: data.dateDue || null,
+        scheduled_date: new Date(data.scheduledDate).toISOString(),
+      };
+
+      return await apiRequest("POST", "/api/service-bookings", bookingData);
     },
     onSuccess: () => {
       toast({
         title: "Service Booked Successfully",
         description: `${selectedService?.name} has been scheduled for ${form.getValues("guestName")}`,
       });
+      queryClient.invalidateQueries({ queryKey: ["/api/service-bookings"] });
       queryClient.invalidateQueries({ queryKey: ["/api/addon-bookings"] });
       queryClient.invalidateQueries({ queryKey: ["/api/finances"] });
       form.reset();

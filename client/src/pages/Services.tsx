@@ -119,8 +119,11 @@ export default function Services() {
                         <div>
                           <span className="text-lg font-semibold text-primary">
                             {service.pricingModel === 'complimentary' ? 'Complimentary' : 
-                             service.pricingModel === 'variable' ? `$${service.hourlyRate}/hr` :
-                             `$${service.basePrice}`}
+                             service.pricingModel === 'variable' ? 
+                               (service.hourlyRate ? `$${Number(service.hourlyRate).toFixed(2)}/hr` : '$0.00/hr') :
+                               service.defaultPriceCents != null ? `$${(service.defaultPriceCents / 100).toFixed(2)}` :
+                               service.basePrice != null ? `$${Number(service.basePrice).toFixed(2)}` :
+                               '$0.00'}
                           </span>
                           <div className="text-sm text-gray-500">
                             {service.duration ? `${service.duration} min` : 'Custom duration'}

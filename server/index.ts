@@ -96,6 +96,11 @@ app.use((req, res, next) => {
   const { propertyDocRouter } = await import('./property-document-routes');
   app.use("/api/property-documents", propertyDocRouter);
   console.log("[INIT] Alternate property-document-routes mounted ✅");
+  
+  // Register Service Booking routes
+  const { serviceBookingRouter } = await import('./service-booking-routes');
+  app.use("/api/service-bookings", serviceBookingRouter);
+  console.log("[INIT] Service booking routes mounted ✅");
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
