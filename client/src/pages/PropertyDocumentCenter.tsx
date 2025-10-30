@@ -93,9 +93,7 @@ export default function PropertyDocumentCenter() {
   // Delete mutation
   const deleteMutation = useMutation({
     mutationFn: async (docId: number) => {
-      return await apiRequest(`/api/property-documents/${docId}`, {
-        method: "DELETE",
-      });
+      return await apiRequest("DELETE", `/api/property-documents/${docId}`);
     },
     onSuccess: () => {
       fastCache.delete("/api/property-documents/expiring?days=30");
