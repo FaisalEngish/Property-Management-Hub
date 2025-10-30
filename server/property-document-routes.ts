@@ -207,3 +207,24 @@ propertyDocRouter.get("/property/:propertyId", isDemoAuthenticated, async (req, 
     res.status(500).json({ message: "Server error fetching documents" });
   }
 });
+
+// Base GET endpoint for all documents
+propertyDocRouter.get("/", isDemoAuthenticated, async (req, res) => {
+  console.log("[ALT-ROUTE] GET /api/property-documents/ hit");
+  try {
+    const orgId = req.user?.organizationId || "default-org";
+    
+    console.log(`[ALT-ROUTE] GET - Fetching all docs for org ${orgId}`);
+    
+    const docs = await db.select()
+      .from(propertyDocuments)
+      .where(eq(propertyDocuments.organizationId, orgId))
+      .orderBy(desc(propertyDocuments.createdAt));
+    
+    console.log(`[ALT-ROUTE] GET - Found ${docs?.length || 0} documents`);
+    res.json(docs);
+  } catch (err) {
+    console.error("[ALT-ROUTE] ERROR fetching all documents:", err);
+    res.status(500).json({ message: "Server error fetching documents" });
+  }
+});
