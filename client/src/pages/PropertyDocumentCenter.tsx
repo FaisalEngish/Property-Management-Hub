@@ -38,6 +38,18 @@ const DOCUMENT_CATEGORIES = [
   { id: "photos", name: "Property Photos", icon: Image, color: "bg-pink-100 text-pink-700" },
 ];
 
+// Helper function to extract filename from fileUrl
+const extractFilenameFromUrl = (fileUrl: string): string => {
+  const parts = fileUrl.split('/');
+  const filename = parts[parts.length - 1];
+  return filename.replace(/^\d+_/, '');
+};
+
+// Helper function to get display filename
+const getDisplayFilename = (document: any): string => {
+  return document.fileName || extractFilenameFromUrl(document.fileUrl || '');
+};
+
 export default function PropertyDocumentCenter() {
   const [selectedProperty, setSelectedProperty] = useState<number | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
@@ -49,6 +61,16 @@ export default function PropertyDocumentCenter() {
   
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  // Download handler
+  const handleDownload = (document: any) => {
+    const link = window.document.createElement('a');
+    link.href = document.fileUrl;
+    link.download = getDisplayFilename(document);
+    window.document.body.appendChild(link);
+    link.click();
+    window.document.body.removeChild(link);
+  };
 
   // Check user permissions
   const { data: user, isLoading: isUserLoading } = useQuery({
@@ -380,7 +402,7 @@ export default function PropertyDocumentCenter() {
                             {getFileIcon(document.fileType)}
                           </div>
                           <div className="flex-1">
-                            <h3 className="font-medium">{document.fileName}</h3>
+                            <h3 className="font-medium">{getDisplayFilename(document)}</h3>
                             <div className="flex items-center gap-2 text-sm text-muted-foreground">
                               <Badge variant="outline" className="text-xs">
                                 {category?.name || document.category}
@@ -418,7 +440,7 @@ export default function PropertyDocumentCenter() {
                           >
                             <Eye className="h-4 w-4" />
                           </Button>
-                          <Button variant="outline" size="sm">
+                          <Button variant="outline" size="sm" onClick={() => handleDownload(document)}>
                             <Download className="h-4 w-4" />
                           </Button>
                         </div>
@@ -565,7 +587,7 @@ export default function PropertyDocumentCenter() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               {selectedDocument && getFileIcon(selectedDocument.fileType)}
-              {selectedDocument?.fileName}
+              {selectedDocument && getDisplayFilename(selectedDocument)}
             </DialogTitle>
             <DialogDescription>
               Document preview and details
@@ -590,7 +612,7 @@ export default function PropertyDocumentCenter() {
                 </div>
                 <div>
                   <span className="font-medium">File type:</span>
-                  <span className="ml-2">{selectedDocument.fileType.toUpperCase()}</span>
+                  <span className="ml-2">{selectedDocument.fileType?.toUpperCase() || 'N/A'}</span>
                 </div>
               </div>
               {selectedDocument.description && (
@@ -616,7 +638,7 @@ export default function PropertyDocumentCenter() {
                 <p className="text-sm text-muted-foreground">
                   Document preview would appear here
                 </p>
-                <Button className="mt-2" variant="outline">
+                <Button className="mt-2" variant="outline" onClick={() => handleDownload(selectedDocument)}>
                   <Download className="h-4 w-4 mr-2" />
                   Download
                 </Button>
