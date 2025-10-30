@@ -4109,10 +4109,17 @@ export const propertyDocuments = pgTable("property_documents", {
   organizationId: varchar("organization_id").notNull(),
   propertyId: integer("property_id").references(() => properties.id),
   docType: varchar("doc_type").notNull(), // contract, license, invoice, insurance, warranty, maintenance, other
+  fileName: varchar("file_name"),
   fileUrl: text("file_url").notNull(),
+  fileSize: integer("file_size"),
+  mimeType: varchar("mime_type"),
+  category: varchar("category"),
+  tags: text("tags").array(),
+  description: text("description"),
   expiryDate: date("expiry_date"),
   uploadedBy: varchar("uploaded_by").notNull(),
   createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
   index("IDX_property_docs_org").on(table.organizationId),
   index("IDX_property_docs_property").on(table.propertyId),
@@ -4125,6 +4132,7 @@ export const propertyDocuments = pgTable("property_documents", {
 export const insertPropertyDocumentSchema = createInsertSchema(propertyDocuments).omit({
   id: true,
   createdAt: true,
+  updatedAt: true,
 });
 
 export type InsertPropertyDocument = z.infer<typeof insertPropertyDocumentSchema>;
