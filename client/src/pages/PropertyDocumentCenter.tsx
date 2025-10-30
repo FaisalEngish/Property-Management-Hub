@@ -68,8 +68,8 @@ export default function PropertyDocumentCenter() {
 
   // Fetch documents
   const { data: documents, isLoading: isDocumentsLoading } = useQuery({
-    queryKey: ["/api/property-documents/property", selectedProperty],
-    enabled: !!selectedProperty,
+    queryKey: [`/api/property-documents/property/${selectedProperty}`],
+    enabled: !!selectedProperty && !!user,
   });
 
   // File validation
@@ -133,7 +133,12 @@ export default function PropertyDocumentCenter() {
         title: "Document Uploaded",
         description: "Document has been uploaded successfully.",
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/property-documents/property"] });
+      queryClient.invalidateQueries({ 
+        predicate: (query) => 
+          query.queryKey[0] && 
+          typeof query.queryKey[0] === 'string' && 
+          query.queryKey[0].startsWith('/api/property-documents/property/')
+      });
       queryClient.invalidateQueries({ queryKey: ["/api/property-documents/expiring?days=30"] });
       setIsUploadDialogOpen(false);
       setSelectedFile(null);
