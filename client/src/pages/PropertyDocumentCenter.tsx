@@ -796,15 +796,52 @@ export default function PropertyDocumentCenter() {
                   </div>
                 </div>
               )}
-              <div className="border rounded-lg p-4 bg-gray-50 text-center">
-                <FileText className="h-16 w-16 text-muted-foreground mx-auto mb-2" />
-                <p className="text-sm text-muted-foreground">
-                  Document preview would appear here
-                </p>
-                <Button className="mt-2" variant="outline" onClick={() => handleDownload(selectedDocument)}>
-                  <Download className="h-4 w-4 mr-2" />
-                  Download
-                </Button>
+              <div className="border rounded-lg bg-gray-50 overflow-hidden">
+                {(() => {
+                  const fileType = getFileTypeFromMime(selectedDocument.mimeType, selectedDocument.fileUrl);
+                  const fileUrl = selectedDocument.fileUrl;
+
+                  // Preview for images (JPG, PNG)
+                  if (fileType === 'IMAGE' || fileType === 'JPEG' || fileType === 'JPG' || fileType === 'PNG') {
+                    return (
+                      <div className="w-full max-h-[500px] flex items-center justify-center bg-white">
+                        <img 
+                          src={fileUrl} 
+                          alt={getDisplayFilename(selectedDocument)}
+                          className="max-w-full max-h-[500px] object-contain"
+                          data-testid="image-preview"
+                        />
+                      </div>
+                    );
+                  }
+                  
+                  // Preview for PDF files
+                  if (fileType === 'PDF') {
+                    return (
+                      <div className="w-full h-[500px]">
+                        <iframe 
+                          src={fileUrl}
+                          className="w-full h-full border-0"
+                          title={getDisplayFilename(selectedDocument)}
+                          data-testid="pdf-preview"
+                        />
+                      </div>
+                    );
+                  }
+                  
+                  // Fallback for other file types
+                  return (
+                    <div className="p-8 text-center">
+                      <FileText className="h-16 w-16 text-muted-foreground mx-auto mb-2" />
+                      <p className="text-sm text-muted-foreground">
+                        Preview not available for this file type
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        File type: {fileType}
+                      </p>
+                    </div>
+                  );
+                })()}
               </div>
             </div>
           )}
