@@ -1,5 +1,10 @@
 import express, { Request, Response, NextFunction } from "express";
+import path from "path";
+import { fileURLToPath } from "url";
 import { registerRoutes } from "./routes";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 import { setupVite, serveStatic, log } from "./vite";
 import { seedAddonServicesData } from "./seedAddonServicesData";
 import { seedInvoiceData } from "./seedInvoiceData";

@@ -3,18 +3,20 @@ import { useQuery } from "@tanstack/react-query";
 
 import TopBar from "@/components/TopBar";
 import CreateAddonBookingDialog from "@/components/CreateAddonBookingDialog";
+import UploadReceiptModal from "@/components/UploadReceiptModal";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Utensils, Heart, Car, MapPin, Users, Calendar } from "lucide-react";
+import { Plus, Utensils, Heart, Car, MapPin, Users, Calendar, ExternalLink } from "lucide-react";
 
 export default function Services() {
   const [activeTab, setActiveTab] = useState("addon-services");
   const [showBookingDialog, setShowBookingDialog] = useState(false);
   const [selectedServiceId, setSelectedServiceId] = useState<number>();
   const [selectedPropertyId, setSelectedPropertyId] = useState<number>();
+  const [showUploadModal, setShowUploadModal] = useState(false);
 
   const { data: addonServices = [] } = useQuery({
     queryKey: ["/api/addon-services"],
@@ -295,7 +297,12 @@ export default function Services() {
                       </Select>
                     </div>
                     <div>
-                      <Button variant="outline" className="w-full">
+                      <Button 
+                        variant="outline" 
+                        className="w-full"
+                        onClick={() => setShowUploadModal(true)}
+                        data-testid="button-upload-receipt"
+                      >
                         Upload Receipt
                       </Button>
                     </div>
@@ -331,9 +338,11 @@ export default function Services() {
                           {utilityBills.map((bill: any) => (
                             <TableRow key={bill.id}>
                               <TableCell className="capitalize">{bill.type}</TableCell>
-                              <TableCell>{bill.provider}</TableCell>
-                              <TableCell>Property {bill.propertyId}</TableCell>
-                              <TableCell>${bill.amount}</TableCell>
+                              <TableCell>{bill.provider || '-'}</TableCell>
+                              <TableCell>{bill.propertyName || `Property ${bill.propertyId}`}</TableCell>
+                              <TableCell>
+                                {bill.amount ? `$${Number(bill.amount).toFixed(2)}` : '-'}
+                              </TableCell>
                               <TableCell>
                                 <span className={`${
                                   new Date(bill.dueDate) < new Date() && bill.status !== 'paid' 
@@ -350,12 +359,26 @@ export default function Services() {
                               </TableCell>
                               <TableCell>
                                 <div className="flex space-x-2">
-                                  <Button variant="outline" size="sm">
-                                    Upload
-                                  </Button>
-                                  <Button variant="outline" size="sm">
-                                    Mark Paid
-                                  </Button>
+                                  {bill.receiptUrl ? (
+                                    <Button 
+                                      variant="outline" 
+                                      size="sm"
+                                      onClick={() => window.open(bill.receiptUrl, '_blank')}
+                                      data-testid={`button-view-receipt-${bill.id}`}
+                                    >
+                                      <ExternalLink className="w-3 h-3 mr-1" />
+                                      View
+                                    </Button>
+                                  ) : (
+                                    <Button 
+                                      variant="outline" 
+                                      size="sm"
+                                      onClick={() => setShowUploadModal(true)}
+                                      data-testid={`button-upload-${bill.id}`}
+                                    >
+                                      Upload
+                                    </Button>
+                                  )}
                                 </div>
                               </TableCell>
                             </TableRow>
@@ -378,6 +401,12 @@ export default function Services() {
         selectedServiceId={selectedServiceId}
         selectedPropertyId={selectedPropertyId}
         bookerRole="manager"
+      />
+
+      {/* Upload Receipt Modal */}
+      <UploadReceiptModal
+        open={showUploadModal}
+        onClose={() => setShowUploadModal(false)}
       />
     </div>
   );
