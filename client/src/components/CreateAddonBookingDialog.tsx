@@ -216,23 +216,14 @@ export default function CreateAddonBookingDialog({
   });
 
   const handleSubmit = (data: BookingFormData) => {
+    console.log("✅ Form submitted with data:", data);
+    
     // Validate gift reason for gift bookings
     if ((data.billingType === "owner-gift" || data.billingType === "company-gift") && !data.giftReason) {
       form.setError("giftReason", { message: "Gift reason is required for complimentary services" });
       toast({
         title: "Missing Information",
         description: "Please provide a reason for the complimentary service",
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    // Check if there are any form errors
-    if (Object.keys(form.formState.errors).length > 0) {
-      const firstError = Object.values(form.formState.errors)[0];
-      toast({
-        title: "Please complete all required fields",
-        description: firstError?.message as string || "Check the form for errors",
         variant: "destructive",
       });
       return;
@@ -412,7 +403,15 @@ export default function CreateAddonBookingDialog({
                         <FormItem>
                           <FormLabel className="text-red-600">Date & Time *</FormLabel>
                           <FormControl>
-                            <Input {...field} type="datetime-local" required />
+                            <Input 
+                              type="datetime-local" 
+                              value={field.value} 
+                              onChange={field.onChange}
+                              onBlur={field.onBlur}
+                              name={field.name}
+                              ref={field.ref}
+                              required 
+                            />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
