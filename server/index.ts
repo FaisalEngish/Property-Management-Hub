@@ -84,6 +84,11 @@ app.use((req, res, next) => {
   const { registerBulkDeleteRoutes } = await import('./bulk-delete-api');
   registerBulkDeleteRoutes(app);
   
+  // Register Utility Bills routes FIRST (before other routes to avoid conflicts)
+  const utilityBillsRouter = (await import('./utility-bills-routes')).default;
+  app.use("/api/utility-bills", utilityBillsRouter);
+  console.log("[INIT] Utility bills routes mounted ✅");
+  
   // Register fast dashboard routes
   const { registerFastDashboardRoutes } = await import('./fast-dashboard-api');
   registerFastDashboardRoutes(app);
@@ -106,11 +111,6 @@ app.use((req, res, next) => {
   const { serviceBookingRouter } = await import('./service-booking-routes');
   app.use("/api/service-bookings", serviceBookingRouter);
   console.log("[INIT] Service booking routes mounted ✅");
-
-  // Register Utility Bills routes
-  const utilityBillsRouter = (await import('./utility-bills-routes')).default;
-  app.use("/api/utility-bills", utilityBillsRouter);
-  console.log("[INIT] Utility bills routes mounted ✅");
 
   // Serve uploaded files
   app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
