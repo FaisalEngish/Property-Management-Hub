@@ -54,6 +54,7 @@ export function registerFinanceRoutes(app: Express) {
       } = req.query;
 
       let finances = await storage.getFinances(organizationId);
+      const bookings = await storage.getBookings(organizationId);
       
       // Apply comprehensive filters
       const filteredFinances = finances.filter(f => {
@@ -87,11 +88,19 @@ export function registerFinanceRoutes(app: Express) {
         return true;
       });
 
-      // Calculate comprehensive analytics
-      const totalRevenue = filteredFinances
-        .filter(f => f.type === 'income')
-        .reduce((sum, f) => {
-          const amount = typeof f.amount === 'number' ? f.amount : parseFloat(f.amount || '0');
+      // Calculate Total Revenue from PAID/CONFIRMED bookings (confirmed, checked-in, checked-out)
+      const totalRevenue = bookings
+        .filter(b => ['confirmed', 'checked-in', 'checked-out'].includes(b.status))
+        .reduce((sum, b) => {
+          const amount = typeof b.totalAmount === 'string' ? parseFloat(b.totalAmount) : (b.totalAmount || 0);
+          return sum + (isNaN(amount) ? 0 : amount);
+        }, 0);
+      
+      // Calculate Pending Payments from UNPAID bookings (pending status)
+      const pendingPayments = bookings
+        .filter(b => b.status === 'pending')
+        .reduce((sum, b) => {
+          const amount = typeof b.totalAmount === 'string' ? parseFloat(b.totalAmount) : (b.totalAmount || 0);
           return sum + (isNaN(amount) ? 0 : amount);
         }, 0);
         
@@ -188,13 +197,18 @@ export function registerFinanceRoutes(app: Express) {
         }, 0);
       
       const analytics = {
-        // Summary metrics
+        // Summary metrics (Revenue from bookings, Expenses from finance)
         totalRevenue: Math.round(totalRevenue * 100) / 100,
         totalExpenses: Math.round(totalExpenses * 100) / 100,
         totalCommissions: Math.round(totalCommissions * 100) / 100,
         totalPayouts: Math.round(totalPayouts * 100) / 100,
         netProfit: Math.round(netProfit * 100) / 100,
         profitMargin: Math.round(profitMargin * 100) / 100,
+        
+        // Booking metrics
+        pendingPayments: Math.round(pendingPayments * 100) / 100,
+        confirmedBookingsCount: bookings.filter(b => ['confirmed', 'checked-in', 'checked-out'].includes(b.status)).length,
+        pendingBookingsCount: bookings.filter(b => b.status === 'pending').length,
         
         // Monthly metrics (current month)
         monthlyRevenue: Math.round(monthlyRevenue * 100) / 100,

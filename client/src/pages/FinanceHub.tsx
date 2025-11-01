@@ -44,7 +44,9 @@ interface FinanceAnalytics {
   averageTransaction: number;
   monthlyRevenue: number;
   monthlyExpenses: number;
-  bookingMonthlyRevenue?: number;
+  pendingPayments: number;
+  confirmedBookingsCount: number;
+  pendingBookingsCount: number;
 }
 
 interface FinanceTransaction {
@@ -72,9 +74,7 @@ export default function FinanceHub() {
   const { data: analytics, isLoading: analyticsLoading } =
     useQuery<FinanceAnalytics>({
       queryKey: ["/api/finance/analytics"],
-    });`
-    `
-  console.log("Total Revenue", analytics);
+    });
 
   const { data: transactions = [], isLoading: transactionsLoading } = useQuery<
     FinanceTransaction[]
@@ -84,10 +84,6 @@ export default function FinanceHub() {
 
   const { data: properties = [] } = useQuery<any[]>({
     queryKey: ["/api/properties"],
-  });
-
-  const { data: bookings = [] } = useQuery<any[]>({
-    queryKey: ["/api/bookings"],
   });
 
   // Handle URL parameters for property-specific filtering
@@ -130,33 +126,6 @@ export default function FinanceHub() {
     }).format(amount);
   };
 
-  // Calculate analytics from bookings
-  // const bookingAnalytics = useMemo(() => {
-  //   let totalRevenue = 0;
-
-  //   bookings.forEach((booking: any) => {
-  //     if (booking.status === "confirmed" || booking.status === "checked-in") {
-  //       const amount = parseFloat(booking.totalAmount || "0");
-  //       totalRevenue += amount;
-  //     }
-  //   });
-
-  //   return { totalRevenue };
-  // }, [bookings]);
-
-  const bookingAnalytics = useMemo(() => {
-    // initialize sum
-    let totalRevenue = 0;
-
-    bookings.forEach((booking: any) => {
-      const amount = parseFloat(booking.totalAmount);
-      if (!isNaN(amount)) {
-        totalRevenue += amount;
-      }
-    });
-
-    return { totalRevenue };
-  }, [bookings]);
 
   // Filtered transactions based on filters
   const filteredTransactions = useMemo(() => {
@@ -247,8 +216,7 @@ export default function FinanceHub() {
               {formatCurrency(analytics?.totalRevenue || 0)}
             </div>
             <p className="text-xs text-gray-500 mt-1">
-              From {transactions.filter((t) => t.type === "income").length}{" "}
-              income transactions
+              From {analytics?.confirmedBookingsCount || 0} confirmed bookings
             </p>
           </CardContent>
         </Card>
@@ -291,23 +259,16 @@ export default function FinanceHub() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
-              Booking Revenue
+              Pending Payments
             </CardTitle>
-            <Receipt className="h-4 w-4 text-purple-600" />
+            <Wallet className="h-4 w-4 text-orange-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-purple-600">
-              {formatCurrency(bookingAnalytics.totalRevenue || 0)}
+            <div className="text-2xl font-bold text-orange-600">
+              {formatCurrency(analytics?.pendingPayments || 0)}
             </div>
             <p className="text-xs text-gray-500 mt-1">
-              From{" "}
-              {
-                bookings.filter(
-                  (b: any) =>
-                    b.status === "confirmed" || b.status === "checked-in",
-                ).length
-              }{" "}
-              confirmed bookings
+              From {analytics?.pendingBookingsCount || 0} pending bookings
             </p>
           </CardContent>
         </Card>
