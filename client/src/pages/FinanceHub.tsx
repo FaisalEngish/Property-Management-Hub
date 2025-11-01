@@ -73,7 +73,9 @@ export default function FinanceHub() {
 
   const { data: analytics, isLoading: analyticsLoading } =
     useQuery<FinanceAnalytics>({
-      queryKey: ["/api/finance/analytics"],
+      queryKey: propertyFilter !== "all" 
+        ? ["/api/finance/analytics", { propertyId: propertyFilter }]
+        : ["/api/finance/analytics"],
     });
 
   const { data: transactions = [], isLoading: transactionsLoading } = useQuery<
@@ -99,8 +101,8 @@ export default function FinanceHub() {
     setIsRefreshing(true);
     try {
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ["/api/finance"] }),
-        queryClient.invalidateQueries({ queryKey: ["/api/finance/analytics"] }),
+        queryClient.refetchQueries({ queryKey: ["/api/finance"] }),
+        queryClient.refetchQueries({ queryKey: ["/api/finance/analytics"] }),
       ]);
       toast({
         title: "Refreshed",

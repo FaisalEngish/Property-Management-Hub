@@ -56,7 +56,7 @@ export function registerFinanceRoutes(app: Express) {
       let finances = await storage.getFinances(organizationId);
       const bookings = await storage.getBookings(organizationId);
       
-      // Apply comprehensive filters
+      // Apply comprehensive filters to finances
       const filteredFinances = finances.filter(f => {
         // Basic filters
         if (propertyId && f.propertyId !== parseInt(propertyId as string)) return false;
@@ -88,8 +88,14 @@ export function registerFinanceRoutes(app: Express) {
         return true;
       });
 
+      // Apply property filter to bookings as well
+      const filteredBookings = bookings.filter(b => {
+        if (propertyId && b.propertyId !== parseInt(propertyId as string)) return false;
+        return true;
+      });
+
       // Calculate Total Revenue from PAID/CONFIRMED bookings (confirmed, checked-in, checked-out)
-      const totalRevenue = bookings
+      const totalRevenue = filteredBookings
         .filter(b => ['confirmed', 'checked-in', 'checked-out'].includes(b.status))
         .reduce((sum, b) => {
           const amount = typeof b.totalAmount === 'string' ? parseFloat(b.totalAmount) : (b.totalAmount || 0);
@@ -97,7 +103,7 @@ export function registerFinanceRoutes(app: Express) {
         }, 0);
       
       // Calculate Pending Payments from UNPAID bookings (pending status)
-      const pendingPayments = bookings
+      const pendingPayments = filteredBookings
         .filter(b => b.status === 'pending')
         .reduce((sum, b) => {
           const amount = typeof b.totalAmount === 'string' ? parseFloat(b.totalAmount) : (b.totalAmount || 0);
@@ -207,8 +213,8 @@ export function registerFinanceRoutes(app: Express) {
         
         // Booking metrics
         pendingPayments: Math.round(pendingPayments * 100) / 100,
-        confirmedBookingsCount: bookings.filter(b => ['confirmed', 'checked-in', 'checked-out'].includes(b.status)).length,
-        pendingBookingsCount: bookings.filter(b => b.status === 'pending').length,
+        confirmedBookingsCount: filteredBookings.filter(b => ['confirmed', 'checked-in', 'checked-out'].includes(b.status)).length,
+        pendingBookingsCount: filteredBookings.filter(b => b.status === 'pending').length,
         
         // Monthly metrics (current month)
         monthlyRevenue: Math.round(monthlyRevenue * 100) / 100,
