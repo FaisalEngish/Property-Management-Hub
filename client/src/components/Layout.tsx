@@ -9,8 +9,8 @@ interface LayoutProps {
 export default function Layout({ children, className }: LayoutProps) {
   return (
     <div className="min-h-screen bg-background">
-      {/* Main Content - No sidebar here since App.tsx already has one */}
-      <div className="lg:pl-80">
+      {/* Main Content - Sidebar is in App.tsx */}
+      <div className="lg:pl-64 transition-all duration-300">
         {/* Mobile top spacing */}
         <div className="lg:hidden h-20"></div>
         
