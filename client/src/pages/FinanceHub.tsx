@@ -71,11 +71,13 @@ export default function FinanceHub() {
   const [dateFrom, setDateFrom] = useState<string>("");
   const [dateTo, setDateTo] = useState<string>("");
 
+  const analyticsUrl = propertyFilter !== "all" 
+    ? `/api/finance/analytics?propertyId=${propertyFilter}`
+    : "/api/finance/analytics";
+
   const { data: analytics, isLoading: analyticsLoading } =
     useQuery<FinanceAnalytics>({
-      queryKey: propertyFilter !== "all" 
-        ? ["/api/finance/analytics", { propertyId: propertyFilter }]
-        : ["/api/finance/analytics"],
+      queryKey: [analyticsUrl],
     });
 
   const { data: transactions = [], isLoading: transactionsLoading } = useQuery<
