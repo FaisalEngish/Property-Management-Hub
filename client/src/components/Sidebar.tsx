@@ -140,35 +140,10 @@ export default function Sidebar({ className }: SidebarProps) {
               {!isCollapsed && (
                 <div className="flex flex-col min-w-0">
                   <span className="font-bold text-sm text-white truncate">HostPilotPro</span>
-                  <span className="text-xs text-emerald-300">v2.0 Enterprise</span>
                 </div>
               )}
             </div>
           </div>
-
-          {/* User Info */}
-          {!isCollapsed && (
-            <div className="px-4 pb-4">
-              <div className="bg-slate-800/50 rounded-xl p-3 border border-slate-700/50">
-                <div className="flex items-center gap-3 mb-2">
-                  <Avatar className="h-10 w-10 ring-2 ring-emerald-500/30">
-                    <AvatarImage src={(user as any)?.profileImageUrl} />
-                    <AvatarFallback className="bg-slate-700 text-white">
-                      <RoleIcon className="h-5 w-5" />
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-xs text-white truncate">
-                      {(user as any)?.email || "User"}
-                    </p>
-                    <Badge variant="secondary" className="text-xs bg-emerald-500/20 text-emerald-300 border-emerald-500/30 mt-1">
-                      {userRole}
-                    </Badge>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
         </div>
 
         {/* Navigation Menu */}
