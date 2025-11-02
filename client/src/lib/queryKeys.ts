@@ -15,7 +15,7 @@ export const queryKeys = {
     all: () => ['/api/finance'] as const,
     analytics: (propertyId?: string | number) => 
       propertyId 
-        ? ['/api/finance/analytics', { propertyId }] as const
+        ? [`/api/finance/analytics?propertyId=${propertyId}`] as const
         : ['/api/finance/analytics'] as const,
   },
   
@@ -24,7 +24,7 @@ export const queryKeys = {
     all: () => ['/api/bookings'] as const,
     withSource: (propertyId?: string | number) => 
       propertyId 
-        ? ['/api/bookings/with-source', { propertyId }] as const
+        ? [`/api/bookings/with-source?propertyId=${propertyId}`] as const
         : ['/api/bookings/with-source'] as const,
   },
   
@@ -61,7 +61,13 @@ export const queryKeys = {
 // Helper function to invalidate related queries
 export const invalidateFinanceQueries = (queryClient: any) => {
   queryClient.invalidateQueries({ queryKey: queryKeys.finance.all() });
-  queryClient.invalidateQueries({ queryKey: ['/api/finance/analytics'] }); // All analytics
+  // Invalidate all finance analytics including parameterized ones
+  queryClient.invalidateQueries({ 
+    predicate: (query: any) => {
+      const key = query.queryKey[0];
+      return typeof key === 'string' && key.includes('/api/finance/analytics');
+    }
+  });
   queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.summary() });
 };
 
@@ -72,7 +78,13 @@ export const invalidatePropertyQueries = (queryClient: any) => {
 
 export const invalidateBookingQueries = (queryClient: any) => {
   queryClient.invalidateQueries({ queryKey: queryKeys.bookings.all() });
-  queryClient.invalidateQueries({ queryKey: ['/api/bookings/with-source'] }); // All booking sources
+  // Invalidate all booking sources including parameterized ones
+  queryClient.invalidateQueries({ 
+    predicate: (query: any) => {
+      const key = query.queryKey[0];
+      return typeof key === 'string' && key.includes('/api/bookings/with-source');
+    }
+  });
   queryClient.invalidateQueries({ queryKey: queryKeys.finance.all() }); // Bookings affect finances
   queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.summary() });
 };

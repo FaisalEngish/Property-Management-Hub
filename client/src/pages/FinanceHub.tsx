@@ -110,7 +110,13 @@ export default function FinanceHub() {
     try {
       await Promise.all([
         queryClient.refetchQueries({ queryKey: queryKeys.finance.all() }),
-        queryClient.refetchQueries({ queryKey: ['/api/finance/analytics'] }), // Refetch all analytics
+        // Refetch all analytics including parameterized ones
+        queryClient.refetchQueries({ 
+          predicate: (query) => {
+            const key = query.queryKey[0];
+            return typeof key === 'string' && key.includes('/api/finance/analytics');
+          }
+        }),
       ]);
       toast({
         title: "Refreshed",
