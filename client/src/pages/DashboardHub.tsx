@@ -111,7 +111,7 @@ export default function DashboardHub() {
           subtitle="Access all dashboard views and analytics from one central location"
         />
 
-        <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-slate-900 dark:text-slate-100 tracking-tight">
+        <h1 className="text-3xl sm:text-4xl md:text-5xl mt-2 font-bold text-slate-900 dark:text-slate-100 tracking-tight">
           Dashboard Hub
         </h1>
         <p className="text-slate-500 dark:text-slate-400 mt-2 sm:mt-3 text-base sm:text-lg font-medium tracking-wide">
@@ -166,7 +166,7 @@ export default function DashboardHub() {
                             <span className="text-xl sm:text-2xl flex-shrink-0">
                               {item.emoji}
                             </span>
-                            <CardTitle className="text-base sm:text-lg md:text-lg font-bold text-slate-800 dark:text-slate-100 leading-tight truncate">
+                            <CardTitle className="text-base sm:text-lg md:text-lg font-bold text-slate-800 dark:text-slate-100 leading-tight whitespace-normal break-words">
                               {item.title}
                             </CardTitle>
                           </div>
