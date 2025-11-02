@@ -90,14 +90,21 @@ export default function FinanceHub() {
     queryKey: ["/api/properties"],
   });
 
+  // Get propertyId from URL
+  const urlParams = new URLSearchParams(window.location.search);
+  const urlPropertyId = urlParams.get("propertyId");
+
   // Handle URL parameters for property-specific filtering
   useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const propertyId = urlParams.get("propertyId");
-    if (propertyId) {
-      setPropertyFilter(propertyId);
+    if (urlPropertyId) {
+      setPropertyFilter(urlPropertyId);
     }
-  }, []);
+  }, [urlPropertyId]);
+
+  // Find selected property for display
+  const selectedProperty = urlPropertyId 
+    ? properties.find((p: any) => p.id === parseInt(urlPropertyId))
+    : null;
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
@@ -181,12 +188,32 @@ export default function FinanceHub() {
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Finance Hub</h1>
-          <p className="text-gray-500 mt-1">
-            Comprehensive financial management and analytics
-          </p>
+          {urlPropertyId && selectedProperty ? (
+            <>
+              <h1 className="text-3xl font-bold text-gray-900">Finance Hub - {selectedProperty.name}</h1>
+              <p className="text-gray-500 mt-1">
+                Financial data for this property
+              </p>
+            </>
+          ) : (
+            <>
+              <h1 className="text-3xl font-bold text-gray-900">Finance Hub</h1>
+              <p className="text-gray-500 mt-1">
+                Comprehensive financial management and analytics
+              </p>
+            </>
+          )}
         </div>
         <div className="flex gap-2">
+          {urlPropertyId && (
+            <Button
+              variant="outline"
+              onClick={() => window.location.href = '/finance-hub'}
+              data-testid="button-view-all-finances"
+            >
+              View All Finances
+            </Button>
+          )}
           <Button
             onClick={handleRefresh}
             variant="outline"
@@ -278,93 +305,95 @@ export default function FinanceHub() {
         </Card>
       </div>
 
-      {/* Filters */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle>Filters</CardTitle>
-            {(propertyFilter !== "all" ||
-              categoryFilter !== "all" ||
-              dateFrom ||
-              dateTo) && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={clearFilters}
-                data-testid="button-clear-filters"
-              >
-                <X className="h-4 w-4 mr-1" />
-                Clear Filters
-              </Button>
-            )}
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="property-filter">Property</Label>
-              <Select value={propertyFilter} onValueChange={setPropertyFilter}>
-                <SelectTrigger
-                  id="property-filter"
-                  data-testid="select-property-filter"
+      {/* Filters - Hide when viewing property-specific finances */}
+      {!urlPropertyId && (
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle>Filters</CardTitle>
+              {(propertyFilter !== "all" ||
+                categoryFilter !== "all" ||
+                dateFrom ||
+                dateTo) && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={clearFilters}
+                  data-testid="button-clear-filters"
                 >
-                  <SelectValue placeholder="All Properties" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Properties</SelectItem>
-                  {properties.map((property: any) => (
-                    <SelectItem key={property.id} value={String(property.id)}>
-                      {property.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                  <X className="h-4 w-4 mr-1" />
+                  Clear Filters
+                </Button>
+              )}
             </div>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="property-filter">Property</Label>
+                <Select value={propertyFilter} onValueChange={setPropertyFilter}>
+                  <SelectTrigger
+                    id="property-filter"
+                    data-testid="select-property-filter"
+                  >
+                    <SelectValue placeholder="All Properties" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Properties</SelectItem>
+                    {properties.map((property: any) => (
+                      <SelectItem key={property.id} value={String(property.id)}>
+                        {property.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="category-filter">Category</Label>
-              <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                <SelectTrigger
-                  id="category-filter"
-                  data-testid="select-category-filter"
-                >
-                  <SelectValue placeholder="All Categories" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Categories</SelectItem>
-                  {categories.map((category) => (
-                    <SelectItem key={category} value={category}>
-                      {category}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+              <div className="space-y-2">
+                <Label htmlFor="category-filter">Category</Label>
+                <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                  <SelectTrigger
+                    id="category-filter"
+                    data-testid="select-category-filter"
+                  >
+                    <SelectValue placeholder="All Categories" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Categories</SelectItem>
+                    {categories.map((category) => (
+                      <SelectItem key={category} value={category}>
+                        {category}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="date-from">Date From</Label>
-              <Input
-                id="date-from"
-                type="date"
-                value={dateFrom}
-                onChange={(e) => setDateFrom(e.target.value)}
-                data-testid="input-date-from"
-              />
-            </div>
+              <div className="space-y-2">
+                <Label htmlFor="date-from">Date From</Label>
+                <Input
+                  id="date-from"
+                  type="date"
+                  value={dateFrom}
+                  onChange={(e) => setDateFrom(e.target.value)}
+                  data-testid="input-date-from"
+                />
+              </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="date-to">Date To</Label>
-              <Input
-                id="date-to"
-                type="date"
-                value={dateTo}
-                onChange={(e) => setDateTo(e.target.value)}
-                data-testid="input-date-to"
-              />
+              <div className="space-y-2">
+                <Label htmlFor="date-to">Date To</Label>
+                <Input
+                  id="date-to"
+                  type="date"
+                  value={dateTo}
+                  onChange={(e) => setDateTo(e.target.value)}
+                  data-testid="input-date-to"
+                />
+              </div>
             </div>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Recent Transactions */}
       <div className="grid grid-cols-1 gap-6">
