@@ -136,9 +136,13 @@ export default function Bookings() {
   const [selectedBookingId, setSelectedBookingId] = useState<number | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
 
-  // Fetch real data from API
+  // Get propertyId from URL
+  const urlParams = new URLSearchParams(window.location.search);
+  const urlPropertyId = urlParams.get("propertyId");
+
+  // Fetch real data from API - use specific endpoint if propertyId is in URL
   const { data: bookings = [], isLoading: bookingsLoading } = useQuery({
-    queryKey: ['/api/bookings'],
+    queryKey: urlPropertyId ? [`/api/bookings/with-source?propertyId=${urlPropertyId}`] : ['/api/bookings'],
     staleTime: 0,
     refetchOnMount: true,
     refetchOnWindowFocus: true,
