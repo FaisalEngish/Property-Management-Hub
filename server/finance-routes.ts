@@ -124,12 +124,22 @@ export function registerFinanceRoutes(app: Express) {
           return sum + (isNaN(amount) ? 0 : amount);
         }, 0);
 
+      const totalFees = filteredFinances
+        .filter(f => f.type === 'fees')
+        .reduce((sum, f) => {
+          const amount = typeof f.amount === 'number' ? f.amount : parseFloat(f.amount || '0');
+          return sum + (isNaN(amount) ? 0 : amount);
+        }, 0);
+
       const totalPayouts = filteredFinances
         .filter(f => f.type === 'payout')
         .reduce((sum, f) => {
           const amount = typeof f.amount === 'number' ? f.amount : parseFloat(f.amount || '0');
           return sum + (isNaN(amount) ? 0 : amount);
         }, 0);
+      
+      // Calculate total expenses as sum of all expense types
+      const totalAllExpenses = totalExpenses + totalCommissions + totalFees + totalPayouts;
 
       // Department breakdown
       const departmentBreakdown = filteredFinances.reduce((acc, f) => {
@@ -174,7 +184,7 @@ export function registerFinanceRoutes(app: Express) {
         return acc;
       }, {} as Record<string, any>);
         
-      const netProfit = totalRevenue - totalExpenses;
+      const netProfit = totalRevenue - totalAllExpenses;
       const profitMargin = totalRevenue > 0 ? (netProfit / totalRevenue) * 100 : 0;
       
       // Calculate monthly revenue and expenses (current month)
@@ -205,11 +215,20 @@ export function registerFinanceRoutes(app: Express) {
       const analytics = {
         // Summary metrics (Revenue from bookings, Expenses from finance)
         totalRevenue: Math.round(totalRevenue * 100) / 100,
-        totalExpenses: Math.round(totalExpenses * 100) / 100,
+        totalExpenses: Math.round(totalAllExpenses * 100) / 100, // All expense types combined
         totalCommissions: Math.round(totalCommissions * 100) / 100,
+        totalFees: Math.round(totalFees * 100) / 100,
         totalPayouts: Math.round(totalPayouts * 100) / 100,
         netProfit: Math.round(netProfit * 100) / 100,
         profitMargin: Math.round(profitMargin * 100) / 100,
+        
+        // Expense breakdown by type
+        expensesByType: {
+          expense: Math.round(totalExpenses * 100) / 100,
+          commission: Math.round(totalCommissions * 100) / 100,
+          fees: Math.round(totalFees * 100) / 100,
+          payout: Math.round(totalPayouts * 100) / 100,
+        },
         
         // Booking metrics
         pendingPayments: Math.round(pendingPayments * 100) / 100,
