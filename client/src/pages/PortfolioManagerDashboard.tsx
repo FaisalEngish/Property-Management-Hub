@@ -1,32 +1,62 @@
 import React, { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
 import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { format, parseISO } from "date-fns";
 import { Link } from "wouter";
-import { 
-  Calendar, 
-  DollarSign, 
-  Clock, 
-  CheckCircle, 
-  AlertCircle, 
-  TrendingUp, 
-  Settings, 
-  FileText, 
-  Bell, 
-  Download, 
-  Upload, 
+import { BackButton } from "@/components/BackButton";
+
+import {
+  Calendar,
+  DollarSign,
+  Clock,
+  CheckCircle,
+  AlertCircle,
+  TrendingUp,
+  Settings,
+  FileText,
+  Bell,
+  Download,
+  Upload,
   X,
   Plus,
   Minus,
@@ -37,7 +67,7 @@ import {
   Eye,
   ExternalLink,
   Filter,
-  Search
+  Search,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
@@ -146,7 +176,9 @@ const invoiceSchema = z.object({
   receiverAddress: z.string().optional(),
   invoiceType: z.string().min(1, "Invoice type is required"),
   description: z.string().min(1, "Description is required"),
-  lineItems: z.array(invoiceLineItemSchema).min(1, "At least one line item is required"),
+  lineItems: z
+    .array(invoiceLineItemSchema)
+    .min(1, "At least one line item is required"),
   taxRate: z.string().optional(),
   notes: z.string().optional(),
   dueDate: z.string().optional(),
@@ -157,14 +189,17 @@ export default function PortfolioManagerDashboard() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { user } = useAuth();
-  
+
   const [dateRange, setDateRange] = useState({
-    startDate: new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0],
-    endDate: new Date().toISOString().split('T')[0],
+    startDate: new Date(new Date().getFullYear(), new Date().getMonth(), 1)
+      .toISOString()
+      .split("T")[0],
+    endDate: new Date().toISOString().split("T")[0],
   });
-  
+
   const [selectedProperty, setSelectedProperty] = useState<string>("all");
-  const [selectedPortfolioManager, setSelectedPortfolioManager] = useState<string>(""); // For admin to select PM
+  const [selectedPortfolioManager, setSelectedPortfolioManager] =
+    useState<string>(""); // For admin to select PM
   const [showPayoutDialog, setShowPayoutDialog] = useState(false);
   const [showInvoiceDialog, setShowInvoiceDialog] = useState(false);
   const [taskFilters, setTaskFilters] = useState({
@@ -174,8 +209,8 @@ export default function PortfolioManagerDashboard() {
   });
 
   // Check if current user is admin
-  const isAdmin = (user as any)?.role === 'admin';
-  
+  const isAdmin = (user as any)?.role === "admin";
+
   // Portfolio Managers Query (for admin dropdown)
   const { data: portfolioManagers = [] } = useQuery({
     queryKey: ["/api/users", "portfolio-manager"],
@@ -193,38 +228,57 @@ export default function PortfolioManagerDashboard() {
   }, [isAdmin, portfolioManagers, user, selectedPortfolioManager]);
 
   // Financial Overview Query
-  const { data: financialOverview, isLoading: financialLoading } = useQuery<FinancialOverview>({
-    queryKey: ["/api/pm/dashboard/financial-overview", dateRange.startDate, dateRange.endDate, selectedProperty, selectedPortfolioManager],
-    queryFn: async () => {
-      const params = new URLSearchParams({
-        startDate: dateRange.startDate,
-        endDate: dateRange.endDate,
-        ...(selectedProperty !== "all" && { propertyId: selectedProperty }),
-        ...(selectedPortfolioManager && { portfolioManagerId: selectedPortfolioManager }),
-      });
-      return apiRequest("GET", `/api/pm/dashboard/financial-overview?${params}`);
-    },
-    enabled: !!selectedPortfolioManager,
-  });
+  const { data: financialOverview, isLoading: financialLoading } =
+    useQuery<FinancialOverview>({
+      queryKey: [
+        "/api/pm/dashboard/financial-overview",
+        dateRange.startDate,
+        dateRange.endDate,
+        selectedProperty,
+        selectedPortfolioManager,
+      ],
+      queryFn: async () => {
+        const params = new URLSearchParams({
+          startDate: dateRange.startDate,
+          endDate: dateRange.endDate,
+          ...(selectedProperty !== "all" && { propertyId: selectedProperty }),
+          ...(selectedPortfolioManager && {
+            portfolioManagerId: selectedPortfolioManager,
+          }),
+        });
+        return apiRequest(
+          "GET",
+          `/api/pm/dashboard/financial-overview?${params}`,
+        );
+      },
+      enabled: !!selectedPortfolioManager,
+    });
 
   // Commission Balance Query
-  const { data: balance, isLoading: balanceLoading } = useQuery<CommissionBalance>({
-    queryKey: ["/api/pm/dashboard/balance", selectedPortfolioManager],
-    queryFn: () => {
-      const params = new URLSearchParams({
-        ...(selectedPortfolioManager && { portfolioManagerId: selectedPortfolioManager }),
-      });
-      return apiRequest("GET", `/api/pm/dashboard/balance?${params}`);
-    },
-    enabled: !!selectedPortfolioManager,
-  });
+  const { data: balance, isLoading: balanceLoading } =
+    useQuery<CommissionBalance>({
+      queryKey: ["/api/pm/dashboard/balance", selectedPortfolioManager],
+      queryFn: () => {
+        const params = new URLSearchParams({
+          ...(selectedPortfolioManager && {
+            portfolioManagerId: selectedPortfolioManager,
+          }),
+        });
+        return apiRequest("GET", `/api/pm/dashboard/balance?${params}`);
+      },
+      enabled: !!selectedPortfolioManager,
+    });
 
   // Payout Requests Query
-  const { data: payouts, isLoading: payoutsLoading } = useQuery<PayoutRequest[]>({
+  const { data: payouts, isLoading: payoutsLoading } = useQuery<
+    PayoutRequest[]
+  >({
     queryKey: ["/api/pm/dashboard/payouts", selectedPortfolioManager],
     queryFn: () => {
       const params = new URLSearchParams({
-        ...(selectedPortfolioManager && { portfolioManagerId: selectedPortfolioManager }),
+        ...(selectedPortfolioManager && {
+          portfolioManagerId: selectedPortfolioManager,
+        }),
       });
       return apiRequest("GET", `/api/pm/dashboard/payouts?${params}`);
     },
@@ -233,15 +287,26 @@ export default function PortfolioManagerDashboard() {
 
   // Task Logs Query
   const { data: taskLogs, isLoading: taskLogsLoading } = useQuery<TaskLog[]>({
-    queryKey: ["/api/pm/dashboard/task-logs", taskFilters.department, taskFilters.status, dateRange.startDate, dateRange.endDate, selectedPortfolioManager],
+    queryKey: [
+      "/api/pm/dashboard/task-logs",
+      taskFilters.department,
+      taskFilters.status,
+      dateRange.startDate,
+      dateRange.endDate,
+      selectedPortfolioManager,
+    ],
     queryFn: async () => {
       const params = new URLSearchParams({
         startDate: dateRange.startDate,
         endDate: dateRange.endDate,
         limit: "100",
-        ...(taskFilters.department !== "all" && { department: taskFilters.department }),
+        ...(taskFilters.department !== "all" && {
+          department: taskFilters.department,
+        }),
         ...(taskFilters.status !== "all" && { status: taskFilters.status }),
-        ...(selectedPortfolioManager && { portfolioManagerId: selectedPortfolioManager }),
+        ...(selectedPortfolioManager && {
+          portfolioManagerId: selectedPortfolioManager,
+        }),
       });
       return apiRequest("GET", `/api/pm/dashboard/task-logs?${params}`);
     },
@@ -253,7 +318,9 @@ export default function PortfolioManagerDashboard() {
     queryKey: ["/api/pm/dashboard/portfolio", selectedPortfolioManager],
     queryFn: () => {
       const params = new URLSearchParams({
-        ...(selectedPortfolioManager && { portfolioManagerId: selectedPortfolioManager }),
+        ...(selectedPortfolioManager && {
+          portfolioManagerId: selectedPortfolioManager,
+        }),
       });
       return apiRequest("GET", `/api/pm/dashboard/portfolio?${params}`);
     },
@@ -261,12 +328,16 @@ export default function PortfolioManagerDashboard() {
   });
 
   // PM Notifications Query
-  const { data: notifications, isLoading: notificationsLoading } = useQuery<PMNotification[]>({
+  const { data: notifications, isLoading: notificationsLoading } = useQuery<
+    PMNotification[]
+  >({
     queryKey: ["/api/pm/dashboard/notifications", selectedPortfolioManager],
     queryFn: () => {
       const params = new URLSearchParams({
         limit: "20",
-        ...(selectedPortfolioManager && { portfolioManagerId: selectedPortfolioManager }),
+        ...(selectedPortfolioManager && {
+          portfolioManagerId: selectedPortfolioManager,
+        }),
       });
       return apiRequest("GET", `/api/pm/dashboard/notifications?${params}`);
     },
@@ -281,49 +352,86 @@ export default function PortfolioManagerDashboard() {
 
   // Payout Request Mutation
   const payoutMutation = useMutation({
-    mutationFn: (data: any) => apiRequest("POST", "/api/pm/dashboard/payouts", data),
+    mutationFn: (data: any) =>
+      apiRequest("POST", "/api/pm/dashboard/payouts", data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/pm/dashboard/payouts"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/pm/dashboard/balance"] });
-      toast({ title: "Payout Request Submitted", description: "Your payout request has been submitted for approval." });
+      queryClient.invalidateQueries({
+        queryKey: ["/api/pm/dashboard/payouts"],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["/api/pm/dashboard/balance"],
+      });
+      toast({
+        title: "Payout Request Submitted",
+        description: "Your payout request has been submitted for approval.",
+      });
       setShowPayoutDialog(false);
     },
     onError: (error: any) => {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
     },
   });
 
   // Payment Received Mutation
   const paymentReceivedMutation = useMutation({
-    mutationFn: (id: number) => apiRequest("PATCH", `/api/pm/dashboard/payouts/${id}/received`),
+    mutationFn: (id: number) =>
+      apiRequest("PATCH", `/api/pm/dashboard/payouts/${id}/received`),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/pm/dashboard/payouts"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/pm/dashboard/balance"] });
-      toast({ title: "Payment Confirmed", description: "Payment receipt confirmed successfully." });
+      queryClient.invalidateQueries({
+        queryKey: ["/api/pm/dashboard/payouts"],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["/api/pm/dashboard/balance"],
+      });
+      toast({
+        title: "Payment Confirmed",
+        description: "Payment receipt confirmed successfully.",
+      });
     },
     onError: (error: any) => {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
     },
   });
 
   // Invoice Creation Mutation
   const invoiceMutation = useMutation({
-    mutationFn: (data: any) => apiRequest("POST", "/api/pm/dashboard/invoices", data),
+    mutationFn: (data: any) =>
+      apiRequest("POST", "/api/pm/dashboard/invoices", data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/pm/dashboard/invoices"] });
-      toast({ title: "Invoice Created", description: "Invoice has been created successfully." });
+      queryClient.invalidateQueries({
+        queryKey: ["/api/pm/dashboard/invoices"],
+      });
+      toast({
+        title: "Invoice Created",
+        description: "Invoice has been created successfully.",
+      });
       setShowInvoiceDialog(false);
     },
     onError: (error: any) => {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
     },
   });
 
   // Mark Notification as Read Mutation
   const markReadMutation = useMutation({
-    mutationFn: (id: number) => apiRequest("PATCH", `/api/pm/dashboard/notifications/${id}/read`),
+    mutationFn: (id: number) =>
+      apiRequest("PATCH", `/api/pm/dashboard/notifications/${id}/read`),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/pm/dashboard/notifications"] });
+      queryClient.invalidateQueries({
+        queryKey: ["/api/pm/dashboard/notifications"],
+      });
     },
   });
 
@@ -345,7 +453,15 @@ export default function PortfolioManagerDashboard() {
       receiverAddress: "",
       invoiceType: "management_commission",
       description: "",
-      lineItems: [{ description: "", quantity: "1", unitPrice: "", referenceId: "", referenceType: "" }],
+      lineItems: [
+        {
+          description: "",
+          quantity: "1",
+          unitPrice: "",
+          referenceId: "",
+          referenceType: "",
+        },
+      ],
       taxRate: "10",
       notes: "",
       dueDate: "",
@@ -402,9 +518,9 @@ export default function PortfolioManagerDashboard() {
   // Severity icons
   const getSeverityIcon = (severity: string) => {
     switch (severity) {
-      case 'urgent':
+      case "urgent":
         return <AlertCircle className="h-4 w-4 text-red-500" />;
-      case 'warning':
+      case "warning":
         return <AlertCircle className="h-4 w-4 text-yellow-500" />;
       default:
         return <Bell className="h-4 w-4 text-blue-500" />;
@@ -421,38 +537,69 @@ export default function PortfolioManagerDashboard() {
 
   return (
     <div className="space-y-6">
+      <div className="relative">
+        {/* 🔙 Back Button fixed top-left */}
+        <div className="fixed top-4 left-4 z-50">
+          <BackButton
+            fallbackRoute="/dashboard-hub"
+            variant="ghost"
+            className="!p-2 bg-white/80 backdrop-blur-md border border-slate-200 shadow-sm hover:bg-white"
+          >
+            <span className="hidden sm:inline text-sm">Back to Dashboard</span>
+          </BackButton>
+        </div>
+      </div>
+
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Portfolio Manager Dashboard</h1>
+          <h1 className="text-3xl font-bold tracking-tight">
+            Portfolio Manager Dashboard
+          </h1>
           <div className="flex items-center gap-2 mt-1">
             <p className="text-muted-foreground">
-              {isAdmin ? "Viewing data for:" : "Manage your portfolio, track commissions, and create invoices"}
+              {isAdmin
+                ? "Viewing data for:"
+                : "Manage your portfolio, track commissions, and create invoices"}
             </p>
             {isAdmin && selectedPortfolioManager && (
               <Badge variant="outline" className="bg-blue-50 text-blue-700">
                 <User className="h-3 w-3 mr-1" />
-                {(portfolioManagers && Array.isArray(portfolioManagers) ? portfolioManagers : []).find(pm => pm.id === selectedPortfolioManager)?.name || "Portfolio Manager"}
+                {(portfolioManagers && Array.isArray(portfolioManagers)
+                  ? portfolioManagers
+                  : []
+                ).find((pm) => pm.id === selectedPortfolioManager)?.name ||
+                  "Portfolio Manager"}
               </Badge>
             )}
           </div>
         </div>
-        
+
         {/* Filters */}
         <div className="flex gap-4">
           {/* Portfolio Manager Selection (Admin Only) */}
           {isAdmin && (
-            <Select value={selectedPortfolioManager} onValueChange={setSelectedPortfolioManager}>
+            <Select
+              value={selectedPortfolioManager}
+              onValueChange={setSelectedPortfolioManager}
+            >
               <SelectTrigger className="w-56">
                 <SelectValue placeholder="Select Portfolio Manager">
                   <div className="flex items-center gap-2">
                     <User className="h-4 w-4" />
-                    {(portfolioManagers && Array.isArray(portfolioManagers) ? portfolioManagers : []).find(pm => pm.id === selectedPortfolioManager)?.name || "Select Portfolio Manager"}
+                    {(portfolioManagers && Array.isArray(portfolioManagers)
+                      ? portfolioManagers
+                      : []
+                    ).find((pm) => pm.id === selectedPortfolioManager)?.name ||
+                      "Select Portfolio Manager"}
                   </div>
                 </SelectValue>
               </SelectTrigger>
               <SelectContent>
-                {(portfolioManagers && Array.isArray(portfolioManagers) ? portfolioManagers : []).map((pm: any) => (
+                {(portfolioManagers && Array.isArray(portfolioManagers)
+                  ? portfolioManagers
+                  : []
+                ).map((pm: any) => (
                   <SelectItem key={pm.id} value={pm.id}>
                     <div className="flex items-center gap-2">
                       <User className="h-4 w-4" />
@@ -463,29 +610,36 @@ export default function PortfolioManagerDashboard() {
               </SelectContent>
             </Select>
           )}
-          
+
           <div className="flex gap-2">
             <Input
               type="date"
               value={dateRange.startDate}
-              onChange={(e) => setDateRange(prev => ({ ...prev, startDate: e.target.value }))}
+              onChange={(e) =>
+                setDateRange((prev) => ({ ...prev, startDate: e.target.value }))
+              }
               className="w-40"
             />
             <Input
               type="date"
               value={dateRange.endDate}
-              onChange={(e) => setDateRange(prev => ({ ...prev, endDate: e.target.value }))}
+              onChange={(e) =>
+                setDateRange((prev) => ({ ...prev, endDate: e.target.value }))
+              }
               className="w-40"
             />
           </div>
-          
+
           <Select value={selectedProperty} onValueChange={setSelectedProperty}>
             <SelectTrigger className="w-48">
               <SelectValue placeholder="All Properties" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Properties</SelectItem>
-              {(portfolioProperties && Array.isArray(portfolioProperties) ? portfolioProperties : [])?.map((property: any) => (
+              {(portfolioProperties && Array.isArray(portfolioProperties)
+                ? portfolioProperties
+                : []
+              )?.map((property: any) => (
                 <SelectItem key={property.id} value={property.id.toString()}>
                   {property.name}
                 </SelectItem>
@@ -499,12 +653,16 @@ export default function PortfolioManagerDashboard() {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Commission Earnings</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Total Commission Earnings
+            </CardTitle>
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              ${financialOverview?.totalCommissionEarnings?.toLocaleString() || '0'}
+              $
+              {financialOverview?.totalCommissionEarnings?.toLocaleString() ||
+                "0"}
             </div>
             <p className="text-xs text-muted-foreground">
               From management fees
@@ -514,25 +672,31 @@ export default function PortfolioManagerDashboard() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Portfolio Properties</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Portfolio Properties
+            </CardTitle>
             <Building className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{(portfolioProperties && Array.isArray(portfolioProperties) ? portfolioProperties.length : 0) || 0}</div>
-            <p className="text-xs text-muted-foreground">
-              Under management
-            </p>
+            <div className="text-2xl font-bold">
+              {(portfolioProperties && Array.isArray(portfolioProperties)
+                ? portfolioProperties.length
+                : 0) || 0}
+            </div>
+            <p className="text-xs text-muted-foreground">Under management</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Pending Balance</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Pending Balance
+            </CardTitle>
             <Clock className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              ${balance?.currentBalance?.toLocaleString() || '0'}
+              ${balance?.currentBalance?.toLocaleString() || "0"}
             </div>
             <p className="text-xs text-muted-foreground">
               Available for payout
@@ -542,16 +706,18 @@ export default function PortfolioManagerDashboard() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Unread Notifications</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Unread Notifications
+            </CardTitle>
             <Bell className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {(notifications && Array.isArray(notifications) ? notifications.filter(n => !n.isRead).length : 0) || 0}
+              {(notifications && Array.isArray(notifications)
+                ? notifications.filter((n) => !n.isRead).length
+                : 0) || 0}
             </div>
-            <p className="text-xs text-muted-foreground">
-              Require attention
-            </p>
+            <p className="text-xs text-muted-foreground">Require attention</p>
           </CardContent>
         </Card>
       </div>
@@ -573,50 +739,54 @@ export default function PortfolioManagerDashboard() {
           <Card>
             <CardHeader>
               <CardTitle>Portfolio Management</CardTitle>
-              <CardDescription>Quick access to property management tools</CardDescription>
+              <CardDescription>
+                Quick access to property management tools
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="grid gap-4 md:grid-cols-5">
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   className="h-20 flex-col"
-                  onClick={() => window.location.href = "/properties"}
+                  onClick={() => (window.location.href = "/properties")}
                 >
                   <Building className="h-6 w-6 mb-2" />
                   <span className="text-sm">Property Access</span>
                 </Button>
-                
-                <Button 
-                  variant="outline" 
+
+                <Button
+                  variant="outline"
                   className="h-20 flex-col"
-                  onClick={() => window.location.href = "/property-documents-management"}
+                  onClick={() =>
+                    (window.location.href = "/property-documents-management")
+                  }
                 >
                   <FileText className="h-6 w-6 mb-2" />
                   <span className="text-sm">Document Center</span>
                 </Button>
-                
-                <Button 
-                  variant="outline" 
+
+                <Button
+                  variant="outline"
                   className="h-20 flex-col"
-                  onClick={() => window.location.href = "/tasks"}
+                  onClick={() => (window.location.href = "/tasks")}
                 >
                   <Settings className="h-6 w-6 mb-2" />
                   <span className="text-sm">Maintenance</span>
                 </Button>
-                
-                <Button 
-                  variant="outline" 
+
+                <Button
+                  variant="outline"
                   className="h-20 flex-col"
-                  onClick={() => window.location.href = "/services"}
+                  onClick={() => (window.location.href = "/services")}
                 >
                   <Calendar className="h-6 w-6 mb-2" />
                   <span className="text-sm">Service Tracker</span>
                 </Button>
-                
-                <Button 
-                  variant="outline" 
+
+                <Button
+                  variant="outline"
                   className="h-20 flex-col"
-                  onClick={() => window.location.href = "/invoice-generator"}
+                  onClick={() => (window.location.href = "/invoice-generator")}
                 >
                   <Receipt className="h-6 w-6 mb-2" />
                   <span className="text-sm">Invoices</span>
@@ -624,17 +794,26 @@ export default function PortfolioManagerDashboard() {
               </div>
             </CardContent>
           </Card>
-          
+
           <div className="grid gap-4 md:grid-cols-2">
             {/* Property Performance Breakdown */}
             <Card>
               <CardHeader>
                 <CardTitle>Property Performance</CardTitle>
-                <CardDescription>Commission earnings by property</CardDescription>
+                <CardDescription>
+                  Commission earnings by property
+                </CardDescription>
               </CardHeader>
               <CardContent className="space-y-3">
-                {(financialOverview?.propertyBreakdown && Array.isArray(financialOverview.propertyBreakdown) ? financialOverview.propertyBreakdown : []).map((property) => (
-                  <div key={property.propertyId} className="flex justify-between items-center p-3 border rounded">
+                {(financialOverview?.propertyBreakdown &&
+                Array.isArray(financialOverview.propertyBreakdown)
+                  ? financialOverview.propertyBreakdown
+                  : []
+                ).map((property) => (
+                  <div
+                    key={property.propertyId}
+                    className="flex justify-between items-center p-3 border rounded"
+                  >
                     <div>
                       <p className="font-medium">{property.propertyName}</p>
                       <p className="text-sm text-muted-foreground">
@@ -666,10 +845,19 @@ export default function PortfolioManagerDashboard() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-2">
-                  {(financialOverview?.monthlyTrend && Array.isArray(financialOverview.monthlyTrend) ? financialOverview.monthlyTrend : []).map((month) => (
-                    <div key={month.period} className="flex justify-between items-center">
+                  {(financialOverview?.monthlyTrend &&
+                  Array.isArray(financialOverview.monthlyTrend)
+                    ? financialOverview.monthlyTrend
+                    : []
+                  ).map((month) => (
+                    <div
+                      key={month.period}
+                      className="flex justify-between items-center"
+                    >
                       <span className="text-sm">{month.period}</span>
-                      <span className="font-semibold">${month.earnings?.toLocaleString()}</span>
+                      <span className="font-semibold">
+                        ${month.earnings?.toLocaleString()}
+                      </span>
                     </div>
                   )) || (
                     <div className="text-center py-4 text-muted-foreground">
@@ -691,10 +879,14 @@ export default function PortfolioManagerDashboard() {
                 Track your earnings and request payouts
               </p>
             </div>
-            
+
             <Dialog open={showPayoutDialog} onOpenChange={setShowPayoutDialog}>
               <DialogTrigger asChild>
-                <Button disabled={!balance?.currentBalance || balance.currentBalance <= 0}>
+                <Button
+                  disabled={
+                    !balance?.currentBalance || balance.currentBalance <= 0
+                  }
+                >
                   <DollarSign className="h-4 w-4 mr-2" />
                   Request Payout
                 </Button>
@@ -706,15 +898,21 @@ export default function PortfolioManagerDashboard() {
                     Submit a payout request for your earned commissions
                   </DialogDescription>
                 </DialogHeader>
-                
+
                 <Form {...payoutForm}>
-                  <form onSubmit={payoutForm.handleSubmit(onPayoutSubmit)} className="space-y-4">
+                  <form
+                    onSubmit={payoutForm.handleSubmit(onPayoutSubmit)}
+                    className="space-y-4"
+                  >
                     <FormField
                       control={payoutForm.control}
                       name="amount"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Amount (Max: ${balance?.currentBalance?.toLocaleString()})</FormLabel>
+                          <FormLabel>
+                            Amount (Max: $
+                            {balance?.currentBalance?.toLocaleString()})
+                          </FormLabel>
                           <FormControl>
                             <Input placeholder="Enter amount" {...field} />
                           </FormControl>
@@ -722,7 +920,7 @@ export default function PortfolioManagerDashboard() {
                         </FormItem>
                       )}
                     />
-                    
+
                     <FormField
                       control={payoutForm.control}
                       name="requestNotes"
@@ -730,19 +928,28 @@ export default function PortfolioManagerDashboard() {
                         <FormItem>
                           <FormLabel>Notes (Optional)</FormLabel>
                           <FormControl>
-                            <Textarea placeholder="Additional details..." {...field} />
+                            <Textarea
+                              placeholder="Additional details..."
+                              {...field}
+                            />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
                       )}
                     />
-                    
+
                     <DialogFooter>
-                      <Button type="button" variant="outline" onClick={() => setShowPayoutDialog(false)}>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => setShowPayoutDialog(false)}
+                      >
                         Cancel
                       </Button>
                       <Button type="submit" disabled={payoutMutation.isPending}>
-                        {payoutMutation.isPending ? "Submitting..." : "Submit Request"}
+                        {payoutMutation.isPending
+                          ? "Submitting..."
+                          : "Submit Request"}
                       </Button>
                     </DialogFooter>
                   </form>
@@ -761,25 +968,26 @@ export default function PortfolioManagerDashboard() {
                 <div className="flex justify-between">
                   <span>Total Earned</span>
                   <span className="font-semibold text-green-600">
-                    ${balance?.totalEarned?.toLocaleString() || '0'}
+                    ${balance?.totalEarned?.toLocaleString() || "0"}
                   </span>
                 </div>
                 <div className="flex justify-between">
                   <span>Total Paid</span>
                   <span className="font-semibold text-red-600">
-                    ${balance?.totalPaid?.toLocaleString() || '0'}
+                    ${balance?.totalPaid?.toLocaleString() || "0"}
                   </span>
                 </div>
                 <hr />
                 <div className="flex justify-between text-lg font-bold">
                   <span>Current Balance</span>
                   <span className="text-green-600">
-                    ${balance?.currentBalance?.toLocaleString() || '0'}
+                    ${balance?.currentBalance?.toLocaleString() || "0"}
                   </span>
                 </div>
                 {balance?.lastPayoutDate && (
                   <p className="text-xs text-muted-foreground">
-                    Last payout: {format(parseISO(balance.lastPayoutDate), 'MMM d, yyyy')}
+                    Last payout:{" "}
+                    {format(parseISO(balance.lastPayoutDate), "MMM d, yyyy")}
                   </p>
                 )}
               </CardContent>
@@ -791,10 +999,16 @@ export default function PortfolioManagerDashboard() {
                 userId={user.id}
                 userRole="portfolio-manager"
                 userEmail={user.email || ""}
-                userName={`${user.firstName || ""} ${user.lastName || ""}`.trim() || user.email || ""}
+                userName={
+                  `${user.firstName || ""} ${user.lastName || ""}`.trim() ||
+                  user.email ||
+                  ""
+                }
                 currentBalance={balance?.currentBalance}
                 onBalanceReset={() => {
-                  queryClient.invalidateQueries({ queryKey: ["/api/pm/dashboard"] });
+                  queryClient.invalidateQueries({
+                    queryKey: ["/api/pm/dashboard"],
+                  });
                 }}
               />
             )}
@@ -809,28 +1023,43 @@ export default function PortfolioManagerDashboard() {
                   <div className="text-center py-4">Loading...</div>
                 ) : (
                   <div className="space-y-3">
-                    {(payouts && Array.isArray(payouts) ? payouts.slice(0, 5) : []).map((payout) => (
-                      <div key={payout.id} className="flex items-center justify-between p-3 border rounded">
+                    {(payouts && Array.isArray(payouts)
+                      ? payouts.slice(0, 5)
+                      : []
+                    ).map((payout) => (
+                      <div
+                        key={payout.id}
+                        className="flex items-center justify-between p-3 border rounded"
+                      >
                         <div className="space-y-1">
-                          <p className="font-medium">${payout.amount?.toLocaleString()} {payout.currency}</p>
+                          <p className="font-medium">
+                            ${payout.amount?.toLocaleString()} {payout.currency}
+                          </p>
                           <p className="text-xs text-muted-foreground">
-                            Requested: {format(parseISO(payout.requestedAt), 'MMM d, yyyy')}
+                            Requested:{" "}
+                            {format(
+                              parseISO(payout.requestedAt),
+                              "MMM d, yyyy",
+                            )}
                           </p>
                         </div>
-                        
+
                         <div className="text-right space-y-1">
                           <StatusBadge status={payout.status} />
-                          {payout.status === 'approved' && payout.receiptUrl && (
-                            <Button 
-                              size="sm" 
-                              variant="outline" 
-                              onClick={() => paymentReceivedMutation.mutate(payout.id)}
-                              disabled={paymentReceivedMutation.isPending}
-                            >
-                              <CheckCircle className="h-3 w-3 mr-1" />
-                              Payment Received
-                            </Button>
-                          )}
+                          {payout.status === "approved" &&
+                            payout.receiptUrl && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() =>
+                                  paymentReceivedMutation.mutate(payout.id)
+                                }
+                                disabled={paymentReceivedMutation.isPending}
+                              >
+                                <CheckCircle className="h-3 w-3 mr-1" />
+                                Payment Received
+                              </Button>
+                            )}
                         </div>
                       </div>
                     )) || (
@@ -854,8 +1083,11 @@ export default function PortfolioManagerDashboard() {
                 Create and manage invoices for commissions and services
               </p>
             </div>
-            
-            <Dialog open={showInvoiceDialog} onOpenChange={setShowInvoiceDialog}>
+
+            <Dialog
+              open={showInvoiceDialog}
+              onOpenChange={setShowInvoiceDialog}
+            >
               <DialogTrigger asChild>
                 <Button>
                   <Plus className="h-4 w-4 mr-2" />
@@ -869,9 +1101,12 @@ export default function PortfolioManagerDashboard() {
                     Generate a professional invoice for commissions or services
                   </DialogDescription>
                 </DialogHeader>
-                
+
                 <Form {...invoiceForm}>
-                  <form onSubmit={invoiceForm.handleSubmit(onInvoiceSubmit)} className="space-y-4">
+                  <form
+                    onSubmit={invoiceForm.handleSubmit(onInvoiceSubmit)}
+                    className="space-y-4"
+                  >
                     <div className="grid grid-cols-2 gap-4">
                       <FormField
                         control={invoiceForm.control}
@@ -880,14 +1115,21 @@ export default function PortfolioManagerDashboard() {
                           <FormItem>
                             <FormLabel>Receiver Type</FormLabel>
                             <FormControl>
-                              <Select value={field.value} onValueChange={field.onChange}>
+                              <Select
+                                value={field.value}
+                                onValueChange={field.onChange}
+                              >
                                 <SelectTrigger>
                                   <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
-                                  <SelectItem value="organization">Organization</SelectItem>
+                                  <SelectItem value="organization">
+                                    Organization
+                                  </SelectItem>
                                   <SelectItem value="user">User</SelectItem>
-                                  <SelectItem value="external">External Party</SelectItem>
+                                  <SelectItem value="external">
+                                    External Party
+                                  </SelectItem>
                                 </SelectContent>
                               </Select>
                             </FormControl>
@@ -895,7 +1137,7 @@ export default function PortfolioManagerDashboard() {
                           </FormItem>
                         )}
                       />
-                      
+
                       <FormField
                         control={invoiceForm.control}
                         name="receiverName"
@@ -903,7 +1145,10 @@ export default function PortfolioManagerDashboard() {
                           <FormItem>
                             <FormLabel>Receiver Name</FormLabel>
                             <FormControl>
-                              <Input placeholder="Company or person name" {...field} />
+                              <Input
+                                placeholder="Company or person name"
+                                {...field}
+                              />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -919,16 +1164,29 @@ export default function PortfolioManagerDashboard() {
                           <FormItem>
                             <FormLabel>Invoice Type</FormLabel>
                             <FormControl>
-                              <Select value={field.value} onValueChange={field.onChange}>
+                              <Select
+                                value={field.value}
+                                onValueChange={field.onChange}
+                              >
                                 <SelectTrigger>
                                   <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
-                                  <SelectItem value="management_commission">Management Commission</SelectItem>
-                                  <SelectItem value="booking_commission">Booking Commission</SelectItem>
-                                  <SelectItem value="service_fee">Service Fee</SelectItem>
-                                  <SelectItem value="consultation">Consultation</SelectItem>
-                                  <SelectItem value="maintenance">Maintenance Charge</SelectItem>
+                                  <SelectItem value="management_commission">
+                                    Management Commission
+                                  </SelectItem>
+                                  <SelectItem value="booking_commission">
+                                    Booking Commission
+                                  </SelectItem>
+                                  <SelectItem value="service_fee">
+                                    Service Fee
+                                  </SelectItem>
+                                  <SelectItem value="consultation">
+                                    Consultation
+                                  </SelectItem>
+                                  <SelectItem value="maintenance">
+                                    Maintenance Charge
+                                  </SelectItem>
                                 </SelectContent>
                               </Select>
                             </FormControl>
@@ -936,7 +1194,7 @@ export default function PortfolioManagerDashboard() {
                           </FormItem>
                         )}
                       />
-                      
+
                       <FormField
                         control={invoiceForm.control}
                         name="dueDate"
@@ -959,7 +1217,10 @@ export default function PortfolioManagerDashboard() {
                         <FormItem>
                           <FormLabel>Description</FormLabel>
                           <FormControl>
-                            <Textarea placeholder="Invoice description..." {...field} />
+                            <Textarea
+                              placeholder="Invoice description..."
+                              {...field}
+                            />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -974,15 +1235,26 @@ export default function PortfolioManagerDashboard() {
                           type="button"
                           variant="outline"
                           size="sm"
-                          onClick={() => append({ description: "", quantity: "1", unitPrice: "", referenceId: "", referenceType: "" })}
+                          onClick={() =>
+                            append({
+                              description: "",
+                              quantity: "1",
+                              unitPrice: "",
+                              referenceId: "",
+                              referenceType: "",
+                            })
+                          }
                         >
                           <Plus className="h-4 w-4 mr-1" />
                           Add Item
                         </Button>
                       </div>
-                      
+
                       {fields.map((field, index) => (
-                        <div key={field.id} className="grid grid-cols-6 gap-2 items-end">
+                        <div
+                          key={field.id}
+                          className="grid grid-cols-6 gap-2 items-end"
+                        >
                           <div className="col-span-2">
                             <FormField
                               control={invoiceForm.control}
@@ -990,13 +1262,16 @@ export default function PortfolioManagerDashboard() {
                               render={({ field }) => (
                                 <FormItem>
                                   <FormControl>
-                                    <Input placeholder="Description" {...field} />
+                                    <Input
+                                      placeholder="Description"
+                                      {...field}
+                                    />
                                   </FormControl>
                                 </FormItem>
                               )}
                             />
                           </div>
-                          
+
                           <FormField
                             control={invoiceForm.control}
                             name={`lineItems.${index}.quantity`}
@@ -1008,7 +1283,7 @@ export default function PortfolioManagerDashboard() {
                               </FormItem>
                             )}
                           />
-                          
+
                           <FormField
                             control={invoiceForm.control}
                             name={`lineItems.${index}.unitPrice`}
@@ -1020,7 +1295,7 @@ export default function PortfolioManagerDashboard() {
                               </FormItem>
                             )}
                           />
-                          
+
                           <FormField
                             control={invoiceForm.control}
                             name={`lineItems.${index}.referenceId`}
@@ -1032,7 +1307,7 @@ export default function PortfolioManagerDashboard() {
                               </FormItem>
                             )}
                           />
-                          
+
                           <Button
                             type="button"
                             variant="outline"
@@ -1060,7 +1335,7 @@ export default function PortfolioManagerDashboard() {
                           </FormItem>
                         )}
                       />
-                      
+
                       <FormField
                         control={invoiceForm.control}
                         name="referenceNumber"
@@ -1068,7 +1343,10 @@ export default function PortfolioManagerDashboard() {
                           <FormItem>
                             <FormLabel>Reference Number (Optional)</FormLabel>
                             <FormControl>
-                              <Input placeholder="Booking ID, etc." {...field} />
+                              <Input
+                                placeholder="Booking ID, etc."
+                                {...field}
+                              />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -1083,19 +1361,31 @@ export default function PortfolioManagerDashboard() {
                         <FormItem>
                           <FormLabel>Notes (Optional)</FormLabel>
                           <FormControl>
-                            <Textarea placeholder="Additional notes..." {...field} />
+                            <Textarea
+                              placeholder="Additional notes..."
+                              {...field}
+                            />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
                       )}
                     />
-                    
+
                     <DialogFooter>
-                      <Button type="button" variant="outline" onClick={() => setShowInvoiceDialog(false)}>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => setShowInvoiceDialog(false)}
+                      >
                         Cancel
                       </Button>
-                      <Button type="submit" disabled={invoiceMutation.isPending}>
-                        {invoiceMutation.isPending ? "Creating..." : "Create Invoice"}
+                      <Button
+                        type="submit"
+                        disabled={invoiceMutation.isPending}
+                      >
+                        {invoiceMutation.isPending
+                          ? "Creating..."
+                          : "Create Invoice"}
                       </Button>
                     </DialogFooter>
                   </form>
@@ -1110,33 +1400,43 @@ export default function PortfolioManagerDashboard() {
                 <div className="text-center py-8">Loading invoices...</div>
               ) : (
                 <div className="space-y-4">
-                  {(invoices && Array.isArray(invoices) ? invoices : [])?.map((invoice) => (
-                    <div key={invoice.id} className="flex items-center justify-between p-4 border rounded-lg">
-                      <div className="space-y-1">
-                        <p className="font-medium">{invoice.invoiceNumber}</p>
-                        <p className="text-sm text-muted-foreground">{invoice.receiverName}</p>
-                        <p className="text-sm">{invoice.description}</p>
-                        <p className="text-xs text-muted-foreground">
-                          Created: {format(parseISO(invoice.createdAt), 'MMM d, yyyy')}
-                        </p>
-                      </div>
-                      
-                      <div className="text-right space-y-2">
-                        <p className="font-semibold">${invoice.totalAmount?.toLocaleString()}</p>
-                        <StatusBadge status={invoice.status} />
-                        <div className="flex gap-2">
-                          <Button size="sm" variant="outline">
-                            <Eye className="h-3 w-3 mr-1" />
-                            View
-                          </Button>
-                          <Button size="sm" variant="outline">
-                            <Download className="h-3 w-3 mr-1" />
-                            PDF
-                          </Button>
+                  {(invoices && Array.isArray(invoices) ? invoices : [])?.map(
+                    (invoice) => (
+                      <div
+                        key={invoice.id}
+                        className="flex items-center justify-between p-4 border rounded-lg"
+                      >
+                        <div className="space-y-1">
+                          <p className="font-medium">{invoice.invoiceNumber}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {invoice.receiverName}
+                          </p>
+                          <p className="text-sm">{invoice.description}</p>
+                          <p className="text-xs text-muted-foreground">
+                            Created:{" "}
+                            {format(parseISO(invoice.createdAt), "MMM d, yyyy")}
+                          </p>
+                        </div>
+
+                        <div className="text-right space-y-2">
+                          <p className="font-semibold">
+                            ${invoice.totalAmount?.toLocaleString()}
+                          </p>
+                          <StatusBadge status={invoice.status} />
+                          <div className="flex gap-2">
+                            <Button size="sm" variant="outline">
+                              <Eye className="h-3 w-3 mr-1" />
+                              View
+                            </Button>
+                            <Button size="sm" variant="outline">
+                              <Download className="h-3 w-3 mr-1" />
+                              PDF
+                            </Button>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  )) || (
+                    ),
+                  ) || (
                     <div className="text-center py-8 text-muted-foreground">
                       No invoices found
                     </div>
@@ -1156,10 +1456,15 @@ export default function PortfolioManagerDashboard() {
                 Track tasks completed across your portfolio properties
               </p>
             </div>
-            
+
             {/* Task Filters */}
             <div className="flex gap-2">
-              <Select value={taskFilters.department} onValueChange={(value) => setTaskFilters(prev => ({ ...prev, department: value }))}>
+              <Select
+                value={taskFilters.department}
+                onValueChange={(value) =>
+                  setTaskFilters((prev) => ({ ...prev, department: value }))
+                }
+              >
                 <SelectTrigger className="w-40">
                   <SelectValue />
                 </SelectTrigger>
@@ -1173,8 +1478,13 @@ export default function PortfolioManagerDashboard() {
                   <SelectItem value="inspection">Inspection</SelectItem>
                 </SelectContent>
               </Select>
-              
-              <Select value={taskFilters.status} onValueChange={(value) => setTaskFilters(prev => ({ ...prev, status: value }))}>
+
+              <Select
+                value={taskFilters.status}
+                onValueChange={(value) =>
+                  setTaskFilters((prev) => ({ ...prev, status: value }))
+                }
+              >
                 <SelectTrigger className="w-32">
                   <SelectValue />
                 </SelectTrigger>
@@ -1195,51 +1505,75 @@ export default function PortfolioManagerDashboard() {
                 <div className="text-center py-8">Loading task logs...</div>
               ) : (
                 <div className="space-y-4">
-                  {(taskLogs && Array.isArray(taskLogs) ? taskLogs : [])?.map((task) => (
-                    <div key={task.id} className="flex items-start justify-between p-4 border rounded-lg">
-                      <div className="space-y-2 flex-1">
-                        <div className="flex items-center gap-2">
-                          <p className="font-medium">{task.taskTitle}</p>
-                          <Badge className={getDepartmentColor(task.department)}>
-                            {task.department}
-                          </Badge>
-                          <StatusBadge status={task.status} />
-                        </div>
-                        
-                        <div className="text-sm text-muted-foreground">
-                          <p>Property: {task.propertyName}</p>
-                          {task.staffAssigned && <p>Staff: {task.staffAssigned}</p>}
-                          <p>Created: {format(parseISO(task.createdAt), 'MMM d, yyyy HH:mm')}</p>
-                          {task.completedAt && (
-                            <p>Completed: {format(parseISO(task.completedAt), 'MMM d, yyyy HH:mm')}</p>
+                  {(taskLogs && Array.isArray(taskLogs) ? taskLogs : [])?.map(
+                    (task) => (
+                      <div
+                        key={task.id}
+                        className="flex items-start justify-between p-4 border rounded-lg"
+                      >
+                        <div className="space-y-2 flex-1">
+                          <div className="flex items-center gap-2">
+                            <p className="font-medium">{task.taskTitle}</p>
+                            <Badge
+                              className={getDepartmentColor(task.department)}
+                            >
+                              {task.department}
+                            </Badge>
+                            <StatusBadge status={task.status} />
+                          </div>
+
+                          <div className="text-sm text-muted-foreground">
+                            <p>Property: {task.propertyName}</p>
+                            {task.staffAssigned && (
+                              <p>Staff: {task.staffAssigned}</p>
+                            )}
+                            <p>
+                              Created:{" "}
+                              {format(
+                                parseISO(task.createdAt),
+                                "MMM d, yyyy HH:mm",
+                              )}
+                            </p>
+                            {task.completedAt && (
+                              <p>
+                                Completed:{" "}
+                                {format(
+                                  parseISO(task.completedAt),
+                                  "MMM d, yyyy HH:mm",
+                                )}
+                              </p>
+                            )}
+                          </div>
+
+                          {task.result && (
+                            <p className="text-sm">{task.result}</p>
+                          )}
+
+                          {task.notes && (
+                            <p className="text-sm text-muted-foreground">
+                              Notes: {task.notes}
+                            </p>
                           )}
                         </div>
-                        
-                        {task.result && (
-                          <p className="text-sm">{task.result}</p>
-                        )}
-                        
-                        {task.notes && (
-                          <p className="text-sm text-muted-foreground">Notes: {task.notes}</p>
-                        )}
+
+                        <div className="flex gap-2 ml-4">
+                          {task.evidencePhotos &&
+                            task.evidencePhotos.length > 0 && (
+                              <Button size="sm" variant="outline">
+                                <Eye className="h-3 w-3 mr-1" />
+                                Photos ({task.evidencePhotos.length})
+                              </Button>
+                            )}
+                          {task.receipts && task.receipts.length > 0 && (
+                            <Button size="sm" variant="outline">
+                              <Receipt className="h-3 w-3 mr-1" />
+                              Receipts ({task.receipts.length})
+                            </Button>
+                          )}
+                        </div>
                       </div>
-                      
-                      <div className="flex gap-2 ml-4">
-                        {task.evidencePhotos && task.evidencePhotos.length > 0 && (
-                          <Button size="sm" variant="outline">
-                            <Eye className="h-3 w-3 mr-1" />
-                            Photos ({task.evidencePhotos.length})
-                          </Button>
-                        )}
-                        {task.receipts && task.receipts.length > 0 && (
-                          <Button size="sm" variant="outline">
-                            <Receipt className="h-3 w-3 mr-1" />
-                            Receipts ({task.receipts.length})
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                  )) || (
+                    ),
+                  ) || (
                     <div className="text-center py-8 text-muted-foreground">
                       No task logs found
                     </div>
@@ -1259,8 +1593,15 @@ export default function PortfolioManagerDashboard() {
                 Stay updated on guest issues, approvals, and system suggestions
               </p>
             </div>
-            
-            <Button variant="outline" onClick={() => queryClient.invalidateQueries({ queryKey: ["/api/pm/dashboard/notifications"] })}>
+
+            <Button
+              variant="outline"
+              onClick={() =>
+                queryClient.invalidateQueries({
+                  queryKey: ["/api/pm/dashboard/notifications"],
+                })
+              }
+            >
               <Bell className="h-4 w-4 mr-2" />
               Refresh
             </Button>
@@ -1272,43 +1613,60 @@ export default function PortfolioManagerDashboard() {
                 <div className="text-center py-8">Loading notifications...</div>
               ) : (
                 <div className="space-y-4">
-                  {(notifications && Array.isArray(notifications) ? notifications : [])?.map((notification) => (
-                    <div 
-                      key={notification.id} 
+                  {(notifications && Array.isArray(notifications)
+                    ? notifications
+                    : []
+                  )?.map((notification) => (
+                    <div
+                      key={notification.id}
                       className={`flex items-start gap-3 p-4 border rounded-lg cursor-pointer transition-colors ${
-                        !notification.isRead ? 'bg-blue-50 border-blue-200' : 'hover:bg-gray-50'
+                        !notification.isRead
+                          ? "bg-blue-50 border-blue-200"
+                          : "hover:bg-gray-50"
                       }`}
-                      onClick={() => !notification.isRead && markReadMutation.mutate(notification.id)}
+                      onClick={() =>
+                        !notification.isRead &&
+                        markReadMutation.mutate(notification.id)
+                      }
                     >
                       <div className="mt-1">
                         {getSeverityIcon(notification.severity)}
                       </div>
-                      
+
                       <div className="flex-1 space-y-1">
                         <div className="flex items-center justify-between">
                           <p className="font-medium">{notification.title}</p>
                           <p className="text-xs text-muted-foreground">
-                            {format(parseISO(notification.createdAt), 'MMM d, HH:mm')}
+                            {format(
+                              parseISO(notification.createdAt),
+                              "MMM d, HH:mm",
+                            )}
                           </p>
                         </div>
-                        
+
                         <p className="text-sm">{notification.message}</p>
-                        
+
                         <div className="flex items-center gap-2">
                           <Badge variant="outline">{notification.type}</Badge>
-                          <Badge className={`text-xs ${
-                            notification.severity === 'urgent' ? 'bg-red-100 text-red-800' :
-                            notification.severity === 'warning' ? 'bg-yellow-100 text-yellow-800' :
-                            'bg-blue-100 text-blue-800'
-                          }`}>
+                          <Badge
+                            className={`text-xs ${
+                              notification.severity === "urgent"
+                                ? "bg-red-100 text-red-800"
+                                : notification.severity === "warning"
+                                  ? "bg-yellow-100 text-yellow-800"
+                                  : "bg-blue-100 text-blue-800"
+                            }`}
+                          >
                             {notification.severity}
                           </Badge>
                           {notification.actionRequired && (
-                            <Badge className="bg-orange-100 text-orange-800">Action Required</Badge>
+                            <Badge className="bg-orange-100 text-orange-800">
+                              Action Required
+                            </Badge>
                           )}
                         </div>
                       </div>
-                      
+
                       {notification.relatedType && notification.relatedId && (
                         <Button size="sm" variant="outline">
                           <ExternalLink className="h-3 w-3" />
@@ -1344,7 +1702,9 @@ export default function PortfolioManagerDashboard() {
                 <div className="text-center py-8 text-muted-foreground">
                   <BarChart3 className="h-12 w-12 mx-auto mb-4 opacity-50" />
                   <p>Advanced analytics coming soon</p>
-                  <p className="text-xs">AI-powered property performance insights</p>
+                  <p className="text-xs">
+                    AI-powered property performance insights
+                  </p>
                 </div>
               </CardContent>
             </Card>
@@ -1357,7 +1717,9 @@ export default function PortfolioManagerDashboard() {
                 <div className="text-center py-8 text-muted-foreground">
                   <AlertCircle className="h-12 w-12 mx-auto mb-4 opacity-50" />
                   <p>Smart recommendations coming soon</p>
-                  <p className="text-xs">Automated guest satisfaction analysis</p>
+                  <p className="text-xs">
+                    Automated guest satisfaction analysis
+                  </p>
                 </div>
               </CardContent>
             </Card>

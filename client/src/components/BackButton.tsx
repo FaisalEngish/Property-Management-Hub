@@ -10,12 +10,12 @@ interface BackButtonProps {
   children?: React.ReactNode;
 }
 
-export function BackButton({ 
-  fallbackRoute = "/", 
-  variant = "ghost", 
+export function BackButton({
+  fallbackRoute = "/",
+  variant = "ghost",
   position = "top-left",
   className = "",
-  children 
+  children,
 }: BackButtonProps) {
   const [, setLocation] = useLocation();
 
@@ -29,9 +29,8 @@ export function BackButton({
     }
   };
 
-  const baseClasses = position === "floating" 
-    ? "fixed bottom-4 left-4 z-50 shadow-lg" 
-    : "";
+  const baseClasses =
+    position === "floating" ? "fixed bottom-4 left-4 z-50 shadow-lg" : "";
 
   return (
     <Button
@@ -47,7 +46,10 @@ export function BackButton({
 }
 
 // Role-specific back button with proper fallback routes
-export function RoleBackButton({ role, ...props }: BackButtonProps & { role: string }) {
+export function RoleBackButton({
+  role,
+  ...props
+}: BackButtonProps & { role: string }) {
   const getFallbackRoute = (userRole: string) => {
     switch (userRole) {
       case "admin":
