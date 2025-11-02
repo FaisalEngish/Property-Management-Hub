@@ -12,6 +12,7 @@ import { z } from 'zod';
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
+import { invalidateBookingQueries } from '@/lib/queryKeys';
 
 const taskSchema = z.object({
   title: z.string().min(1, 'Title is required'),
@@ -112,8 +113,8 @@ export function QuickActionButtons() {
       }),
     }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/bookings'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/dashboard/stats'] });
+      // Use centralized invalidation helper to update all related queries
+      invalidateBookingQueries(queryClient);
       toast({ title: 'Success', description: 'Booking created successfully' });
       setBookingModalOpen(false);
       bookingForm.reset();

@@ -7,6 +7,7 @@ import { Separator } from "@/components/ui/separator";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { invalidateBookingQueries } from "@/lib/queryKeys";
 import { 
   Calendar, 
   User, 
@@ -63,9 +64,8 @@ export default function BookingDetailModal({ open, onOpenChange, bookingId }: Bo
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/bookings"], exact: false });
-      queryClient.invalidateQueries({ queryKey: ["/api/dashboard"], exact: false });
-      queryClient.invalidateQueries({ queryKey: ["/api/properties"], exact: false });
+      // Use centralized invalidation helper to update all related queries
+      invalidateBookingQueries(queryClient);
       
       toast({
         title: "Success",

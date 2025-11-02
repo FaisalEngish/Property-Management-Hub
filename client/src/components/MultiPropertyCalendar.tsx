@@ -20,6 +20,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./ui/dialog";
 import { useToast } from "../hooks/use-toast";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "../lib/queryClient";
+import { invalidateBookingQueries } from "../lib/queryKeys";
 import {
   ChevronLeft,
   ChevronRight,
@@ -123,10 +124,8 @@ export function MultiPropertyCalendar({
       return { previousBookings };
     },
     onSuccess: (data, variables) => {
-      // Invalidate and refetch bookings to ensure consistency
-      queryClient.invalidateQueries({ queryKey: ["/api/bookings"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/properties"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
+      // Use centralized invalidation helper to update all related queries
+      invalidateBookingQueries(queryClient);
       toast({
         title: "✅ Booking Rescheduled",
         description: `Successfully moved booking to new dates`,
