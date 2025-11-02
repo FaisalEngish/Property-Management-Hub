@@ -143,7 +143,7 @@ export default function Bookings() {
 
   // Fetch real data from API - use specific endpoint if propertyId is in URL
   const { data: bookings = [], isLoading: bookingsLoading } = useQuery({
-    queryKey: urlPropertyId ? [`/api/bookings/with-source?propertyId=${urlPropertyId}`] : ['/api/bookings'],
+    queryKey: urlPropertyId ? queryKeys.bookings.withSource(urlPropertyId) : queryKeys.bookings.all(),
     staleTime: 0,
     refetchOnMount: true,
     refetchOnWindowFocus: true,

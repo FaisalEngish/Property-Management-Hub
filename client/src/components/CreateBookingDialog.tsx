@@ -45,6 +45,7 @@ export default function CreateBookingDialog({ open, onOpenChange }: CreateBookin
         throw new Error(errorData.message || "Failed to create booking");
       }
       return response.json();
+    },
     onSuccess: async (newBooking) => {
       console.log("✅ Booking created successfully:", newBooking);
       
@@ -58,6 +59,7 @@ export default function CreateBookingDialog({ open, onOpenChange }: CreateBookin
       }
       
       toast({
+        title: "Success",
         description: `Booking created successfully for ${newBooking.guestName}`,
       });
       
