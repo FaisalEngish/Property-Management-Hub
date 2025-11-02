@@ -6,15 +6,14 @@
   "scripts": {
     "preinstall": "npm install esbuild",
     "dev": "tsx server/index.ts",
-    "build": "npm run build:server",
+    "build": "npm install esbuild && npm run build:server",
     "start": "node dist/index.js",
     "check": "tsc",
     "db:push": "drizzle-kit push:pg",
     "db:migrate": "drizzle-kit generate:pg && drizzle-kit push:pg",
     "start:dev": "tsx server/index.ts",
-    "build:server": "esbuild server/index.ts --bundle --platform=node --target=node18 --outfile=dist/index.js --external:esbuild --external:drizzle-kit --define:import.meta.dirname=__dirname",
-    "postbuild": "echo '✅ Build completed successfully'",
-    "build:deploy": "npm run build:server && npm start"
+    "build:server": "esbuild server/index.ts --bundle --platform=node --target=node18 --outfile=dist/index.js --external:drizzle-kit --define:import.meta.dirname=__dirname",
+    "postbuild": "echo '✅ Build completed successfully'"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
@@ -98,7 +97,8 @@
     "wouter": "^3.3.5",
     "ws": "^8.18.0",
     "zod": "^3.24.2",
-    "zod-validation-error": "^3.4.0"
+    "zod-validation-error": "^3.4.0",
+    "esbuild": "^0.25.0"
   },
   "devDependencies": {
     "@replit/vite-plugin-cartographer": "^0.2.7",
@@ -117,7 +117,6 @@
     "@vitejs/plugin-react": "^4.3.2",
     "autoprefixer": "^10.4.20",
     "drizzle-kit": "^0.30.4",
-    "esbuild": "^0.25.0",
     "postcss": "^8.4.47",
     "tailwindcss": "^3.4.17",
     "tsx": "^4.20.3",
