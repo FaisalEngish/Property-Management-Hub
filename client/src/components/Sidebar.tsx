@@ -32,6 +32,8 @@ import {
   Home,
   ChevronLeft,
   ChevronRight,
+  Menu,
+  X,
 } from "lucide-react";
 import { useFastAuth } from "@/lib/fastAuth";
 import { cn } from "@/lib/utils";
@@ -53,17 +55,28 @@ const roleIcons = {
 
 export default function Sidebar({ className }: SidebarProps) {
   const [location, setLocation] = useLocation();
-  const [isCollapsed, setIsCollapsed] = useState(() => {
-    const saved = localStorage.getItem('sidebarCollapsed');
-    return saved === 'true';
-  });
+  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+  const [isMobileOpen, setIsMobileOpen] = useState(false);
   const { user, isAuthenticated, logout } = useFastAuth();
 
-  // Save collapse state and dispatch event when it changes
   useEffect(() => {
-    localStorage.setItem('sidebarCollapsed', String(isCollapsed));
-    window.dispatchEvent(new CustomEvent('sidebarCollapse', { detail: { isCollapsed } }));
-  }, [isCollapsed]);
+    // detect mobile/tablet by width (tailwind's md breakpoint = 768px)
+    const mq = window.matchMedia("(max-width: 767px)");
+    const handle = (e: MediaQueryListEvent | MediaQueryList) => {
+      setIsMobile(e.matches);
+      // if switching to mobile, keep full (not collapsed) but hidden by default
+      if (e.matches) {
+        setIsCollapsed(false);
+      } else {
+        setIsMobileOpen(false);
+      }
+    };
+
+    handle(mq);
+    mq.addEventListener("change", handle);
+    return () => mq.removeEventListener("change", handle);
+  }, []);
 
   const userRole = user?.role || "guest";
   const RoleIcon = roleIcons[userRole as keyof typeof roleIcons] || User;
@@ -196,6 +209,8 @@ export default function Sidebar({ className }: SidebarProps) {
     } else {
       window.location.href = href;
     }
+    // if on mobile, close drawer after navigating
+    if (isMobile) setIsMobileOpen(false);
   };
 
   if (!isAuthenticated) {
@@ -204,12 +219,47 @@ export default function Sidebar({ className }: SidebarProps) {
 
   return (
     <TooltipProvider delayDuration={200}>
+      {/* Mobile menu button (visible on small screens) */}
+      {isMobile && (
+        <button
+          aria-expanded={isMobileOpen}
+          aria-label={isMobileOpen ? "Close menu" : "Open menu"}
+          onClick={() => setIsMobileOpen((s) => !s)}
+          className="fixed top-4 left-4 z-60 p-2 rounded-md bg-white/90 dark:bg-black/90 shadow-lg md:hidden"
+        >
+          {isMobileOpen ? (
+            <X className="h-5 w-5" />
+          ) : (
+            <Menu className="h-5 w-5" />
+          )}
+        </button>
+      )}
+
+      {/* Backdrop for mobile when open */}
+      {isMobile && isMobileOpen && (
+        <div
+          onClick={() => setIsMobileOpen(false)}
+          className="fixed inset-0 bg-black/50 z-40 md:hidden"
+        />
+      )}
+
       <div
         className={cn(
+          // base
           "fixed left-0 top-0 h-screen bg-white dark:bg-black text-black dark:text-slate-500 flex flex-col items-start transition-all duration-300 ease-in-out shadow-2xl z-50",
-          isCollapsed ? "w-16" : "w-64",
+          // desktop width or collapsed width
+          !isMobile && (isCollapsed ? "w-16" : "w-64"),
+          // mobile transform (drawer)
+          isMobile &&
+            (isMobileOpen
+              ? "w-64 translate-x-0"
+              : "w-64 -translate-x-full pointer-events-none"),
           className,
         )}
+        style={{
+          // on mobile keep transform animation smooth
+          transform: undefined,
+        }}
       >
         {/* Header Section */}
         <div className="w-full border-b border-slate-700/50 text-black dark:text-white">
@@ -229,7 +279,8 @@ export default function Sidebar({ className }: SidebarProps) {
                   )}
                 />
               </div>
-              {!isCollapsed && (
+              {/* don't show brand text when collapsed or on very small screens (mobile open shows it) */}
+              {!isCollapsed && !isMobile && (
                 <div className="flex flex-col min-w-0">
                   <span className="font-bold text-sm text-black dark:text-white truncate">
                     HostPilotPro
@@ -237,6 +288,17 @@ export default function Sidebar({ className }: SidebarProps) {
                 </div>
               )}
             </div>
+
+            {/* on mobile show a close button in header when open */}
+            {isMobile && isMobileOpen && (
+              <button
+                aria-label="Close sidebar"
+                onClick={() => setIsMobileOpen(false)}
+                className="p-1 rounded-md"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
           </div>
         </div>
 
@@ -257,7 +319,8 @@ export default function Sidebar({ className }: SidebarProps) {
                     isActive
                       ? "bg-emerald-500 text-white shadow-lg"
                       : "text-slate-900 hover:bg-slate-700/50 hover:text-white",
-                    isCollapsed && "justify-center px-2",
+                    (isCollapsed || (isMobile && !isMobileOpen)) &&
+                      "justify-center px-2",
                   )}
                   data-testid={`nav-${item.label.toLowerCase().replace(/\s+/g, "-")}`}
                 >
@@ -267,7 +330,7 @@ export default function Sidebar({ className }: SidebarProps) {
                       isCollapsed ? "h-5 w-5" : "h-5 w-5",
                     )}
                   />
-                  {!isCollapsed && (
+                  {!isCollapsed && (!isMobile || isMobileOpen) && (
                     <span className="text-sm font-medium truncate">
                       {item.label}
                     </span>
@@ -275,7 +338,7 @@ export default function Sidebar({ className }: SidebarProps) {
                 </button>
               );
 
-              if (isCollapsed) {
+              if (isCollapsed && !isMobile) {
                 return (
                   <li key={index}>
                     <Tooltip>
@@ -299,7 +362,7 @@ export default function Sidebar({ className }: SidebarProps) {
         {/* Footer Section */}
         <div className="w-full border-t border-slate-700/50">
           {/* Settings Button */}
-          {!isCollapsed && (
+          {!isCollapsed && (!isMobile || isMobileOpen) && (
             <div className="px-4 py-3">
               <Button
                 variant="ghost"
@@ -313,38 +376,40 @@ export default function Sidebar({ className }: SidebarProps) {
             </div>
           )}
 
-          {/* Collapse Toggle Button */}
-          <div className="p-3">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setIsCollapsed(!isCollapsed)}
-                  className={cn(
-                    "w-full h-10 text-slate-300 hover:bg-slate-700/50 hover:text-white transition-all duration-200",
-                    isCollapsed && "justify-center px-0",
-                  )}
-                  data-testid="sidebar-toggle"
+          {/* Collapse Toggle Button (hide on small screens) */}
+          {!isMobile && (
+            <div className="p-3">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setIsCollapsed(!isCollapsed)}
+                    className={cn(
+                      "w-full h-10 text-slate-300 hover:bg-slate-700/50 hover:text-white transition-all duration-200",
+                      isCollapsed && "justify-center px-0",
+                    )}
+                    data-testid="sidebar-toggle"
+                  >
+                    {isCollapsed ? (
+                      <ChevronRight className="h-5 w-5" />
+                    ) : (
+                      <>
+                        <ChevronLeft className="h-5 w-5 mr-2" />
+                        <span className="text-sm">Collapse</span>
+                      </>
+                    )}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent
+                  side="right"
+                  className="bg-slate-700 text-white border-slate-600"
                 >
-                  {isCollapsed ? (
-                    <ChevronRight className="h-5 w-5" />
-                  ) : (
-                    <>
-                      <ChevronLeft className="h-5 w-5 mr-2" />
-                      <span className="text-sm">Collapse</span>
-                    </>
-                  )}
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent
-                side="right"
-                className="bg-slate-700 text-white border-slate-600"
-              >
-                {isCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
-              </TooltipContent>
-            </Tooltip>
-          </div>
+                  {isCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
+                </TooltipContent>
+              </Tooltip>
+            </div>
+          )}
         </div>
       </div>
     </TooltipProvider>

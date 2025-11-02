@@ -24,105 +24,105 @@ import CreateBookingDialog from "@/components/CreateBookingDialog";
 import BookingCalendar from "@/components/BookingCalendar";
 import BookingDetailModal from "@/components/BookingDetailModal";
 
-const sampleBookings = [
-  {
-    id: 1,
-    property: 'Villa Aruna',
-    manager: 'Dean',
-    area: 'Bophut',
-    bedrooms: 3,
-    guest: 'John Smith',
-    checkin: '2025-07-21',
-    checkout: '2025-07-26',
-    status: 'Confirmed',
-    amount: 2500,
-    nights: 5,
-    guests: 4
-  },
-  {
-    id: 2,
-    property: 'Villa Tramonto',
-    manager: 'Jane',
-    area: 'Lamai',
-    bedrooms: 2,
-    guest: 'Sarah Johnson',
-    checkin: '2025-07-27',
-    checkout: '2025-07-30',
-    status: 'Pending',
-    amount: 1800,
-    nights: 3,
-    guests: 2
-  },
-  {
-    id: 3,
-    property: 'Villa Samui Breeze',
-    manager: 'Dean',
-    area: 'Chaweng',
-    bedrooms: 4,
-    guest: 'Michael Brown',
-    checkin: '2025-07-22',
-    checkout: '2025-07-25',
-    status: 'Confirmed',
-    amount: 3200,
-    nights: 3,
-    guests: 6
-  },
-  {
-    id: 4,
-    property: 'Villa Paradise',
-    manager: 'Jane',
-    area: 'Bophut',
-    bedrooms: 5,
-    guest: 'Emma Davis',
-    checkin: '2025-07-28',
-    checkout: '2025-08-01',
-    status: 'Pending',
-    amount: 4000,
-    nights: 4,
-    guests: 8
-  },
-];
+// const sampleBookings = [
+//   {
+//     id: 1,
+//     property: 'Villa Aruna',
+//     manager: 'Dean',
+//     area: 'Bophut',
+//     bedrooms: 3,
+//     guest: 'John Smith',
+//     checkin: '2025-07-21',
+//     checkout: '2025-07-26',
+//     status: 'Confirmed',
+//     amount: 2500,
+//     nights: 5,
+//     guests: 4
+//   },
+//   {
+//     id: 2,
+//     property: 'Villa Tramonto',
+//     manager: 'Jane',
+//     area: 'Lamai',
+//     bedrooms: 2,
+//     guest: 'Sarah Johnson',
+//     checkin: '2025-07-27',
+//     checkout: '2025-07-30',
+//     status: 'Pending',
+//     amount: 1800,
+//     nights: 3,
+//     guests: 2
+//   },
+//   {
+//     id: 3,
+//     property: 'Villa Samui Breeze',
+//     manager: 'Dean',
+//     area: 'Chaweng',
+//     bedrooms: 4,
+//     guest: 'Michael Brown',
+//     checkin: '2025-07-22',
+//     checkout: '2025-07-25',
+//     status: 'Confirmed',
+//     amount: 3200,
+//     nights: 3,
+//     guests: 6
+//   },
+//   {
+//     id: 4,
+//     property: 'Villa Paradise',
+//     manager: 'Jane',
+//     area: 'Bophut',
+//     bedrooms: 5,
+//     guest: 'Emma Davis',
+//     checkin: '2025-07-28',
+//     checkout: '2025-08-01',
+//     status: 'Pending',
+//     amount: 4000,
+//     nights: 4,
+//     guests: 8
+//   },
+// ];
 
-const sampleProperties = [
-  {
-    property: 'Villa Aruna',
-    manager: 'Dean',
-    area: 'Bophut',
-    bedrooms: 3,
-    bookings: [
-      { guest: 'John Smith', checkin: '2025-07-21', checkout: '2025-07-26', status: 'Confirmed' },
-      { guest: 'Sarah Johnson', checkin: '2025-07-27', checkout: '2025-07-30', status: 'Pending' },
-    ],
-  },
-  {
-    property: 'Villa Tramonto',
-    manager: 'Jane',
-    area: 'Lamai',
-    bedrooms: 2,
-    bookings: [
-      { guest: 'Alice Cooper', checkin: '2025-07-23', checkout: '2025-07-24', status: 'Confirmed' },
-    ],
-  },
-  {
-    property: 'Villa Samui Breeze',
-    manager: 'Dean',
-    area: 'Chaweng',
-    bedrooms: 4,
-    bookings: [
-      { guest: 'Michael Brown', checkin: '2025-07-22', checkout: '2025-07-25', status: 'Confirmed' },
-      { guest: 'Emma Davis', checkin: '2025-07-28', checkout: '2025-08-01', status: 'Pending' },
-    ],
-  },
-  {
-    property: 'Villa Paradise',
-    manager: 'Jane',
-    area: 'Bophut',
-    bedrooms: 5,
-    bookings: [
-      { guest: 'Robert Wilson', checkin: '2025-07-24', checkout: '2025-07-27', status: 'Confirmed' },
-    ],
-  },
-];
+// const sampleProperties = [
+//   {
+//     property: 'Villa Aruna',
+//     manager: 'Dean',
+//     area: 'Bophut',
+//     bedrooms: 3,
+//     bookings: [
+//       { guest: 'John Smith', checkin: '2025-07-21', checkout: '2025-07-26', status: 'Confirmed' },
+//       { guest: 'Sarah Johnson', checkin: '2025-07-27', checkout: '2025-07-30', status: 'Pending' },
+//     ],
+//   },
+//   {
+//     property: 'Villa Tramonto',
+//     manager: 'Jane',
+//     area: 'Lamai',
+//     bedrooms: 2,
+//     bookings: [
+//       { guest: 'Alice Cooper', checkin: '2025-07-23', checkout: '2025-07-24', status: 'Confirmed' },
+//     ],
+//   },
+//   {
+//     property: 'Villa Samui Breeze',
+//     manager: 'Dean',
+//     area: 'Chaweng',
+//     bedrooms: 4,
+//     bookings: [
+//       { guest: 'Michael Brown', checkin: '2025-07-22', checkout: '2025-07-25', status: 'Confirmed' },
+//       { guest: 'Emma Davis', checkin: '2025-07-28', checkout: '2025-08-01', status: 'Pending' },
+//     ],
+//   },
+//   {
+//     property: 'Villa Paradise',
+//     manager: 'Jane',
+//     area: 'Bophut',
+//     bedrooms: 5,
+//     bookings: [
+//       { guest: 'Robert Wilson', checkin: '2025-07-24', checkout: '2025-07-27', status: 'Confirmed' },
+//     ],
+//   },
+// ];
 
 export default function Bookings() {
   const [activeTab, setActiveTab] = useState("bookings");
