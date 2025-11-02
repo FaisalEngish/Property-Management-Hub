@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useFastAuth } from "@/lib/fastAuth";
+import { invalidateBookingQueries } from "@/lib/queryKeys";
 
 interface CreateBookingDialogProps {
   open: boolean;
@@ -44,21 +45,11 @@ export default function CreateBookingDialog({ open, onOpenChange }: CreateBookin
         throw new Error(errorData.message || "Failed to create booking");
       }
       return response.json();
-    },
     onSuccess: async (newBooking) => {
       console.log("✅ Booking created successfully:", newBooking);
       
-      // Invalidate ALL booking-related queries (exact: false to catch all variants)
-      queryClient.invalidateQueries({ queryKey: ["/api/bookings"], exact: false });
-      queryClient.invalidateQueries({ queryKey: ["/api/dashboard"], exact: false });
-      queryClient.invalidateQueries({ queryKey: ["/api/properties"], exact: false });
-      
-      console.log("🔄 Cache invalidated (bookings, dashboard, properties), triggering refetch...");
-      
-      // Force immediate refetch to update UI
-      queryClient.refetchQueries({ queryKey: ["/api/bookings"], exact: false });
-      queryClient.refetchQueries({ queryKey: ["/api/dashboard"], exact: false });
-      queryClient.refetchQueries({ queryKey: ["/api/properties"], exact: false });
+      // Use centralized invalidation helper to update all related queries
+      invalidateBookingQueries(queryClient);
       
       // Invalidate achievement cache - backend recalculates on GET request
       if (user?.id) {
@@ -67,7 +58,6 @@ export default function CreateBookingDialog({ open, onOpenChange }: CreateBookin
       }
       
       toast({
-        title: "Success",
         description: `Booking created successfully for ${newBooking.guestName}`,
       });
       
