@@ -188,6 +188,8 @@ export default function PropertyHub() {
     staleTime: 10 * 60 * 1000,
   });
 
+  console.log("properties", properties);
+
   const { data: bookings = [], isLoading: bookingsLoading } = useQuery({
     queryKey: ["/api/bookings"],
     staleTime: 10 * 60 * 1000,
