@@ -162,7 +162,7 @@ function AppRoutes() {
 
   // User is authenticated, show the main app
   return (
-    <div className="flex h-screen bg-background overflow-hidden">
+    <div className="flex min-h-screen bg-background">
       <Sidebar />
       <Switch>
         <Route path="/" component={RoleBasedDashboard} />

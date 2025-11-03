@@ -12,7 +12,7 @@ interface LayoutProps {
 
 export default function Layout({ children, className, title, subtitle, action }: LayoutProps) {
   return (
-    <div className="bg-background flex-1 min-h-0 flex flex-col overflow-auto">
+    <div className="bg-background flex-1 flex flex-col">
       {/* Mobile top spacing */}
       <div className="lg:hidden h-20"></div>
       
@@ -24,7 +24,7 @@ export default function Layout({ children, className, title, subtitle, action }:
       )}
       
       {/* Page Content */}
-      <main className={cn("p-4 lg:p-6 flex-1", className)}>
+      <main className={cn("p-4 lg:p-6", className)}>
         {children}
       </main>
     </div>
