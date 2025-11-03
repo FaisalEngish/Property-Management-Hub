@@ -119,7 +119,7 @@ export default function PropertyEdit() {
   }
 
   return (
-    <div className="min-h-screen mx-auto">
+    <div className="mx-auto">
       <div className="p-6">
         <div className="mb-6">
           <Button
