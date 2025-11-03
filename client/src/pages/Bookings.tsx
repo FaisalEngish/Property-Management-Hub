@@ -944,7 +944,22 @@ export default function Bookings() {
             <div>
               {urlPropertyId && selectedProperty ? (
                 <>
-                  <BackButton />
+                  {/* Header with Back Button layered on top */}
+                  <div className="mb-4">
+                    <BackButton
+                      fallbackRoute={
+                        urlPropertyId
+                          ? `/bookings?propertyId=${urlPropertyId}`
+                          : "/bookings"
+                      }
+                      variant="ghost"
+                      className="!p-2 !rounded-md bg-white/90 backdrop-blur-md border border-slate-200 shadow-sm"
+                    >
+                      <span className="hidden sm:inline text-sm">
+                        Back to Property
+                      </span>
+                    </BackButton>
+                  </div>
                   <h1 className="text-3xl font-bold">
                     Bookings - {selectedProperty.name}
                   </h1>

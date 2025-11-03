@@ -243,20 +243,18 @@ export default function Sidebar({ className }: SidebarProps) {
       <div
         className={cn(
           // base
-          "max-h-screen fixed left-0 top-0 h-screen bg-white dark:bg-black text-black dark:text-slate-500 flex flex-col items-start transition-all duration-300 ease-in-out shadow-2xl z-50 overflow-hidden",
-          // desktop width or collapsed width
+          "h-screen bg-white dark:bg-black text-black dark:text-slate-500 flex flex-col items-start transition-all duration-300 ease-in-out shadow-2xl overflow-hidden",
+          // desktop: part of flex layout (not fixed)
+          !isMobile && "flex-shrink-0",
           !isMobile && (collapsed ? "w-16" : "w-64"),
-          // mobile transform (drawer)
+          // mobile: fixed overlay
+          isMobile && "fixed left-0 top-0 z-50",
           isMobile &&
             (isMobileOpen
               ? "w-64 translate-x-0"
-              : "min-h-min w-64 -translate-x-full pointer-events-none"),
+              : "w-64 -translate-x-full pointer-events-none"),
           className,
         )}
-        style={{
-          // on mobile keep transform animation smooth
-          transform: undefined,
-        }}
       >
         {/* Header Section */}
         <div className="w-full border-b border-slate-700/50 text-black dark:text-white">

@@ -1,0 +1,63 @@
+Requirements
+
+Sidebar Behavior (Global)
+
+Create a Sidebar Context to manage the sidebar state (collapsed, toggleCollapsed, sidebarWidth).
+
+All pages and components must read the same sidebar state — no duplicate local states.
+
+The sidebar width should toggle between two defined widths (e.g. w-64 when expanded and w-16 when collapsed).
+
+When expanded, the main content should shift or resize properly (not hide under the sidebar).
+
+When collapsed, the main dashboard should automatically expand to full width.
+
+Transitions between expanded and collapsed states should be smooth.
+
+Layout Structure
+
+Use a flex layout (display: flex) for the main wrapper:
+
+Sidebar → first child
+
+Main content → second child
+
+The main content must use flex-1 so it expands naturally and never hides behind the sidebar.
+
+Do not use fixed positioning for the sidebar unless absolutely necessary.
+
+If fixed positioning is required (for mobile views), adjust the main content using dynamic margin-left or padding-left equal to the sidebar width (from context).
+
+Topbar & Back Button
+
+Keep the topbar/back button always visible and above other content (z-50).
+
+When the sidebar toggles, the topbar and back button should remain fixed in position.
+
+The rest of the content should start below the topbar, following a display: flex structure.
+
+State Management
+
+Use React Context API (createContext + useContext) to share the sidebar state globally.
+
+Persist the sidebar state (collapsed or expanded) in localStorage so the preference remains after page reload.
+
+Optionally sync across tabs using the storage event.
+
+Responsive Design
+
+On mobile view, treat the sidebar as an overlay drawer (slides over content).
+
+On larger screens, the sidebar should be inline with the dashboard layout.
+
+When switching between screen sizes, the layout should automatically adapt without breaking.
+
+Debug Checklist
+
+Verify sidebar and main content are siblings inside the same flex container.
+
+Ensure no position: absolute or fixed is forcing overlap unless handled with margin adjustments.
+
+Confirm topbar has a higher z-index than the sidebar.
+
+Remove any max-width, margin-left, or hardcoded widths on main content wrappers.
