@@ -2359,7 +2359,7 @@ Be specific and actionable in your recommendations.`;
           console.log(`💰 Auto-creating finance record for completed task ${task.id} with cost ${costAmount} (actual: ${task.actualCost}, estimated: ${task.estimatedCost})`);
           
           // Create finance record for task completion
-          await storage.createFinance({
+          const financeRecord = await storage.createFinance({
             organizationId,
             propertyId: task.propertyId,
             type: 'expense',
@@ -2378,11 +2378,25 @@ Be specific and actionable in your recommendations.`;
             notes: task.evidencePhotos && task.evidencePhotos.length > 0 
               ? `Completed with ${task.evidencePhotos.length} evidence photo(s)` 
               : 'Task completed',
+            attachments: task.evidencePhotos || [],
           });
           
-          // Invalidate finance cache to ensure Finance Hub shows the new expense immediately
+          // Link the finance record back to the task
+          if (financeRecord && financeRecord.id) {
+            await storage.updateTask(id, { financeRecordId: financeRecord.id });
+            task.financeRecordId = financeRecord.id; // Update the task object being returned
+            console.log(`🔗 Linked finance record ${financeRecord.id} to task ${task.id}`);
+          }
+          
+          // Invalidate all finance-related caches to ensure Finance Hub shows the new expense immediately
           const { clearCache } = await import("./performanceOptimizer");
-          clearCache("finance");
+          const { clearUltraFastCache } = await import("./ultraFastMiddleware");
+          clearCache("finance");  // Pattern-based cache clearing
+          clearCache("finances");  // Alternative pattern
+          clearUltraFastCache("/api/finance");  // Clear base finance endpoint
+          clearUltraFastCache("/api/finance/analytics");  // Clear analytics endpoint
+          clearUltraFastCache("/api/finances");  // Clear finances endpoint
+          clearUltraFastCache("/api/dashboard");  // Clear dashboard cache
           
           console.log(`✅ Finance record auto-created for task ${task.id} with ${task.actualCost ? 'actual' : 'estimated'} cost of ${costAmount}`);
         } catch (financeError) {
@@ -2588,13 +2602,67 @@ Be specific and actionable in your recommendations.`;
         status: req.body.status || "pending",
       });
       
+      
+      // Validate payment amounts
+      const totalAmount = parseFloat(bookingData.totalAmount || "0");
+      const amountPaid = parseFloat(bookingData.amountPaid || "0");
+
+      if (amountPaid > totalAmount) {
+        return res.status(400).json({ 
+          message: "Amount paid cannot exceed total amount"
+        });
+      }
+
+      // Ensure amountDue is never negative
+      bookingData.amountDue = Math.max(0, totalAmount - amountPaid).toFixed(2);
       const booking = await storage.createBooking(bookingData);
+      
+      // Payment tracking: Create finance record if amountPaid > 0
+      if (booking.amountPaid && parseFloat(booking.amountPaid.toString()) > 0) {
+        try {
+          const financeData = insertFinanceSchema.parse({
+            organizationId: booking.organizationId,
+            propertyId: booking.propertyId,
+            bookingId: booking.id,
+            type: "income",
+            source: "guest-payment",
+            category: "Booking Payment",
+            department: "front-office",
+            amount: booking.amountPaid,
+            currency: booking.currency || "USD",
+            description: `Payment from ${booking.guestName} (Booking #${booking.id})`,
+            date: new Date().toISOString().split('T')[0],
+            status: booking.paymentStatus === "paid" ? "completed" : "pending",
+            referenceNumber: `BOOKING-${booking.id}`,
+          });
+          
+          await storage.createFinance(financeData);
+          console.log(`💰 Finance income record created for booking #${booking.id}, amount: ${booking.amountPaid}`);
+        } catch (financeError) {
+          console.error("Error creating finance record for booking payment:", financeError);
+          // Don't fail the booking creation if finance record creation fails
+        }
+      }
       
       // Clear bookings cache to ensure new booking appears immediately
       const { clearCache } = await import("./performanceOptimizer");
+      const { clearUltraFastCache } = await import("./ultraFastMiddleware");
+      
       console.log(`🗑️ Clearing bookings cache for organizationId: ${organizationId}`);
       clearCache("bookings");
       clearCache("properties");  // Clear properties cache for real-time sync of Last Booking, Occupancy, Revenue
+      
+      // Clear finance caches if payment was recorded
+      if (booking.amountPaid && parseFloat(booking.amountPaid.toString()) > 0) {
+        clearCache("finance");
+        clearCache("finances");
+        clearUltraFastCache("/api/finance");
+        clearUltraFastCache("/api/finance/analytics");
+        clearUltraFastCache("/api/finances");
+        clearUltraFastCache("/api/dashboard");
+        console.log(`💳 Finance caches cleared after booking payment tracking`);
+      }
+      
       console.log(`✅ Bookings cache cleared after creating booking ID ${booking.id}`);
       
       res.status(201).json(booking);
@@ -2613,7 +2681,6 @@ Be specific and actionable in your recommendations.`;
       res.status(500).json({ message: "Failed to create booking" });
     }
   });
-
   // Get single booking by ID
   app.get("/api/bookings/:id", isDemoAuthenticated, async (req: any, res) => {
     try {
@@ -3399,34 +3466,21 @@ Be specific and actionable in your recommendations.`;
   });
 
   // Utility Bills routes
-  app.get("/api/utility-bills", isDemoAuthenticated, async (req, res) => {
-    try {
-      const { organizationId } = getTenantContext(req);
-      const bills = await storage.getUtilityBills();
-      // Filter by organization in production - for demo, return all
-      res.json(bills);
-    } catch (error) {
-      console.error("Error fetching utility bills:", error);
-      res.status(500).json({ message: "Failed to fetch utility bills" });
-    }
-  });
-
-  app.post("/api/utility-bills", isDemoAuthenticated, async (req, res) => {
-    try {
-      const { organizationId } = getTenantContext(req);
-      
-      const validatedData = insertUtilityBillSchema.parse({
-        ...req.body,
-        organizationId,
-      });
-
-      const bill = await storage.createUtilityBill(validatedData);
-      res.status(201).json(bill);
-    } catch (error) {
-      console.error("Error creating utility bill:", error);
-      res.status(500).json({ message: "Failed to create utility bill" });
-    }
-  });
+  // 
+  // COMMENTED OUT - Using utility-bills-routes.ts instead
+  //       const bill = await storage.createUtilityBill(validatedData);
+  // COMMENTED OUT - Using utility-bills-routes.ts instead
+  //       res.status(201).json(bill);
+  // COMMENTED OUT - Using utility-bills-routes.ts instead
+  //     } catch (error) {
+  // COMMENTED OUT - Using utility-bills-routes.ts instead
+  //       console.error("Error creating utility bill:", error);
+  // COMMENTED OUT - Using utility-bills-routes.ts instead
+  //       res.status(500).json({ message: "Failed to create utility bill" });
+  // COMMENTED OUT - Using utility-bills-routes.ts instead
+  //     }
+  // COMMENTED OUT - Using utility-bills-routes.ts instead
+  //   });
 
   // Welcome Pack Inventory routes
   app.get("/api/welcome-pack-items", isDemoAuthenticated, async (req, res) => {
@@ -15471,235 +15525,6 @@ Be specific and actionable in your recommendations.`;
     }
   });
 
-  // ===== UTILITY TRACKER API ENDPOINTS =====
-
-  // Utility bills CRUD
-  app.get("/api/utility-bills", isDemoAuthenticated, async (req, res) => {
-    try {
-      const organizationId = "demo-org";
-      const { propertyId, type, status, dueDate } = req.query;
-      
-      const filters: any = {};
-      if (propertyId) filters.propertyId = parseInt(propertyId as string);
-      if (type) filters.type = type as string;
-      if (status) filters.status = status as string;
-      if (dueDate) filters.dueDate = dueDate as string;
-      
-      const bills = await storage.getUtilityBills(organizationId, filters);
-      res.json(bills);
-    } catch (error) {
-      console.error("Error fetching utility bills:", error);
-      res.status(500).json({ message: "Failed to fetch utility bills" });
-    }
-  });
-
-  app.post("/api/utility-bills", isDemoAuthenticated, async (req, res) => {
-    try {
-      const organizationId = "demo-org";
-      const userData = req.user as any;
-      
-      const billData = {
-        ...req.body,
-        organizationId,
-        uploadedBy: userData.id,
-      };
-      
-      const bill = await storage.createUtilityBill(billData);
-      res.status(201).json(bill);
-    } catch (error) {
-      console.error("Error creating utility bill:", error);
-      res.status(500).json({ message: "Failed to create utility bill" });
-    }
-  });
-
-  app.put("/api/utility-bills/:id", isDemoAuthenticated, async (req, res) => {
-    try {
-      const billId = parseInt(req.params.id);
-      const bill = await storage.updateUtilityBill(billId, req.body);
-      
-      if (!bill) {
-        return res.status(404).json({ message: "Utility bill not found" });
-      }
-      
-      res.json(bill);
-    } catch (error) {
-      console.error("Error updating utility bill:", error);
-      res.status(500).json({ message: "Failed to update utility bill" });
-    }
-  });
-
-  app.delete("/api/utility-bills/:id", isDemoAuthenticated, async (req, res) => {
-    try {
-      const billId = parseInt(req.params.id);
-      const success = await storage.deleteUtilityBill(billId);
-      res.json({ success });
-    } catch (error) {
-      console.error("Error deleting utility bill:", error);
-      res.status(500).json({ message: "Failed to delete utility bill" });
-    }
-  });
-
-  // Utility bill upload with receipt
-  app.post("/api/utility-bills/upload-receipt", isDemoAuthenticated, async (req, res) => {
-    try {
-      const billId = req.body.billId;
-      const receiptFile = req.body.receiptFile;
-      const userData = req.user as any;
-      
-      // Update bill with receipt info
-      const updatedBill = await storage.uploadUtilityBillReceipt(
-        billId, 
-        receiptFile, 
-        userData.id
-      );
-      
-      if (!updatedBill) {
-        return res.status(404).json({ message: "Utility bill not found" });
-      }
-      
-      res.json(updatedBill);
-    } catch (error) {
-      console.error("Error uploading utility bill receipt:", error);
-      res.status(500).json({ message: "Failed to upload utility bill receipt" });
-    }
-  });
-
-  // Property utility accounts CRUD
-  app.get("/api/property-utility-accounts", isDemoAuthenticated, async (req, res) => {
-    try {
-      const organizationId = "demo-org";
-      const { propertyId, type } = req.query;
-      
-      const filters: any = {};
-      if (propertyId) filters.propertyId = parseInt(propertyId as string);
-      if (type) filters.type = type as string;
-      
-      const accounts = await storage.getPropertyUtilityAccounts(organizationId, filters);
-      res.json(accounts);
-    } catch (error) {
-      console.error("Error fetching property utility accounts:", error);
-      res.status(500).json({ message: "Failed to fetch property utility accounts" });
-    }
-  });
-
-  app.post("/api/property-utility-accounts", isDemoAuthenticated, async (req, res) => {
-    try {
-      const organizationId = "demo-org";
-      
-      const accountData = {
-        ...req.body,
-        organizationId,
-      };
-      
-      const account = await storage.createPropertyUtilityAccount(accountData);
-      res.status(201).json(account);
-    } catch (error) {
-      console.error("Error creating property utility account:", error);
-      res.status(500).json({ message: "Failed to create property utility account" });
-    }
-  });
-
-  app.put("/api/property-utility-accounts/:id", isDemoAuthenticated, async (req, res) => {
-    try {
-      const accountId = parseInt(req.params.id);
-      const account = await storage.updatePropertyUtilityAccount(accountId, req.body);
-      
-      if (!account) {
-        return res.status(404).json({ message: "Property utility account not found" });
-      }
-      
-      res.json(account);
-    } catch (error) {
-      console.error("Error updating property utility account:", error);
-      res.status(500).json({ message: "Failed to update property utility account" });
-    }
-  });
-
-  app.delete("/api/property-utility-accounts/:id", isDemoAuthenticated, async (req, res) => {
-    try {
-      const accountId = parseInt(req.params.id);
-      const success = await storage.deletePropertyUtilityAccount(accountId);
-      res.json({ success });
-    } catch (error) {
-      console.error("Error deleting property utility account:", error);
-      res.status(500).json({ message: "Failed to delete property utility account" });
-    }
-  });
-
-  // Utility bill reminders
-  app.get("/api/utility-bill-reminders", isDemoAuthenticated, async (req, res) => {
-    try {
-      const organizationId = "demo-org";
-      const { propertyId, type, isActive } = req.query;
-      
-      const filters: any = {};
-      if (propertyId) filters.propertyId = parseInt(propertyId as string);
-      if (type) filters.type = type as string;
-      if (isActive !== undefined) filters.isActive = isActive === 'true';
-      
-      const reminders = await storage.getUtilityBillReminders(organizationId, filters);
-      res.json(reminders);
-    } catch (error) {
-      console.error("Error fetching utility bill reminders:", error);
-      res.status(500).json({ message: "Failed to fetch utility bill reminders" });
-    }
-  });
-
-  app.post("/api/utility-bill-reminders", isDemoAuthenticated, async (req, res) => {
-    try {
-      const organizationId = "demo-org";
-      
-      const reminderData = {
-        ...req.body,
-        organizationId,
-      };
-      
-      const reminder = await storage.createUtilityBillReminder(reminderData);
-      res.status(201).json(reminder);
-    } catch (error) {
-      console.error("Error creating utility bill reminder:", error);
-      res.status(500).json({ message: "Failed to create utility bill reminder" });
-    }
-  });
-
-  // Utility analytics
-  app.get("/api/utility-analytics", isDemoAuthenticated, async (req, res) => {
-    try {
-      const organizationId = "demo-org";
-      const { period, propertyId } = req.query;
-      
-      const analytics = await storage.getUtilityAnalytics(
-        organizationId,
-        period as string || 'month',
-        propertyId ? parseInt(propertyId as string) : undefined
-      );
-      
-      res.json(analytics);
-    } catch (error) {
-      console.error("Error fetching utility analytics:", error);
-      res.status(500).json({ message: "Failed to fetch utility analytics" });
-    }
-  });
-
-  // Utility providers (for dropdown data)
-  app.get("/api/utility-providers", isDemoAuthenticated, async (req, res) => {
-    try {
-      const organizationId = "demo-org";
-      const { type, country } = req.query;
-      
-      const providers = await storage.getUtilityProviders(
-        organizationId,
-        type as string,
-        country as string || 'TH'
-      );
-      
-      res.json(providers);
-    } catch (error) {
-      console.error("Error fetching utility providers:", error);
-      res.status(500).json({ message: "Failed to fetch utility providers" });
-    }
-  });
-
   // ==================== MEDIA LIBRARY & AGENT SHARING TOOLS ====================
 
   // Get property media files with optional property filter
@@ -16016,97 +15841,6 @@ Be specific and actionable in your recommendations.`;
     }
   });
 
-  // Utility bills endpoints  
-  app.get("/api/utility-bills", isDemoAuthenticated, async (req: any, res) => {
-    try {
-      const organizationId = "demo-org-1";
-      const { propertyId, status, utilityType } = req.query;
-      
-      const bills = await storage.getUtilityBills(organizationId, {
-        propertyId: propertyId ? parseInt(propertyId as string) : undefined,
-        status: status as string,
-        utilityType: utilityType as string,
-      });
-      
-      res.json(bills);
-    } catch (error) {
-      console.error("Error fetching utility bills:", error);
-      res.status(500).json({ message: "Failed to fetch utility bills" });
-    }
-  });
-
-  app.post("/api/utility-bills", isDemoAuthenticated, async (req: any, res) => {
-    try {
-      const organizationId = "demo-org-1";
-      const { id: userId } = req.user;
-      
-      const billData = {
-        ...req.body,
-        organizationId,
-        propertyId: parseInt(req.body.propertyId),
-        amount: parseFloat(req.body.amount),
-        status: "uploaded",
-        uploadedBy: userId,
-        uploadedAt: new Date(),
-      };
-      
-      const newBill = await storage.createUtilityBill(billData);
-      res.json(newBill);
-    } catch (error) {
-      console.error("Error uploading utility bill:", error);
-      res.status(500).json({ message: "Failed to upload utility bill" });
-    }
-  });
-
-  app.post("/api/utility-bills/:id/confirm-payment", isDemoAuthenticated, async (req: any, res) => {
-    try {
-      const { id } = req.params;
-      const { paymentDate, paymentMethod, receiptNumber, notes } = req.body;
-      
-      const updatedBill = await storage.confirmUtilityBillPayment(parseInt(id), {
-        paymentDate: new Date(paymentDate),
-        paymentMethod,
-        receiptNumber,
-        notes,
-        status: "paid",
-      });
-      
-      if (!updatedBill) {
-        return res.status(404).json({ message: "Bill not found" });
-      }
-      
-      res.json(updatedBill);
-    } catch (error) {
-      console.error("Error confirming payment:", error);
-      res.status(500).json({ message: "Failed to confirm payment" });
-    }
-  });
-
-  // Utility reminders endpoint
-  app.get("/api/utility-reminders", isDemoAuthenticated, async (req: any, res) => {
-    try {
-      const organizationId = "demo-org-1";
-      const reminders = await storage.getUtilityReminders(organizationId);
-      res.json(reminders);
-    } catch (error) {
-      console.error("Error fetching utility reminders:", error);
-      res.status(500).json({ message: "Failed to fetch utility reminders" });
-    }
-  });
-
-  // Utility statistics endpoint
-  app.get("/api/utility-stats", isDemoAuthenticated, async (req: any, res) => {
-    try {
-      const organizationId = "demo-org-1";
-      const stats = await storage.getUtilityStats(organizationId);
-      res.json(stats);
-    } catch (error) {
-      console.error("Error fetching utility stats:", error);
-      res.status(500).json({ message: "Failed to fetch utility stats" });
-    }
-  });
-
-  // ==================== PLATFORM-BASED REVENUE ROUTING RULES ====================
 
   // Platform routing rules endpoints
   app.get("/api/platform-routing-rules", isDemoAuthenticated, async (req: any, res) => {
@@ -21114,6 +20848,218 @@ Be specific and actionable in your recommendations.`;
   });
 
   const httpServer = createServer(app);
+
+  // ===== REPORTS & ANALYTICS ROUTES =====
+  
+  // Get all reports for organization
+  app.get("/api/reports", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = req.user.organizationId || "default-org";
+      const reports = await storage.getReports(organizationId);
+      res.json(reports);
+    } catch (error) {
+      console.error("Error fetching reports:", error);
+      res.status(500).json({ message: "Failed to fetch reports" });
+    }
+  });
+
+  // Get reports by type
+  app.get("/api/reports/type/:type", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = req.user.organizationId || "default-org";
+      const { type } = req.params;
+      const reports = await storage.getReportsByType(organizationId, type);
+      res.json(reports);
+    } catch (error) {
+      console.error("Error fetching reports by type:", error);
+      res.status(500).json({ message: "Failed to fetch reports" });
+    }
+  });
+
+  // Get single report
+  app.get("/api/reports/:id", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const report = await storage.getReport(parseInt(req.params.id));
+      if (!report) {
+        return res.status(404).json({ message: "Report not found" });
+      }
+      res.json(report);
+    } catch (error) {
+      console.error("Error fetching report:", error);
+      res.status(500).json({ message: "Failed to fetch report" });
+    }
+  });
+
+  // Generate new report
+  app.post("/api/reports/generate", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = req.user.organizationId || "default-org";
+      const { type } = req.body;
+      
+      if (!type) {
+        return res.status(400).json({ message: "Report type is required" });
+      }
+      
+      const report = await storage.generateReport(organizationId, type, req.user.id);
+      res.status(201).json(report);
+    } catch (error) {
+      console.error("Error generating report:", error);
+      res.status(500).json({ message: "Failed to generate report" });
+    }
+  });
+
+  // Export report to CSV
+  app.get("/api/reports/:id/export", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const report = await storage.getReport(parseInt(req.params.id));
+      
+      if (!report) {
+        return res.status(404).json({ message: "Report not found" });
+      }
+
+      const { Parser } = await import('json2csv');
+      const fields = report.data.details && report.data.details.length > 0 
+        ? Object.keys(report.data.details[0])
+        : [];
+      
+      const parser = new Parser({ fields });
+      const csv = parser.parse(report.data.details || []);
+      
+      res.header("Content-Type", "text/csv");
+      res.attachment(`${report.type}_report_${report.id}.csv`);
+      res.send(csv);
+    } catch (error) {
+      console.error("Error exporting report:", error);
+      res.status(500).json({ message: "Failed to export report" });
+    }
+  });
+
+  // Delete report
+  app.delete("/api/reports/:id", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const success = await storage.deleteReport(parseInt(req.params.id));
+      if (!success) {
+        return res.status(404).json({ message: "Report not found" });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting report:", error);
+      res.status(500).json({ message: "Failed to delete report" });
+    }
+  });
+
+  // ===== AUTOMATION & ALERTS ROUTES =====
+  
+  // Get all automations
+  app.get("/api/automations", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = req.user.organizationId || "default-org";
+      const automations = await storage.getAutomations(organizationId);
+      res.json(automations);
+    } catch (error) {
+      console.error("Error fetching automations:", error);
+      res.status(500).json({ message: "Failed to fetch automations" });
+    }
+  });
+
+  // Get active automations only
+  app.get("/api/automations/active", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = req.user.organizationId || "default-org";
+      const automations = await storage.getActiveAutomations(organizationId);
+      res.json(automations);
+    } catch (error) {
+      console.error("Error fetching active automations:", error);
+      res.status(500).json({ message: "Failed to fetch automations" });
+    }
+  });
+
+  // Get single automation
+  app.get("/api/automations/:id", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const automation = await storage.getAutomation(parseInt(req.params.id));
+      if (!automation) {
+        return res.status(404).json({ message: "Automation not found" });
+      }
+      res.json(automation);
+    } catch (error) {
+      console.error("Error fetching automation:", error);
+      res.status(500).json({ message: "Failed to fetch automation" });
+    }
+  });
+
+  // Create automation
+  app.post("/api/automations", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = req.user.organizationId || "default-org";
+      const automationData = {
+        ...req.body,
+        organizationId,
+        createdBy: req.user.id
+      };
+      
+      const automation = await storage.createAutomation(automationData);
+      res.status(201).json(automation);
+    } catch (error) {
+      console.error("Error creating automation:", error);
+      res.status(500).json({ message: "Failed to create automation" });
+    }
+  });
+
+  // Update automation
+  app.put("/api/automations/:id", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const automation = await storage.updateAutomation(parseInt(req.params.id), req.body);
+      if (!automation) {
+        return res.status(404).json({ message: "Automation not found" });
+      }
+      res.json(automation);
+    } catch (error) {
+      console.error("Error updating automation:", error);
+      res.status(500).json({ message: "Failed to update automation" });
+    }
+  });
+
+  // Toggle automation active/inactive
+  app.patch("/api/automations/:id/toggle", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { isActive } = req.body;
+      const automation = await storage.toggleAutomation(parseInt(req.params.id), isActive);
+      if (!automation) {
+        return res.status(404).json({ message: "Automation not found" });
+      }
+      res.json(automation);
+    } catch (error) {
+      console.error("Error toggling automation:", error);
+      res.status(500).json({ message: "Failed to toggle automation" });
+    }
+  });
+
+  // Delete automation
+  app.delete("/api/automations/:id", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const success = await storage.deleteAutomation(parseInt(req.params.id));
+      if (!success) {
+        return res.status(404).json({ message: "Automation not found" });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting automation:", error);
+      res.status(500).json({ message: "Failed to delete automation" });
+    }
+  });
+
+  // Get automation logs
+  app.get("/api/automations/:id/logs", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const logs = await storage.getAutomationLogs(parseInt(req.params.id));
+      res.json(logs);
+    } catch (error) {
+      console.error("Error fetching automation logs:", error);
+      res.status(500).json({ message: "Failed to fetch automation logs" });
+    }
+  });
+
   return httpServer;
 }
 

@@ -87,6 +87,12 @@ export default function Dashboard() {
     refetchOnMount: true,
   });
 
+  // Fetch bookings with outstanding payments
+  const outstandingPayments = bookings.filter((booking: any) => {
+    const amountDue = parseFloat(booking.amountDue || "0");
+    return amountDue > 0;
+  });
+
   // Toast notifications for expired documents on Dashboard
   useEffect(() => {
     if (expiringDocuments && Array.isArray(expiringDocuments) && expiringDocuments.length > 0) {
@@ -107,6 +113,21 @@ export default function Dashboard() {
       }
     }
   }, [expiringDocuments, toast]);
+
+  // Toast notifications for outstanding payments
+  useEffect(() => {
+    if (outstandingPayments.length > 0) {
+      const totalOutstanding = outstandingPayments.reduce((sum: number, booking: any) => {
+        return sum + parseFloat(booking.amountDue || "0");
+      }, 0);
+
+      toast({
+        title: "💰 Outstanding Payments",
+        description: `${outstandingPayments.length} customer${outstandingPayments.length > 1 ? 's have' : ' has'} outstanding balances totaling ${formatCurrency(totalOutstanding)}`,
+        variant: "default",
+      });
+    }
+  }, [outstandingPayments.length, toast]);
 
   // Use real bookings from API, sorted by creation date (most recent first)
   const recentBookings = bookings
@@ -326,6 +347,53 @@ export default function Dashboard() {
               </CardContent>
             </Card>
           </div>
+
+          {/* Outstanding Payments Section */}
+          {outstandingPayments.length > 0 && (
+            <Card className="border-red-200 bg-red-50">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-red-800">
+                  <DollarSign className="h-5 w-5" />
+                  Outstanding Payments ({outstandingPayments.length})
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {outstandingPayments.slice(0, 5).map((booking: any) => {
+                    const propertyName = propertyMap.get(booking.propertyId) || `Property #${booking.propertyId}`;
+                    const amountDue = parseFloat(booking.amountDue || "0");
+                    
+                    return (
+                      <div key={booking.id} className="flex items-center justify-between p-3 bg-white rounded-lg border border-red-200">
+                        <div className="flex items-center space-x-3">
+                          <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-red-100">
+                            <DollarSign className="w-5 h-5 text-red-600" />
+                          </div>
+                          <div>
+                            <p className="font-medium text-gray-900">{booking.guestName}</p>
+                            <p className="text-sm text-gray-600">{propertyName}</p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <Badge variant="destructive">
+                            {formatCurrency(amountDue)} due
+                          </Badge>
+                          <p className="text-xs text-gray-500 mt-1">
+                            Check-in: {new Date(booking.checkIn).toLocaleDateString()}
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                {outstandingPayments.length > 5 && (
+                  <p className="text-sm text-gray-600 mt-3 text-center">
+                    +{outstandingPayments.length - 5} more customers with outstanding balances
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+          )}
 
           {/* Expiry Alerts Section */}
           {(expiringDocuments.length > 0 || expiringInsurance.length > 0) && (

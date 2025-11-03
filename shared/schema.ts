@@ -955,6 +955,11 @@ export const bookings = pgTable("bookings", {
   // Legacy field for backward compatibility
   totalAmount: decimal("total_amount", { precision: 10, scale: 2 }), // Will map to platformPayout for existing data
   
+  // Payment Tracking
+  paymentStatus: varchar("payment_status").default("pending"), // paid, pending, partial
+  amountPaid: decimal("amount_paid", { precision: 10, scale: 2 }).default("0"), // Amount customer has paid
+  amountDue: decimal("amount_due", { precision: 10, scale: 2 }).default("0"), // Remaining balance (totalAmount - amountPaid)
+  
   currency: varchar("currency").default("AUD"),
   status: varchar("status").notNull().default("confirmed"), // pending, confirmed, checked-in, checked-out, cancelled
   hostawayId: varchar("hostaway_id"),

@@ -2602,13 +2602,98 @@ Be specific and actionable in your recommendations.`;
         status: req.body.status || "pending",
       });
       
+      
+      // Validate payment amounts
+      const totalAmount = parseFloat(bookingData.totalAmount || "0");
+      const amountPaid = parseFloat(bookingData.amountPaid || "0");
+
+      // Ensure values are valid numbers
+      if (isNaN(totalAmount) || !isFinite(totalAmount)) {
+        return res.status(400).json({ 
+          message: "Total amount must be a valid number"
+        });
+      }
+
+      if (isNaN(amountPaid) || !isFinite(amountPaid)) {
+        return res.status(400).json({ 
+          message: "Amount paid must be a valid number"
+        });
+      }
+
+      // Ensure non-negative amounts
+      if (totalAmount < 0) {
+        return res.status(400).json({ 
+          message: "Total amount cannot be negative"
+        });
+      }
+
+      if (amountPaid < 0) {
+        return res.status(400).json({ 
+          message: "Amount paid cannot be negative"
+        });
+      }
+
+      if (amountPaid > totalAmount) {
+        return res.status(400).json({ 
+          message: "Amount paid cannot exceed total amount"
+        });
+      }
+
+      // Normalize values for storage
+      bookingData.totalAmount = totalAmount.toFixed(2);
+      bookingData.amountPaid = amountPaid.toFixed(2);
+      bookingData.amountDue = Math.max(0, totalAmount - amountPaid).toFixed(2);
+      // Create the booking in the database
       const booking = await storage.createBooking(bookingData);
+
+
+      
+      // Payment tracking: Create finance record if amountPaid > 0
+      if (booking.amountPaid && parseFloat(booking.amountPaid.toString()) > 0) {
+        try {
+          const financeData = insertFinanceSchema.parse({
+            organizationId: booking.organizationId,
+            propertyId: booking.propertyId,
+            bookingId: booking.id,
+            type: "income",
+            source: "guest-payment",
+            category: "Booking Payment",
+            department: "front-office",
+            amount: booking.amountPaid,
+            currency: booking.currency || "USD",
+            description: `Payment from ${booking.guestName} (Booking #${booking.id})`,
+            date: new Date().toISOString().split('T')[0],
+            status: booking.paymentStatus === "paid" ? "completed" : "pending",
+            referenceNumber: `BOOKING-${booking.id}`,
+          });
+          
+          await storage.createFinance(financeData);
+          console.log(`💰 Finance income record created for booking #${booking.id}, amount: ${booking.amountPaid}`);
+        } catch (financeError) {
+          console.error("Error creating finance record for booking payment:", financeError);
+          // Don't fail the booking creation if finance record creation fails
+        }
+      }
       
       // Clear bookings cache to ensure new booking appears immediately
       const { clearCache } = await import("./performanceOptimizer");
+      const { clearUltraFastCache } = await import("./ultraFastMiddleware");
+      
       console.log(`🗑️ Clearing bookings cache for organizationId: ${organizationId}`);
       clearCache("bookings");
       clearCache("properties");  // Clear properties cache for real-time sync of Last Booking, Occupancy, Revenue
+      
+      // Clear finance caches if payment was recorded
+      if (booking.amountPaid && parseFloat(booking.amountPaid.toString()) > 0) {
+        clearCache("finance");
+        clearCache("finances");
+        clearUltraFastCache("/api/finance");
+        clearUltraFastCache("/api/finance/analytics");
+        clearUltraFastCache("/api/finances");
+        clearUltraFastCache("/api/dashboard");
+        console.log(`💳 Finance caches cleared after booking payment tracking`);
+      }
+      
       console.log(`✅ Bookings cache cleared after creating booking ID ${booking.id}`);
       
       res.status(201).json(booking);
@@ -2627,7 +2712,6 @@ Be specific and actionable in your recommendations.`;
       res.status(500).json({ message: "Failed to create booking" });
     }
   });
-
   // Get single booking by ID
   app.get("/api/bookings/:id", isDemoAuthenticated, async (req: any, res) => {
     try {
