@@ -94,17 +94,29 @@ export function registerFinanceRoutes(app: Express) {
         return true;
       });
 
-      // Calculate Total Revenue from PAID/CONFIRMED bookings (confirmed, checked-in, checked-out)
+      // Calculate Total Revenue:
+      // - Include confirmed/checked-in/checked-out bookings
+      // - Include ANY booking where payment has been received (paymentStatus is 'paid'), even if not checked in
       const totalRevenue = filteredBookings
-        .filter(b => ['confirmed', 'checked-in', 'checked-out'].includes(b.status))
+        .filter(b => {
+          // Include confirmed/checked-in/checked-out bookings
+          if (['confirmed', 'checked-in', 'checked-out'].includes(b.status)) return true;
+          // Include bookings that are fully paid, even if still pending/not checked in
+          if (b.paymentStatus === 'paid') return true;
+          return false;
+        })
         .reduce((sum, b) => {
-          const amount = typeof b.totalAmount === 'string' ? parseFloat(b.totalAmount) : (b.totalAmount || 0);
+          // For fully paid bookings, count the actual amount paid
+          // For confirmed/checked-in/checked-out, count the total amount
+          const amount = b.paymentStatus === 'paid' && b.status === 'pending'
+            ? (typeof b.amountPaid === 'string' ? parseFloat(b.amountPaid) : (b.amountPaid || 0))
+            : (typeof b.totalAmount === 'string' ? parseFloat(b.totalAmount) : (b.totalAmount || 0));
           return sum + (isNaN(amount) ? 0 : amount);
         }, 0);
       
-      // Calculate Pending Payments from UNPAID bookings (pending status)
+      // Calculate Pending Payments from bookings that are NOT paid and NOT confirmed
       const pendingPayments = filteredBookings
-        .filter(b => b.status === 'pending')
+        .filter(b => b.status === 'pending' && b.paymentStatus !== 'paid')
         .reduce((sum, b) => {
           const amount = typeof b.totalAmount === 'string' ? parseFloat(b.totalAmount) : (b.totalAmount || 0);
           return sum + (isNaN(amount) ? 0 : amount);
