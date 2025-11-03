@@ -772,6 +772,7 @@ import { queryKeys } from "@/lib/queryKeys";
 import CreateBookingDialog from "@/components/CreateBookingDialog";
 import BookingCalendar from "@/components/BookingCalendar";
 import BookingDetailModal from "@/components/BookingDetailModal";
+import { BackButton } from "@/components/BackButton";
 
 export default function Bookings() {
   const [activeTab, setActiveTab] = useState("bookings");
