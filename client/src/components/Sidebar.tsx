@@ -244,8 +244,8 @@ export default function Sidebar({ className }: SidebarProps) {
         className={cn(
           // base
           "h-screen bg-white dark:bg-black text-black dark:text-slate-500 flex flex-col items-start transition-all duration-300 ease-in-out shadow-2xl overflow-hidden",
-          // desktop: part of flex layout (not fixed)
-          !isMobile && "flex-shrink-0",
+          // desktop: sticky position to stay fixed when scrolling
+          !isMobile && "sticky top-0 flex-shrink-0",
           !isMobile && (collapsed ? "w-16" : "w-64"),
           // mobile: fixed overlay
           isMobile && "fixed left-0 top-0 z-50",
@@ -381,7 +381,9 @@ export default function Sidebar({ className }: SidebarProps) {
                     size="sm"
                     onClick={toggleCollapsed}
                     aria-expanded={!collapsed}
-                    aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+                    aria-label={
+                      collapsed ? "Expand sidebar" : "Collapse sidebar"
+                    }
                     className={cn(
                       "w-full h-10 text-slate-300 hover:bg-slate-700/50 hover:text-white transition-all duration-200",
                       collapsed && "justify-center px-0",
