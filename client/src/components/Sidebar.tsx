@@ -200,12 +200,8 @@ export default function Sidebar({ className }: SidebarProps) {
   };
 
   const handleNavigation = (href: string) => {
-    if (href.includes("-hub")) {
-      window.history.pushState({}, "", href);
-      window.dispatchEvent(new PopStateEvent("popstate"));
-    } else {
-      window.location.href = href;
-    }
+    // Use wouter's setLocation for client-side navigation (no page reload)
+    setLocation(href);
     // if on mobile, close drawer after navigating
     if (isMobile) setIsMobileOpen(false);
   };
