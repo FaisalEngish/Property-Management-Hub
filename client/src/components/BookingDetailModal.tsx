@@ -4,10 +4,12 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { invalidateBookingQueries } from "@/lib/queryKeys";
+import { invalidateBookingQueries, invalidateFinanceQueries } from "@/lib/queryKeys";
 import { 
   Calendar, 
   User, 
@@ -19,7 +21,9 @@ import {
   CheckCircle,
   Clock,
   XCircle,
-  Bed
+  Bed,
+  CreditCard,
+  AlertCircle
 } from "lucide-react";
 
 interface BookingDetailModalProps {
@@ -30,6 +34,7 @@ interface BookingDetailModalProps {
 
 export default function BookingDetailModal({ open, onOpenChange, bookingId }: BookingDetailModalProps) {
   const [newStatus, setNewStatus] = useState<string>("");
+  const [paymentAmount, setPaymentAmount] = useState<string>("");
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -81,14 +86,104 @@ export default function BookingDetailModal({ open, onOpenChange, bookingId }: Bo
     },
   });
 
+  // Mark as paid mutation
+  const markAsPaidMutation = useMutation({
+    mutationFn: async (amount: number) => {
+      const response = await apiRequest("PATCH", `/api/bookings/${bookingId}`, {
+        amountPaid: amount.toString(),
+        paymentStatus: amount >= parseFloat(booking?.totalAmount || "0") ? "paid" : "partial"
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to update payment");
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      invalidateBookingQueries(queryClient);
+      invalidateFinanceQueries(queryClient);
+      setPaymentAmount("");
+      
+      toast({
+        title: "Success",
+        description: "Payment updated successfully",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update payment",
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleStatusUpdate = () => {
     if (newStatus && newStatus !== booking?.status) {
       updateStatusMutation.mutate(newStatus);
     }
   };
 
+  const handleMarkAsPaid = (fullPaid: boolean = false) => {
+    if (!booking) return;
+
+    let amountToApply: number;
+    
+    if (fullPaid) {
+      // Mark as fully paid
+      amountToApply = parseFloat(booking.totalAmount || "0");
+    } else {
+      // Custom amount
+      amountToApply = parseFloat(paymentAmount);
+      
+      if (isNaN(amountToApply) || amountToApply <= 0) {
+        toast({
+          title: "Validation Error",
+          description: "Please enter a valid payment amount",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const currentPaid = parseFloat(booking.amountPaid || "0");
+      const totalDue = parseFloat(booking.totalAmount || "0");
+      const newTotalPaid = currentPaid + amountToApply;
+      
+      if (newTotalPaid > totalDue) {
+        toast({
+          title: "Validation Error",
+          description: "Payment amount cannot exceed the total due",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      amountToApply = newTotalPaid;
+    }
+
+    markAsPaidMutation.mutate(amountToApply);
+  };
+
   const handleGenerateInvoice = () => {
     window.open(`/api/bookings/${bookingId}/invoice`, "_blank");
+  };
+
+  const getPaymentStatusColor = (status: string) => {
+    switch (status?.toLowerCase()) {
+      case 'paid':
+        return 'bg-green-100 text-green-800 border-green-200';
+      case 'partial':
+        return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+      case 'pending':
+        return 'bg-red-100 text-red-800 border-red-200';
+      default:
+        return 'bg-gray-100 text-gray-800 border-gray-200';
+    }
+  };
+
+  const formatCurrency = (amount: string | number) => {
+    const num = typeof amount === 'string' ? parseFloat(amount) : amount;
+    return isNaN(num) ? '0.00' : num.toLocaleString('en-AU', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   };
 
   const getStatusColor = (status: string) => {
@@ -241,16 +336,39 @@ export default function BookingDetailModal({ open, onOpenChange, bookingId }: Bo
             <Separator />
 
             {/* Financial Information */}
-            <div className="space-y-3">
+            <div className="space-y-4">
               <h3 className="font-semibold flex items-center gap-2">
                 <DollarSign className="w-5 h-5" />
                 Financial Information
               </h3>
+              
+              {/* Payment Status Badge */}
+              {booking.paymentStatus && (
+                <div className="flex items-center gap-2">
+                  <Badge className={`${getPaymentStatusColor(booking.paymentStatus)} flex items-center gap-1 px-3 py-1`}>
+                    <CreditCard className="w-3 h-3" />
+                    {booking.paymentStatus.charAt(0).toUpperCase() + booking.paymentStatus.slice(1)}
+                  </Badge>
+                </div>
+              )}
+
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <p className="text-sm text-muted-foreground">Total Amount</p>
                   <p className="text-xl font-bold">
-                    {booking.currency || '฿'}{parseFloat(booking.totalAmount || 0).toLocaleString()}
+                    {booking.currency || 'AUD'} ${formatCurrency(booking.totalAmount || 0)}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Amount Paid</p>
+                  <p className="text-xl font-bold text-green-600">
+                    {booking.currency || 'AUD'} ${formatCurrency(booking.amountPaid || 0)}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Amount Due</p>
+                  <p className="text-xl font-bold text-red-600">
+                    {booking.currency || 'AUD'} ${formatCurrency(booking.amountDue || 0)}
                   </p>
                 </div>
                 <div>
@@ -258,6 +376,65 @@ export default function BookingDetailModal({ open, onOpenChange, bookingId }: Bo
                   <p className="font-medium">{booking.bookingPlatform || 'Direct'}</p>
                 </div>
               </div>
+
+              {/* Show payment alert if checked-in with outstanding balance */}
+              {booking.status?.toLowerCase() === 'checked-in' && parseFloat(booking.amountDue || "0") > 0 && (
+                <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                  <AlertCircle className="w-5 h-5 text-amber-600 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-medium text-amber-900">Outstanding Payment</p>
+                    <p className="text-sm text-amber-700">
+                      Guest has checked in with {booking.currency || 'AUD'} ${formatCurrency(booking.amountDue || 0)} still due
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Payment Action Section */}
+              {parseFloat(booking.amountDue || "0") > 0 && (
+                <div className="space-y-3 p-4 bg-slate-50 rounded-lg border">
+                  <Label className="text-sm font-medium">Record Payment</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      type="number"
+                      placeholder="Enter amount"
+                      value={paymentAmount}
+                      onChange={(e) => setPaymentAmount(e.target.value)}
+                      step="0.01"
+                      min="0"
+                      max={booking.amountDue}
+                      className="flex-1"
+                      data-testid="input-payment-amount"
+                    />
+                    <Button
+                      onClick={() => handleMarkAsPaid(false)}
+                      disabled={!paymentAmount || markAsPaidMutation.isPending}
+                      size="sm"
+                      data-testid="button-add-payment"
+                    >
+                      <CreditCard className="w-4 h-4 mr-1" />
+                      {markAsPaidMutation.isPending ? "Processing..." : "Add Payment"}
+                    </Button>
+                  </div>
+                  <Button
+                    onClick={() => handleMarkAsPaid(true)}
+                    disabled={markAsPaidMutation.isPending}
+                    className="w-full"
+                    variant="default"
+                    data-testid="button-mark-fully-paid"
+                  >
+                    <CheckCircle className="w-4 h-4 mr-2" />
+                    {markAsPaidMutation.isPending ? "Processing..." : "Mark as Fully Paid"}
+                  </Button>
+                </div>
+              )}
+              
+              {parseFloat(booking.amountDue || "0") === 0 && booking.paymentStatus === 'paid' && (
+                <div className="flex items-center gap-2 p-3 bg-green-50 border border-green-200 rounded-lg">
+                  <CheckCircle className="w-5 h-5 text-green-600" />
+                  <p className="text-sm font-medium text-green-900">Payment Completed</p>
+                </div>
+              )}
             </div>
 
             {booking.specialRequests && (

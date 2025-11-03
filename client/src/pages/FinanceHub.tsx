@@ -91,6 +91,13 @@ export default function FinanceHub() {
     queryKey: queryKeys.properties.all(),
   });
 
+  // Fetch bookings with outstanding payments
+  const { data: bookings = [] } = useQuery<any[]>({
+    queryKey: propertyFilter !== "all" 
+      ? queryKeys.bookings.withSource(propertyFilter)
+      : queryKeys.bookings.all(),
+  });
+
   // Get propertyId from URL
   const urlParams = new URLSearchParams(window.location.search);
   const urlPropertyId = urlParams.get("propertyId");
@@ -182,6 +189,20 @@ export default function FinanceHub() {
   const recentTransactions = useMemo(() => {
     return filteredTransactions.slice(0, 10);
   }, [filteredTransactions]);
+
+  // Calculate outstanding payments from bookings
+  const outstandingBookings = useMemo(() => {
+    return bookings.filter((booking: any) => {
+      const amountDue = parseFloat(booking.amountDue || "0");
+      return amountDue > 0;
+    });
+  }, [bookings]);
+
+  const totalOutstanding = useMemo(() => {
+    return outstandingBookings.reduce((sum: number, booking: any) => {
+      return sum + parseFloat(booking.amountDue || "0");
+    }, 0);
+  }, [outstandingBookings]);
 
   const clearFilters = () => {
     setPropertyFilter("all");
@@ -506,6 +527,100 @@ export default function FinanceHub() {
                       >
                         {transaction.type === "income" ? "+" : "-"}
                         {formatCurrency(Math.abs(transaction.amount))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Outstanding Payments from Bookings */}
+        <Card className="border-l-4 border-l-red-500">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <CreditCard className="h-5 w-5 text-red-600" />
+                  Outstanding Payments
+                </CardTitle>
+                <p className="text-sm text-gray-500 mt-1">
+                  Payments due from bookings
+                </p>
+              </div>
+              {totalOutstanding > 0 && (
+                <div className="text-right">
+                  <p className="text-sm text-gray-500">Total Outstanding</p>
+                  <p className="text-2xl font-bold text-red-600">
+                    ${formatCurrency(totalOutstanding).replace('$', '')}
+                  </p>
+                </div>
+              )}
+            </div>
+          </CardHeader>
+          <CardContent>
+            {outstandingBookings.length === 0 ? (
+              <div className="text-center py-8">
+                <CheckCircle2 className="h-12 w-12 text-green-500 mx-auto mb-4" />
+                <p className="text-gray-900 font-medium">All Payments Up to Date</p>
+                <p className="text-sm text-gray-500 mt-1">
+                  No outstanding payments from bookings
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {outstandingBookings.map((booking: any) => {
+                  const property = properties.find((p) => p.id === booking.propertyId);
+                  const amountDue = parseFloat(booking.amountDue || "0");
+                  const totalAmount = parseFloat(booking.totalAmount || "0");
+                  const amountPaid = parseFloat(booking.amountPaid || "0");
+                  const percentagePaid = totalAmount > 0 ? (amountPaid / totalAmount) * 100 : 0;
+
+                  return (
+                    <div
+                      key={booking.id}
+                      className="flex items-center justify-between p-4 border border-red-200 rounded-lg bg-red-50/50"
+                      data-testid={`outstanding-booking-${booking.id}`}
+                    >
+                      <div className="flex-1">
+                        <div className="font-medium text-gray-900">
+                          {booking.guestName}
+                        </div>
+                        <div className="flex items-center gap-2 mt-1">
+                          {property && (
+                            <>
+                              <span className="text-sm text-gray-600">
+                                {property.name}
+                              </span>
+                              <span className="text-gray-300">•</span>
+                            </>
+                          )}
+                          <span className="text-sm text-gray-600">
+                            Check-in: {new Date(booking.checkIn).toLocaleDateString()}
+                          </span>
+                          <span className="text-gray-300">•</span>
+                          <Badge className={`${booking.paymentStatus === 'partial' ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'} text-xs`}>
+                            {booking.paymentStatus}
+                          </Badge>
+                        </div>
+                        <div className="mt-2 flex items-center gap-2">
+                          <div className="flex-1 bg-gray-200 rounded-full h-2">
+                            <div
+                              className="bg-green-500 h-2 rounded-full"
+                              style={{ width: `${percentagePaid}%` }}
+                            />
+                          </div>
+                          <span className="text-xs text-gray-500">
+                            ${formatCurrency(amountPaid).replace('$', '')} / ${formatCurrency(totalAmount).replace('$', '')}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="ml-4 text-right">
+                        <p className="text-sm text-gray-500">Amount Due</p>
+                        <p className="text-xl font-bold text-red-600">
+                          ${formatCurrency(amountDue).replace('$', '')}
+                        </p>
                       </div>
                     </div>
                   );

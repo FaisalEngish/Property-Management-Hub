@@ -2759,13 +2759,129 @@ Be specific and actionable in your recommendations.`;
         return res.status(403).json({ message: "Unauthorized to update this booking" });
       }
 
+      // Track if payment amount is being updated
+      const isPaymentUpdate = req.body.amountPaid !== undefined;
+      const oldAmountPaid = parseFloat(booking.amountPaid?.toString() || "0");
+      
+      // Validate payment amounts if being updated
+      if (isPaymentUpdate) {
+        const totalAmount = parseFloat(req.body.totalAmount?.toString() || booking.totalAmount?.toString() || "0");
+        const newAmountPaid = parseFloat(req.body.amountPaid?.toString() || "0");
+
+        // Ensure values are valid numbers
+        if (isNaN(newAmountPaid) || !isFinite(newAmountPaid)) {
+          return res.status(400).json({ 
+            message: "Amount paid must be a valid number"
+          });
+        }
+
+        if (newAmountPaid < 0) {
+          return res.status(400).json({ 
+            message: "Amount paid cannot be negative"
+          });
+        }
+
+        if (newAmountPaid > totalAmount) {
+          return res.status(400).json({ 
+            message: "Amount paid cannot exceed total amount"
+          });
+        }
+
+        // Calculate payment status based on amountPaid vs totalAmount
+        if (newAmountPaid === 0) {
+          req.body.paymentStatus = "pending";
+        } else if (newAmountPaid >= totalAmount) {
+          req.body.paymentStatus = "paid";
+        } else {
+          req.body.paymentStatus = "partial";
+        }
+
+        // Calculate amount due
+        req.body.amountDue = Math.max(0, totalAmount - newAmountPaid).toFixed(2);
+      }
+
       // Update booking with provided fields
       const updatedBooking = await storage.updateBooking(bookingId, req.body);
       
+      // Handle finance record creation/update if payment amount changed
+      if (isPaymentUpdate && updatedBooking) {
+        const newAmountPaid = parseFloat(updatedBooking.amountPaid?.toString() || "0");
+        
+        try {
+          // Query for existing finance record linked to this booking
+          const allFinances = await storage.getFinances();
+          const existingFinanceRecord = allFinances.find(
+            (f: any) => f.bookingId === bookingId && f.source === "guest-payment"
+          );
+
+          if (newAmountPaid > 0) {
+            const financeData: any = {
+              organizationId: updatedBooking.organizationId,
+              propertyId: updatedBooking.propertyId,
+              bookingId: updatedBooking.id,
+              type: "income",
+              source: "guest-payment",
+              category: "Booking Payment",
+              department: "front-office",
+              amount: updatedBooking.amountPaid,
+              currency: updatedBooking.currency || "USD",
+              description: `Payment from ${updatedBooking.guestName} (Booking #${updatedBooking.id})`,
+              date: new Date().toISOString().split('T')[0],
+              status: updatedBooking.paymentStatus === "paid" ? "completed" : "pending",
+              referenceNumber: `BOOKING-${updatedBooking.id}`,
+            };
+
+            if (existingFinanceRecord) {
+              // Update existing finance record
+              await storage.updateFinance(existingFinanceRecord.id, financeData);
+              console.log(`💰 Finance income record updated for booking #${updatedBooking.id}, amount: ${updatedBooking.amountPaid}`);
+            } else {
+              // Create new finance record
+              await storage.createFinance(financeData);
+              console.log(`💰 Finance income record created for booking #${updatedBooking.id}, amount: ${updatedBooking.amountPaid}`);
+            }
+          } else if (existingFinanceRecord && newAmountPaid === 0) {
+            // If payment was reduced to 0, update the finance record to reflect this
+            await storage.updateFinance(existingFinanceRecord.id, {
+              amount: "0",
+              status: "pending",
+            });
+            console.log(`💰 Finance income record updated to 0 for booking #${updatedBooking.id}`);
+          }
+        } catch (financeError) {
+          console.error("Error creating/updating finance record for booking payment:", financeError);
+          // Don't fail the booking update if finance record creation/update fails
+        }
+      }
+      
       // Clear bookings cache to ensure updated status appears immediately
       const { clearCache } = await import("./performanceOptimizer");
+      const { clearUltraFastCache } = await import("./ultraFastMiddleware");
+      
+      console.log(`🗑️ Clearing bookings cache for organizationId: ${organizationId}`);
       clearCache("properties");  // Clear properties cache for real-time sync
       clearCache("bookings");
+      
+      // Clear finance caches if payment was updated
+      if (isPaymentUpdate) {
+        clearCache("finance");
+        clearCache("finances");
+        clearUltraFastCache("/api/finance");
+        clearUltraFastCache("/api/finance/analytics");
+        clearUltraFastCache("/api/finances");
+        clearUltraFastCache("/api/dashboard");
+        console.log(`💳 Finance caches cleared after booking payment update`);
+        
+        // Trigger ultra-fast cache refresh
+        try {
+          await fetch(`${process.env.REPL_ID ? 'https://' + process.env.REPL_SLUG + '.' + process.env.REPL_OWNER + '.repl.co' : 'http://localhost:5000'}/api/finance/ultra-fast`).catch(() => {});
+          await fetch(`${process.env.REPL_ID ? 'https://' + process.env.REPL_SLUG + '.' + process.env.REPL_OWNER + '.repl.co' : 'http://localhost:5000'}/api/finance/analytics/ultra-fast`).catch(() => {});
+        } catch (fetchError) {
+          // Silently ignore fetch errors
+        }
+      }
+      
+      console.log(`✅ Booking #${bookingId} updated successfully`);
       
       res.json(updatedBooking);
     } catch (error) {

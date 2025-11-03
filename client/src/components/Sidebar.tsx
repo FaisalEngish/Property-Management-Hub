@@ -53,7 +53,10 @@ const roleIcons = {
 
 export default function Sidebar({ className }: SidebarProps) {
   const [location, setLocation] = useLocation();
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(() => {
+    const saved = localStorage.getItem('sidebarCollapsed');
+    return saved === 'true';
+  });
   const [isMobile, setIsMobile] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const { user, isAuthenticated, logout } = useFastAuth();
@@ -75,6 +78,12 @@ export default function Sidebar({ className }: SidebarProps) {
     mq.addEventListener("change", handle);
     return () => mq.removeEventListener("change", handle);
   }, []);
+
+  // Broadcast sidebar collapse state changes
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent('sidebarCollapse', { detail: { isCollapsed } }));
+    localStorage.setItem('sidebarCollapsed', String(isCollapsed));
+  }, [isCollapsed]);
 
   const userRole = user?.role || "guest";
   const RoleIcon = roleIcons[userRole as keyof typeof roleIcons] || User;
