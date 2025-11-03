@@ -922,7 +922,7 @@ export default function Bookings() {
     });
 
   return (
-    <div className="relative mx-auto min-h-screen bg-background">
+    <div className="relative container mx-auto min-h-screen bg-background">
       {/* GLOBAL MUTATION OVERLAY */}
       {isMutating && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">

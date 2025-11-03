@@ -142,9 +142,22 @@ export default function BookingDetailModal({
   });
 
   const handleStatusUpdate = () => {
-    if (newStatus && newStatus !== booking?.status) {
-      updateStatusMutation.mutate(newStatus);
+    if (!newStatus || newStatus === booking?.status) return;
+    
+    // Validation: Prevent check-out if there are outstanding payments
+    if (newStatus.toLowerCase() === "checked-out") {
+      const amountDue = parseFloat(booking?.amountDue || "0");
+      if (amountDue > 0) {
+        toast({
+          title: "Payment Required",
+          description: `Please clear all outstanding payments (${booking?.currency || "THB"} $${formatCurrency(amountDue)}) before checking out the guest.`,
+          variant: "destructive",
+        });
+        return;
+      }
     }
+    
+    updateStatusMutation.mutate(newStatus);
   };
 
   const handleMarkAsPaid = (fullPaid: boolean = false) => {
@@ -282,17 +295,48 @@ export default function BookingDetailModal({
         ) : (
           <div className="space-y-6">
             {/* Status Badge */}
-            <div className="flex items-center justify-between">
-              <Badge
-                className={`${getStatusColor(booking.status)} flex items-center gap-1 text-sm px-3 py-1`}
-              >
-                {getStatusIcon(booking.status)}
-                {booking.status}
-              </Badge>
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <div className="flex items-center gap-2">
+                <Badge
+                  className={`${getStatusColor(booking.status)} flex items-center gap-1 text-sm px-3 py-1`}
+                >
+                  {getStatusIcon(booking.status)}
+                  {booking.status}
+                </Badge>
+                {/* Special indicator for pre-paid bookings not checked in */}
+                {(booking.status?.toLowerCase() === "pending" || 
+                  booking.status?.toLowerCase() === "confirmed") &&
+                  (booking.paymentStatus === "paid" || booking.paymentStatus === "partial") && (
+                  <Badge className="bg-blue-100 text-blue-800 border-blue-200 flex items-center gap-1 text-sm px-3 py-1">
+                    <CreditCard className="w-3 h-3" />
+                    {booking.paymentStatus === "paid" ? "Pre-Paid" : "Partial Pre-Paid"}
+                  </Badge>
+                )}
+              </div>
               <span className="text-sm text-muted-foreground">
                 Booking ID: #{booking.id}
               </span>
             </div>
+
+            {/* Alert for pre-paid bookings awaiting check-in */}
+            {(booking.status?.toLowerCase() === "pending" || 
+              booking.status?.toLowerCase() === "confirmed") &&
+              (booking.paymentStatus === "paid" || booking.paymentStatus === "partial") && (
+              <div className="flex items-start gap-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <AlertCircle className="w-5 h-5 text-blue-600 mt-0.5" />
+                <div>
+                  <p className="text-sm font-medium text-blue-900">
+                    Payment Received - Awaiting Check-in
+                  </p>
+                  <p className="text-sm text-blue-700">
+                    {booking.paymentStatus === "paid" 
+                      ? `Full payment of ${booking.currency || "THB"} $${formatCurrency(booking.amountPaid || 0)} has been received.`
+                      : `Partial payment of ${booking.currency || "THB"} $${formatCurrency(booking.amountPaid || 0)} received. ${booking.currency || "THB"} $${formatCurrency(booking.amountDue || 0)} still due.`
+                    } Guest has not checked in yet.
+                  </p>
+                </div>
+              </div>
+            )}
 
             <Separator />
 
