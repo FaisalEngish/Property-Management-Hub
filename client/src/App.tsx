@@ -8,6 +8,7 @@ import Sidebar from "./components/Sidebar";
 import { useFastAuth } from "./lib/fastAuth";
 import { warmCache } from "./lib/sessionCache";
 import { CacheProvider } from "./context/CacheContext";
+import { SidebarProvider } from "./contexts/SidebarContext";
 
 // Import existing pages with lazy loading for performance
 import { LazyDashboard, LazyFinancialDashboard, LazyPropertyDashboard } from "./components/LazyDashboard";
@@ -161,11 +162,9 @@ function AppRoutes() {
 
   // User is authenticated, show the main app
   return (
-    <div className="min-h-screen bg-background">
+    <div className="flex min-h-screen bg-background overflow-x-hidden">
       <Sidebar />
-      <div className="lg:pl-80">
-        <div className="lg:hidden h-20"></div>
-        <Switch>
+      <Switch>
         <Route path="/" component={RoleBasedDashboard} />
         <Route path="/properties" component={Properties} />
         <Route path="/property/:id/edit" component={PropertyEdit} />
@@ -335,7 +334,6 @@ function AppRoutes() {
         
         <Route component={NotFound} />
       </Switch>
-      </div>
     </div>
   );
 }
@@ -349,12 +347,14 @@ export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <CacheProvider>
-        <TooltipProvider>
-          <InstantPageSwitcher />
-          <AppRoutes />
-          <CaptainCortex />
-          <Toaster />
-        </TooltipProvider>
+        <SidebarProvider>
+          <TooltipProvider>
+            <InstantPageSwitcher />
+            <AppRoutes />
+            <CaptainCortex />
+            <Toaster />
+          </TooltipProvider>
+        </SidebarProvider>
       </CacheProvider>
     </QueryClientProvider>
   );

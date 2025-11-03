@@ -35,6 +35,7 @@ import {
 } from "lucide-react";
 import { useFastAuth } from "@/lib/fastAuth";
 import { cn } from "@/lib/utils";
+import { useSidebar } from "@/contexts/SidebarContext";
 
 interface SidebarProps {
   className?: string;
@@ -53,10 +54,7 @@ const roleIcons = {
 
 export default function Sidebar({ className }: SidebarProps) {
   const [location, setLocation] = useLocation();
-  const [isCollapsed, setIsCollapsed] = useState(() => {
-    const saved = localStorage.getItem('sidebarCollapsed');
-    return saved === 'true';
-  });
+  const { collapsed, toggleCollapsed } = useSidebar();
   const [isMobile, setIsMobile] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const { user, isAuthenticated, logout } = useFastAuth();
@@ -66,10 +64,8 @@ export default function Sidebar({ className }: SidebarProps) {
     const mq = window.matchMedia("(max-width: 767px)");
     const handle = (e: MediaQueryListEvent | MediaQueryList) => {
       setIsMobile(e.matches);
-      // if switching to mobile, keep full (not collapsed) but hidden by default
-      if (e.matches) {
-        setIsCollapsed(false);
-      } else {
+      // if switching to mobile, keep sidebar open when switching to mobile
+      if (!e.matches) {
         setIsMobileOpen(false);
       }
     };
@@ -78,12 +74,6 @@ export default function Sidebar({ className }: SidebarProps) {
     mq.addEventListener("change", handle);
     return () => mq.removeEventListener("change", handle);
   }, []);
-
-  // Broadcast sidebar collapse state changes
-  useEffect(() => {
-    window.dispatchEvent(new CustomEvent('sidebarCollapse', { detail: { isCollapsed } }));
-    localStorage.setItem('sidebarCollapsed', String(isCollapsed));
-  }, [isCollapsed]);
 
   const userRole = user?.role || "guest";
   const RoleIcon = roleIcons[userRole as keyof typeof roleIcons] || User;
@@ -253,9 +243,9 @@ export default function Sidebar({ className }: SidebarProps) {
       <div
         className={cn(
           // base
-          "max-h-screen fixed left-0 top-0 h-screen bg-white dark:bg-black text-black dark:text-slate-500 flex flex-col items-start transition-all duration-300 ease-in-out shadow-2xl z-50",
+          "max-h-screen fixed left-0 top-0 h-screen bg-white dark:bg-black text-black dark:text-slate-500 flex flex-col items-start transition-all duration-300 ease-in-out shadow-2xl z-50 overflow-hidden",
           // desktop width or collapsed width
-          !isMobile && (isCollapsed ? "w-16" : "w-64"),
+          !isMobile && (collapsed ? "w-16" : "w-64"),
           // mobile transform (drawer)
           isMobile &&
             (isMobileOpen
@@ -276,18 +266,18 @@ export default function Sidebar({ className }: SidebarProps) {
               <div
                 className={cn(
                   "w-10 h-10 bg-emerald-500 rounded-xl flex items-center justify-center shadow-lg flex-shrink-0",
-                  isCollapsed && "w-8 h-8",
+                  collapsed && "w-8 h-8",
                 )}
               >
                 <Building
                   className={cn(
                     "text-white",
-                    isCollapsed ? "h-4 w-4" : "h-5 w-5",
+                    collapsed ? "h-4 w-4" : "h-5 w-5",
                   )}
                 />
               </div>
               {/* don't show brand text when collapsed or on very small screens (mobile open shows it) */}
-              {!isCollapsed && !isMobile && (
+              {!collapsed && !isMobile && (
                 <div className="flex flex-col min-w-0">
                   <span className="font-bold text-sm text-black dark:text-white truncate">
                     HostPilotPro
@@ -326,7 +316,7 @@ export default function Sidebar({ className }: SidebarProps) {
                     isActive
                       ? "bg-emerald-500 text-white shadow-lg"
                       : "text-slate-900 hover:bg-slate-700/50 hover:text-white",
-                    (isCollapsed || (isMobile && !isMobileOpen)) &&
+                    (collapsed || (isMobile && !isMobileOpen)) &&
                       "justify-center px-2",
                   )}
                   data-testid={`nav-${item.label.toLowerCase().replace(/\s+/g, "-")}`}
@@ -334,10 +324,10 @@ export default function Sidebar({ className }: SidebarProps) {
                   <Icon
                     className={cn(
                       "flex-shrink-0",
-                      isCollapsed ? "h-5 w-5" : "h-5 w-5",
+                      collapsed ? "h-5 w-5" : "h-5 w-5",
                     )}
                   />
-                  {!isCollapsed && (!isMobile || isMobileOpen) && (
+                  {!collapsed && (!isMobile || isMobileOpen) && (
                     <span className="text-sm font-medium truncate">
                       {item.label}
                     </span>
@@ -345,7 +335,7 @@ export default function Sidebar({ className }: SidebarProps) {
                 </button>
               );
 
-              if (isCollapsed && !isMobile) {
+              if (collapsed && !isMobile) {
                 return (
                   <li key={index}>
                     <Tooltip>
@@ -369,7 +359,7 @@ export default function Sidebar({ className }: SidebarProps) {
         {/* Footer Section */}
         <div className="w-full border-t border-slate-700/50">
           {/* Settings Button */}
-          {!isCollapsed && (!isMobile || isMobileOpen) && (
+          {!collapsed && (!isMobile || isMobileOpen) && (
             <div className="px-4 py-3">
               <Button
                 variant="ghost"
@@ -391,14 +381,16 @@ export default function Sidebar({ className }: SidebarProps) {
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => setIsCollapsed(!isCollapsed)}
+                    onClick={toggleCollapsed}
+                    aria-expanded={!collapsed}
+                    aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
                     className={cn(
                       "w-full h-10 text-slate-300 hover:bg-slate-700/50 hover:text-white transition-all duration-200",
-                      isCollapsed && "justify-center px-0",
+                      collapsed && "justify-center px-0",
                     )}
                     data-testid="sidebar-toggle"
                   >
-                    {isCollapsed ? (
+                    {collapsed ? (
                       <ChevronRight className="h-5 w-5" />
                     ) : (
                       <>
@@ -412,7 +404,7 @@ export default function Sidebar({ className }: SidebarProps) {
                   side="right"
                   className="bg-slate-700 text-white border-slate-600"
                 >
-                  {isCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
+                  {collapsed ? "Expand Sidebar" : "Collapse Sidebar"}
                 </TooltipContent>
               </Tooltip>
             </div>

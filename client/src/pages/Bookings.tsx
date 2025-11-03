@@ -944,6 +944,7 @@ export default function Bookings() {
             <div>
               {urlPropertyId && selectedProperty ? (
                 <>
+                  <BackButton />
                   <h1 className="text-3xl font-bold">
                     Bookings - {selectedProperty.name}
                   </h1>

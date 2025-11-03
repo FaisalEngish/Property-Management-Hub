@@ -1,0 +1,91 @@
+A. Create Sidebar Context (app root)
+
+Add a context that exposes collapsed, toggleCollapsed, and setCollapsed.
+
+Initialize collapsed from localStorage (if present) to persist user preference.
+
+Provide the context at the topmost layout so all pages/components can consume it.
+
+B. Update Sidebar component
+
+Read collapsed from context.
+
+When collapsed === true:
+
+Apply a narrow width class (e.g., 64px) and hide/abbreviate menu labels.
+
+Ensure overflow: hidden so nothing bleeds out.
+
+When expanded:
+
+Apply the normal width (e.g., 256px).
+
+Use transition on width and relevant properties for smooth animation.
+
+The toggle control calls toggleCollapsed() from context.
+
+C. Update main layout (container)
+
+Use a flex layout: top-level wrapper is display: flex; height: 100vh;.
+
+Sidebar sits as the first child; main content is the second child with flex: 1 (or flex-grow).
+
+Do not use fixed margins for main content to make room for sidebar. Instead let flex handle sizing.
+
+Conditionally (based on collapsed) ensure the main gets width: calc(100% - sidebarWidth) or simply flex-1 so it automatically grows.
+
+D. Topbar / Back button behavior
+
+Put the topbar inside the main content area and make it position: sticky or position: fixed at top of the main column.
+
+Give the Back button a higher z-index than content (e.g., z-40 or z-50).
+
+Ensure the topbar container does not rely on absolute positioning that assumes a fixed sidebar width.
+
+E. Page components usage
+
+Any page (Booking Details, Finance Hub, etc.) that relies on sidebar layout should not hardcode content max-widths; rely on flexbox.
+
+If you have components that use CSS grid with fixed columns, update them to be responsive when collapsed changes (consume context if necessary).
+
+F. Accessibility & keyboard
+
+Toggle button should be keyboard focusable and have aria-expanded reflecting collapsed state.
+
+If collapsing hides text labels, ensure that icons have accessible aria-labels or tooltips.
+
+G. Persist & sync
+
+Save collapsed state to localStorage on change. On provider init, read localStorage.
+
+If you have multiple browser tabs open, consider listening for the storage event to sync state across tabs.
+
+Styling/animation tips (conceptual, no CSS code)
+
+Animate width for the sidebar, and margin-left/transform for any content that needs to move.
+
+Use overflow: hidden for the sidebar to prevent inner items from overlapping during transition.
+
+Avoid animating layout-triggering properties on large content; prefer transform/opacity where possible for performance.
+
+Ensure mobile view treats sidebar as an overlay (not reserved width) — so collapsed = fully hidden on small screens.
+
+Debugging checklist — if it still doesn’t stretch to full width
+
+Are you using fixed margin/left values on the main content?
+If yes, remove them and switch to flex-1 so main expands automatically.
+
+Is the sidebar still occupying space with position: absolute or fixed plus large width?
+Confirm CSS: if sidebar is position: fixed, ensure main has margin-left that toggles with collapsed (but better: use flex layout instead).
+
+Are there wrappers with max-width or container classes that limit full expansion?
+Inspect parent containers for max-w-*, px-*, or fixed widths and adjust to be responsive.
+
+Is the transition causing temporary layout gap?
+Use overflow-hidden and consistent width breakpoints during transition.
+
+Are multiple layout components reading different sources of truth?
+Ensure all layout components read collapsed from the same Context — not local state copies.
+
+LocalStorage not synced?
+After toggling, refresh and confirm the state persists. If it resets, provider probably isn’t reading localStorage at init.
