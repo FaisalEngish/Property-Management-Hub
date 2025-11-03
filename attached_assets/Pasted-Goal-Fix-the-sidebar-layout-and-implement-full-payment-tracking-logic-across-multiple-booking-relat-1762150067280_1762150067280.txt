@@ -1,0 +1,72 @@
+Goal:
+Fix the sidebar layout and implement full payment tracking logic across multiple booking-related pages.
+
+Layout Requirement
+
+The sidebar currently doesn’t expand to full screen width properly.
+
+When the sidebar is collapsed, the main dashboard content should automatically expand to fill the full available width (no blank or unused space).
+
+When the sidebar is expanded, maintain the existing layout.
+
+The Back button must always stay on top of all content, and everything below it should start with a display: flex layout.
+
+Booking Details Page
+
+Display:
+
+How much the customer has made as a partial payment.
+
+The remaining due amount clearly.
+
+Add an input or button that allows marking a booking as fully paid (updating payment status in real time).
+
+If the booking status shows the customer has checked in, display how much payment is still due from that customer.
+
+Individual Booking Page
+
+Display the customer’s:
+
+Partial payments
+
+Total paid amount
+
+Total due amount
+
+These values must update dynamically based on real-time booking data.
+
+Finance Hub & Recent Transactions
+
+Display how much payment is due for each booking.
+
+Show the total due amount across all bookings combined.
+
+When a booking’s payment status changes (like marking full paid), these sections should automatically update to reflect the new due amounts.
+
+UI & Logic Requirements
+
+Support both string and number types for amounts (e.g., "250" or 250).
+
+Ensure all payment amounts are displayed in formatted currency style.
+
+When marking full paid:
+
+Validate that the payment amount cannot exceed the due amount.
+
+Update all related views instantly (Booking Details, Individual Booking, Finance Hub).
+
+Use responsive, mobile-first design principles.
+
+Sidebar collapse transition should be smooth and visually consistent.
+
+Expected Behavior Summary
+
+Collapsing the sidebar makes the dashboard stretch to full width.
+
+Each booking page clearly shows Total, Paid, and Due values.
+
+Finance Hub and Recent Transactions reflect up-to-date due amounts automatically.
+
+Users can mark payments as full or partial easily.
+
+The entire interface remains responsive and intuitive across screen sizes.

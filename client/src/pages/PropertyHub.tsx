@@ -445,7 +445,7 @@ export default function PropertyHub() {
                 </BackButton>
               </div>
               {/* Header */}
-              <div className="flex items-center justify-between pt-">
+              <div className="flex items-center justify-between pt-10">
                 <div>
                   <h1 className="text-4xl font-bold text-slate-800 mb-3 flex items-center gap-4">
                     🏠 Property Management Hub
