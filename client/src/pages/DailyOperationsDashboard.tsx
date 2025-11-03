@@ -1,13 +1,36 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { CalendarDays, Users, Building, ClipboardList, RefreshCw, AlertTriangle, CheckCircle, Clock, MapPin } from "lucide-react";
+import {
+  CalendarDays,
+  Users,
+  Building,
+  ClipboardList,
+  RefreshCw,
+  AlertTriangle,
+  CheckCircle,
+  Clock,
+  MapPin,
+} from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { format, addDays, subDays } from "date-fns";
+import { BackButton } from "@/components/BackButton";
 
 interface DailyOperationsSummary {
   id: number;
@@ -99,28 +122,38 @@ interface OperationsTask {
 }
 
 export default function DailyOperationsDashboard() {
-  const [selectedDate, setSelectedDate] = useState(format(new Date(), 'yyyy-MM-dd'));
+  const [selectedDate, setSelectedDate] = useState(
+    format(new Date(), "yyyy-MM-dd"),
+  );
   const [refreshing, setRefreshing] = useState(false);
 
   // Fetch daily operations summary (prioritized - loads first)
-  const { data: summary, isLoading: summaryLoading, refetch: refetchSummary } = useQuery<DailyOperationsSummary>({
-    queryKey: ['/api/daily-operations/summary', selectedDate],
+  const {
+    data: summary,
+    isLoading: summaryLoading,
+    refetch: refetchSummary,
+  } = useQuery<DailyOperationsSummary>({
+    queryKey: ["/api/daily-operations/summary", selectedDate],
     enabled: !!selectedDate,
     staleTime: 2 * 60 * 1000, // Cache for 2 minutes
     refetchOnWindowFocus: false,
   });
 
   // Fetch staff assignments (lazy load after summary)
-  const { data: staffAssignments, isLoading: staffLoading } = useQuery<DailyStaffAssignments[]>({
-    queryKey: ['/api/daily-operations/staff', selectedDate],
+  const { data: staffAssignments, isLoading: staffLoading } = useQuery<
+    DailyStaffAssignments[]
+  >({
+    queryKey: ["/api/daily-operations/staff", selectedDate],
     enabled: !!selectedDate && !!summary,
     staleTime: 2 * 60 * 1000,
     refetchOnWindowFocus: false,
   });
 
   // Fetch property operations (lazy load after summary)
-  const { data: propertyOps, isLoading: propertyLoading } = useQuery<DailyPropertyOperations[]>({
-    queryKey: ['/api/daily-operations/properties', selectedDate],
+  const { data: propertyOps, isLoading: propertyLoading } = useQuery<
+    DailyPropertyOperations[]
+  >({
+    queryKey: ["/api/daily-operations/properties", selectedDate],
     enabled: !!selectedDate && !!summary,
     staleTime: 2 * 60 * 1000,
     refetchOnWindowFocus: false,
@@ -128,7 +161,7 @@ export default function DailyOperationsDashboard() {
 
   // Fetch tasks (lazy load after summary)
   const { data: tasks, isLoading: tasksLoading } = useQuery<OperationsTask[]>({
-    queryKey: ['/api/daily-operations/tasks', selectedDate],
+    queryKey: ["/api/daily-operations/tasks", selectedDate],
     enabled: !!selectedDate && !!summary,
     staleTime: 2 * 60 * 1000,
     refetchOnWindowFocus: false,
@@ -140,7 +173,7 @@ export default function DailyOperationsDashboard() {
       return await apiRequest("POST", `/api/daily-operations/refresh/${date}`);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/daily-operations'] });
+      queryClient.invalidateQueries({ queryKey: ["/api/daily-operations"] });
     },
   });
 
@@ -154,9 +187,9 @@ export default function DailyOperationsDashboard() {
   };
 
   const getDateNavigation = () => {
-    const prevDate = format(subDays(new Date(selectedDate), 1), 'yyyy-MM-dd');
-    const nextDate = format(addDays(new Date(selectedDate), 1), 'yyyy-MM-dd');
-    
+    const prevDate = format(subDays(new Date(selectedDate), 1), "yyyy-MM-dd");
+    const nextDate = format(addDays(new Date(selectedDate), 1), "yyyy-MM-dd");
+
     return (
       <div className="flex items-center gap-2">
         <Button
@@ -169,7 +202,7 @@ export default function DailyOperationsDashboard() {
         <Button
           variant="outline"
           size="sm"
-          onClick={() => setSelectedDate(format(new Date(), 'yyyy-MM-dd'))}
+          onClick={() => setSelectedDate(format(new Date(), "yyyy-MM-dd"))}
         >
           Today
         </Button>
@@ -186,43 +219,43 @@ export default function DailyOperationsDashboard() {
 
   const getDepartmentIcon = (department: string) => {
     switch (department?.toLowerCase()) {
-      case 'cleaning':
-        return '🧹';
-      case 'pool':
-        return '🏊';
-      case 'garden':
-        return '🌿';
-      case 'maintenance':
-        return '🔧';
+      case "cleaning":
+        return "🧹";
+      case "pool":
+        return "🏊";
+      case "garden":
+        return "🌿";
+      case "maintenance":
+        return "🔧";
       default:
-        return '📋';
+        return "📋";
     }
   };
 
   const getStatusBadge = (status: string) => {
     const variants: { [key: string]: string } = {
-      'completed': 'bg-green-100 text-green-800',
-      'in-progress': 'bg-blue-100 text-blue-800',
-      'pending': 'bg-yellow-100 text-yellow-800',
-      'overdue': 'bg-red-100 text-red-800',
+      completed: "bg-green-100 text-green-800",
+      "in-progress": "bg-blue-100 text-blue-800",
+      pending: "bg-yellow-100 text-yellow-800",
+      overdue: "bg-red-100 text-red-800",
     };
-    
+
     return (
-      <Badge className={variants[status] || 'bg-gray-100 text-gray-800'}>
-        {status.replace('-', ' ').toUpperCase()}
+      <Badge className={variants[status] || "bg-gray-100 text-gray-800"}>
+        {status.replace("-", " ").toUpperCase()}
       </Badge>
     );
   };
 
   const getPriorityBadge = (priority: string) => {
     const variants: { [key: string]: string } = {
-      'high': 'bg-red-100 text-red-800',
-      'medium': 'bg-yellow-100 text-yellow-800',
-      'low': 'bg-green-100 text-green-800',
+      high: "bg-red-100 text-red-800",
+      medium: "bg-yellow-100 text-yellow-800",
+      low: "bg-green-100 text-green-800",
     };
-    
+
     return (
-      <Badge className={variants[priority] || 'bg-gray-100 text-gray-800'}>
+      <Badge className={variants[priority] || "bg-gray-100 text-gray-800"}>
         {priority.toUpperCase()}
       </Badge>
     );
@@ -249,16 +282,25 @@ export default function DailyOperationsDashboard() {
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="relative">
+      <div className="absolute top-3 left-0 z-50">
+        <BackButton
+          fallbackRoute="/dashboard-hub"
+          variant="ghost"
+          className="!p-2 !rounded-md bg-white/90 backdrop-blur-md border border-slate-200 shadow-sm"
+        >
+          <span className="hidden sm:inline text-sm">Back to Dashboard</span>
+        </BackButton>
+      </div>
       {/* Header */}
-      <div className="flex justify-between items-center">
-        <div>
+      <div className="flex justify-between items-center pt-12">
+        <div className="mt-3">
           <h1 className="text-3xl font-bold flex items-center gap-2">
             <CalendarDays className="h-8 w-8" />
             Daily Operations Dashboard
           </h1>
           <p className="text-muted-foreground">
-            {format(new Date(selectedDate), 'EEEE, MMMM do, yyyy')}
+            {format(new Date(selectedDate), "EEEE, MMMM do, yyyy")}
           </p>
         </div>
         <div className="flex items-center gap-4">
@@ -269,7 +311,9 @@ export default function DailyOperationsDashboard() {
             variant="outline"
             size="sm"
           >
-            <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
+            <RefreshCw
+              className={`h-4 w-4 mr-2 ${refreshing ? "animate-spin" : ""}`}
+            />
             Refresh Data
           </Button>
         </div>
@@ -284,7 +328,9 @@ export default function DailyOperationsDashboard() {
               <ClipboardList className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{summary.totalTasksAssigned}</div>
+              <div className="text-2xl font-bold">
+                {summary.totalTasksAssigned}
+              </div>
               <p className="text-xs text-muted-foreground">
                 Assigned across all departments
               </p>
@@ -293,11 +339,15 @@ export default function DailyOperationsDashboard() {
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Staff Scheduled</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                Staff Scheduled
+              </CardTitle>
               <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{summary.totalStaffScheduled}</div>
+              <div className="text-2xl font-bold">
+                {summary.totalStaffScheduled}
+              </div>
               <p className="text-xs text-muted-foreground">
                 Available for operations
               </p>
@@ -306,12 +356,16 @@ export default function DailyOperationsDashboard() {
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Urgency Alerts</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                Urgency Alerts
+              </CardTitle>
               <AlertTriangle className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-red-600">
-                {summary.overdueTasks + summary.uncleanedCheckinProperties + summary.unassignedTasks}
+                {summary.overdueTasks +
+                  summary.uncleanedCheckinProperties +
+                  summary.unassignedTasks}
               </div>
               <p className="text-xs text-muted-foreground">
                 Requires immediate attention
@@ -321,11 +375,15 @@ export default function DailyOperationsDashboard() {
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Properties Active</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                Properties Active
+              </CardTitle>
               <Building className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{propertyOps?.length || 0}</div>
+              <div className="text-2xl font-bold">
+                {propertyOps?.length || 0}
+              </div>
               <p className="text-xs text-muted-foreground">
                 With scheduled operations
               </p>
@@ -361,39 +419,47 @@ export default function DailyOperationsDashboard() {
                         🧹 Cleaning
                       </span>
                       <div className="flex items-center gap-2">
-                        <span className="text-sm">{summary.cleaningCompleted}/{summary.cleaningTasks}</span>
+                        <span className="text-sm">
+                          {summary.cleaningCompleted}/{summary.cleaningTasks}
+                        </span>
                         <div className="w-20 bg-gray-200 rounded-full h-2">
-                          <div 
-                            className="bg-blue-600 h-2 rounded-full" 
-                            style={{ width: `${summary.cleaningTasks > 0 ? (summary.cleaningCompleted / summary.cleaningTasks) * 100 : 0}%` }}
+                          <div
+                            className="bg-blue-600 h-2 rounded-full"
+                            style={{
+                              width: `${summary.cleaningTasks > 0 ? (summary.cleaningCompleted / summary.cleaningTasks) * 100 : 0}%`,
+                            }}
                           />
                         </div>
                       </div>
                     </div>
                     <div className="flex justify-between items-center">
-                      <span className="flex items-center gap-2">
-                        🏊 Pool
-                      </span>
+                      <span className="flex items-center gap-2">🏊 Pool</span>
                       <div className="flex items-center gap-2">
-                        <span className="text-sm">{summary.poolCompleted}/{summary.poolTasks}</span>
+                        <span className="text-sm">
+                          {summary.poolCompleted}/{summary.poolTasks}
+                        </span>
                         <div className="w-20 bg-gray-200 rounded-full h-2">
-                          <div 
-                            className="bg-cyan-600 h-2 rounded-full" 
-                            style={{ width: `${summary.poolTasks > 0 ? (summary.poolCompleted / summary.poolTasks) * 100 : 0}%` }}
+                          <div
+                            className="bg-cyan-600 h-2 rounded-full"
+                            style={{
+                              width: `${summary.poolTasks > 0 ? (summary.poolCompleted / summary.poolTasks) * 100 : 0}%`,
+                            }}
                           />
                         </div>
                       </div>
                     </div>
                     <div className="flex justify-between items-center">
-                      <span className="flex items-center gap-2">
-                        🌿 Garden
-                      </span>
+                      <span className="flex items-center gap-2">🌿 Garden</span>
                       <div className="flex items-center gap-2">
-                        <span className="text-sm">{summary.gardenCompleted}/{summary.gardenTasks}</span>
+                        <span className="text-sm">
+                          {summary.gardenCompleted}/{summary.gardenTasks}
+                        </span>
                         <div className="w-20 bg-gray-200 rounded-full h-2">
-                          <div 
-                            className="bg-green-600 h-2 rounded-full" 
-                            style={{ width: `${summary.gardenTasks > 0 ? (summary.gardenCompleted / summary.gardenTasks) * 100 : 0}%` }}
+                          <div
+                            className="bg-green-600 h-2 rounded-full"
+                            style={{
+                              width: `${summary.gardenTasks > 0 ? (summary.gardenCompleted / summary.gardenTasks) * 100 : 0}%`,
+                            }}
                           />
                         </div>
                       </div>
@@ -403,11 +469,16 @@ export default function DailyOperationsDashboard() {
                         🔧 Maintenance
                       </span>
                       <div className="flex items-center gap-2">
-                        <span className="text-sm">{summary.maintenanceCompleted}/{summary.maintenanceTasks}</span>
+                        <span className="text-sm">
+                          {summary.maintenanceCompleted}/
+                          {summary.maintenanceTasks}
+                        </span>
                         <div className="w-20 bg-gray-200 rounded-full h-2">
-                          <div 
-                            className="bg-orange-600 h-2 rounded-full" 
-                            style={{ width: `${summary.maintenanceTasks > 0 ? (summary.maintenanceCompleted / summary.maintenanceTasks) * 100 : 0}%` }}
+                          <div
+                            className="bg-orange-600 h-2 rounded-full"
+                            style={{
+                              width: `${summary.maintenanceTasks > 0 ? (summary.maintenanceCompleted / summary.maintenanceTasks) * 100 : 0}%`,
+                            }}
                           />
                         </div>
                       </div>
@@ -417,11 +488,15 @@ export default function DailyOperationsDashboard() {
                         📋 General
                       </span>
                       <div className="flex items-center gap-2">
-                        <span className="text-sm">{summary.generalCompleted}/{summary.generalTasks}</span>
+                        <span className="text-sm">
+                          {summary.generalCompleted}/{summary.generalTasks}
+                        </span>
                         <div className="w-20 bg-gray-200 rounded-full h-2">
-                          <div 
-                            className="bg-gray-600 h-2 rounded-full" 
-                            style={{ width: `${summary.generalTasks > 0 ? (summary.generalCompleted / summary.generalTasks) * 100 : 0}%` }}
+                          <div
+                            className="bg-gray-600 h-2 rounded-full"
+                            style={{
+                              width: `${summary.generalTasks > 0 ? (summary.generalCompleted / summary.generalTasks) * 100 : 0}%`,
+                            }}
                           />
                         </div>
                       </div>
@@ -438,7 +513,9 @@ export default function DailyOperationsDashboard() {
                   <AlertTriangle className="h-5 w-5 text-red-500" />
                   Urgency Alerts
                 </CardTitle>
-                <CardDescription>Items requiring immediate attention</CardDescription>
+                <CardDescription>
+                  Items requiring immediate attention
+                </CardDescription>
               </CardHeader>
               <CardContent className="space-y-3">
                 {summary && (
@@ -446,34 +523,50 @@ export default function DailyOperationsDashboard() {
                     {summary.overdueTasks > 0 && (
                       <div className="flex justify-between items-center p-3 bg-red-50 rounded-lg">
                         <span className="text-red-800">Overdue Tasks</span>
-                        <Badge className="bg-red-100 text-red-800">{summary.overdueTasks}</Badge>
+                        <Badge className="bg-red-100 text-red-800">
+                          {summary.overdueTasks}
+                        </Badge>
                       </div>
                     )}
                     {summary.uncleanedCheckinProperties > 0 && (
                       <div className="flex justify-between items-center p-3 bg-yellow-50 rounded-lg">
-                        <span className="text-yellow-800">Uncleaned Check-ins</span>
-                        <Badge className="bg-yellow-100 text-yellow-800">{summary.uncleanedCheckinProperties}</Badge>
+                        <span className="text-yellow-800">
+                          Uncleaned Check-ins
+                        </span>
+                        <Badge className="bg-yellow-100 text-yellow-800">
+                          {summary.uncleanedCheckinProperties}
+                        </Badge>
                       </div>
                     )}
                     {summary.unassignedTasks > 0 && (
                       <div className="flex justify-between items-center p-3 bg-orange-50 rounded-lg">
-                        <span className="text-orange-800">Unassigned Tasks</span>
-                        <Badge className="bg-orange-100 text-orange-800">{summary.unassignedTasks}</Badge>
+                        <span className="text-orange-800">
+                          Unassigned Tasks
+                        </span>
+                        <Badge className="bg-orange-100 text-orange-800">
+                          {summary.unassignedTasks}
+                        </Badge>
                       </div>
                     )}
                     {summary.tasksWithoutProof > 0 && (
                       <div className="flex justify-between items-center p-3 bg-blue-50 rounded-lg">
-                        <span className="text-blue-800">Tasks Missing Proof</span>
-                        <Badge className="bg-blue-100 text-blue-800">{summary.tasksWithoutProof}</Badge>
+                        <span className="text-blue-800">
+                          Tasks Missing Proof
+                        </span>
+                        <Badge className="bg-blue-100 text-blue-800">
+                          {summary.tasksWithoutProof}
+                        </Badge>
                       </div>
                     )}
-                    {summary.overdueTasks === 0 && summary.uncleanedCheckinProperties === 0 && 
-                     summary.unassignedTasks === 0 && summary.tasksWithoutProof === 0 && (
-                      <div className="flex items-center justify-center p-4 text-green-600">
-                        <CheckCircle className="h-5 w-5 mr-2" />
-                        All operations on track
-                      </div>
-                    )}
+                    {summary.overdueTasks === 0 &&
+                      summary.uncleanedCheckinProperties === 0 &&
+                      summary.unassignedTasks === 0 &&
+                      summary.tasksWithoutProof === 0 && (
+                        <div className="flex items-center justify-center p-4 text-green-600">
+                          <CheckCircle className="h-5 w-5 mr-2" />
+                          All operations on track
+                        </div>
+                      )}
                   </>
                 )}
               </CardContent>
@@ -496,16 +589,27 @@ export default function DailyOperationsDashboard() {
                     <div className="space-y-2">
                       <div className="flex justify-between">
                         <span>Total Tasks:</span>
-                        <span className="font-semibold">{summary.cleaningTasks}</span>
+                        <span className="font-semibold">
+                          {summary.cleaningTasks}
+                        </span>
                       </div>
                       <div className="flex justify-between">
                         <span>Completed:</span>
-                        <span className="font-semibold text-green-600">{summary.cleaningCompleted}</span>
+                        <span className="font-semibold text-green-600">
+                          {summary.cleaningCompleted}
+                        </span>
                       </div>
                       <div className="flex justify-between">
                         <span>Completion Rate:</span>
                         <span className="font-semibold">
-                          {summary.cleaningTasks > 0 ? Math.round((summary.cleaningCompleted / summary.cleaningTasks) * 100) : 0}%
+                          {summary.cleaningTasks > 0
+                            ? Math.round(
+                                (summary.cleaningCompleted /
+                                  summary.cleaningTasks) *
+                                  100,
+                              )
+                            : 0}
+                          %
                         </span>
                       </div>
                     </div>
@@ -522,16 +626,27 @@ export default function DailyOperationsDashboard() {
                     <div className="space-y-2">
                       <div className="flex justify-between">
                         <span>Total Tasks:</span>
-                        <span className="font-semibold">{summary.maintenanceTasks}</span>
+                        <span className="font-semibold">
+                          {summary.maintenanceTasks}
+                        </span>
                       </div>
                       <div className="flex justify-between">
                         <span>Completed:</span>
-                        <span className="font-semibold text-green-600">{summary.maintenanceCompleted}</span>
+                        <span className="font-semibold text-green-600">
+                          {summary.maintenanceCompleted}
+                        </span>
                       </div>
                       <div className="flex justify-between">
                         <span>Completion Rate:</span>
                         <span className="font-semibold">
-                          {summary.maintenanceTasks > 0 ? Math.round((summary.maintenanceCompleted / summary.maintenanceTasks) * 100) : 0}%
+                          {summary.maintenanceTasks > 0
+                            ? Math.round(
+                                (summary.maintenanceCompleted /
+                                  summary.maintenanceTasks) *
+                                  100,
+                              )
+                            : 0}
+                          %
                         </span>
                       </div>
                     </div>
@@ -548,16 +663,26 @@ export default function DailyOperationsDashboard() {
                     <div className="space-y-2">
                       <div className="flex justify-between">
                         <span>Total Tasks:</span>
-                        <span className="font-semibold">{summary.poolTasks}</span>
+                        <span className="font-semibold">
+                          {summary.poolTasks}
+                        </span>
                       </div>
                       <div className="flex justify-between">
                         <span>Completed:</span>
-                        <span className="font-semibold text-green-600">{summary.poolCompleted}</span>
+                        <span className="font-semibold text-green-600">
+                          {summary.poolCompleted}
+                        </span>
                       </div>
                       <div className="flex justify-between">
                         <span>Completion Rate:</span>
                         <span className="font-semibold">
-                          {summary.poolTasks > 0 ? Math.round((summary.poolCompleted / summary.poolTasks) * 100) : 0}%
+                          {summary.poolTasks > 0
+                            ? Math.round(
+                                (summary.poolCompleted / summary.poolTasks) *
+                                  100,
+                              )
+                            : 0}
+                          %
                         </span>
                       </div>
                     </div>
@@ -573,7 +698,9 @@ export default function DailyOperationsDashboard() {
           <Card>
             <CardHeader>
               <CardTitle>Staff Assignments</CardTitle>
-              <CardDescription>Daily staff scheduling and workload</CardDescription>
+              <CardDescription>
+                Daily staff scheduling and workload
+              </CardDescription>
             </CardHeader>
             <CardContent>
               {staffLoading ? (
@@ -585,32 +712,55 @@ export default function DailyOperationsDashboard() {
                   {staffAssignments.map((assignment) => (
                     <div key={assignment.id} className="border rounded-lg p-4">
                       <div className="flex justify-between items-start mb-2">
-                        <h4 className="font-semibold">Staff Member #{assignment.staffId}</h4>
-                        <Badge className={assignment.isAvailable ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}>
-                          {assignment.isAvailable ? 'Available' : 'Unavailable'}
+                        <h4 className="font-semibold">
+                          Staff Member #{assignment.staffId}
+                        </h4>
+                        <Badge
+                          className={
+                            assignment.isAvailable
+                              ? "bg-green-100 text-green-800"
+                              : "bg-red-100 text-red-800"
+                          }
+                        >
+                          {assignment.isAvailable ? "Available" : "Unavailable"}
                         </Badge>
                       </div>
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                         <div>
                           <span className="text-muted-foreground">Shift:</span>
-                          <p>{assignment.shiftStart && assignment.shiftEnd ? `${assignment.shiftStart} - ${assignment.shiftEnd}` : 'Not set'}</p>
+                          <p>
+                            {assignment.shiftStart && assignment.shiftEnd
+                              ? `${assignment.shiftStart} - ${assignment.shiftEnd}`
+                              : "Not set"}
+                          </p>
                         </div>
                         <div>
-                          <span className="text-muted-foreground">Tasks Assigned:</span>
-                          <p className="font-semibold">{assignment.totalTasksAssigned}</p>
+                          <span className="text-muted-foreground">
+                            Tasks Assigned:
+                          </span>
+                          <p className="font-semibold">
+                            {assignment.totalTasksAssigned}
+                          </p>
                         </div>
                         <div>
-                          <span className="text-muted-foreground">Tasks Completed:</span>
-                          <p className="font-semibold text-green-600">{assignment.totalTasksCompleted}</p>
+                          <span className="text-muted-foreground">
+                            Tasks Completed:
+                          </span>
+                          <p className="font-semibold text-green-600">
+                            {assignment.totalTasksCompleted}
+                          </p>
                         </div>
                         <div>
-                          <span className="text-muted-foreground">Department Focus:</span>
-                          <p>{assignment.departmentFocus || 'General'}</p>
+                          <span className="text-muted-foreground">
+                            Department Focus:
+                          </span>
+                          <p>{assignment.departmentFocus || "General"}</p>
                         </div>
                       </div>
                       {assignment.notes && (
                         <div className="mt-2 p-2 bg-gray-50 rounded text-sm">
-                          <span className="text-muted-foreground">Notes:</span> {assignment.notes}
+                          <span className="text-muted-foreground">Notes:</span>{" "}
+                          {assignment.notes}
                         </div>
                       )}
                     </div>
@@ -630,7 +780,9 @@ export default function DailyOperationsDashboard() {
           <Card>
             <CardHeader>
               <CardTitle>Property Operations</CardTitle>
-              <CardDescription>Daily property status and activities</CardDescription>
+              <CardDescription>
+                Daily property status and activities
+              </CardDescription>
             </CardHeader>
             <CardContent>
               {propertyLoading ? (
@@ -643,7 +795,10 @@ export default function DailyOperationsDashboard() {
                     <div key={property.id} className="border rounded-lg p-4">
                       <div className="flex justify-between items-start mb-2">
                         <div>
-                          <h4 className="font-semibold">{property.propertyName || `Property #${property.propertyId}`}</h4>
+                          <h4 className="font-semibold">
+                            {property.propertyName ||
+                              `Property #${property.propertyId}`}
+                          </h4>
                           {property.propertyAddress && (
                             <p className="text-sm text-muted-foreground flex items-center gap-1">
                               <MapPin className="h-3 w-3" />
@@ -661,40 +816,78 @@ export default function DailyOperationsDashboard() {
                           )}
                         </div>
                       </div>
-                      
+
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                         <div>
-                          <span className="text-muted-foreground">Check-in/out:</span>
+                          <span className="text-muted-foreground">
+                            Check-in/out:
+                          </span>
                           <div className="flex gap-2">
-                            {property.hasCheckin && <Badge className="bg-blue-100 text-blue-800">Check-in</Badge>}
-                            {property.hasCheckout && <Badge className="bg-purple-100 text-purple-800">Check-out</Badge>}
+                            {property.hasCheckin && (
+                              <Badge className="bg-blue-100 text-blue-800">
+                                Check-in
+                              </Badge>
+                            )}
+                            {property.hasCheckout && (
+                              <Badge className="bg-purple-100 text-purple-800">
+                                Check-out
+                              </Badge>
+                            )}
                           </div>
                         </div>
                         <div>
-                          <span className="text-muted-foreground">Cleaning:</span>
-                          <p className={property.cleaningCompleted ? 'text-green-600 font-semibold' : property.needsCleaning ? 'text-red-600 font-semibold' : ''}>
-                            {property.cleaningCompleted ? 'Completed' : property.needsCleaning ? 'Required' : 'Not needed'}
+                          <span className="text-muted-foreground">
+                            Cleaning:
+                          </span>
+                          <p
+                            className={
+                              property.cleaningCompleted
+                                ? "text-green-600 font-semibold"
+                                : property.needsCleaning
+                                  ? "text-red-600 font-semibold"
+                                  : ""
+                            }
+                          >
+                            {property.cleaningCompleted
+                              ? "Completed"
+                              : property.needsCleaning
+                                ? "Required"
+                                : "Not needed"}
                           </p>
                         </div>
                         <div>
-                          <span className="text-muted-foreground">Maintenance:</span>
-                          <p>{property.maintenanceCompleted}/{property.maintenanceTasks}</p>
+                          <span className="text-muted-foreground">
+                            Maintenance:
+                          </span>
+                          <p>
+                            {property.maintenanceCompleted}/
+                            {property.maintenanceTasks}
+                          </p>
                         </div>
                         <div>
-                          <span className="text-muted-foreground">Services:</span>
-                          <p>{property.recurringCompleted}/{property.recurringServices}</p>
+                          <span className="text-muted-foreground">
+                            Services:
+                          </span>
+                          <p>
+                            {property.recurringCompleted}/
+                            {property.recurringServices}
+                          </p>
                         </div>
                       </div>
 
                       {property.urgencyReason && (
                         <div className="mt-2 p-2 bg-red-50 rounded text-sm">
-                          <span className="text-red-800 font-semibold">Urgency:</span> {property.urgencyReason.replace('_', ' ')}
+                          <span className="text-red-800 font-semibold">
+                            Urgency:
+                          </span>{" "}
+                          {property.urgencyReason.replace("_", " ")}
                         </div>
                       )}
 
                       {property.statusNotes && (
                         <div className="mt-2 p-2 bg-gray-50 rounded text-sm">
-                          <span className="text-muted-foreground">Notes:</span> {property.statusNotes}
+                          <span className="text-muted-foreground">Notes:</span>{" "}
+                          {property.statusNotes}
                         </div>
                       )}
                     </div>
@@ -714,7 +907,9 @@ export default function DailyOperationsDashboard() {
           <Card>
             <CardHeader>
               <CardTitle>Task Details</CardTitle>
-              <CardDescription>All tasks scheduled for this date</CardDescription>
+              <CardDescription>
+                All tasks scheduled for this date
+              </CardDescription>
             </CardHeader>
             <CardContent>
               {tasksLoading ? (
@@ -728,10 +923,13 @@ export default function DailyOperationsDashboard() {
                       <div className="flex justify-between items-start mb-2">
                         <div>
                           <h4 className="font-semibold flex items-center gap-2">
-                            {getDepartmentIcon(task.department || 'general')} {task.title}
+                            {getDepartmentIcon(task.department || "general")}{" "}
+                            {task.title}
                           </h4>
                           {task.description && (
-                            <p className="text-sm text-muted-foreground mt-1">{task.description}</p>
+                            <p className="text-sm text-muted-foreground mt-1">
+                              {task.description}
+                            </p>
                           )}
                         </div>
                         <div className="flex gap-2">
@@ -745,24 +943,40 @@ export default function DailyOperationsDashboard() {
                           )}
                         </div>
                       </div>
-                      
+
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                         <div>
-                          <span className="text-muted-foreground">Property:</span>
-                          <p>{task.propertyName || 'Unassigned'}</p>
+                          <span className="text-muted-foreground">
+                            Property:
+                          </span>
+                          <p>{task.propertyName || "Unassigned"}</p>
                         </div>
                         <div>
-                          <span className="text-muted-foreground">Assigned to:</span>
-                          <p>{task.assignedUserName || 'Unassigned'}</p>
+                          <span className="text-muted-foreground">
+                            Assigned to:
+                          </span>
+                          <p>{task.assignedUserName || "Unassigned"}</p>
                         </div>
                         <div>
-                          <span className="text-muted-foreground">Due Date:</span>
-                          <p>{task.dueDate ? format(new Date(task.dueDate), 'MMM dd, HH:mm') : 'No deadline'}</p>
+                          <span className="text-muted-foreground">
+                            Due Date:
+                          </span>
+                          <p>
+                            {task.dueDate
+                              ? format(new Date(task.dueDate), "MMM dd, HH:mm")
+                              : "No deadline"}
+                          </p>
                         </div>
                         <div>
-                          <span className="text-muted-foreground">Proof Photos:</span>
-                          <p className={task.hasProof ? 'text-green-600' : 'text-red-600'}>
-                            {task.hasProof ? 'Available' : 'Missing'}
+                          <span className="text-muted-foreground">
+                            Proof Photos:
+                          </span>
+                          <p
+                            className={
+                              task.hasProof ? "text-green-600" : "text-red-600"
+                            }
+                          >
+                            {task.hasProof ? "Available" : "Missing"}
                           </p>
                         </div>
                       </div>
