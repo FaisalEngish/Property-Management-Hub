@@ -797,7 +797,7 @@ export default function PropertyDetailView() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-screen">
+      <div className="fixed inset-0 z-[9999] grid place-items-center bg-white/70 backdrop-blur-sm">
         <div className="text-lg font-medium text-slate-600">
           Loading property details...
         </div>

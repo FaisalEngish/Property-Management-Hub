@@ -45,6 +45,7 @@ import {
 import { useAuth } from "@/hooks/useAuth";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import LoadingSpinner from "@/components/ui/LoadingSpinner";
 
 // Mock booking source data - in real app this would come from API
 const mockBookingSources = [
@@ -300,8 +301,10 @@ export default function PropertyDetailView() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-lg">Loading property details...</div>
+      <div className="fixed inset-0 z-[9999] grid place-items-center bg-white/70 backdrop-blur-sm">
+        <div className="text-lg font-medium text-slate-600">
+          Loading property details...
+        </div>
       </div>
     );
   }
