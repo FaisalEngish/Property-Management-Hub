@@ -56,6 +56,17 @@ interface ApiConnection {
 
 const predefinedServices = [
   {
+    service: "lodgify",
+    name: "Lodgify Property Management",
+    icon: Home,
+    color: "bg-amber-100 text-amber-700",
+    description: "Sync properties, bookings, and financial data from Lodgify",
+    fields: [
+      { name: "apiKey", label: "API Key", placeholder: "Your Lodgify API key", type: "password" },
+      { name: "baseUrl", label: "API Base URL", placeholder: "https://api.lodgify.com", type: "text" }
+    ]
+  },
+  {
     service: "stripe",
     name: "Stripe Payment Processing",
     icon: CreditCard,
