@@ -49,11 +49,18 @@ The platform utilizes Radix UI primitives with shadcn/ui for a modern design sys
 ## Lodgify API Integration
 **Status**: ACTIVE & TESTED  
 **API Base URL**: `https://api.lodgify.com`  
-**Authentication**: X-ApiKey header (stored in LODGIFY_API_KEY environment variable)
+**Authentication**: X-ApiKey header (stored per organization in database)
+
+### Multi-Tenant Credential Management
+- API keys stored in `organizationApiKeys` table per organization
+- Service loads credentials from database using `getLodgifyApiKey(organizationId)`
+- Fallback to `LODGIFY_API_KEY` environment variable for testing/development
+- Per-organization credential caching prevents cross-tenant leakage
+- Clear error messages when API key not configured
 
 ### Service Module
 - **Location**: `server/lodgify-service.ts`
-- **Class**: `LodgifyService` - Singleton service for all Lodgify API interactions
+- **Class**: `LodgifyService` - Multi-tenant service with per-org API key management
 - **Methods**:
   - `testConnection()` - Validates API key and connection
   - `getProperties()` - Fetches all properties from Lodgify
