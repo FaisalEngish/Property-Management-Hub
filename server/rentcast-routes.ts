@@ -72,6 +72,131 @@ router.get('/test-connection', async (req, res) => {
 });
 
 /**
+ * Search market by City/State - Get comprehensive market intelligence for a location
+ * Returns properties, market data, and rental listings for the specified city/state
+ */
+router.get('/market/search', async (req, res) => {
+  try {
+    const organizationId = (req.user as any)?.organizationId || 'default-org';
+    const apiKey = await getRentCastApiKey(organizationId);
+    const rentcast = getRentCastService(apiKey, organizationId);
+    
+    const city = req.query.city as string;
+    const state = req.query.state as string;
+    const limit = parseInt(req.query.limit as string) || 10;
+
+    if (!city || !state) {
+      return res.status(400).json({
+        success: false,
+        message: 'City and state are required parameters',
+      });
+    }
+
+    console.log(`[RentCast] Market search: ${city}, ${state}`);
+
+    // Fetch comprehensive market data in parallel
+    const [properties, marketData, rentalListings] = await Promise.allSettled([
+      // 1. Search properties in the area
+      rentcast.searchProperties({
+        city,
+        state,
+        limit,
+      }),
+      
+      // 2. Get market statistics
+      rentcast.getMarketData({
+        city,
+        state,
+      }),
+      
+      // 3. Get rental listings
+      rentcast.searchRentalListings({
+        city,
+        state,
+        limit,
+      }),
+    ]);
+
+    const response: any = {
+      city,
+      state,
+      searchedAt: new Date().toISOString(),
+    };
+
+    // Properties
+    if (properties.status === 'fulfilled' && properties.value.length > 0) {
+      response.properties = properties.value.map((prop: any) => ({
+        id: prop.id,
+        address: prop.formattedAddress,
+        city: prop.city,
+        state: prop.state,
+        zipCode: prop.zipCode,
+        propertyType: prop.propertyType,
+        bedrooms: prop.bedrooms,
+        bathrooms: prop.bathrooms,
+        squareFootage: prop.squareFootage,
+        lotSize: prop.lotSize,
+        yearBuilt: prop.yearBuilt,
+        lastSalePrice: prop.lastSalePrice,
+        lastSaleDate: prop.lastSaleDate,
+        assessedValue: prop.assessedValue,
+        latitude: prop.latitude,
+        longitude: prop.longitude,
+      }));
+      response.propertiesCount = properties.value.length;
+    } else {
+      response.properties = [];
+      response.propertiesCount = 0;
+    }
+
+    // Market data
+    if (marketData.status === 'fulfilled') {
+      response.marketData = {
+        averageRent: marketData.value.averageRent,
+        medianRent: marketData.value.medianRent,
+        averagePrice: marketData.value.averagePrice,
+        medianPrice: marketData.value.medianPrice,
+        totalListings: marketData.value.listings?.total,
+        forSale: marketData.value.listings?.forSale,
+        forRent: marketData.value.listings?.forRent,
+        trends: marketData.value.trends,
+      };
+    }
+
+    // Rental listings
+    if (rentalListings.status === 'fulfilled' && rentalListings.value.length > 0) {
+      response.rentalListings = rentalListings.value.map((listing: any) => ({
+        id: listing.id,
+        address: listing.formattedAddress,
+        city: listing.city,
+        state: listing.state,
+        zipCode: listing.zipCode,
+        price: listing.price,
+        bedrooms: listing.bedrooms,
+        bathrooms: listing.bathrooms,
+        squareFootage: listing.squareFootage,
+        propertyType: listing.propertyType,
+        daysOnMarket: listing.daysOnMarket,
+        status: listing.status,
+      }));
+      response.rentalListingsCount = rentalListings.value.length;
+    } else {
+      response.rentalListings = [];
+      response.rentalListingsCount = 0;
+    }
+
+    console.log(`[RentCast] Market search complete: ${response.propertiesCount} properties, ${response.rentalListingsCount} listings`);
+    res.json(response);
+  } catch (error: any) {
+    console.error('[RentCast API] Market search error:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Failed to search market',
+    });
+  }
+});
+
+/**
  * Search properties by address, city, state, or zip
  */
 router.get('/properties/search', async (req, res) => {

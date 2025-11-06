@@ -60,6 +60,209 @@ interface PropertyFiltersState {
   lastBookingTo: string;
 }
 
+// RentCast Market Search Component
+function RentCastMarketSearch() {
+  const [city, setCity] = useState("");
+  const [state, setState] = useState("");
+  const [searchResults, setSearchResults] = useState<any>(null);
+  const [isSearching, setIsSearching] = useState(false);
+  const { toast } = useToast();
+
+  const handleSearch = async () => {
+    if (!city || !state) {
+      toast({
+        title: "Missing Information",
+        description: "Please enter both city and state",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsSearching(true);
+    try {
+      const response = await fetch(
+        `/api/rentcast/market/search?city=${encodeURIComponent(city)}&state=${encodeURIComponent(state)}&limit=10`
+      );
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.message || "Search failed");
+      }
+
+      setSearchResults(data);
+      toast({
+        title: "Search Complete",
+        description: `Found ${data.propertiesCount} properties in ${city}, ${state}`,
+      });
+    } catch (error: any) {
+      toast({
+        title: "Search Error",
+        description: error.message || "Failed to search market",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Search Form */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Building2 className="h-5 w-5 text-purple-600" />
+            Search RentCast Market by City/State
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex gap-4">
+            <div className="flex-1">
+              <label className="text-sm font-medium mb-2 block">City</label>
+              <input
+                type="text"
+                placeholder="e.g., Los Angeles"
+                value={city}
+                onChange={(e) => setCity(e.target.value)}
+                className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+              />
+            </div>
+            <div className="w-32">
+              <label className="text-sm font-medium mb-2 block">State</label>
+              <input
+                type="text"
+                placeholder="CA"
+                value={state}
+                onChange={(e) => setState(e.target.value.toUpperCase())}
+                maxLength={2}
+                className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent uppercase"
+              />
+            </div>
+            <div className="flex items-end">
+              <Button
+                onClick={handleSearch}
+                disabled={isSearching}
+                className="bg-purple-600 hover:bg-purple-700"
+              >
+                {isSearching ? "Searching..." : "Search Market"}
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Search Results */}
+      {searchResults && (
+        <div className="space-y-6">
+          {/* Market Statistics */}
+          {searchResults.marketData && (
+            <Card className="bg-gradient-to-br from-purple-50 to-indigo-50">
+              <CardHeader>
+                <CardTitle>Market Statistics - {searchResults.city}, {searchResults.state}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="bg-white/80 rounded-lg p-4">
+                    <div className="text-sm text-purple-600 font-semibold">Median Rent</div>
+                    <div className="text-2xl font-bold text-purple-900">
+                      ${searchResults.marketData.medianRent?.toLocaleString() || "N/A"}
+                    </div>
+                  </div>
+                  <div className="bg-white/80 rounded-lg p-4">
+                    <div className="text-sm text-indigo-600 font-semibold">Median Price</div>
+                    <div className="text-2xl font-bold text-indigo-900">
+                      ${searchResults.marketData.medianPrice ? Math.round(searchResults.marketData.medianPrice / 1000) + "k" : "N/A"}
+                    </div>
+                  </div>
+                  <div className="bg-white/80 rounded-lg p-4">
+                    <div className="text-sm text-purple-600 font-semibold">Avg Rent</div>
+                    <div className="text-2xl font-bold text-purple-900">
+                      ${searchResults.marketData.averageRent?.toLocaleString() || "N/A"}
+                    </div>
+                  </div>
+                  <div className="bg-white/80 rounded-lg p-4">
+                    <div className="text-sm text-indigo-600 font-semibold">Total Listings</div>
+                    <div className="text-2xl font-bold text-indigo-900">
+                      {searchResults.marketData.totalListings?.toLocaleString() || "N/A"}
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Properties */}
+          {searchResults.properties && searchResults.properties.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Properties Found ({searchResults.propertiesCount})</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {searchResults.properties.map((prop: any, idx: number) => (
+                    <div key={idx} className="border rounded-lg p-4 bg-slate-50 hover:bg-slate-100 transition-colors">
+                      <div className="font-semibold text-lg">{prop.address}</div>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-2 text-sm">
+                        <div><span className="text-slate-600">Type:</span> <span className="font-medium">{prop.propertyType}</span></div>
+                        <div><span className="text-slate-600">Beds:</span> <span className="font-medium">{prop.bedrooms || "N/A"}</span></div>
+                        <div><span className="text-slate-600">Baths:</span> <span className="font-medium">{prop.bathrooms || "N/A"}</span></div>
+                        <div><span className="text-slate-600">Sq Ft:</span> <span className="font-medium">{prop.squareFootage?.toLocaleString() || "N/A"}</span></div>
+                      </div>
+                      {prop.lastSalePrice && (
+                        <div className="mt-2 text-sm">
+                          <span className="text-slate-600">Last Sale:</span> 
+                          <span className="font-medium text-emerald-700 ml-2">
+                            ${prop.lastSalePrice.toLocaleString()} 
+                            {prop.lastSaleDate && ` (${new Date(prop.lastSaleDate).getFullYear()})`}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Rental Listings */}
+          {searchResults.rentalListings && searchResults.rentalListings.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Active Rental Listings ({searchResults.rentalListingsCount})</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {searchResults.rentalListings.map((listing: any, idx: number) => (
+                    <div key={idx} className="border rounded-lg p-4 bg-purple-50 hover:bg-purple-100 transition-colors">
+                      <div className="font-semibold text-lg">{listing.address}</div>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-2 text-sm">
+                        <div><span className="text-purple-600">Price:</span> <span className="font-bold text-purple-900">${listing.price.toLocaleString()}/mo</span></div>
+                        <div><span className="text-purple-600">Beds:</span> <span className="font-medium">{listing.bedrooms}</span></div>
+                        <div><span className="text-purple-600">Baths:</span> <span className="font-medium">{listing.bathrooms}</span></div>
+                        <div><span className="text-purple-600">DOM:</span> <span className="font-medium">{listing.daysOnMarket} days</span></div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* No Results */}
+          {(!searchResults.properties || searchResults.properties.length === 0) && 
+           (!searchResults.rentalListings || searchResults.rentalListings.length === 0) && (
+            <Card>
+              <CardContent className="py-12 text-center text-slate-500">
+                No properties or listings found in this market
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function PropertyHub() {
   const { user } = useFastAuth();
   const [, navigate] = useLocation();
@@ -505,13 +708,20 @@ export default function PropertyHub() {
               onValueChange={setActiveTab}
               className="space-y-6"
             >
-              <TabsList className="grid w-full grid-cols-4">
+              <TabsList className="grid w-full grid-cols-5">
                 <TabsTrigger
                   value="properties"
                   className="flex items-center gap-2"
                 >
                   <LayoutGrid className="h-4 w-4" />
                   Property Cards
+                </TabsTrigger>
+                <TabsTrigger
+                  value="rentcast-search"
+                  className="flex items-center gap-2"
+                >
+                  <Building2 className="h-4 w-4" />
+                  RentCast Search
                 </TabsTrigger>
                 <TabsTrigger
                   value="calendar"
@@ -648,6 +858,11 @@ export default function PropertyHub() {
                     </p>
                   </div>
                 )}
+              </TabsContent>
+
+              {/* RentCast Market Search Tab */}
+              <TabsContent value="rentcast-search" className="space-y-6">
+                <RentCastMarketSearch />
               </TabsContent>
 
               {/* Calendar Tab */}
