@@ -1,4 +1,4 @@
-import axios, { AxiosInstance } from 'axios';
+import axios, { AxiosInstance } from "axios";
 
 interface LodgifyProperty {
   id: number;
@@ -54,19 +54,19 @@ export class LodgifyService {
   private apiKey: string;
   private organizationId: string;
 
-  constructor(apiKey: string, organizationId: string = 'default-org') {
+  constructor(apiKey: string, organizationId: string = "default-org") {
     if (!apiKey) {
-      throw new Error('Lodgify API key is required');
+      throw new Error("Lodgify API key is required");
     }
-    
+
     this.apiKey = apiKey;
     this.organizationId = organizationId;
-    
+
     this.client = axios.create({
-      baseURL: 'https://api.lodgify.com',
+      baseURL: "https://api.lodgify.com",
       headers: {
-        'X-ApiKey': this.apiKey,
-        'Content-Type': 'application/json',
+        "X-ApiKey": this.apiKey,
+        "Content-Type": "application/json",
       },
       timeout: 30000,
     });
@@ -77,16 +77,17 @@ export class LodgifyService {
    */
   async testConnection(): Promise<{ success: boolean; message: string }> {
     try {
-      const response = await this.client.get('/v1/properties');
+      const response = await this.client.get("/v1/properties");
       return {
         success: true,
         message: `Connected successfully. Found ${response.data.length || 0} properties.`,
       };
     } catch (error: any) {
-      console.error('[Lodgify] Connection test failed:', error.message);
+      console.error("[Lodgify] Connection test failed:", error.message);
       return {
         success: false,
-        message: error.response?.data?.message || error.message || 'Connection failed',
+        message:
+          error.response?.data?.message || error.message || "Connection failed",
       };
     }
   }
@@ -96,11 +97,11 @@ export class LodgifyService {
    */
   async getProperties(): Promise<LodgifyProperty[]> {
     try {
-      const response = await this.client.get('/v1/properties');
+      const response = await this.client.get("/v1/properties");
       console.log(`[Lodgify] Fetched ${response.data.length} properties`);
       return response.data;
     } catch (error: any) {
-      console.error('[Lodgify] Error fetching properties:', error.message);
+      console.error("[Lodgify] Error fetching properties:", error.message);
       throw new Error(`Failed to fetch properties: ${error.message}`);
     }
   }
@@ -113,7 +114,10 @@ export class LodgifyService {
       const response = await this.client.get(`/v1/properties/${propertyId}`);
       return response.data;
     } catch (error: any) {
-      console.error(`[Lodgify] Error fetching property ${propertyId}:`, error.message);
+      console.error(
+        `[Lodgify] Error fetching property ${propertyId}:`,
+        error.message,
+      );
       throw new Error(`Failed to fetch property: ${error.message}`);
     }
   }
@@ -127,22 +131,24 @@ export class LodgifyService {
   async getBookings(
     includeTransactions: boolean = true,
     page: number = 1,
-    size: number = 100
+    size: number = 100,
   ): Promise<LodgifyBookingWithTransactions[]> {
     try {
       const params = new URLSearchParams({
         page: page.toString(),
         size: size.toString(),
         includeTransactions: includeTransactions.toString(),
-        includeExternal: 'false',
-        includeQuoteDetails: 'true',
+        includeExternal: "false",
+        includeQuoteDetails: "true",
       });
 
-      const response = await this.client.get(`/v2/reservations/bookings?${params.toString()}`);
+      const response = await this.client.get(
+        `/v2/reservations/bookings?${params.toString()}`,
+      );
       console.log(`[Lodgify] Fetched ${response.data.length} bookings`);
       return response.data;
     } catch (error: any) {
-      console.error('[Lodgify] Error fetching bookings:', error.message);
+      console.error("[Lodgify] Error fetching bookings:", error.message);
       throw new Error(`Failed to fetch bookings: ${error.message}`);
     }
   }
@@ -152,10 +158,15 @@ export class LodgifyService {
    */
   async getBooking(bookingId: number): Promise<LodgifyBookingWithTransactions> {
     try {
-      const response = await this.client.get(`/v2/reservations/bookings/${bookingId}`);
+      const response = await this.client.get(
+        `/v2/reservations/bookings/${bookingId}`,
+      );
       return response.data;
     } catch (error: any) {
-      console.error(`[Lodgify] Error fetching booking ${bookingId}:`, error.message);
+      console.error(
+        `[Lodgify] Error fetching booking ${bookingId}:`,
+        error.message,
+      );
       throw new Error(`Failed to fetch booking: ${error.message}`);
     }
   }
@@ -163,13 +174,18 @@ export class LodgifyService {
   /**
    * Create a new booking in Lodgify
    */
-  async createBooking(bookingData: Partial<LodgifyBooking>): Promise<LodgifyBooking> {
+  async createBooking(
+    bookingData: Partial<LodgifyBooking>,
+  ): Promise<LodgifyBooking> {
     try {
-      const response = await this.client.post('/v1/reservation/booking', bookingData);
+      const response = await this.client.post(
+        "/v1/reservation/booking",
+        bookingData,
+      );
       console.log(`[Lodgify] Created booking ID: ${response.data.id}`);
       return response.data;
     } catch (error: any) {
-      console.error('[Lodgify] Error creating booking:', error.message);
+      console.error("[Lodgify] Error creating booking:", error.message);
       throw new Error(`Failed to create booking: ${error.message}`);
     }
   }
@@ -180,11 +196,14 @@ export class LodgifyService {
   async getPaymentLink(bookingId: number): Promise<string> {
     try {
       const response = await this.client.get(
-        `/v2/reservations/bookings/${bookingId}/quote/paymentLink`
+        `/v2/reservations/bookings/${bookingId}/quote/paymentLink`,
       );
       return response.data.paymentLink || response.data;
     } catch (error: any) {
-      console.error(`[Lodgify] Error getting payment link for booking ${bookingId}:`, error.message);
+      console.error(
+        `[Lodgify] Error getting payment link for booking ${bookingId}:`,
+        error.message,
+      );
       throw new Error(`Failed to get payment link: ${error.message}`);
     }
   }
@@ -192,14 +211,21 @@ export class LodgifyService {
   /**
    * Fetch availability calendar for a property
    */
-  async getCalendar(propertyId: number, startDate: string, endDate: string): Promise<any> {
+  async getCalendar(
+    propertyId: number,
+    startDate: string,
+    endDate: string,
+  ): Promise<any> {
     try {
       const response = await this.client.get(
-        `/v1/calendar?propertyId=${propertyId}&start=${startDate}&end=${endDate}`
+        `/v1/calendar?propertyId=${propertyId}&start=${startDate}&end=${endDate}`,
       );
       return response.data;
     } catch (error: any) {
-      console.error(`[Lodgify] Error fetching calendar for property ${propertyId}:`, error.message);
+      console.error(
+        `[Lodgify] Error fetching calendar for property ${propertyId}:`,
+        error.message,
+      );
       throw new Error(`Failed to fetch calendar: ${error.message}`);
     }
   }
@@ -208,14 +234,17 @@ export class LodgifyService {
 // Cache instances per organization to avoid credential leakage
 const lodgifyInstances: Map<string, LodgifyService> = new Map();
 
-export function getLodgifyService(apiKey: string, organizationId: string = 'default-org'): LodgifyService {
+export function getLodgifyService(
+  apiKey: string,
+  organizationId: string = "default-org",
+): LodgifyService {
   // Create a new instance for each organization
   const cacheKey = `${organizationId}:${apiKey.substring(0, 10)}`;
-  
+
   if (!lodgifyInstances.has(cacheKey)) {
     lodgifyInstances.set(cacheKey, new LodgifyService(apiKey, organizationId));
   }
-  
+
   return lodgifyInstances.get(cacheKey)!;
 }
 

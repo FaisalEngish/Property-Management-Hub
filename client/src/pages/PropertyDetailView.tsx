@@ -833,6 +833,48 @@ export default function PropertyDetailView() {
     );
   }
 
+  // ---- DERIVED LODGIFY FIELDS (fallbacks) ----
+  const derivedAddress =
+    property.address ||
+    [property.addressLine1, property.city, property.country]
+      .filter(Boolean)
+      .join(", ") ||
+    "Location unavailable";
+
+  const derivedBedrooms =
+    property.bedrooms ??
+    property.rooms?.bedrooms ??
+    property.numBedrooms ??
+    property.bedroomCount ??
+    null;
+
+  const derivedBathrooms =
+    property.bathrooms ??
+    property.rooms?.bathrooms ??
+    property.numBathrooms ??
+    property.bathroomCount ??
+    null;
+
+  const derivedGuests =
+    property.maxGuests ??
+    property.accommodates ??
+    property.guests ??
+    property.maxOccupancy ??
+    null;
+
+  const derivedNightlyRate =
+    // prefer explicit UI field if already present
+    property.pricePerNight ??
+    null ??
+    // common Lodgify/base fields
+    property.baseNightlyRate ??
+    property.defaultDailyPrice ??
+    property.pricing?.defaultDailyPrice ??
+    null;
+
+  const derivedCurrency =
+    property.currency ?? property.pricing?.currency ?? "USD";
+
   const statusColor =
     property.status === "active"
       ? "default"
@@ -880,7 +922,7 @@ export default function PropertyDetailView() {
                 className="text-lg text-blue-600 hover:text-blue-800 hover:underline cursor-pointer transition-colors flex items-center gap-1"
                 title="View on Google Maps"
               >
-                {property.address}
+                {derivedAddress}
                 <ExternalLink className="w-4 h-4" />
               </button>
               {userRole === "admin" && (
@@ -895,7 +937,7 @@ export default function PropertyDetailView() {
             <div className="flex flex-wrap gap-4 text-sm">
               <div className="flex items-center gap-1">
                 <Bed className="w-4 h-4" />
-                <span>{property.bedrooms} Bedrooms</span>
+                <span>{property.bathrooms} Bathrooms</span>
               </div>
               <div className="flex items-center gap-1">
                 <Bath className="w-4 h-4" />
