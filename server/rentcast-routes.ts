@@ -489,6 +489,112 @@ router.get('/listings/rental', async (req, res) => {
 /**
  * Get specific rental listing
  */
+/**
+ * Get comprehensive rental listing enrichment data by listing ID
+ * Returns detailed listing info, comparable listings, and market data
+ */
+router.get('/listings/rental/:id/enrich', async (req, res) => {
+  try {
+    const organizationId = (req.user as any)?.organizationId || 'default-org';
+    const apiKey = await getRentCastApiKey(organizationId);
+    const rentcast = getRentCastService(apiKey, organizationId);
+    
+    const listingId = req.params.id;
+
+    // Get the rental listing details
+    const listing = await rentcast.getRentalListing(listingId);
+
+    // Fetch comprehensive enrichment data in parallel
+    const [comparableListings, marketData, valueEstimate] = await Promise.allSettled([
+      // 1. Comparable rental listings
+      rentcast.searchRentalListings({
+        city: listing.city,
+        state: listing.state,
+        bedrooms: listing.bedrooms,
+        limit: 5,
+      }),
+      
+      // 2. Market data
+      rentcast.getMarketData({
+        city: listing.city,
+        state: listing.state,
+      }),
+      
+      // 3. Property value estimate (if we have the address)
+      listing.formattedAddress ? rentcast.getValueEstimate({
+        address: listing.formattedAddress,
+        bedrooms: listing.bedrooms,
+        bathrooms: listing.bathrooms,
+        squareFootage: listing.squareFootage,
+        compCount: 5,
+      }) : Promise.reject(new Error('No address for value estimate')),
+    ]);
+
+    const enrichmentData: any = {
+      listingId,
+      lastUpdated: new Date().toISOString(),
+      listingDetails: {
+        id: listing.id,
+        address: listing.formattedAddress,
+        city: listing.city,
+        state: listing.state,
+        zipCode: listing.zipCode,
+        price: listing.price,
+        bedrooms: listing.bedrooms,
+        bathrooms: listing.bathrooms,
+        squareFootage: listing.squareFootage,
+        propertyType: listing.propertyType,
+        daysOnMarket: listing.daysOnMarket,
+        status: listing.status,
+        listedDate: listing.listedDate,
+      },
+    };
+
+    // Comparable listings
+    if (comparableListings.status === 'fulfilled' && comparableListings.value.length > 0) {
+      enrichmentData.comparableListings = comparableListings.value
+        .filter((comp: any) => comp.id !== listingId) // Exclude the current listing
+        .slice(0, 5)
+        .map((comp: any) => ({
+          address: comp.formattedAddress,
+          price: comp.price,
+          bedrooms: comp.bedrooms,
+          bathrooms: comp.bathrooms,
+          squareFootage: comp.squareFootage,
+          daysOnMarket: comp.daysOnMarket,
+        }));
+    }
+
+    // Market data
+    if (marketData.status === 'fulfilled') {
+      enrichmentData.marketData = {
+        averageRent: marketData.value.averageRent,
+        medianRent: marketData.value.medianRent,
+        averagePrice: marketData.value.averagePrice,
+        medianPrice: marketData.value.medianPrice,
+        inventoryCount: marketData.value.listings?.total,
+      };
+    }
+
+    // Value estimate
+    if (valueEstimate.status === 'fulfilled') {
+      enrichmentData.valueEstimate = {
+        estimatedValue: valueEstimate.value.price,
+        valueRangeLow: valueEstimate.value.priceRangeLow,
+        valueRangeHigh: valueEstimate.value.priceRangeHigh,
+      };
+    }
+
+    res.json(enrichmentData);
+  } catch (error: any) {
+    console.error('[RentCast API] Listing enrichment error:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Failed to enrich listing',
+    });
+  }
+});
+
 router.get('/listings/rental/:id', async (req, res) => {
   try {
     const organizationId = (req.user as any)?.organizationId || 'default-org';

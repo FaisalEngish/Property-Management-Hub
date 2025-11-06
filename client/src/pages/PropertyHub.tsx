@@ -69,6 +69,9 @@ function RentCastMarketSearch() {
   const [selectedProperty, setSelectedProperty] = useState<any>(null);
   const [propertyDetails, setPropertyDetails] = useState<any>(null);
   const [isLoadingDetails, setIsLoadingDetails] = useState(false);
+  const [selectedListing, setSelectedListing] = useState<any>(null);
+  const [listingDetails, setListingDetails] = useState<any>(null);
+  const [isLoadingListingDetails, setIsLoadingListingDetails] = useState(false);
   const { toast } = useToast();
 
   const handleSearch = async () => {
@@ -132,6 +135,33 @@ function RentCastMarketSearch() {
       });
     } finally {
       setIsLoadingDetails(false);
+    }
+  };
+
+  const handleListingClick = async (listing: any) => {
+    setSelectedListing(listing);
+    setIsLoadingListingDetails(true);
+    
+    try {
+      // Fetch comprehensive rental listing enrichment data
+      const response = await fetch(
+        `/api/rentcast/listings/rental/${encodeURIComponent(listing.id)}/enrich`
+      );
+      const data = await response.json();
+      
+      if (response.ok) {
+        setListingDetails(data);
+      } else {
+        throw new Error(data.message || "Failed to load details");
+      }
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to load listing details",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoadingListingDetails(false);
     }
   };
 
@@ -274,13 +304,24 @@ function RentCastMarketSearch() {
               <CardContent>
                 <div className="space-y-3">
                   {searchResults.rentalListings.map((listing: any, idx: number) => (
-                    <div key={idx} className="border rounded-lg p-4 bg-purple-50 hover:bg-purple-100 transition-colors">
-                      <div className="font-semibold text-lg">{listing.address}</div>
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-2 text-sm">
-                        <div><span className="text-purple-600">Price:</span> <span className="font-bold text-purple-900">${listing.price.toLocaleString()}/mo</span></div>
-                        <div><span className="text-purple-600">Beds:</span> <span className="font-medium">{listing.bedrooms}</span></div>
-                        <div><span className="text-purple-600">Baths:</span> <span className="font-medium">{listing.bathrooms}</span></div>
-                        <div><span className="text-purple-600">DOM:</span> <span className="font-medium">{listing.daysOnMarket} days</span></div>
+                    <div 
+                      key={idx} 
+                      className="border rounded-lg p-4 bg-purple-50 hover:bg-purple-100 transition-colors cursor-pointer"
+                      onClick={() => handleListingClick(listing)}
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="font-semibold text-lg">{listing.address}</div>
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-2 text-sm">
+                            <div><span className="text-purple-600">Price:</span> <span className="font-bold text-purple-900">${listing.price.toLocaleString()}/mo</span></div>
+                            <div><span className="text-purple-600">Beds:</span> <span className="font-medium">{listing.bedrooms}</span></div>
+                            <div><span className="text-purple-600">Baths:</span> <span className="font-medium">{listing.bathrooms}</span></div>
+                            <div><span className="text-purple-600">DOM:</span> <span className="font-medium">{listing.daysOnMarket} days</span></div>
+                          </div>
+                        </div>
+                        <Button variant="ghost" size="sm" className="ml-4">
+                          View Details →
+                        </Button>
                       </div>
                     </div>
                   ))}
@@ -497,6 +538,146 @@ function RentCastMarketSearch() {
               ) : (
                 <div className="text-center py-12 text-slate-500">
                   No detailed data available for this property
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Rental Listing Details Modal */}
+      {selectedListing && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setSelectedListing(null)}>
+          <div className="bg-white rounded-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="sticky top-0 bg-white border-b px-6 py-4 flex items-center justify-between">
+              <h2 className="text-xl font-bold">{selectedListing.address}</h2>
+              <Button variant="ghost" onClick={() => setSelectedListing(null)}>✕</Button>
+            </div>
+            
+            <div className="p-6 space-y-6">
+              {isLoadingListingDetails ? (
+                <div className="text-center py-12">
+                  <div className="animate-spin h-8 w-8 border-4 border-purple-600 border-t-transparent rounded-full mx-auto mb-4"></div>
+                  <p className="text-slate-600">Loading comprehensive listing data...</p>
+                </div>
+              ) : listingDetails ? (
+                <div className="space-y-6">
+                  {/* Listing Price & Details */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <Card className="bg-gradient-to-br from-purple-50 to-purple-100">
+                      <CardHeader>
+                        <CardTitle className="text-purple-900">Monthly Rent</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="text-3xl font-bold text-purple-900 mb-2">
+                          ${listingDetails.listingDetails?.price?.toLocaleString()}/mo
+                        </div>
+                        <div className="text-sm text-purple-700">
+                          {listingDetails.listingDetails?.status || 'Active'}
+                        </div>
+                        <div className="text-xs text-purple-600 mt-2">
+                          Listed {listingDetails.listingDetails?.daysOnMarket || 0} days ago
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    <Card className="bg-gradient-to-br from-indigo-50 to-indigo-100">
+                      <CardHeader>
+                        <CardTitle className="text-indigo-900">Property Details</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-2 text-sm">
+                          <div><span className="text-indigo-600">Type:</span> <span className="font-semibold ml-2">{listingDetails.listingDetails?.propertyType || "N/A"}</span></div>
+                          <div><span className="text-indigo-600">Bedrooms:</span> <span className="font-semibold ml-2">{listingDetails.listingDetails?.bedrooms || "N/A"}</span></div>
+                          <div><span className="text-indigo-600">Bathrooms:</span> <span className="font-semibold ml-2">{listingDetails.listingDetails?.bathrooms || "N/A"}</span></div>
+                          <div><span className="text-indigo-600">Square Footage:</span> <span className="font-semibold ml-2">{listingDetails.listingDetails?.squareFootage?.toLocaleString() || "N/A"} sq ft</span></div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+
+                  {/* Comparable Listings */}
+                  {listingDetails.comparableListings && listingDetails.comparableListings.length > 0 && (
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>Comparable Rental Listings</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-3">
+                          {listingDetails.comparableListings.map((comp: any, idx: number) => (
+                            <div key={idx} className="border rounded-lg p-3 bg-purple-50">
+                              <div className="font-medium">{comp.address}</div>
+                              <div className="grid grid-cols-3 gap-2 mt-2 text-sm">
+                                <div><span className="text-purple-600">Rent:</span> <span className="font-semibold">${comp.price.toLocaleString()}/mo</span></div>
+                                <div><span className="text-purple-600">Size:</span> {comp.bedrooms}bd / {comp.bathrooms}ba</div>
+                                <div><span className="text-purple-600">DOM:</span> {comp.daysOnMarket} days</div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+
+                  {/* Market Data */}
+                  {listingDetails.marketData && (
+                    <Card className="bg-gradient-to-br from-emerald-50 to-teal-50">
+                      <CardHeader>
+                        <CardTitle>Local Market Statistics</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                          {listingDetails.marketData.medianRent && (
+                            <div>
+                              <div className="text-sm text-emerald-700">Median Rent</div>
+                              <div className="text-xl font-bold text-emerald-900">${listingDetails.marketData.medianRent.toLocaleString()}</div>
+                            </div>
+                          )}
+                          {listingDetails.marketData.averageRent && (
+                            <div>
+                              <div className="text-sm text-emerald-700">Avg Rent</div>
+                              <div className="text-xl font-bold text-emerald-900">${listingDetails.marketData.averageRent.toLocaleString()}</div>
+                            </div>
+                          )}
+                          {listingDetails.marketData.medianPrice && (
+                            <div>
+                              <div className="text-sm text-teal-700">Median Price</div>
+                              <div className="text-xl font-bold text-teal-900">${Math.round(listingDetails.marketData.medianPrice / 1000)}k</div>
+                            </div>
+                          )}
+                          {listingDetails.marketData.inventoryCount && (
+                            <div>
+                              <div className="text-sm text-teal-700">Inventory</div>
+                              <div className="text-xl font-bold text-teal-900">{listingDetails.marketData.inventoryCount.toLocaleString()}</div>
+                            </div>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+
+                  {/* Property Value Estimate (if available) */}
+                  {listingDetails.valueEstimate && (
+                    <Card className="bg-gradient-to-br from-amber-50 to-yellow-50">
+                      <CardHeader>
+                        <CardTitle className="text-amber-900">Estimated Property Value</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="text-3xl font-bold text-amber-900 mb-2">
+                          ${listingDetails.valueEstimate.estimatedValue?.toLocaleString()}
+                        </div>
+                        {listingDetails.valueEstimate.valueRangeLow && listingDetails.valueEstimate.valueRangeHigh && (
+                          <div className="text-sm text-amber-700">
+                            Range: ${listingDetails.valueEstimate.valueRangeLow.toLocaleString()} - ${listingDetails.valueEstimate.valueRangeHigh.toLocaleString()}
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  )}
+                </div>
+              ) : (
+                <div className="text-center py-12 text-slate-500">
+                  No detailed data available for this listing
                 </div>
               )}
             </div>
