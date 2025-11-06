@@ -432,6 +432,67 @@ router.post('/enrich-property', async (req, res) => {
 });
 
 /**
+ * Auto Property Enrichment - Fetch rental estimates for all organization properties
+ * GET endpoint for easy integration with React Query
+ */
+router.get('/enrich-properties', async (req, res) => {
+  try {
+    const organizationId = (req.user as any)?.organizationId || 'default-org';
+    const apiKey = await getRentCastApiKey(organizationId);
+    const rentcast = getRentCastService(apiKey, organizationId);
+    
+    // Fetch all properties for the organization
+    const { storage } = req as any;
+    const properties = await storage.getProperties(organizationId);
+
+    if (!Array.isArray(properties) || properties.length === 0) {
+      return res.json({});
+    }
+
+    // Enrich each property with rate limiting (max 50)
+    const propertiesToEnrich = properties.slice(0, 50);
+    const enrichedProperties = await Promise.allSettled(
+      propertiesToEnrich.map(async (prop: any) => {
+        try {
+          const rentEstimate = await rentcast.getRentEstimate({
+            address: prop.address,
+            city: prop.address?.split(',')[1]?.trim(),
+            state: prop.address?.split(',')[2]?.trim(),
+            bedrooms: prop.bedrooms,
+            bathrooms: prop.bathrooms,
+            compCount: 3,
+          });
+
+          return {
+            propertyId: prop.id,
+            rent: rentEstimate.price,
+            rentRangeLow: rentEstimate.priceRangeLow,
+            rentRangeHigh: rentEstimate.priceRangeHigh,
+          };
+        } catch (error) {
+          console.warn(`[RentCast] Failed to enrich property ${prop.id}:`, error);
+          return null;
+        }
+      })
+    );
+
+    // Build result object keyed by property ID
+    const results: Record<number, any> = {};
+    enrichedProperties.forEach((result, index) => {
+      if (result.status === 'fulfilled' && result.value) {
+        results[result.value.propertyId] = result.value;
+      }
+    });
+
+    res.json(results);
+  } catch (error: any) {
+    console.error('[RentCast API] Auto enrichment error:', error);
+    // Return empty object on error to avoid breaking the UI
+    res.json({});
+  }
+});
+
+/**
  * Bulk Property Enrichment - Fetch rental estimates for multiple properties
  * Useful for enriching entire portfolio at once
  */

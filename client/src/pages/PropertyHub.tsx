@@ -211,6 +211,15 @@ export default function PropertyHub() {
   const propertiesArray = Array.isArray(properties) ? properties : [];
   const bookingsArray = Array.isArray(bookings) ? bookings : [];
 
+  // Fetch RentCast enrichment data for all properties
+  const { data: rentcastEnrichment = {} } = useQuery({
+    queryKey: ["/api/rentcast/enrich-properties"],
+    enabled: propertiesArray.length > 0,
+    staleTime: 60 * 60 * 1000, // Cache for 1 hour
+  });
+
+  const rentcastData = rentcastEnrichment || {};
+
   // Helper function to check if property has expiring items
   const getPropertyExpiryStatus = (propertyId: number) => {
     const hasExpiringDoc = (expiringDocuments as any[]).some(
@@ -587,6 +596,7 @@ export default function PropertyHub() {
                       onViewDetails={() => handleViewPropertyDetails(property)}
                       onDelete={() => handleDeleteProperty(property.id)}
                       expiryStatus={getPropertyExpiryStatus(property.id)}
+                      rentcastData={rentcastData[property.id]}
                     />
                   ))}
                 </div>

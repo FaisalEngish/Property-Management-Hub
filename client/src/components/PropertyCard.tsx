@@ -437,6 +437,7 @@ interface PropertyCardProps {
   onViewDetails?: () => void;
   onDelete?: () => void;
   expiryStatus?: "expiring" | "expired" | null;
+  rentcastData?: any;
 }
 
 export default function PropertyCard({
@@ -446,6 +447,7 @@ export default function PropertyCard({
   onViewDetails,
   onDelete,
   expiryStatus,
+  rentcastData,
 }: PropertyCardProps) {
   const getStatusColor = (status: string) => {
     switch (status?.toLowerCase()) {
@@ -697,6 +699,36 @@ export default function PropertyCard({
               </div>
             </div>
           </div>
+
+          {/* RentCast Market Data */}
+          {rentcastData && (
+            <div className="mb-4 bg-gradient-to-br from-purple-50 to-indigo-50 rounded-xl p-3 border border-purple-200">
+              <div className="flex items-center gap-2 mb-2">
+                <TrendingUp className="h-4 w-4 text-purple-600" />
+                <div className="text-xs font-bold text-purple-900">
+                  RentCast Market Intelligence
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                {rentcastData.rent && (
+                  <div>
+                    <div className="text-xs text-purple-700">Est. Monthly Rent</div>
+                    <div className="text-sm font-bold text-purple-900">
+                      ${rentcastData.rent.toLocaleString()}
+                    </div>
+                  </div>
+                )}
+                {rentcastData.value && (
+                  <div>
+                    <div className="text-xs text-purple-700">Est. Value</div>
+                    <div className="text-sm font-bold text-purple-900">
+                      ${Math.round(rentcastData.value / 1000)}k
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Action buttons */}
           <div className="flex gap-2 pt-3 border-t border-slate-200">
