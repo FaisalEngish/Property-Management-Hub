@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { db } from './db';
-import { organizationApiKeys } from '@shared/schema';
+import { organizationApiKeys, properties } from '@shared/schema';
 import { eq, and } from 'drizzle-orm';
 import { getRentCastService } from './rentcast-service';
 
@@ -441,16 +441,18 @@ router.get('/enrich-properties', async (req, res) => {
     const apiKey = await getRentCastApiKey(organizationId);
     const rentcast = getRentCastService(apiKey, organizationId);
     
-    // Fetch all properties for the organization
-    const { storage } = req as any;
-    const properties = await storage.getProperties(organizationId);
+    // Fetch all properties for the organization from database
+    const propertyList = await db
+      .select()
+      .from(properties)
+      .where(eq(properties.organizationId, organizationId));
 
-    if (!Array.isArray(properties) || properties.length === 0) {
+    if (!Array.isArray(propertyList) || propertyList.length === 0) {
       return res.json({});
     }
 
     // Enrich each property with rate limiting (max 50)
-    const propertiesToEnrich = properties.slice(0, 50);
+    const propertiesToEnrich = propertyList.slice(0, 50);
     const enrichedProperties = await Promise.allSettled(
       propertiesToEnrich.map(async (prop: any) => {
         try {
