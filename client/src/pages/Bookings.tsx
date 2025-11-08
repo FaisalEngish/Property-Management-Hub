@@ -1266,14 +1266,18 @@ export default function Bookings() {
                               <Badge className={getStatusColor(booking.status)}>
                                 {booking.status}
                               </Badge>
-                              {(booking.status?.toLowerCase() === "pending" || 
-                                booking.status?.toLowerCase() === "confirmed") &&
-                                (booking.paymentStatus === "paid" || booking.paymentStatus === "partial") && (
-                                <Badge className="bg-blue-100 text-blue-800 border-blue-200 flex items-center gap-1">
-                                  <CreditCard className="w-3 h-3" />
-                                  {booking.paymentStatus === "paid" ? "Pre-Paid" : "Partial"}
-                                </Badge>
-                              )}
+                              {(booking.status?.toLowerCase() === "pending" ||
+                                booking.status?.toLowerCase() ===
+                                  "confirmed") &&
+                                (booking.paymentStatus === "paid" ||
+                                  booking.paymentStatus === "partial") && (
+                                  <Badge className="bg-blue-100 text-blue-800 border-blue-200 flex items-center gap-1">
+                                    <CreditCard className="w-3 h-3" />
+                                    {booking.paymentStatus === "paid"
+                                      ? "Pre-Paid"
+                                      : "Partial"}
+                                  </Badge>
+                                )}
                             </div>
                           </div>
                         </div>
@@ -1311,14 +1315,17 @@ export default function Bookings() {
                             <Badge className={getStatusColor(booking.status)}>
                               {booking.status}
                             </Badge>
-                            {(booking.status?.toLowerCase() === "pending" || 
+                            {(booking.status?.toLowerCase() === "pending" ||
                               booking.status?.toLowerCase() === "confirmed") &&
-                              (booking.paymentStatus === "paid" || booking.paymentStatus === "partial") && (
-                              <Badge className="bg-blue-100 text-blue-800 border-blue-200 flex items-center gap-1">
-                                <CreditCard className="w-3 h-3" />
-                                {booking.paymentStatus === "paid" ? "Pre-Paid" : "Partial"}
-                              </Badge>
-                            )}
+                              (booking.paymentStatus === "paid" ||
+                                booking.paymentStatus === "partial") && (
+                                <Badge className="bg-blue-100 text-blue-800 border-blue-200 flex items-center gap-1">
+                                  <CreditCard className="w-3 h-3" />
+                                  {booking.paymentStatus === "paid"
+                                    ? "Pre-Paid"
+                                    : "Partial"}
+                                </Badge>
+                              )}
                           </div>
                         </div>
                       </CardHeader>

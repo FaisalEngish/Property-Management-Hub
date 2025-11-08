@@ -281,7 +281,7 @@ function RentCastMarketSearch() {
                                 ${prop.lastSalePrice.toLocaleString()} 
                                 {prop.lastSaleDate && ` (${new Date(prop.lastSaleDate).getFullYear()})`}
                               </span>
-                            </div>
+                            </div> 
                           )}
                         </div>
                         <Button variant="ghost" size="sm" className="ml-4">
