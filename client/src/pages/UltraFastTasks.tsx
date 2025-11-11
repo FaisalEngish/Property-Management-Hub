@@ -256,17 +256,17 @@ export default function UltraFastTasks() {
   };
   // Read propertyId from the URL
   const [location] = useLocation();
-    // read ?propertyId=... from the current URL
-    const propertyIdFromUrl = React.useMemo(() => {
-      try {
-        const qs = location.includes("?")
-          ? location.split("?")[1]
-          : window.location.search.slice(1);
-        const p = new URLSearchParams(qs).get("propertyId");
-        return p && !Number.isNaN(Number(p)) ? String(Number(p)) : "";
-      } catch {
-        return "";
-      }
+  // read ?propertyId=... from the current URL
+  const propertyIdFromUrl = React.useMemo(() => {
+    try {
+      const qs = location.includes("?")
+        ? location.split("?")[1]
+        : window.location.search.slice(1);
+      const p = new URLSearchParams(qs).get("propertyId");
+      return p && !Number.isNaN(Number(p)) ? String(Number(p)) : "";
+    } catch {
+      return "";
+    }
   }, [location]);
 
   // Build query parameters for tasks API
@@ -276,9 +276,9 @@ export default function UltraFastTasks() {
       params.append("due_from", dateRange.from);
       params.append("due_to", dateRange.to);
     }
-      if (propertyIdFromUrl) {
-        params.append("propertyId", propertyIdFromUrl);
-      }
+    if (propertyIdFromUrl) {
+      params.append("propertyId", propertyIdFromUrl);
+    }
     return params.toString();
   }, [dateRange, propertyIdFromUrl]);
 
@@ -349,8 +349,8 @@ export default function UltraFastTasks() {
   // Real-time filtering with actual data
   const filteredTasks = useMemo(() => {
     return enhancedTasks.filter((task: any) => {
-       const matchesProperty =
-       !propertyIdFromUrl || task.propertyId ===     Number(propertyIdFromUrl);
+      const matchesProperty =
+        !propertyIdFromUrl || task.propertyId === Number(propertyIdFromUrl);
       const matchesSearch =
         searchTerm === "" ||
         (task.title &&
@@ -366,9 +366,22 @@ export default function UltraFastTasks() {
         priorityFilter === "all" || task.priority === priorityFilter;
       const matchesType = typeFilter === "all" || task.type === typeFilter;
 
-      return  matchesProperty && matchesSearch && matchesStatus && matchesPriority && matchesType;
+      return (
+        matchesProperty &&
+        matchesSearch &&
+        matchesStatus &&
+        matchesPriority &&
+        matchesType
+      );
     });
-  }, [enhancedTasks, searchTerm, statusFilter, priorityFilter, typeFilter, propertyIdFromUrl]);
+  }, [
+    enhancedTasks,
+    searchTerm,
+    statusFilter,
+    priorityFilter,
+    typeFilter,
+    propertyIdFromUrl,
+  ]);
 
   // Calculate real statistics
   const stats = useMemo(() => {
@@ -1010,98 +1023,104 @@ export default function UltraFastTasks() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredTasks.map((task) => (
-                    <TableRow key={task.id}>
-                      <TableCell>
-                        <div className="space-y-1">
-                          <div className="font-medium">
-                            {task.title || "Untitled Task"}
-                          </div>
-                          <div className="text-sm text-muted-foreground line-clamp-1">
-                            {task.description || "No description"}
-                          </div>
-                          {task.estimatedCost && (
-                            <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                              <span>
-                                ฿
-                                {parseFloat(
-                                  task.estimatedCost || 0,
-                                ).toLocaleString()}
-                              </span>
+                  {[...filteredTasks]
+                    .sort(
+                      (a, b) =>
+                        new Date(b.dueDate).getTime() -
+                        new Date(a.dueDate).getTime(),
+                    )
+                    .map((task) => (
+                      <TableRow key={task.id}>
+                        <TableCell>
+                          <div className="space-y-1">
+                            <div className="font-medium">
+                              {task.title || "Untitled Task"}
                             </div>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <MapPin className="h-4 w-4 text-muted-foreground" />
-                          <span className="font-medium">
-                            {task.propertyName}
-                          </span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <User className="h-4 w-4 text-muted-foreground" />
-                          <span>{task.assigneeName}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className="capitalize">
-                          {(task.type || "").replace("-", " ")}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Badge
-                          className={getPriorityColor(
-                            task.priority || "medium",
-                          )}
-                        >
-                          {task.priority || "medium"}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div className="text-sm">
-                          {task.dueDate
-                            ? formatDate(task.dueDate)
-                            : "No due date"}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge
-                          className={getStatusColor(task.status || "pending")}
-                        >
-                          <span className="flex items-center gap-1">
-                            {getStatusIcon(task.status || "pending")}
-                            {(task.status || "pending").replace("-", " ")}
-                          </span>
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleEditTask(task.id)}
+                            <div className="text-sm text-muted-foreground line-clamp-1">
+                              {task.description || "No description"}
+                            </div>
+                            {task.estimatedCost && (
+                              <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                <span>
+                                  ฿
+                                  {parseFloat(
+                                    task.estimatedCost || 0,
+                                  ).toLocaleString()}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <MapPin className="h-4 w-4 text-muted-foreground" />
+                            <span className="font-medium">
+                              {task.propertyName}
+                            </span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <User className="h-4 w-4 text-muted-foreground" />
+                            <span>{task.assigneeName}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className="capitalize">
+                            {(task.type || "").replace("-", " ")}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Badge
+                            className={getPriorityColor(
+                              task.priority || "medium",
+                            )}
                           >
-                            Edit
-                          </Button>
-                          {task.status !== "completed" && (
+                            {task.priority || "medium"}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <div className="text-sm">
+                            {task.dueDate
+                              ? formatDate(task.dueDate)
+                              : "No due date"}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge
+                            className={getStatusColor(task.status || "pending")}
+                          >
+                            <span className="flex items-center gap-1">
+                              {getStatusIcon(task.status || "pending")}
+                              {(task.status || "pending").replace("-", " ")}
+                            </span>
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex gap-2">
                             <Button
-                              variant="default"
+                              variant="outline"
                               size="sm"
-                              onClick={() => handleCompleteTask(task.id)}
-                              disabled={completeTaskMutation.isPending}
+                              onClick={() => handleEditTask(task.id)}
                             >
-                              {completeTaskMutation.isPending
-                                ? "Completing..."
-                                : "Complete"}
+                              Edit
                             </Button>
-                          )}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                            {task.status !== "completed" && (
+                              <Button
+                                variant="default"
+                                size="sm"
+                                onClick={() => handleCompleteTask(task.id)}
+                                disabled={completeTaskMutation.isPending}
+                              >
+                                {completeTaskMutation.isPending
+                                  ? "Completing..."
+                                  : "Complete"}
+                              </Button>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
                 </TableBody>
               </Table>
             </div>
@@ -1395,7 +1414,7 @@ export default function UltraFastTasks() {
               <input
                 type="file"
                 id="evidence-upload"
-                accept=".jpg,.jpeg,.png"
+                accept=".jpg, .jpeg,.png, .pdf"
                 multiple
                 onChange={handleFileUpload}
                 className="hidden"
@@ -1407,14 +1426,14 @@ export default function UltraFastTasks() {
                   document.getElementById("evidence-upload")?.click()
                 }
                 className="bg-blue-600 text-white hover:bg-blue-700"
-                disabled={evidencePhotos.length >= 6}
+                disabled={evidencePhotos.length >= 10}
                 data-testid="button-upload-evidence"
               >
                 <Upload className="h-4 w-4 mr-2" />
                 Upload Evidence
               </Button>
               <span className="text-xs text-gray-500">
-                {evidencePhotos.length}/6 photos
+                {evidencePhotos.length}/10 photos
               </span>
             </div>
             <div className="flex space-x-2">

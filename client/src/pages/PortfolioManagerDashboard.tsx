@@ -1713,7 +1713,7 @@ export default function PortfolioManagerDashboard() {
             <div>
               <h3 className="text-lg font-semibold">Portfolio Analytics</h3>
               <p className="text-sm text-muted-foreground">
-                Performance insights and AI-powered suggestions (Coming Soon)
+                Performance insights and AI-powered suggestions
               </p>
             </div>
 
