@@ -49,7 +49,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   setupSecureAuth(app);
   
   // Also setup production auth (fallback)
-  await setupAuth(app);
+  if (process.env.REPLIT_DOMAINS) {
+    await setupAuth(app);
+    console.log("✅ Replit Auth enabled");
+  } else {
+    console.log("⚠️ Replit Auth disabled - using secure auth only");
+  }
 
   // Notification API routes - deployment safe fallbacks with simplified authentication
   app.get("/api/notifications", isDemoAuthenticated, (req, res) => {

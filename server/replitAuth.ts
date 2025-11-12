@@ -8,8 +8,15 @@ import memoize from "memoizee";
 import connectPg from "connect-pg-simple";
 import { storage } from "./storage";
 
-if (!process.env.REPLIT_DOMAINS) {
+// Only require REPLIT_DOMAINS when running on Replit (detected by REPL_ID)
+// For external deployments (Render, Railway, etc.), this auth module won't be used
+if (process.env.REPL_ID && !process.env.REPLIT_DOMAINS) {
   throw new Error("Environment variable REPLIT_DOMAINS not provided");
+}
+
+// If not on Replit, log warning but allow module to load
+if (!process.env.REPLIT_DOMAINS) {
+  console.warn("⚠️ REPLIT_DOMAINS not set - Replit Auth will not be available. Use alternative authentication.");
 }
 
 const getOidcConfig = memoize(
