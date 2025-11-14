@@ -66,7 +66,7 @@ class FastAuthSessionManager {
 // Fast login with optimistic updates
 export async function fastLogin(email: string, password: string): Promise<AuthUser> {
   // Start the API request
-  const loginPromise = fetch('/api/auth/login', {
+  const loginPromise = fetch('/api/auth/demo-login', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
