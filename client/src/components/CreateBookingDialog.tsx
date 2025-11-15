@@ -320,12 +320,7 @@ export default function CreateBookingDialog({
 
   const createMutation = useMutation({
     mutationFn: async (data: any) => {
-      const response = await apiRequest("POST", "/api/bookings", data);
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => null);
-        throw new Error(errorData?.message || "Failed to create booking");
-      }
-      return response.json();
+      return await apiRequest("POST", "/api/bookings", data);
     },
 
     onMutate: async (newBooking) => {
