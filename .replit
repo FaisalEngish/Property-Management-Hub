@@ -8,7 +8,7 @@ packages = ["jq", "lighthouse", "unzip"]
 
 [deployment]
 deploymentTarget = "autoscale"
-build = ["npm", "run", "build"]
+build = ["sh", "-c", "npm install esbuild && vite build && node scripts/build-server.mjs"]
 run = ["npm", "run", "start"]
 
 [[ports]]
