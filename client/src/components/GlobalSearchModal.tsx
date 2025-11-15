@@ -45,13 +45,8 @@ export function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModalProps) {
 
   // Search across all data types
   const { data: searchResults = [], isLoading } = useQuery({
-    queryKey: ['/api/global-search', searchQuery],
-    queryFn: async () => {
-      if (!searchQuery.trim()) return [];
-      const response = await apiRequest("GET", `/api/global-search?q=${encodeURIComponent(searchQuery)}`);
-      return response.json();
-    },
-    enabled: searchQuery.length > 2,
+    queryKey: [`/api/global-search?q=${encodeURIComponent(searchQuery)}`],
+    enabled: searchQuery.length > 2 && searchQuery.trim().length > 0,
   });
 
   const handleResultClick = (result: SearchResult) => {

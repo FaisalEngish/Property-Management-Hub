@@ -55,9 +55,10 @@ export async function apiRequest<T = any>(
 ): Promise<T> {
   const options: RequestInit = {
     method,
-    headers: {
+    credentials: "include", // Required for cookie-based auth
+    headers: body ? {
       "Content-Type": "application/json",
-    },
+    } : {},
   };
 
   if (body !== undefined) {
