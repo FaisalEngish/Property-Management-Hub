@@ -25,9 +25,34 @@ async function throwIfResNotOk(res: Response) {
 //   return res;
 // }
 
-// ../lib/queryClient.ts (or .js)
-
-export async function apiRequest(method: string, url: string, body?: any) {
+/**
+ * Makes an HTTP request to the API and returns the parsed JSON data.
+ * 
+ * IMPORTANT: This function returns the PARSED DATA directly, NOT a Response object.
+ * - Do NOT call `.json()` on the return value
+ * - Do NOT check `.ok` on the return value
+ * - Errors are automatically thrown and should be caught in mutation onError handlers
+ * 
+ * @example
+ * // ✅ CORRECT usage:
+ * const data = await apiRequest("POST", "/api/bookings", { name: "John" });
+ * 
+ * // ❌ INCORRECT usage:
+ * const response = await apiRequest("POST", "/api/bookings", data);
+ * if (!response.ok) { ... }  // ❌ response is data, not Response object
+ * return response.json();     // ❌ Causes "response.json is not a function"
+ * 
+ * @param method - HTTP method (GET, POST, PATCH, PUT, DELETE)
+ * @param url - API endpoint URL
+ * @param body - Optional request body (will be JSON stringified)
+ * @returns Promise resolving to the parsed JSON data
+ * @throws Error if the request fails (status >= 400)
+ */
+export async function apiRequest<T = any>(
+  method: string,
+  url: string,
+  body?: any
+): Promise<T> {
   const options: RequestInit = {
     method,
     headers: {
@@ -62,7 +87,7 @@ export async function apiRequest(method: string, url: string, body?: any) {
     throw error;
   }
 
-  return data;
+  return data as T;
 }
 
 type UnauthorizedBehavior = "returnNull" | "throw";
