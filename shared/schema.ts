@@ -16983,3 +16983,128 @@ export const insertAutomationLogSchema = createInsertSchema(
 
 export type AutomationLog = typeof automationLogs.$inferSelect;
 export type InsertAutomationLog = z.infer<typeof insertAutomationLogSchema>;
+
+// ===== AI NOTIFICATIONS & REMINDERS =====
+
+export const aiNotifications = pgTable(
+  "ai_notifications",
+  {
+    id: serial("id").primaryKey(),
+    organizationId: varchar("organization_id")
+      .references(() => organizations.id)
+      .notNull(),
+    propertyId: integer("property_id").references(() => properties.id),
+    alertType: varchar("alert_type", { length: 100 }).notNull(), // pest, electricity, cleaning, ac, upgrade, etc.
+    title: varchar("title", { length: 255 }).notNull(),
+    description: text("description"),
+    priority: varchar("priority", { length: 50 }).notNull(), // low, medium, high, critical
+    status: varchar("status", { length: 50 }).notNull(), // active, snoozed, resolved, dismissed
+    dueDate: timestamp("due_date"),
+    snoozeUntil: timestamp("snooze_until"),
+    lastServiceDate: timestamp("last_service_date"),
+    estimatedNextDate: timestamp("estimated_next_date"),
+    aiConfidence: varchar("ai_confidence", { length: 10 }), // 0.00-1.00
+    sourceType: varchar("source_type", { length: 100 }), // service_log, bill_pattern, maintenance_history, manual, etc.
+    sourceId: varchar("source_id", { length: 255 }),
+    visibleToRoles: text("visible_to_roles").array(),
+    assignedTo: varchar("assigned_to").references(() => users.id),
+    createdBy: varchar("created_by").notNull(), // can be ai-system, goals-system, or user ID
+    actionTaken: boolean("action_taken").default(false),
+    actionTakenBy: varchar("action_taken_by").references(() => users.id),
+    actionTakenAt: timestamp("action_taken_at"),
+    actionNotes: text("action_notes"),
+    createdAt: timestamp("created_at").defaultNow(),
+    updatedAt: timestamp("updated_at").defaultNow(),
+  },
+  (table) => [
+    index("IDX_ai_notifications_org").on(table.organizationId),
+    index("IDX_ai_notifications_property").on(table.propertyId),
+    index("IDX_ai_notifications_type").on(table.alertType),
+    index("IDX_ai_notifications_status").on(table.status),
+    index("IDX_ai_notifications_priority").on(table.priority),
+    index("IDX_ai_notifications_due").on(table.dueDate),
+  ],
+);
+
+export const insertAiNotificationSchema = createInsertSchema(aiNotifications).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type AiNotification = typeof aiNotifications.$inferSelect;
+export type InsertAiNotification = z.infer<typeof insertAiNotificationSchema>;
+
+export const aiReminderSettings = pgTable(
+  "ai_reminder_settings",
+  {
+    id: serial("id").primaryKey(),
+    organizationId: varchar("organization_id")
+      .references(() => organizations.id)
+      .notNull(),
+    propertyId: integer("property_id").references(() => properties.id),
+    alertType: varchar("alert_type", { length: 100 }).notNull(), // pest, electricity, cleaning, etc.
+    enabled: boolean("enabled").default(true),
+    intervalDays: integer("interval_days").notNull(), // How often the service/check should occur
+    reminderDaysBefore: integer("reminder_days_before").default(3), // How many days before due date to remind
+    autoCreateTasks: boolean("auto_create_tasks").default(false),
+    notificationMethods: text("notification_methods").array(), // dashboard, email, sms, etc.
+    customRules: jsonb("custom_rules").$type<{
+      priority?: string;
+      escalation?: string;
+      bill_arrival_window?: string;
+      amount_variance_alert?: string;
+      auto_assign_to?: string;
+      weather_check?: boolean;
+      [key: string]: any;
+    }>(),
+    createdAt: timestamp("created_at").defaultNow(),
+    updatedAt: timestamp("updated_at").defaultNow(),
+  },
+  (table) => [
+    index("IDX_ai_reminder_org").on(table.organizationId),
+    index("IDX_ai_reminder_property").on(table.propertyId),
+    index("IDX_ai_reminder_type").on(table.alertType),
+    index("IDX_ai_reminder_enabled").on(table.enabled),
+  ],
+);
+
+export const insertAiReminderSettingSchema = createInsertSchema(aiReminderSettings).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type AiReminderSetting = typeof aiReminderSettings.$inferSelect;
+export type InsertAiReminderSetting = z.infer<typeof insertAiReminderSettingSchema>;
+
+export const aiNotificationHistory = pgTable(
+  "ai_notification_history",
+  {
+    id: serial("id").primaryKey(),
+    organizationId: varchar("organization_id")
+      .references(() => organizations.id)
+      .notNull(),
+    notificationId: integer("notification_id").references(() => aiNotifications.id),
+    eventType: varchar("event_type", { length: 100 }).notNull(), // created, updated, snoozed, resolved, dismissed, etc.
+    eventStatus: varchar("event_status", { length: 50 }),
+    metadata: jsonb("metadata"),
+    actorId: varchar("actor_id").references(() => users.id), // Who performed the action
+    actorType: varchar("actor_type", { length: 50 }), // user, ai-system, automation, etc.
+    createdAt: timestamp("created_at").defaultNow(),
+  },
+  (table) => [
+    index("IDX_ai_history_org").on(table.organizationId),
+    index("IDX_ai_history_notification").on(table.notificationId),
+    index("IDX_ai_history_event").on(table.eventType),
+    index("IDX_ai_history_created").on(table.createdAt),
+  ],
+);
+
+export const insertAiNotificationHistorySchema = createInsertSchema(aiNotificationHistory).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type AiNotificationHistory = typeof aiNotificationHistory.$inferSelect;
+export type InsertAiNotificationHistory = z.infer<typeof insertAiNotificationHistorySchema>;
