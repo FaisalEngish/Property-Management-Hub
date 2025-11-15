@@ -22,8 +22,7 @@ export default function Landing() {
 
   const loginMutation = useMutation({
     mutationFn: async (credentials: { email: string; password: string }) => {
-      const response = await apiRequest("POST", "/api/auth/demo-login", credentials);
-      return await response.json();
+      return await apiRequest("POST", "/api/auth/demo-login", credentials);
     },
     onSuccess: (data: any) => {
       toast({

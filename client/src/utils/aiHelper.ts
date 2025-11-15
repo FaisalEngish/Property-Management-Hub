@@ -3,8 +3,7 @@ import { apiRequest } from "@/lib/queryClient";
 
 export async function askAssistant(prompt: string): Promise<string> {
   try {
-    const response = await apiRequest("POST", "/api/ai/test", { prompt });
-    const data = await response.json();
+    const data = await apiRequest("POST", "/api/ai/test", { prompt });
     return data.result || "No response received";
   } catch (error) {
     console.error("AI Assistant Error:", error);
@@ -20,10 +19,9 @@ export async function generatePropertyDescription(propertyDetails: {
   location: string;
 }): Promise<string> {
   try {
-    const response = await apiRequest("POST", "/api/ai/property-description", {
+    const data = await apiRequest("POST", "/api/ai/property-description", {
       propertyDetails
     });
-    const data = await response.json();
     return data.description || "No description generated";
   } catch (error) {
     console.error("Property Description Error:", error);
@@ -33,10 +31,9 @@ export async function generatePropertyDescription(propertyDetails: {
 
 export async function analyzeGuestReview(reviewText: string): Promise<any> {
   try {
-    const response = await apiRequest("POST", "/api/ai/analyze-review", {
+    const data = await apiRequest("POST", "/api/ai/analyze-review", {
       reviewText
     });
-    const data = await response.json();
     return data.analysis || {};
   } catch (error) {
     console.error("Review Analysis Error:", error);
@@ -49,11 +46,10 @@ export async function generateMaintenanceTaskSuggestion(
   lastMaintenanceDate: string
 ): Promise<any> {
   try {
-    const response = await apiRequest("POST", "/api/ai/maintenance-suggestions", {
+    const data = await apiRequest("POST", "/api/ai/maintenance-suggestions", {
       propertyType,
       lastMaintenanceDate
     });
-    const data = await response.json();
     return data.suggestions || {};
   } catch (error) {
     console.error("Maintenance Suggestions Error:", error);
@@ -63,8 +59,7 @@ export async function generateMaintenanceTaskSuggestion(
 
 export async function sendCustomAIPrompt(prompt: string): Promise<string> {
   try {
-    const response = await apiRequest("POST", "/api/ai/custom", { prompt });
-    const data = await response.json();
+    const data = await apiRequest("POST", "/api/ai/custom", { prompt });
     return data.result || "No response received";
   } catch (error) {
     console.error("Custom AI Prompt Error:", error);

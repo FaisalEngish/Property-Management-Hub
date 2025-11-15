@@ -79,14 +79,9 @@ export default function BookingDetailModal({
   // Update booking status mutation
   const updateStatusMutation = useMutation({
     mutationFn: async (status: string) => {
-      const response = await apiRequest("PATCH", `/api/bookings/${bookingId}`, {
+      return await apiRequest("PATCH", `/api/bookings/${bookingId}`, {
         status,
       });
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to update booking status");
-      }
-      return response.json();
     },
     onSuccess: () => {
       // Use centralized invalidation helper to update all related queries
@@ -111,18 +106,13 @@ export default function BookingDetailModal({
   // Mark as paid mutation
   const markAsPaidMutation = useMutation({
     mutationFn: async (amount: number) => {
-      const response = await apiRequest("PATCH", `/api/bookings/${bookingId}`, {
+      return await apiRequest("PATCH", `/api/bookings/${bookingId}`, {
         amountPaid: amount.toString(),
         paymentStatus:
           amount >= parseFloat(booking?.totalAmount || "0")
             ? "paid"
             : "partial",
       });
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to update payment");
-      }
-      return response.json();
     },
     onSuccess: () => {
       invalidateBookingQueries(queryClient);

@@ -93,8 +93,7 @@ export default function TopBar({ title, subtitle, action }: TopBarProps) {
 
   const logoutMutation = useMutation({
     mutationFn: async () => {
-      const response = await apiRequest("POST", "/api/auth/demo-logout", {});
-      return await response.json();
+      return await apiRequest("POST", "/api/auth/demo-logout", {});
     },
     onSuccess: () => {
       window.location.href = "/";

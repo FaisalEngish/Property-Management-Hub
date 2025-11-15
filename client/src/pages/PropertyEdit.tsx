@@ -57,8 +57,7 @@ export default function PropertyEdit() {
 
   const updateMutation = useMutation({
     mutationFn: async (data: any) => {
-      const response = await apiRequest("PUT", `/api/properties/${id}`, data);
-      return response.json();
+      return await apiRequest("PUT", `/api/properties/${id}`, data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/properties"] });

@@ -209,8 +209,7 @@ export default function CreateTaskDialog({
 
       console.log("Creating task with data:", apiData);
 
-      const response = await apiRequest("POST", "/api/tasks", apiData);
-      return response.json ? response.json() : response;
+      return await apiRequest("POST", "/api/tasks", apiData);
     },
     onSuccess: (newTask) => {
       console.log("Task created successfully:", newTask);
