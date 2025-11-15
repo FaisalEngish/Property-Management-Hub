@@ -1,15 +1,6 @@
-modules = ["nodejs-20", "web", "postgresql-16", "python-3.11"]
-run = "npm run dev"
-hidden = [".config", ".git", "node_modules", "dist"]
-
-[nix]
-channel = "stable-24_05"
-packages = ["jq", "lighthouse", "unzip"]
-
 [deployment]
 deploymentTarget = "autoscale"
-build = ["sh", "-c", "npm install esbuild && vite build && node scripts/build-server.mjs"]
-run = ["npm", "run", "start"]
+run = ["sh", "deploy-start.sh"]
 
 [[ports]]
 localPort = 5000
@@ -74,27 +65,3 @@ externalPort = 5000
 [[ports]]
 localPort = 46877
 externalPort = 8000
-
-[workflows]
-runButton = "Project"
-
-[[workflows.workflow]]
-name = "Project"
-mode = "parallel"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "Start application"
-
-[[workflows.workflow]]
-name = "Start application"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "npm run dev"
-waitForPort = 5000
-
-[agent]
-integrations = ["javascript_openai:1.0.0", "perplexity_v0:1.0.0", "javascript_supabase:1.0.0", "javascript_database:1.0.0", "javascript_stripe:1.0.0", "javascript_log_in_with_replit:1.0.0"]
