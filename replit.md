@@ -20,6 +20,7 @@ The platform uses Radix UI primitives with shadcn/ui and Tailwind CSS for a mode
 - **Performance Optimization**: Multi-layer caching (in-memory, React Query), fast API endpoints, and lazy loading ensure instant navigation.
 - **Real-Time Data Updates**: Centralized query key management (`client/src/lib/queryKeys.ts`) ensures consistent cache invalidation across all modules, supporting global and property-specific views.
 - **AI Integration**: Custom OpenAI Assistant (`asst_OATIDMTgutnkdOJpTrQ9Mf7u`) for the Captain Cortex AI bot with real-time database-grounded Q&A. Cache is disabled for live data accuracy.
+- **Build & Deployment**: Custom esbuild script (`scripts/build-server.mjs`) with `packages: 'external'` configuration to properly handle ESM/CommonJS interop for production deployment. Resolves Express and body-parser module loading issues in ESM context.
 
 ### Feature Specifications
 - **Authentication**: Replit Auth with OIDC, persistent sessions, and seven distinct user roles with granular authorization.
