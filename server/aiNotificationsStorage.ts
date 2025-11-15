@@ -27,28 +27,29 @@ export class AiNotificationsStorage {
     priority?: string;
     visibleToRole?: string;
   } = {}): Promise<AiNotification[]> {
-    let query = db
-      .select()
-      .from(aiNotifications)
-      .where(eq(aiNotifications.organizationId, this.organizationId));
+    const conditions = [eq(aiNotifications.organizationId, this.organizationId)];
 
     if (filters.propertyId) {
-      query = query.where(eq(aiNotifications.propertyId, filters.propertyId));
+      conditions.push(eq(aiNotifications.propertyId, filters.propertyId));
     }
 
     if (filters.alertType) {
-      query = query.where(eq(aiNotifications.alertType, filters.alertType));
+      conditions.push(eq(aiNotifications.alertType, filters.alertType));
     }
 
     if (filters.status) {
-      query = query.where(eq(aiNotifications.status, filters.status));
+      conditions.push(eq(aiNotifications.status, filters.status));
     }
 
     if (filters.priority) {
-      query = query.where(eq(aiNotifications.priority, filters.priority));
+      conditions.push(eq(aiNotifications.priority, filters.priority));
     }
 
-    return await query.orderBy(desc(aiNotifications.createdAt));
+    return await db
+      .select()
+      .from(aiNotifications)
+      .where(and(...conditions))
+      .orderBy(desc(aiNotifications.createdAt));
   }
 
   async getAiNotification(id: number): Promise<AiNotification | undefined> {
@@ -109,16 +110,17 @@ export class AiNotificationsStorage {
 
   // AI Reminder Settings CRUD operations
   async getReminderSettings(propertyId?: number): Promise<AiReminderSetting[]> {
-    let query = db
-      .select()
-      .from(aiReminderSettings)
-      .where(eq(aiReminderSettings.organizationId, this.organizationId));
+    const conditions = [eq(aiReminderSettings.organizationId, this.organizationId)];
 
     if (propertyId) {
-      query = query.where(eq(aiReminderSettings.propertyId, propertyId));
+      conditions.push(eq(aiReminderSettings.propertyId, propertyId));
     }
 
-    return await query.orderBy(desc(aiReminderSettings.createdAt));
+    return await db
+      .select()
+      .from(aiReminderSettings)
+      .where(and(...conditions))
+      .orderBy(desc(aiReminderSettings.createdAt));
   }
 
   async createReminderSetting(setting: InsertAiReminderSetting): Promise<AiReminderSetting> {
@@ -154,16 +156,17 @@ export class AiNotificationsStorage {
 
   // AI Notification History operations
   async getNotificationHistory(notificationId?: number): Promise<AiNotificationHistory[]> {
-    let query = db
-      .select()
-      .from(aiNotificationHistory)
-      .where(eq(aiNotificationHistory.organizationId, this.organizationId));
+    const conditions = [eq(aiNotificationHistory.organizationId, this.organizationId)];
 
     if (notificationId) {
-      query = query.where(eq(aiNotificationHistory.notificationId, notificationId));
+      conditions.push(eq(aiNotificationHistory.notificationId, notificationId));
     }
 
-    return await query.orderBy(desc(aiNotificationHistory.createdAt));
+    return await db
+      .select()
+      .from(aiNotificationHistory)
+      .where(and(...conditions))
+      .orderBy(desc(aiNotificationHistory.createdAt));
   }
 
   async createNotificationHistory(history: InsertAiNotificationHistory): Promise<AiNotificationHistory> {
@@ -186,16 +189,16 @@ export class AiNotificationsStorage {
     byType: Array<{ alertType: string; count: number }>;
     byPriority: Array<{ priority: string; count: number }>;
   }> {
-    let baseQuery = db
-      .select()
-      .from(aiNotifications)
-      .where(eq(aiNotifications.organizationId, this.organizationId));
+    const conditions = [eq(aiNotifications.organizationId, this.organizationId)];
 
     if (propertyId) {
-      baseQuery = baseQuery.where(eq(aiNotifications.propertyId, propertyId));
+      conditions.push(eq(aiNotifications.propertyId, propertyId));
     }
 
-    const allNotifications = await baseQuery;
+    const allNotifications = await db
+      .select()
+      .from(aiNotifications)
+      .where(and(...conditions));
 
     const total = allNotifications.length;
     const active = allNotifications.filter(n => n.status === "active").length;
