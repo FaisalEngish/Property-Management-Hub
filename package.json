@@ -4,7 +4,6 @@
   "type": "module",
   "license": "MIT",
   "scripts": {
-    "preinstall": "npm install esbuild",
     "dev": "tsx server/index.ts",
     "build:client": "npm --prefix client install --legacy-peer-deps && npm --prefix client run build",
     "copy-client": "node scripts/copy-client.js",
@@ -130,5 +129,8 @@
   },
   "optionalDependencies": {
     "bufferutil": "^4.0.8"
+  },
+  "engines": {
+    "node": "18.x"
   }
 }
