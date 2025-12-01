@@ -1,0 +1,1079 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HostPilotPro - Property & Hospitality Management Platform</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        'inter': ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        primary: '#2563EB',
+                        secondary: '#475569',
+                        accent: '#059669',
+                        warning: '#D97706',
+                        error: '#DC2626',
+                        surface: '#FFFFFF',
+                    }
+                }
+            }
+        };
+    </script>
+</head>
+<body class="bg-gray-50 font-inter">
+    <!-- Login Screen -->
+    <div id="loginScreen" class="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-xl w-full max-w-md p-8">
+            <div class="text-center mb-8">
+                <div class="bg-primary rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
+                    <i class="fas fa-hotel text-white text-2xl"></i>
+                </div>
+                <h1 class="text-3xl font-bold text-gray-900 mb-2">HostPilotPro</h1>
+                <p class="text-gray-600">Property & Hospitality Management</p>
+            </div>
+            
+            <!-- User Authentication using Replit Auth -->
+            <!-- @COMPONENT: AuthComponent [handles login via Replit Auth] -->
+            <div class="space-y-4">
+                <button onclick="showRoleSelection()" class="w-full bg-primary text-white py-3 px-4 rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center justify-center">
+                    <i class="fas fa-sign-in-alt mr-2"></i>
+                    Sign in with Replit Auth
+                </button>
+                <p class="text-xs text-gray-500 text-center">Secure authentication powered by Replit</p>
+            </div>
+            <!-- @END_COMPONENT: AuthComponent -->
+        </div>
+    </div>
+
+    <!-- Role Selection Modal -->
+    <div id="roleModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-2xl shadow-xl w-full max-w-2xl p-6">
+            <h2 class="text-2xl font-bold text-gray-900 mb-6 text-center">Select Your Role</h2>
+            <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
+                <button onclick="showDashboard('admin')" class="p-4 border-2 border-gray-200 rounded-xl hover:border-primary hover:bg-blue-50 transition-colors text-center">
+                    <i class="fas fa-cog text-primary text-2xl mb-2"></i>
+                    <div class="font-medium">Admin</div>
+                    <div class="text-sm text-gray-500">System Management</div>
+                </button>
+                <button onclick="showDashboard('portfolio')" class="p-4 border-2 border-gray-200 rounded-xl hover:border-primary hover:bg-blue-50 transition-colors text-center">
+                    <i class="fas fa-briefcase text-primary text-2xl mb-2"></i>
+                    <div class="font-medium">Portfolio Manager</div>
+                    <div class="text-sm text-gray-500">Multi-Property</div>
+                </button>
+                <button onclick="showDashboard('owner')" class="p-4 border-2 border-gray-200 rounded-xl hover:border-primary hover:bg-blue-50 transition-colors text-center">
+                    <i class="fas fa-home text-primary text-2xl mb-2"></i>
+                    <div class="font-medium">Owner</div>
+                    <div class="text-sm text-gray-500">Property Owner</div>
+                </button>
+                <button onclick="showDashboard('staff')" class="p-4 border-2 border-gray-200 rounded-xl hover:border-primary hover:bg-blue-50 transition-colors text-center">
+                    <i class="fas fa-users text-primary text-2xl mb-2"></i>
+                    <div class="font-medium">Staff</div>
+                    <div class="text-sm text-gray-500">Cleaning/Maintenance</div>
+                </button>
+                <button onclick="showDashboard('retail')" class="p-4 border-2 border-gray-200 rounded-xl hover:border-primary hover:bg-blue-50 transition-colors text-center">
+                    <i class="fas fa-store text-primary text-2xl mb-2"></i>
+                    <div class="font-medium">Retail Agent</div>
+                    <div class="text-sm text-gray-500">Sales & Booking</div>
+                </button>
+                <button onclick="showDashboard('guest')" class="p-4 border-2 border-gray-200 rounded-xl hover:border-primary hover:bg-blue-50 transition-colors text-center">
+                    <i class="fas fa-user text-primary text-2xl mb-2"></i>
+                    <div class="font-medium">Guest</div>
+                    <div class="text-sm text-gray-500">Guest Portal</div>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Application Dashboard -->
+    <div id="mainApp" class="hidden min-h-screen bg-gray-50">
+        <!-- Top Navigation -->
+        <nav class="bg-white shadow-sm border-b border-gray-200">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex justify-between items-center h-16">
+                    <div class="flex items-center">
+                        <div class="bg-primary rounded-lg w-8 h-8 flex items-center justify-center mr-3">
+                            <i class="fas fa-hotel text-white text-sm"></i>
+                        </div>
+                        <span class="text-xl font-bold text-gray-900">HostPilotPro</span>
+                        <span id="userRole" class="ml-4 px-2 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded-full"></span>
+                    </div>
+                    <div class="flex items-center space-x-4">
+                        <button class="p-2 text-gray-400 hover:text-gray-500">
+                            <i class="fas fa-bell"></i>
+                        </button>
+                        <div class="flex items-center space-x-3">
+                            <img class="h-8 w-8 rounded-full object-cover" src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-4.0.3&auto=format&fit=crop&w=100&h=100" alt="User profile">
+                            <span class="text-sm font-medium text-gray-700" data-bind="user.name">John Smith</span>
+                        </div>
+                        <button onclick="logout()" class="text-sm text-gray-500 hover:text-gray-700">
+                            <i class="fas fa-sign-out-alt"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Mobile Navigation -->
+        <div class="lg:hidden bg-white border-b border-gray-200">
+            <div class="flex overflow-x-auto scrollbar-hide">
+                <button onclick="showModule('dashboard')" class="nav-item flex-shrink-0 px-4 py-3 text-sm font-medium text-gray-600 hover:text-primary border-b-2 border-transparent hover:border-primary">
+                    <i class="fas fa-tachometer-alt mr-2"></i>Dashboard
+                </button>
+                <button onclick="showModule('properties')" class="nav-item flex-shrink-0 px-4 py-3 text-sm font-medium text-gray-600 hover:text-primary border-b-2 border-transparent hover:border-primary">
+                    <i class="fas fa-building mr-2"></i>Properties
+                </button>
+                <button onclick="showModule('tasks')" class="nav-item flex-shrink-0 px-4 py-3 text-sm font-medium text-gray-600 hover:text-primary border-b-2 border-transparent hover:border-primary">
+                    <i class="fas fa-tasks mr-2"></i>Tasks
+                </button>
+                <button onclick="showModule('finances')" class="nav-item flex-shrink-0 px-4 py-3 text-sm font-medium text-gray-600 hover:text-primary border-b-2 border-transparent hover:border-primary">
+                    <i class="fas fa-chart-line mr-2"></i>Finances
+                </button>
+                <button onclick="showModule('guests')" class="nav-item flex-shrink-0 px-4 py-3 text-sm font-medium text-gray-600 hover:text-primary border-b-2 border-transparent hover:border-primary">
+                    <i class="fas fa-users mr-2"></i>Guests
+                </button>
+            </div>
+        </div>
+
+        <div class="flex">
+            <!-- Desktop Sidebar -->
+            <aside class="hidden lg:flex lg:flex-shrink-0">
+                <div class="flex flex-col w-64 bg-white border-r border-gray-200 h-screen">
+                    <nav class="flex-1 pt-6 pb-4 overflow-y-auto">
+                        <div class="px-3">
+                            <div class="space-y-1">
+                                <button onclick="showModule('dashboard')" class="sidebar-item w-full flex items-center px-3 py-2 text-sm font-medium text-gray-600 rounded-md hover:bg-gray-50 hover:text-gray-900 group">
+                                    <i class="fas fa-tachometer-alt text-gray-400 group-hover:text-gray-500 mr-3 text-sm"></i>
+                                    Dashboard
+                                </button>
+                                <button onclick="showModule('properties')" class="sidebar-item w-full flex items-center px-3 py-2 text-sm font-medium text-gray-600 rounded-md hover:bg-gray-50 hover:text-gray-900 group">
+                                    <i class="fas fa-building text-gray-400 group-hover:text-gray-500 mr-3 text-sm"></i>
+                                    Properties
+                                </button>
+                                <button onclick="showModule('tasks')" class="sidebar-item w-full flex items-center px-3 py-2 text-sm font-medium text-gray-600 rounded-md hover:bg-gray-50 hover:text-gray-900 group">
+                                    <i class="fas fa-tasks text-gray-400 group-hover:text-gray-500 mr-3 text-sm"></i>
+                                    Tasks
+                                </button>
+                                <button onclick="showModule('finances')" class="sidebar-item w-full flex items-center px-3 py-2 text-sm font-medium text-gray-600 rounded-md hover:bg-gray-50 hover:text-gray-900 group">
+                                    <i class="fas fa-chart-line text-gray-400 group-hover:text-gray-500 mr-3 text-sm"></i>
+                                    Finances
+                                </button>
+                                <button onclick="showModule('guests')" class="sidebar-item w-full flex items-center px-3 py-2 text-sm font-medium text-gray-600 rounded-md hover:bg-gray-50 hover:text-gray-900 group">
+                                    <i class="fas fa-users text-gray-400 group-hover:text-gray-500 mr-3 text-sm"></i>
+                                    Guests
+                                </button>
+                                <button onclick="showModule('settings')" class="sidebar-item w-full flex items-center px-3 py-2 text-sm font-medium text-gray-600 rounded-md hover:bg-gray-50 hover:text-gray-900 group">
+                                    <i class="fas fa-cog text-gray-400 group-hover:text-gray-500 mr-3 text-sm"></i>
+                                    Settings
+                                </button>
+                            </div>
+                        </div>
+                    </nav>
+                </div>
+            </aside>
+
+            <!-- Main Content Area -->
+            <main class="flex-1 overflow-y-auto">
+                <!-- Dashboard Module -->
+                <div id="dashboardModule" class="module p-4 lg:p-8">
+                    <div class="mb-8">
+                        <h1 class="text-2xl font-bold text-gray-900 mb-2">Dashboard</h1>
+                        <p class="text-gray-600">Welcome back! Here's what's happening with your properties.</p>
+                    </div>
+
+                    <!-- Quick Stats -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                        <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
+                            <div class="flex items-center">
+                                <div class="bg-blue-100 rounded-lg p-3">
+                                    <i class="fas fa-building text-primary text-xl"></i>
+                                </div>
+                                <div class="ml-4">
+                                    <p class="text-sm font-medium text-gray-600">Active Properties</p>
+                                    <p class="text-2xl font-bold text-gray-900" data-bind="stats.properties">12</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
+                            <div class="flex items-center">
+                                <div class="bg-green-100 rounded-lg p-3">
+                                    <i class="fas fa-calendar-check text-accent text-xl"></i>
+                                </div>
+                                <div class="ml-4">
+                                    <p class="text-sm font-medium text-gray-600">Upcoming Bookings</p>
+                                    <p class="text-2xl font-bold text-gray-900" data-bind="stats.bookings">8</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
+                            <div class="flex items-center">
+                                <div class="bg-yellow-100 rounded-lg p-3">
+                                    <i class="fas fa-tasks text-warning text-xl"></i>
+                                </div>
+                                <div class="ml-4">
+                                    <p class="text-sm font-medium text-gray-600">Pending Tasks</p>
+                                    <p class="text-2xl font-bold text-gray-900" data-bind="stats.tasks">15</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
+                            <div class="flex items-center">
+                                <div class="bg-purple-100 rounded-lg p-3">
+                                    <i class="fas fa-dollar-sign text-purple-600 text-xl"></i>
+                                </div>
+                                <div class="ml-4">
+                                    <p class="text-sm font-medium text-gray-600">Monthly Revenue</p>
+                                    <p class="text-2xl font-bold text-gray-900" data-bind="stats.revenue">$24,500</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Recent Activity & Quick Actions -->
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                        <!-- Recent Activity -->
+                        <div class="lg:col-span-2">
+                            <div class="bg-white rounded-xl shadow-sm border border-gray-200">
+                                <div class="px-6 py-4 border-b border-gray-200">
+                                    <h3 class="text-lg font-semibold text-gray-900">Recent Activity</h3>
+                                </div>
+                                <div class="p-6">
+                                    <!-- @MAP: activities.map(activity => ( -->
+                                    <div class="space-y-4">
+                                        <div class="flex items-start space-x-3">
+                                            <div class="bg-green-100 rounded-full p-2">
+                                                <i class="fas fa-check text-accent text-xs"></i>
+                                            </div>
+                                            <div class="flex-1">
+                                                <p class="text-sm font-medium text-gray-900" data-mock="true">Cleaning completed for Ocean View Villa</p>
+                                                <p class="text-xs text-gray-500" data-mock="true">2 hours ago</p>
+                                            </div>
+                                        </div>
+                                        <div class="flex items-start space-x-3">
+                                            <div class="bg-blue-100 rounded-full p-2">
+                                                <i class="fas fa-calendar text-primary text-xs"></i>
+                                            </div>
+                                            <div class="flex-1">
+                                                <p class="text-sm font-medium text-gray-900" data-mock="true">New booking received - Downtown Loft</p>
+                                                <p class="text-xs text-gray-500" data-mock="true">4 hours ago</p>
+                                            </div>
+                                        </div>
+                                        <div class="flex items-start space-x-3">
+                                            <div class="bg-yellow-100 rounded-full p-2">
+                                                <i class="fas fa-exclamation-triangle text-warning text-xs"></i>
+                                            </div>
+                                            <div class="flex-1">
+                                                <p class="text-sm font-medium text-gray-900" data-mock="true">Pool maintenance required - Mountain Retreat</p>
+                                                <p class="text-xs text-gray-500" data-mock="true">6 hours ago</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <!-- @END_MAP )) -->
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Quick Actions -->
+                        <div>
+                            <div class="bg-white rounded-xl shadow-sm border border-gray-200">
+                                <div class="px-6 py-4 border-b border-gray-200">
+                                    <h3 class="text-lg font-semibold text-gray-900">Quick Actions</h3>
+                                </div>
+                                <div class="p-6 space-y-3">
+                                    <button class="w-full text-left p-3 rounded-lg border border-gray-200 hover:border-primary hover:bg-blue-50 transition-colors">
+                                        <div class="flex items-center">
+                                            <i class="fas fa-plus text-primary mr-3"></i>
+                                            <span class="text-sm font-medium text-gray-900">Add New Property</span>
+                                        </div>
+                                    </button>
+                                    <button class="w-full text-left p-3 rounded-lg border border-gray-200 hover:border-primary hover:bg-blue-50 transition-colors">
+                                        <div class="flex items-center">
+                                            <i class="fas fa-clipboard-list text-primary mr-3"></i>
+                                            <span class="text-sm font-medium text-gray-900">Create Task</span>
+                                        </div>
+                                    </button>
+                                    <button class="w-full text-left p-3 rounded-lg border border-gray-200 hover:border-primary hover:bg-blue-50 transition-colors">
+                                        <div class="flex items-center">
+                                            <i class="fas fa-sync text-primary mr-3"></i>
+                                            <span class="text-sm font-medium text-gray-900">Sync with Hostaway</span>
+                                        </div>
+                                    </button>
+                                    <button class="w-full text-left p-3 rounded-lg border border-gray-200 hover:border-primary hover:bg-blue-50 transition-colors">
+                                        <div class="flex items-center">
+                                            <i class="fas fa-chart-bar text-primary mr-3"></i>
+                                            <span class="text-sm font-medium text-gray-900">View Reports</span>
+                                        </div>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Properties Module -->
+                <div id="propertiesModule" class="module hidden p-4 lg:p-8">
+                    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-8">
+                        <div>
+                            <h1 class="text-2xl font-bold text-gray-900 mb-2">Properties</h1>
+                            <p class="text-gray-600">Manage your property portfolio and settings.</p>
+                        </div>
+                        <button class="mt-4 sm:mt-0 bg-primary text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors">
+                            <i class="fas fa-plus mr-2"></i>Add Property
+                        </button>
+                    </div>
+
+                    <!-- Property Filters -->
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-8">
+                        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Property Type</label>
+                                <select class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                                    <option>All Types</option>
+                                    <option>Apartment</option>
+                                    <option>Villa</option>
+                                    <option>Condo</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Status</label>
+                                <select class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                                    <option>All Status</option>
+                                    <option>Active</option>
+                                    <option>Maintenance</option>
+                                    <option>Inactive</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Location</label>
+                                <select class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                                    <option>All Locations</option>
+                                    <option>Downtown</option>
+                                    <option>Beachfront</option>
+                                    <option>Mountain</option>
+                                </select>
+                            </div>
+                            <div class="flex items-end">
+                                <button class="w-full bg-gray-100 text-gray-700 px-4 py-2 rounded-lg font-medium hover:bg-gray-200 transition-colors">
+                                    <i class="fas fa-filter mr-2"></i>Apply Filters
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Properties Grid -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        <!-- @MAP: properties.map(property => ( -->
+                        <!-- Ocean View Villa property card -->
+                        <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                            <!-- Luxury beachfront villa with infinity pool overlooking the ocean -->
+                            <img src="https://images.unsplash.com/photo-1613490493576-7fde63acd811?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&h=600" alt="Ocean View Villa" class="w-full h-48 object-cover">
+                            <div class="p-6">
+                                <div class="flex items-center justify-between mb-3">
+                                    <h3 class="text-lg font-semibold text-gray-900" data-mock="true">Ocean View Villa</h3>
+                                    <span class="px-2 py-1 bg-green-100 text-green-800 text-xs font-medium rounded-full" data-mock="true">Active</span>
+                                </div>
+                                <p class="text-sm text-gray-600 mb-4" data-mock="true">4 bed • 3 bath • Beachfront</p>
+                                <div class="grid grid-cols-2 gap-4 text-sm">
+                                    <div>
+                                        <span class="text-gray-500">Monthly Revenue</span>
+                                        <p class="font-semibold text-gray-900" data-mock="true">$8,500</p>
+                                    </div>
+                                    <div>
+                                        <span class="text-gray-500">Occupancy</span>
+                                        <p class="font-semibold text-gray-900" data-mock="true">85%</p>
+                                    </div>
+                                </div>
+                                <div class="mt-4 flex space-x-2">
+                                    <button class="flex-1 bg-primary text-white px-3 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors">
+                                        View Details
+                                    </button>
+                                    <button class="px-3 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">
+                                        <i class="fas fa-cog"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Downtown Loft property card -->
+                        <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                            <!-- Modern urban loft apartment with exposed brick walls and large windows -->
+                            <img src="https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&h=600" alt="Downtown Loft" class="w-full h-48 object-cover">
+                            <div class="p-6">
+                                <div class="flex items-center justify-between mb-3">
+                                    <h3 class="text-lg font-semibold text-gray-900" data-mock="true">Downtown Loft</h3>
+                                    <span class="px-2 py-1 bg-green-100 text-green-800 text-xs font-medium rounded-full" data-mock="true">Active</span>
+                                </div>
+                                <p class="text-sm text-gray-600 mb-4" data-mock="true">2 bed • 2 bath • City Center</p>
+                                <div class="grid grid-cols-2 gap-4 text-sm">
+                                    <div>
+                                        <span class="text-gray-500">Monthly Revenue</span>
+                                        <p class="font-semibold text-gray-900" data-mock="true">$6,200</p>
+                                    </div>
+                                    <div>
+                                        <span class="text-gray-500">Occupancy</span>
+                                        <p class="font-semibold text-gray-900" data-mock="true">92%</p>
+                                    </div>
+                                </div>
+                                <div class="mt-4 flex space-x-2">
+                                    <button class="flex-1 bg-primary text-white px-3 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors">
+                                        View Details
+                                    </button>
+                                    <button class="px-3 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">
+                                        <i class="fas fa-cog"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Mountain Retreat property card -->
+                        <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                            <!-- Rustic mountain cabin surrounded by pine trees with mountain views -->
+                            <img src="https://images.unsplash.com/photo-1449824913935-59a10b8d2000?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&h=600" alt="Mountain Retreat" class="w-full h-48 object-cover">
+                            <div class="p-6">
+                                <div class="flex items-center justify-between mb-3">
+                                    <h3 class="text-lg font-semibold text-gray-900" data-mock="true">Mountain Retreat</h3>
+                                    <span class="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs font-medium rounded-full" data-mock="true">Maintenance</span>
+                                </div>
+                                <p class="text-sm text-gray-600 mb-4" data-mock="true">3 bed • 2 bath • Mountain View</p>
+                                <div class="grid grid-cols-2 gap-4 text-sm">
+                                    <div>
+                                        <span class="text-gray-500">Monthly Revenue</span>
+                                        <p class="font-semibold text-gray-900" data-mock="true">$4,800</p>
+                                    </div>
+                                    <div>
+                                        <span class="text-gray-500">Occupancy</span>
+                                        <p class="font-semibold text-gray-900" data-mock="true">78%</p>
+                                    </div>
+                                </div>
+                                <div class="mt-4 flex space-x-2">
+                                    <button class="flex-1 bg-primary text-white px-3 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors">
+                                        View Details
+                                    </button>
+                                    <button class="px-3 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">
+                                        <i class="fas fa-cog"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- @END_MAP )) -->
+                    </div>
+                </div>
+
+                <!-- Tasks Module -->
+                <div id="tasksModule" class="module hidden p-4 lg:p-8">
+                    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-8">
+                        <div>
+                            <h1 class="text-2xl font-bold text-gray-900 mb-2">Task Management</h1>
+                            <p class="text-gray-600">Manage cleaning, maintenance, and service tasks.</p>
+                        </div>
+                        <button class="mt-4 sm:mt-0 bg-primary text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors">
+                            <i class="fas fa-plus mr-2"></i>Create Task
+                        </button>
+                    </div>
+
+                    <!-- Task Filters -->
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-8">
+                        <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Task Type</label>
+                                <select class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                                    <option>All Types</option>
+                                    <option>Cleaning</option>
+                                    <option>Maintenance</option>
+                                    <option>Pool Service</option>
+                                    <option>Garden</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Status</label>
+                                <select class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                                    <option>All Status</option>
+                                    <option>Pending</option>
+                                    <option>In Progress</option>
+                                    <option>Completed</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Property</label>
+                                <select class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                                    <option>All Properties</option>
+                                    <option>Ocean View Villa</option>
+                                    <option>Downtown Loft</option>
+                                    <option>Mountain Retreat</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Assignee</label>
+                                <select class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                                    <option>All Staff</option>
+                                    <option>Maria Cleaning</option>
+                                    <option>Pool Service Co</option>
+                                    <option>Garden Crew</option>
+                                </select>
+                            </div>
+                            <div class="flex items-end">
+                                <button class="w-full bg-gray-100 text-gray-700 px-4 py-2 rounded-lg font-medium hover:bg-gray-200 transition-colors">
+                                    <i class="fas fa-filter mr-2"></i>Filter
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Task List -->
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-200">
+                        <div class="px-6 py-4 border-b border-gray-200">
+                            <h3 class="text-lg font-semibold text-gray-900">Tasks</h3>
+                        </div>
+                        <div class="divide-y divide-gray-200">
+                            <!-- @MAP: tasks.map(task => ( -->
+                            <div class="p-6 hover:bg-gray-50 transition-colors">
+                                <div class="flex items-start justify-between">
+                                    <div class="flex-1">
+                                        <div class="flex items-center space-x-3 mb-2">
+                                            <span class="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs font-medium rounded-full" data-mock="true">Pending</span>
+                                            <span class="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded-full" data-mock="true">Cleaning</span>
+                                        </div>
+                                        <h4 class="text-lg font-medium text-gray-900 mb-1" data-mock="true">Deep Clean - Ocean View Villa</h4>
+                                        <p class="text-sm text-gray-600 mb-3" data-mock="true">Complete deep cleaning including all rooms, bathrooms, kitchen, and pool area.</p>
+                                        <div class="flex items-center space-x-4 text-sm text-gray-500">
+                                            <span><i class="fas fa-calendar mr-1"></i>Due: Tomorrow</span>
+                                            <span><i class="fas fa-user mr-1"></i>Maria Cleaning</span>
+                                            <span><i class="fas fa-dollar-sign mr-1"></i>$150</span>
+                                        </div>
+                                    </div>
+                                    <div class="flex space-x-2 ml-4">
+                                        <button class="px-3 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors">
+                                            Start Task
+                                        </button>
+                                        <button class="px-3 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="p-6 hover:bg-gray-50 transition-colors">
+                                <div class="flex items-start justify-between">
+                                    <div class="flex-1">
+                                        <div class="flex items-center space-x-3 mb-2">
+                                            <span class="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded-full" data-mock="true">In Progress</span>
+                                            <span class="px-2 py-1 bg-green-100 text-green-800 text-xs font-medium rounded-full" data-mock="true">Pool Service</span>
+                                        </div>
+                                        <h4 class="text-lg font-medium text-gray-900 mb-1" data-mock="true">Weekly Pool Maintenance</h4>
+                                        <p class="text-sm text-gray-600 mb-3" data-mock="true">Regular pool cleaning, chemical balancing, and equipment check.</p>
+                                        <div class="flex items-center space-x-4 text-sm text-gray-500">
+                                            <span><i class="fas fa-calendar mr-1"></i>Due: Today</span>
+                                            <span><i class="fas fa-user mr-1"></i>Pool Service Co</span>
+                                            <span><i class="fas fa-dollar-sign mr-1"></i>$85</span>
+                                        </div>
+                                    </div>
+                                    <div class="flex space-x-2 ml-4">
+                                        <button class="px-3 py-2 bg-accent text-white rounded-lg text-sm font-medium hover:bg-green-700 transition-colors">
+                                            Complete
+                                        </button>
+                                        <button class="px-3 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="p-6 hover:bg-gray-50 transition-colors">
+                                <div class="flex items-start justify-between">
+                                    <div class="flex-1">
+                                        <div class="flex items-center space-x-3 mb-2">
+                                            <span class="px-2 py-1 bg-green-100 text-green-800 text-xs font-medium rounded-full" data-mock="true">Completed</span>
+                                            <span class="px-2 py-1 bg-purple-100 text-purple-800 text-xs font-medium rounded-full" data-mock="true">Maintenance</span>
+                                        </div>
+                                        <h4 class="text-lg font-medium text-gray-900 mb-1" data-mock="true">HVAC Filter Replacement</h4>
+                                        <p class="text-sm text-gray-600 mb-3" data-mock="true">Replace air conditioning filters in all units - Downtown Loft.</p>
+                                        <div class="flex items-center space-x-4 text-sm text-gray-500">
+                                            <span><i class="fas fa-calendar mr-1"></i>Completed: Yesterday</span>
+                                            <span><i class="fas fa-user mr-1"></i>Maintenance Team</span>
+                                            <span><i class="fas fa-dollar-sign mr-1"></i>$45</span>
+                                        </div>
+                                    </div>
+                                    <div class="flex space-x-2 ml-4">
+                                        <button class="px-3 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">
+                                            View Report
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- @END_MAP )) -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Finances Module -->
+                <div id="financesModule" class="module hidden p-4 lg:p-8">
+                    <div class="mb-8">
+                        <h1 class="text-2xl font-bold text-gray-900 mb-2">Financial Management</h1>
+                        <p class="text-gray-600">Track revenue, commissions, and expenses across your portfolio.</p>
+                    </div>
+
+                    <!-- Financial Overview -->
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                        <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
+                            <div class="flex items-center justify-between mb-4">
+                                <h3 class="text-lg font-semibold text-gray-900">Total Revenue</h3>
+                                <i class="fas fa-chart-line text-accent text-xl"></i>
+                            </div>
+                            <div class="space-y-2">
+                                <p class="text-3xl font-bold text-gray-900" data-bind="finances.totalRevenue">$24,500</p>
+                                <p class="text-sm text-green-600"><i class="fas fa-arrow-up mr-1"></i>+12% from last month</p>
+                            </div>
+                        </div>
+                        <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
+                            <div class="flex items-center justify-between mb-4">
+                                <h3 class="text-lg font-semibold text-gray-900">Net Profit</h3>
+                                <i class="fas fa-dollar-sign text-primary text-xl"></i>
+                            </div>
+                            <div class="space-y-2">
+                                <p class="text-3xl font-bold text-gray-900" data-bind="finances.netProfit">$18,750</p>
+                                <p class="text-sm text-green-600"><i class="fas fa-arrow-up mr-1"></i>+8% from last month</p>
+                            </div>
+                        </div>
+                        <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
+                            <div class="flex items-center justify-between mb-4">
+                                <h3 class="text-lg font-semibold text-gray-900">Expenses</h3>
+                                <i class="fas fa-receipt text-warning text-xl"></i>
+                            </div>
+                            <div class="space-y-2">
+                                <p class="text-3xl font-bold text-gray-900" data-bind="finances.expenses">$5,750</p>
+                                <p class="text-sm text-red-600"><i class="fas fa-arrow-up mr-1"></i>+3% from last month</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Financial Breakdown -->
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                        <!-- Revenue by Property -->
+                        <div class="bg-white rounded-xl shadow-sm border border-gray-200">
+                            <div class="px-6 py-4 border-b border-gray-200">
+                                <h3 class="text-lg font-semibold text-gray-900">Revenue by Property</h3>
+                            </div>
+                            <div class="p-6">
+                                <div class="space-y-4">
+                                    <!-- @MAP: propertyRevenue.map(property => ( -->
+                                    <div class="flex items-center justify-between">
+                                        <div class="flex-1">
+                                            <p class="font-medium text-gray-900" data-mock="true">Ocean View Villa</p>
+                                            <div class="w-full bg-gray-200 rounded-full h-2 mt-1">
+                                                <div class="bg-primary h-2 rounded-full" style="width: 85%"></div>
+                                            </div>
+                                        </div>
+                                        <span class="ml-4 font-semibold text-gray-900" data-mock="true">$8,500</span>
+                                    </div>
+                                    <div class="flex items-center justify-between">
+                                        <div class="flex-1">
+                                            <p class="font-medium text-gray-900" data-mock="true">Downtown Loft</p>
+                                            <div class="w-full bg-gray-200 rounded-full h-2 mt-1">
+                                                <div class="bg-primary h-2 rounded-full" style="width: 62%"></div>
+                                            </div>
+                                        </div>
+                                        <span class="ml-4 font-semibold text-gray-900" data-mock="true">$6,200</span>
+                                    </div>
+                                    <div class="flex items-center justify-between">
+                                        <div class="flex-1">
+                                            <p class="font-medium text-gray-900" data-mock="true">Mountain Retreat</p>
+                                            <div class="w-full bg-gray-200 rounded-full h-2 mt-1">
+                                                <div class="bg-primary h-2 rounded-full" style="width: 48%"></div>
+                                            </div>
+                                        </div>
+                                        <span class="ml-4 font-semibold text-gray-900" data-mock="true">$4,800</span>
+                                    </div>
+                                    <!-- @END_MAP )) -->
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Expense Categories -->
+                        <div class="bg-white rounded-xl shadow-sm border border-gray-200">
+                            <div class="px-6 py-4 border-b border-gray-200">
+                                <h3 class="text-lg font-semibold text-gray-900">Expense Breakdown</h3>
+                            </div>
+                            <div class="p-6">
+                                <div class="space-y-4">
+                                    <!-- @MAP: expenseCategories.map(category => ( -->
+                                    <div class="flex items-center justify-between">
+                                        <div class="flex items-center">
+                                            <div class="w-3 h-3 bg-blue-500 rounded-full mr-3"></div>
+                                            <span class="text-gray-700" data-mock="true">Cleaning Services</span>
+                                        </div>
+                                        <span class="font-semibold text-gray-900" data-mock="true">$2,100</span>
+                                    </div>
+                                    <div class="flex items-center justify-between">
+                                        <div class="flex items-center">
+                                            <div class="w-3 h-3 bg-green-500 rounded-full mr-3"></div>
+                                            <span class="text-gray-700" data-mock="true">Maintenance</span>
+                                        </div>
+                                        <span class="font-semibold text-gray-900" data-mock="true">$1,800</span>
+                                    </div>
+                                    <div class="flex items-center justify-between">
+                                        <div class="flex items-center">
+                                            <div class="w-3 h-3 bg-yellow-500 rounded-full mr-3"></div>
+                                            <span class="text-gray-700" data-mock="true">Utilities</span>
+                                        </div>
+                                        <span class="font-semibold text-gray-900" data-mock="true">$950</span>
+                                    </div>
+                                    <div class="flex items-center justify-between">
+                                        <div class="flex items-center">
+                                            <div class="w-3 h-3 bg-purple-500 rounded-full mr-3"></div>
+                                            <span class="text-gray-700" data-mock="true">Commissions</span>
+                                        </div>
+                                        <span class="font-semibold text-gray-900" data-mock="true">$900</span>
+                                    </div>
+                                    <!-- @END_MAP )) -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Recent Transactions -->
+                    <div class="mt-8 bg-white rounded-xl shadow-sm border border-gray-200">
+                        <div class="px-6 py-4 border-b border-gray-200">
+                            <h3 class="text-lg font-semibold text-gray-900">Recent Transactions</h3>
+                        </div>
+                        <div class="divide-y divide-gray-200">
+                            <!-- @MAP: transactions.map(transaction => ( -->
+                            <div class="p-6 flex items-center justify-between">
+                                <div class="flex items-center">
+                                    <div class="bg-green-100 rounded-full p-2 mr-4">
+                                        <i class="fas fa-arrow-down text-accent text-sm"></i>
+                                    </div>
+                                    <div>
+                                        <p class="font-medium text-gray-900" data-mock="true">Booking Payment - Ocean View Villa</p>
+                                        <p class="text-sm text-gray-500" data-mock="true">Dec 15, 2023 • Hostaway Integration</p>
+                                    </div>
+                                </div>
+                                <span class="font-semibold text-green-600" data-mock="true">+$3,200</span>
+                            </div>
+                            <div class="p-6 flex items-center justify-between">
+                                <div class="flex items-center">
+                                    <div class="bg-red-100 rounded-full p-2 mr-4">
+                                        <i class="fas fa-arrow-up text-red-600 text-sm"></i>
+                                    </div>
+                                    <div>
+                                        <p class="font-medium text-gray-900" data-mock="true">Cleaning Service Payment</p>
+                                        <p class="text-sm text-gray-500" data-mock="true">Dec 14, 2023 • Maria Cleaning</p>
+                                    </div>
+                                </div>
+                                <span class="font-semibold text-red-600" data-mock="true">-$150</span>
+                            </div>
+                            <!-- @END_MAP )) -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Guests Module -->
+                <div id="guestsModule" class="module hidden p-4 lg:p-8">
+                    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-8">
+                        <div>
+                            <h1 class="text-2xl font-bold text-gray-900 mb-2">Guest Management</h1>
+                            <p class="text-gray-600">Manage guest information, bookings, and communications.</p>
+                        </div>
+                        <button class="mt-4 sm:mt-0 bg-primary text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors">
+                            <i class="fas fa-sync mr-2"></i>Sync with Hostaway
+                        </button>
+                    </div>
+
+                    <!-- Guest Stats -->
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                        <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
+                            <div class="flex items-center">
+                                <div class="bg-blue-100 rounded-lg p-3">
+                                    <i class="fas fa-users text-primary text-xl"></i>
+                                </div>
+                                <div class="ml-4">
+                                    <p class="text-sm font-medium text-gray-600">Total Guests</p>
+                                    <p class="text-2xl font-bold text-gray-900" data-bind="guests.total">156</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
+                            <div class="flex items-center">
+                                <div class="bg-green-100 rounded-lg p-3">
+                                    <i class="fas fa-calendar-check text-accent text-xl"></i>
+                                </div>
+                                <div class="ml-4">
+                                    <p class="text-sm font-medium text-gray-600">Check-ins Today</p>
+                                    <p class="text-2xl font-bold text-gray-900" data-bind="guests.checkins">3</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
+                            <div class="flex items-center">
+                                <div class="bg-yellow-100 rounded-lg p-3">
+                                    <i class="fas fa-calendar-times text-warning text-xl"></i>
+                                </div>
+                                <div class="ml-4">
+                                    <p class="text-sm font-medium text-gray-600">Check-outs Today</p>
+                                    <p class="text-2xl font-bold text-gray-900" data-bind="guests.checkouts">2</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
+                            <div class="flex items-center">
+                                <div class="bg-purple-100 rounded-lg p-3">
+                                    <i class="fas fa-star text-purple-600 text-xl"></i>
+                                </div>
+                                <div class="ml-4">
+                                    <p class="text-sm font-medium text-gray-600">Avg Rating</p>
+                                    <p class="text-2xl font-bold text-gray-900" data-bind="guests.rating">4.8</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Current Guests -->
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-200 mb-8">
+                        <div class="px-6 py-4 border-b border-gray-200">
+                            <h3 class="text-lg font-semibold text-gray-900">Current Guests</h3>
+                        </div>
+                        <div class="divide-y divide-gray-200">
+                            <!-- @MAP: currentGuests.map(guest => ( -->
+                            <div class="p-6">
+                                <div class="flex items-start justify-between">
+                                    <div class="flex items-start space-x-4">
+                                        <!-- Professional headshot of a businessman in a suit -->
+                                        <img src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?ixlib=rb-4.0.3&auto=format&fit=crop&w=100&h=100" alt="Guest Profile" class="w-12 h-12 rounded-full object-cover">
+                                        <div>
+                                            <h4 class="text-lg font-medium text-gray-900" data-mock="true">James Wilson</h4>
+                                            <p class="text-sm text-gray-600" data-mock="true">Ocean View Villa • Room 201</p>
+                                            <div class="flex items-center space-x-4 mt-2 text-sm text-gray-500">
+                                                <span><i class="fas fa-calendar mr-1"></i>Dec 12-16, 2023</span>
+                                                <span><i class="fas fa-user mr-1"></i>2 guests</span>
+                                                <span><i class="fas fa-phone mr-1"></i>+1-555-0123</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="flex space-x-2">
+                                        <button class="px-3 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors">
+                                            Message
+                                        </button>
+                                        <button class="px-3 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">
+                                            View Profile
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="p-6">
+                                <div class="flex items-start justify-between">
+                                    <div class="flex items-start space-x-4">
+                                        <!-- Professional headshot of a businesswoman smiling -->
+                                        <img src="https://pixabay.com/get/gdec3dcf68d6e16f3dc13944157f2ec84e8410a4cc99317abff6d34cdd5b8c67834f299fe00c0219b14377d8dcbc355832a4622d54305be860431cd8069842508_1280.jpg" alt="Guest Profile" class="w-12 h-12 rounded-full object-cover">
+                                        <div>
+                                            <h4 class="text-lg font-medium text-gray-900" data-mock="true">Sarah Johnson</h4>
+                                            <p class="text-sm text-gray-600" data-mock="true">Downtown Loft • Suite 5B</p>
+                                            <div class="flex items-center space-x-4 mt-2 text-sm text-gray-500">
+                                                <span><i class="fas fa-calendar mr-1"></i>Dec 10-20, 2023</span>
+                                                <span><i class="fas fa-user mr-1"></i>1 guest</span>
+                                                <span><i class="fas fa-phone mr-1"></i>+1-555-0456</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="flex space-x-2">
+                                        <button class="px-3 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors">
+                                            Message
+                                        </button>
+                                        <button class="px-3 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">
+                                            View Profile
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- @END_MAP )) -->
+                        </div>
+                    </div>
+
+                    <!-- Upcoming Arrivals -->
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-200">
+                        <div class="px-6 py-4 border-b border-gray-200">
+                            <h3 class="text-lg font-semibold text-gray-900">Upcoming Arrivals</h3>
+                        </div>
+                        <div class="divide-y divide-gray-200">
+                            <!-- @MAP: upcomingArrivals.map(arrival => ( -->
+                            <div class="p-6">
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <h4 class="text-lg font-medium text-gray-900" data-mock="true">Michael Chen</h4>
+                                        <p class="text-sm text-gray-600" data-mock="true">Mountain Retreat • Cabin A</p>
+                                        <div class="flex items-center space-x-4 mt-2 text-sm text-gray-500">
+                                            <span><i class="fas fa-calendar mr-1"></i>Dec 18-22, 2023</span>
+                                            <span><i class="fas fa-user mr-1"></i>4 guests</span>
+                                        </div>
+                                    </div>
+                                    <div class="text-right">
+                                        <span class="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded-full">Arriving in 2 days</span>
+                                        <p class="text-sm text-gray-500 mt-2">Pre-arrival email sent</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- @END_MAP )) -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Settings Module -->
+                <div id="settingsModule" class="module hidden p-4 lg:p-8">
+                    <div class="mb-8">
+                        <h1 class="text-2xl font-bold text-gray-900 mb-2">Settings</h1>
+                        <p class="text-gray-600">Configure your account, integrations, and system preferences.</p>
+                    </div>
+
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                        <!-- Settings Navigation -->
+                        <div class="lg:col-span-1">
+                            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                                <nav class="space-y-2">
+                                    <button class="w-full text-left px-3 py-2 text-sm font-medium text-primary bg-blue-50 rounded-lg">
+                                        Account Settings
+                                    </button>
+                                    <button class="w-full text-left px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 rounded-lg">
+                                        Integrations
+                                    </button>
+                                    <button class="w-full text-left px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 rounded-lg">
+                                        Notifications
+                                    </button>
+                                    <button class="w-full text-left px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 rounded-lg">
+                                        Team Management
+                                    </button>
+                                    <button class="w-full text-left px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 rounded-lg">
+                                        Billing
+                                    </button>
+                                </nav>
+                            </div>
+                        </div>
+
+                        <!-- Settings Content -->
+                        <div class="lg:col-span-2">
+                            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                                <h3 class="text-lg font-semibold text-gray-900 mb-6">Account Settings</h3>
+                                
+                                <div class="space-y-6">
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700 mb-2">First Name</label>
+                                            <input type="text" value="John" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700 mb-2">Last Name</label>
+                                            <input type="text" value="Smith" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                                        </div>
+                                    </div>
+                                    
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">Email Address</label>
+                                        <input type="email" value="john.smith@example.com" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                                    </div>
+                                    
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">Phone Number</label>
+                                        <input type="tel" value="+1-555-0123" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                                    </div>
+                                    
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">Role</label>
+                                        <select class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                                            <option>Admin</option>
+                                            <option>Portfolio Manager</option>
+                                            <option>Owner</option>
+                                        </select>
+                                    </div>
+                                    
+                                    <div class="pt-4">
+                                        <button class="bg-primary text-white px-6 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors">
+                                            Save Changes
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <script>
+        (function() {
+            // TODO: Implement authentication with Replit Auth
+            // TODO: Implement role-based access control
+            // TODO: Implement Hostaway API integration
+            // TODO: Implement real-time task updates
+            // TODO: Implement financial calculations and reporting
+            
+            function showRoleSelection() {
+                document.getElementById('loginScreen').classList.add('hidden');
+                document.getElementById('roleModal').classList.remove('hidden');
+            }
+
+            function showDashboard(role) {
+                document.getElementById('roleModal').classList.add('hidden');
+                document.getElementById('mainApp').classList.remove('hidden');
+                document.getElementById('userRole').textContent = role.charAt(0).toUpperCase() + role.slice(1);
+                
+                // Set active module
+                showModule('dashboard');
+                
+                // TODO: Load role-specific data and permissions
+            }
+
+            function showModule(moduleName) {
+                // Hide all modules
+                const modules = document.querySelectorAll('.module');
+                modules.forEach(module => module.classList.add('hidden'));
+                
+                // Show selected module
+                document.getElementById(moduleName + 'Module').classList.remove('hidden');
+                
+                // Update navigation states
+                updateNavigation(moduleName);
+            }
+
+            function updateNavigation(activeModule) {
+                // Desktop sidebar
+                const sidebarItems = document.querySelectorAll('.sidebar-item');
+                sidebarItems.forEach(item => {
+                    item.classList.remove('bg-blue-50', 'text-primary');
+                    item.classList.add('text-gray-600');
+                });
+                
+                // Mobile navigation
+                const navItems = document.querySelectorAll('.nav-item');
+                navItems.forEach(item => {
+                    item.classList.remove('text-primary', 'border-primary');
+                    item.classList.add('text-gray-600', 'border-transparent');
+                });
+                
+                // Set active state (simplified for demo)
+                // TODO: Implement proper navigation state management
+            }
+
+            function logout() {
+                document.getElementById('mainApp').classList.add('hidden');
+                document.getElementById('loginScreen').classList.remove('hidden');
+                // TODO: Clear authentication state
+            }
+
+            // Make functions globally available
+            window.showRoleSelection = showRoleSelection;
+            window.showDashboard = showDashboard;
+            window.showModule = showModule;
+            window.logout = logout;
+
+            // Initialize app
+            // TODO: Check for existing authentication state
+            // TODO: Auto-redirect authenticated users to dashboard
+        })();
+    </script>
+</body>
+</html>

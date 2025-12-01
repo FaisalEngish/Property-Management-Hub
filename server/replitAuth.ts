@@ -8,6 +8,19 @@ import memoize from "memoizee";
 import connectPg from "connect-pg-simple";
 import { storage } from "./storage";
 
+// === Local dev bypass for Replit auth ===
+// Put this near the top (after imports)
+const SKIP_REPLIT_AUTH =
+  process.env.SKIP_REPLIT_AUTH === "true" ||
+  process.env.NODE_ENV === "development" ||
+  !process.env.REPL_ID; // skip if there's no REPL_ID (downloaded copy)
+
+if (SKIP_REPLIT_AUTH) {
+  console.warn(
+    "⚠️  SKIP_REPLIT_AUTH enabled — Replit OIDC auth will be bypassed for local development."
+  );
+}
+
 // Only require REPLIT_DOMAINS when running on Replit (detected by REPL_ID)
 // For external deployments (Render, Railway, etc.), this auth module won't be used
 if (process.env.REPL_ID && !process.env.REPLIT_DOMAINS) {
@@ -16,7 +29,9 @@ if (process.env.REPL_ID && !process.env.REPLIT_DOMAINS) {
 
 // If not on Replit, log warning but allow module to load
 if (!process.env.REPLIT_DOMAINS) {
-  console.warn("⚠️ REPLIT_DOMAINS not set - Replit Auth will not be available. Use alternative authentication.");
+  console.warn(
+    "⚠️ REPLIT_DOMAINS not set - Replit Auth will not be available. Use alternative authentication."
+  );
 }
 
 const getOidcConfig = memoize(
@@ -61,10 +76,7 @@ function updateUserSession(
   user.expires_at = user.claims?.exp;
 }
 
-async function upsertUser(
-  claims: any,
-  organizationId: string = "default-org"
-) {
+async function upsertUser(claims: any, organizationId: string = "default-org") {
   await storage.upsertUser({
     id: claims["sub"],
     email: claims["email"],
@@ -76,6 +88,14 @@ async function upsertUser(
 }
 
 export async function setupAuth(app: Express) {
+  // Local-dev short-circuit
+  if (SKIP_REPLIT_AUTH) {
+    // Do not register passport/session/auth routes locally.
+    // If you need sessions locally, you can optionally enable them here.
+    console.warn("Skipping Replit auth setup (local dev).");
+    return;
+  }
+
   app.set("trust proxy", 1);
   app.use(getSession());
   app.use(passport.initialize());
@@ -93,8 +113,7 @@ export async function setupAuth(app: Express) {
     verified(null, user);
   };
 
-  for (const domain of process.env
-    .REPLIT_DOMAINS!.split(",")) {
+  for (const domain of process.env.REPLIT_DOMAINS!.split(",")) {
     const strategy = new Strategy(
       {
         name: `replitauth:${domain}`,
@@ -102,7 +121,7 @@ export async function setupAuth(app: Express) {
         scope: "openid email profile offline_access",
         callbackURL: `https://${domain}/api/callback`,
       },
-      verify,
+      verify
     );
     passport.use(strategy);
   }
@@ -137,6 +156,18 @@ export async function setupAuth(app: Express) {
 }
 
 export const isAuthenticated: RequestHandler = async (req, res, next) => {
+  // If running locally and auth is skipped, allow all requests through.
+  if (SKIP_REPLIT_AUTH) {
+    // Optionally inject a dev user
+    (req as any).user = (req as any).user || {
+      id: "dev-user",
+      email: "dev@example.com",
+      name: "Local Dev",
+      expires_at: Number.MAX_SAFE_INTEGER,
+    };
+    return next();
+  }
+
   const user = req.user as any;
 
   if (!req.isAuthenticated() || !user.expires_at) {

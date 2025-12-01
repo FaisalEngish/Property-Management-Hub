@@ -1,0 +1,1320 @@
+﻿
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My projects\Property-management-hub\client
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----         11/9/2025   1:11 AM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My 
+    projects\Property-management-hub\hostpilotpro-github\client
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----         11/9/2025   1:11 AM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My 
+    projects\Property-management-hub\node_modules\@babel\core
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My 
+    projects\Property-management-hub\node_modules\@hookform\resolvers\ajv
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My 
+    projects\Property-management-hub\node_modules\@hookform\resolvers\arktype
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My 
+    projects\Property-management-hub\node_modules\@hookform\resolvers\class-validator
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My 
+    projects\Property-management-hub\node_modules\@hookform\resolvers\computed-types
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My 
+    projects\Property-management-hub\node_modules\@hookform\resolvers\effect-ts
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My 
+    projects\Property-management-hub\node_modules\@hookform\resolvers\fluentvalidation-ts
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My 
+    projects\Property-management-hub\node_modules\@hookform\resolvers\io-ts
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My 
+    projects\Property-management-hub\node_modules\@hookform\resolvers\joi
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My 
+    projects\Property-management-hub\node_modules\@hookform\resolvers\nope
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My 
+    projects\Property-management-hub\node_modules\@hookform\resolvers\superstruct
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My 
+    projects\Property-management-hub\node_modules\@hookform\resolvers\typanion
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My 
+    projects\Property-management-hub\node_modules\@hookform\resolvers\typebox
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My 
+    projects\Property-management-hub\node_modules\@hookform\resolvers\typeschema
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My 
+    projects\Property-management-hub\node_modules\@hookform\resolvers\valibot
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My 
+    projects\Property-management-hub\node_modules\@hookform\resolvers\vest
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My 
+    projects\Property-management-hub\node_modules\@hookform\resolvers\vine
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My 
+    projects\Property-management-hub\node_modules\@hookform\resolvers\yup
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My 
+    projects\Property-management-hub\node_modules\@hookform\resolvers\zod
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My 
+    projects\Property-management-hub\node_modules\@jridgewell\gen-mapping
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My 
+    projects\Property-management-hub\node_modules\@jridgewell\sourcemap-codec
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My 
+    projects\Property-management-hub\node_modules\@jridgewell\trace-mapping
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My 
+    projects\Property-management-hub\node_modules\@opentelemetry\api\build
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My 
+    projects\Property-management-hub\node_modules\@opentelemetry\api-logs\build
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My 
+    projects\Property-management-hub\node_modules\@opentelemetry\context-async-hooks\build
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My 
+    projects\Property-management-hub\node_modules\@opentelemetry\core\build
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My projects\Property-management-hub\node_modules\@opentel
+    emetry\core\node_modules\@opentelemetry\semantic-conventions\build
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My 
+    projects\Property-management-hub\node_modules\@opentelemetry\instrumentation\build
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My 
+    projects\Property-management-hub\node_modules\@opentelemetry\instrumentation-amqplib\build
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My 
+    projects\Property-management-hub\node_modules\@opentelemetry\instrumentation-connect\build
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My 
+    projects\Property-management-hub\node_modules\@opentelemetry\instrumentation-dataloader\build
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My 
+    projects\Property-management-hub\node_modules\@opentelemetry\instrumentation-express\build
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My 
+    projects\Property-management-hub\node_modules\@opentelemetry\instrumentation-fs\build
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My 
+    projects\Property-management-hub\node_modules\@opentelemetry\instrumentation-generic-pool\build
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My 
+    projects\Property-management-hub\node_modules\@opentelemetry\instrumentation-graphql\build
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My 
+    projects\Property-management-hub\node_modules\@opentelemetry\instrumentation-hapi\build
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My 
+    projects\Property-management-hub\node_modules\@opentelemetry\instrumentation-http\build
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My projects\Property-management-hub\node_modules\@opentel
+    emetry\instrumentation-http\node_modules\@opentelemetry\semantic-conventions\build
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My 
+    projects\Property-management-hub\node_modules\@opentelemetry\instrumentation-ioredis\build
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My 
+    projects\Property-management-hub\node_modules\@opentelemetry\instrumentation-kafkajs\build
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My 
+    projects\Property-management-hub\node_modules\@opentelemetry\instrumentation-knex\build
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My 
+    projects\Property-management-hub\node_modules\@opentelemetry\instrumentation-koa\build
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My 
+    projects\Property-management-hub\node_modules\@opentelemetry\instrumentation-lru-memoizer\build
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My 
+    projects\Property-management-hub\node_modules\@opentelemetry\instrumentation-mongodb\build
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My 
+    projects\Property-management-hub\node_modules\@opentelemetry\instrumentation-mongoose\build
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My 
+    projects\Property-management-hub\node_modules\@opentelemetry\instrumentation-mysql\build
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My 
+    projects\Property-management-hub\node_modules\@opentelemetry\instrumentation-mysql2\build
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My 
+    projects\Property-management-hub\node_modules\@opentelemetry\instrumentation-pg\build
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My 
+    projects\Property-management-hub\node_modules\@opentelemetry\instrumentation-redis-4\build
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My 
+    projects\Property-management-hub\node_modules\@opentelemetry\instrumentation-tedious\build
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My 
+    projects\Property-management-hub\node_modules\@opentelemetry\instrumentation-undici\build
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My 
+    projects\Property-management-hub\node_modules\@opentelemetry\redis-common\build
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My 
+    projects\Property-management-hub\node_modules\@opentelemetry\resources\build
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My projects\Property-management-hub\node_modules\@opentel
+    emetry\resources\node_modules\@opentelemetry\semantic-conventions\build
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My 
+    projects\Property-management-hub\node_modules\@opentelemetry\sdk-trace-base\build
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My projects\Property-management-hub\node_modules\@opentel
+    emetry\sdk-trace-base\node_modules\@opentelemetry\semantic-conventions\build
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My 
+    projects\Property-management-hub\node_modules\@opentelemetry\semantic-conventions\build
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My 
+    projects\Property-management-hub\node_modules\@opentelemetry\sql-common\build
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My 
+    projects\Property-management-hub\node_modules\@prisma\instrumentation\dist
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My 
+    projects\Property-management-hub\node_modules\@puppeteer\browsers
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My 
+    projects\Property-management-hub\node_modules\@radix-ui\react-alert-dialog
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My 
+    projects\Property-management-hub\node_modules\@radix-ui\react-use-effect-event
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My 
+    projects\Property-management-hub\node_modules\@radix-ui\react-use-is-hydrated
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My 
+    projects\Property-management-hub\node_modules\@sendgrid\client
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My 
+    projects\Property-management-hub\node_modules\@sendgrid\mail
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My 
+    projects\Property-management-hub\node_modules\@streamparser\json
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My 
+    projects\Property-management-hub\node_modules\@stripe\react-stripe-js
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My 
+    projects\Property-management-hub\node_modules\@stripe\stripe-js
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My 
+    projects\Property-management-hub\node_modules\@supabase\auth-js
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My 
+    projects\Property-management-hub\node_modules\@supabase\functions-js
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My 
+    projects\Property-management-hub\node_modules\@supabase\postgrest-js
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My 
+    projects\Property-management-hub\node_modules\@supabase\realtime-js
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My 
+    projects\Property-management-hub\node_modules\@supabase\storage-js
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My 
+    projects\Property-management-hub\node_modules\@supabase\supabase-js
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My 
+    projects\Property-management-hub\node_modules\@tailwindcss\typography
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My 
+    projects\Property-management-hub\node_modules\@tanstack\query-core
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My 
+    projects\Property-management-hub\node_modules\@tanstack\react-query\build\codemods
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My 
+    projects\Property-management-hub\node_modules\@tanstack\react-query
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My 
+    projects\Property-management-hub\node_modules\acorn-import-attributes
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My 
+    projects\Property-management-hub\node_modules\atomically
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My projects\Property-management-hub\node_modules\bcrypt
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My 
+    projects\Property-management-hub\node_modules\body-parser\node_modules\debug
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My projects\Property-management-hub\node_modules\d3-array
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My projects\Property-management-hub\node_modules\d3-color
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My projects\Property-management-hub\node_modules\d3-ease
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My 
+    projects\Property-management-hub\node_modules\d3-format
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My 
+    projects\Property-management-hub\node_modules\d3-interpolate
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My projects\Property-management-hub\node_modules\d3-path
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My projects\Property-management-hub\node_modules\d3-scale
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My projects\Property-management-hub\node_modules\d3-shape
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My projects\Property-management-hub\node_modules\d3-time
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My 
+    projects\Property-management-hub\node_modules\d3-time-format
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My projects\Property-management-hub\node_modules\d3-timer
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My 
+    projects\Property-management-hub\node_modules\data-uri-to-buffer
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My projects\Property-management-hub\node_modules\debug
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My 
+    projects\Property-management-hub\node_modules\express\node_modules\debug
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My 
+    projects\Property-management-hub\node_modules\express-session\node_modules\debug
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My 
+    projects\Property-management-hub\node_modules\fast-equals
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My 
+    projects\Property-management-hub\node_modules\finalhandler\node_modules\debug
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My 
+    projects\Property-management-hub\node_modules\internmap
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My 
+    projects\Property-management-hub\node_modules\intl-messageformat\lib
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My 
+    projects\Property-management-hub\node_modules\intl-messageformat
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My 
+    projects\Property-management-hub\node_modules\ip-address
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My 
+    projects\Property-management-hub\node_modules\lighthouse\flow-report
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My 
+    projects\Property-management-hub\node_modules\lilconfig
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My 
+    projects\Property-management-hub\node_modules\lucide-react\dist\esm\shared
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:32 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My projects\Property-management-hub\node_modules\mime
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My 
+    projects\Property-management-hub\node_modules\mkdirp\dist\cjs
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My 
+    projects\Property-management-hub\node_modules\node-fetch
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My projects\Property-management-hub\node_modules\openai
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My 
+    projects\Property-management-hub\node_modules\pg-cloudflare
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My 
+    projects\Property-management-hub\node_modules\pg-protocol
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My 
+    projects\Property-management-hub\node_modules\postcss-load-config
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My 
+    projects\Property-management-hub\node_modules\puppeteer-core
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My 
+    projects\Property-management-hub\node_modules\react-day-picker
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My 
+    projects\Property-management-hub\node_modules\react-resizable-panels\dist\declarations
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My 
+    projects\Property-management-hub\node_modules\react-smooth
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My 
+    projects\Property-management-hub\node_modules\recharts-scale
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My 
+    projects\Property-management-hub\node_modules\send\node_modules\debug
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My 
+    projects\Property-management-hub\node_modules\sprintf-js
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My 
+    projects\Property-management-hub\node_modules\stubborn-fs
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My 
+    projects\Property-management-hub\node_modules\tailwind-merge
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My 
+    projects\Property-management-hub\node_modules\tailwindcss
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My 
+    projects\Property-management-hub\node_modules\tiny-invariant
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My 
+    projects\Property-management-hub\node_modules\tldts-core\dist\cjs
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My 
+    projects\Property-management-hub\node_modules\tldts-core\dist\es6
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My 
+    projects\Property-management-hub\node_modules\tldts-core\dist\types
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My 
+    projects\Property-management-hub\node_modules\tldts-core
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My 
+    projects\Property-management-hub\node_modules\tldts-icann\dist\cjs
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My 
+    projects\Property-management-hub\node_modules\tldts-icann\dist\es6
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My 
+    projects\Property-management-hub\node_modules\tldts-icann\dist\types
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My 
+    projects\Property-management-hub\node_modules\tldts-icann
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My 
+    projects\Property-management-hub\node_modules\victory-vendor\lib-vendor\d3-array
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My 
+    projects\Property-management-hub\node_modules\victory-vendor\lib-vendor\d3-color
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My 
+    projects\Property-management-hub\node_modules\victory-vendor\lib-vendor\d3-ease
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My 
+    projects\Property-management-hub\node_modules\victory-vendor\lib-vendor\d3-format
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My 
+    projects\Property-management-hub\node_modules\victory-vendor\lib-vendor\d3-interpolate
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My 
+    projects\Property-management-hub\node_modules\victory-vendor\lib-vendor\d3-path
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My 
+    projects\Property-management-hub\node_modules\victory-vendor\lib-vendor\d3-scale
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My 
+    projects\Property-management-hub\node_modules\victory-vendor\lib-vendor\d3-shape
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My 
+    projects\Property-management-hub\node_modules\victory-vendor\lib-vendor\d3-time
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My 
+    projects\Property-management-hub\node_modules\victory-vendor\lib-vendor\d3-time-format
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My 
+    projects\Property-management-hub\node_modules\victory-vendor\lib-vendor\d3-timer
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My 
+    projects\Property-management-hub\node_modules\victory-vendor\lib-vendor\d3-voronoi
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My 
+    projects\Property-management-hub\node_modules\victory-vendor\lib-vendor\internmap
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+
+    Directory: C:\Users\Access\OneDrive\Desktop\My projects\Property-management-hub\node_modules\zod
+
+
+Mode                 LastWriteTime         Length Name                                                   
+----                 -------------         ------ ----                                                   
+d-----        11/17/2025   4:31 PM                src                                                    
+
+

@@ -7,7 +7,7 @@ export function registerFastRoutes(app: Express) {
   app.get("/api/properties/fast", async (req: any, res) => {
     const organizationId = req.user?.organizationId || "default-org";
     const cacheKey = `properties-${organizationId}`;
-    
+
     return sendCachedOrFetch(
       cacheKey,
       () => storage.getProperties(organizationId),
@@ -20,7 +20,7 @@ export function registerFastRoutes(app: Express) {
   app.get("/api/tasks/fast", async (req: any, res) => {
     const organizationId = req.user?.organizationId || "default-org";
     const cacheKey = `tasks-${organizationId}`;
-    
+
     return sendCachedOrFetch(
       cacheKey,
       () => storage.getTasks(organizationId),
@@ -33,7 +33,7 @@ export function registerFastRoutes(app: Express) {
   app.get("/api/bookings/fast", async (req: any, res) => {
     const organizationId = req.user?.organizationId || "default-org";
     const cacheKey = `bookings-${organizationId}`;
-    
+
     return sendCachedOrFetch(
       cacheKey,
       () => storage.getBookings(organizationId),
@@ -46,22 +46,26 @@ export function registerFastRoutes(app: Express) {
   app.get("/api/dashboard/stats/fast", async (req: any, res) => {
     const organizationId = req.user?.organizationId || "default-org";
     const cacheKey = `dashboard-stats-${organizationId}`;
-    
+
     return sendCachedOrFetch(
       cacheKey,
       async () => {
         const [properties, tasks, bookings] = await Promise.all([
           storage.getProperties(organizationId),
           storage.getTasks(organizationId),
-          storage.getBookings(organizationId)
+          storage.getBookings(organizationId),
         ]);
 
         return {
           totalProperties: properties.length,
-          activeBookings: bookings.filter(b => b.status === 'confirmed').length,
-          pendingTasks: tasks.filter(t => t.status === 'pending').length,
-          completedTasks: tasks.filter(t => t.status === 'completed').length,
-          totalRevenue: bookings.reduce((sum, b) => sum + (b.totalAmount || 0), 0)
+          activeBookings: bookings.filter((b) => b.status === "confirmed")
+            .length,
+          pendingTasks: tasks.filter((t) => t.status === "pending").length,
+          completedTasks: tasks.filter((t) => t.status === "completed").length,
+          totalRevenue: bookings.reduce(
+            (sum, b) => sum + (b.totalAmount || 0),
+            0
+          ),
         };
       },
       res,
@@ -73,7 +77,7 @@ export function registerFastRoutes(app: Express) {
   app.get("/api/hub/dashboard/fast", async (req: any, res) => {
     const organizationId = req.user?.organizationId || "default-org";
     const cacheKey = `hub-dashboard-${organizationId}`;
-    
+
     return sendCachedOrFetch(
       cacheKey,
       async () => {
@@ -81,7 +85,7 @@ export function registerFastRoutes(app: Express) {
         return {
           success: true,
           timestamp: Date.now(),
-          hubType: 'dashboard'
+          hubType: "dashboard",
         };
       },
       res,
@@ -92,14 +96,14 @@ export function registerFastRoutes(app: Express) {
   app.get("/api/hub/property/fast", async (req: any, res) => {
     const organizationId = req.user?.organizationId || "default-org";
     const cacheKey = `hub-property-${organizationId}`;
-    
+
     return sendCachedOrFetch(
       cacheKey,
       async () => {
         return {
           success: true,
           timestamp: Date.now(),
-          hubType: 'property'
+          hubType: "property",
         };
       },
       res,
@@ -110,14 +114,14 @@ export function registerFastRoutes(app: Express) {
   app.get("/api/hub/finance/fast", async (req: any, res) => {
     const organizationId = req.user?.organizationId || "default-org";
     const cacheKey = `hub-finance-${organizationId}`;
-    
+
     return sendCachedOrFetch(
       cacheKey,
       async () => {
         return {
           success: true,
           timestamp: Date.now(),
-          hubType: 'finance'
+          hubType: "finance",
         };
       },
       res,
@@ -128,14 +132,14 @@ export function registerFastRoutes(app: Express) {
   app.get("/api/hub/system/fast", async (req: any, res) => {
     const organizationId = req.user?.organizationId || "default-org";
     const cacheKey = `hub-system-${organizationId}`;
-    
+
     return sendCachedOrFetch(
       cacheKey,
       async () => {
         return {
           success: true,
           timestamp: Date.now(),
-          hubType: 'system'
+          hubType: "system",
         };
       },
       res,
@@ -147,7 +151,7 @@ export function registerFastRoutes(app: Express) {
   app.get("/api/dashboard/live-alerts", async (req: any, res) => {
     const organizationId = req.user?.organizationId || "default-org";
     const cacheKey = `live-alerts-${organizationId}`;
-    
+
     return sendCachedOrFetch(
       cacheKey,
       () => storage.getLiveAlerts(organizationId),
@@ -160,7 +164,7 @@ export function registerFastRoutes(app: Express) {
   app.get("/api/dashboard/kpi-metrics", async (req: any, res) => {
     const organizationId = req.user?.organizationId || "default-org";
     const cacheKey = `kpi-metrics-${organizationId}`;
-    
+
     return sendCachedOrFetch(
       cacheKey,
       () => storage.getKPIMetrics(organizationId),
@@ -172,16 +176,21 @@ export function registerFastRoutes(app: Express) {
   // System Hub endpoint - system information and health status
   app.get("/api/system", async (req: any, res) => {
     const organizationId = req.user?.organizationId || "default-org";
-    
+
     try {
-      const [properties, users, settings, finances, tasks, bookings] = await Promise.all([
-        storage.getProperties(organizationId),
-        storage.getUsers({ organizationId }),
-        storage.getPlatformSettings(organizationId),
-        storage.getFinances({ organizationId }),
-        storage.getTasks().then(t => t.filter(task => task.organizationId === organizationId)),
-        storage.getBookings(organizationId)
-      ]);
+      const [properties, users, settings, finances, tasks, bookings] =
+        await Promise.all([
+          storage.getProperties(organizationId),
+          storage.getUsers({ organizationId }),
+          storage.getPlatformSettings(organizationId),
+          storage.getFinances({ organizationId }),
+          storage
+            .getTasks()
+            .then((t) =>
+              t.filter((task) => task.organizationId === organizationId)
+            ),
+          storage.getBookings(organizationId),
+        ]);
 
       const systemInfo = {
         version: "2.0 Enterprise FIXED",
@@ -190,34 +199,43 @@ export function registerFastRoutes(app: Express) {
         health: {
           database: "healthy",
           api: "operational",
-          cache: "active"
+          cache: "active",
         },
         modules: {
           properties: { active: true, count: properties.length },
           users: { active: true, count: users.length },
           finance: { active: true, count: finances.length },
           tasks: { active: true, count: tasks.length },
-          bookings: { active: true, count: bookings.length }
+          bookings: { active: true, count: bookings.length },
         },
         apiConfigs: {
-          hasStripe: settings.some((s: any) => s.settingKey === 'api.stripe_secret_key'),
-          hasHostaway: settings.some((s: any) => s.settingKey === 'api.hostaway_api_key'),
-          hasOpenAI: settings.some((s: any) => s.settingKey === 'api.openai_api_key'),
-          hasTwilio: settings.some((s: any) => s.settingKey === 'api.twilio_account_sid')
+          hasStripe: settings.some(
+            (s: any) => s.settingKey === "api.stripe_secret_key"
+          ),
+          hasHostaway: settings.some(
+            (s: any) => s.settingKey === "api.hostaway_api_key"
+          ),
+          hasOpenAI: settings.some(
+            (s: any) => s.settingKey === "api.openai_api_key"
+          ),
+          hasTwilio: settings.some(
+            (s: any) => s.settingKey === "api.twilio_account_sid"
+          ),
         },
         organization: {
           id: organizationId,
-          name: organizationId === "default-org" ? "HostPilotPro" : organizationId
-        }
+          name:
+            organizationId === "default-org" ? "HostPilotPro" : organizationId,
+        },
       };
 
       res.json(systemInfo);
     } catch (error) {
       console.error("Error fetching system info:", error);
-      res.status(500).json({ 
+      res.status(500).json({
         error: "Failed to fetch system information",
         version: "2.0 Enterprise",
-        status: "error"
+        status: "error",
       });
     }
   });

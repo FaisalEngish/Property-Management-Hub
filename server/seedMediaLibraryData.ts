@@ -3,7 +3,7 @@ import {
   propertyMediaFiles, 
   mediaFolders, 
   agentMediaAccess,
-  propertyMediaSettings,
+  propertyFinanceSettings,
   mediaUsageAnalytics,
   aiMediaSuggestions,
   properties
@@ -20,7 +20,7 @@ export async function seedMediaLibraryData() {
     await db.delete(aiMediaSuggestions).where(eq(aiMediaSuggestions.organizationId, DEMO_ORG_ID));
     await db.delete(mediaUsageAnalytics).where(eq(mediaUsageAnalytics.organizationId, DEMO_ORG_ID));
     await db.delete(agentMediaAccess).where(eq(agentMediaAccess.organizationId, DEMO_ORG_ID));
-    await db.delete(propertyMediaSettings).where(eq(propertyMediaSettings.organizationId, DEMO_ORG_ID));
+    await db.delete(propertyFinanceSettings).where(eq(propertyFinanceSettings.organizationId, DEMO_ORG_ID));
     await db.delete(mediaFolders).where(eq(mediaFolders.organizationId, DEMO_ORG_ID));
     await db.delete(propertyMediaFiles).where(eq(propertyMediaFiles.organizationId, DEMO_ORG_ID));
 
@@ -240,7 +240,7 @@ export async function seedMediaLibraryData() {
       notifyOnExpiry: true,
     }));
 
-    await db.insert(propertyMediaSettings).values(mediaSettings);
+    await db.insert(propertyFinanceSettings).values(mediaSettings);
     console.log(`✅ Created media settings for ${mediaSettings.length} properties`);
 
     // Create demo usage analytics for approved files

@@ -351,7 +351,7 @@ export default function App() {
           <TooltipProvider>
             <InstantPageSwitcher />
             <AppRoutes />
-            <CaptainCortex />
+            {/* <CaptainCortex /> */}
             <Toaster />
           </TooltipProvider>
         </SidebarProvider>

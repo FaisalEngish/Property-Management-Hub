@@ -1,3 +1,11 @@
+modules = ["nodejs-20", "web", "postgresql-16", "python-3.11"]
+run = "npm run dev"
+hidden = [".config", ".git", "node_modules", "dist"]
+
+[nix]
+channel = "stable-24_05"
+packages = ["jq", "lighthouse", "unzip"]
+
 [deployment]
 deploymentTarget = "autoscale"
 run = ["sh", "deploy-start.sh"]
