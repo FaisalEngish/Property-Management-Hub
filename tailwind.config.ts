@@ -41,7 +41,7 @@ export default {
           DEFAULT: "var(--destructive)",
           foreground: "var(--destructive-foreground)",
         },
-        border: "var(--border)",
+        border: "var(--border, rgba(0,0,0,0.08))",
         input: "var(--input)",
         ring: "var(--ring)",
         chart: {

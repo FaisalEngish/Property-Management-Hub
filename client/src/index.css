@@ -54,14 +54,22 @@
   --error: hsl(0, 84%, 60%);
 }
 
+@layer utilities {
+  /* border-border: can be used as .border-border or via @apply border-border */
+}
+
 @layer base {
+  .border-border {
+    border-color: var(--border, rgba(0, 0, 0, 0.08));
+  }
+
   * {
     @apply border-border;
   }
 
   body {
     @apply font-sans antialiased bg-background text-foreground;
-    font-family: 'Inter', sans-serif;
+    font-family: "Inter", sans-serif;
   }
 }
 
