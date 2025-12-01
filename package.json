@@ -6,7 +6,7 @@
   "scripts": {
     "preinstall": "npm install esbuild",
     "dev": "tsx server/index.ts",
-    "build": "cd client && npm ci && npm run build && cd .. && npm run copy-client && npm run build:server",
+    "build": "cd client && npm install --legacy-peer-deps && npm run build && cd .. && npm run copy-client && npm run build:server",
     "copy-client": "rm -rf server/public && mkdir -p server/public && cp -r client/dist/. server/public/",
     "start": "node dist/index.js",
     "check": "tsc",
