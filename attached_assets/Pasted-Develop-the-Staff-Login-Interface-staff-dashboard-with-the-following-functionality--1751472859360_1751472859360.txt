@@ -1,0 +1,78 @@
+Develop the Staff Login Interface (/staff/dashboard) with the following functionality:
+
+---
+
+### 1. **Role-Based Dashboard View**
+- Auto-filtered tasks based on assigned department:
+  - Pool
+  - Garden
+  - Maintenance
+  - Cleaning
+  - General
+- Dashboard shows:
+  - Today’s tasks
+  - Overdue tasks
+  - Task completion rate
+  - Upcoming tasks (next 3–7 days)
+
+---
+
+### 2. **Task Management**
+Each task includes:
+- Villa name
+- Task type (auto-tagged: Check-out Clean, Pool Service, Garden Trim, etc.)
+- Description + checklist
+- Optional attached **Task Guide** (e.g., "Clean water-from-air machine with vinegar only")
+- Start Task → live timer (optional)
+- Comment section (for updates, delays, or notes)
+- Add expenses (e.g., 35 THB for toilet cleaner)
+- Upload proof photos (multiple allowed)
+- Click "Complete" → triggers manager notification
+
+---
+
+### 3. **Checklist & Guide System**
+- Each task includes:
+  - Default checklist (based on task type)
+  - Custom checklist (if uploaded for that villa in settings)
+  - Attached visual guides (images, PDFs, or bullet instructions)
+- Checklist items are tickable
+- Required fields: comments + minimum 1 photo
+
+---
+
+### 4. **Salary & Commission Tab**
+- Monthly salary amount (manual or automated input)
+- Task bonus (if enabled)
+- Tips received (manually logged or auto if integrated)
+- Log of all previous payouts, viewable by month
+
+---
+
+### 5. **Mobile First Design**
+- Clean, minimal interface
+- Task cards expandable for full detail
+- Photo upload from mobile gallery or camera
+- QR code login for staff (optional)
+
+---
+
+### 6. **Login Sample**
+- test_cleaning@example.com / test123
+- test_pool@example.com / test123
+- test_garden@example.com / test123
+
+---
+
+### 7. **Notification System**
+- Staff gets alerts when:
+  - A new task is assigned
+  - Task is overdue
+  - Special villa instructions added
+- Reminders via visual badge + list
+
+---
+
+### Logs
+- Each completed task is stored under villa logs and staff logs.
+- Admin can download monthly task reports or photo bundles (PDF export or archive link).

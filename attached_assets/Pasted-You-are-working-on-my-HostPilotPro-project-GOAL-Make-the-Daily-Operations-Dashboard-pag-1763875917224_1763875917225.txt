@@ -1,0 +1,82 @@
+You are working on my HostPilotPro project.
+
+# GOAL
+
+Make the **Daily Operations Dashboard** page fully functional.
+
+URL (dev):  
+`/daily-operations`
+
+Tabs on this page:
+
+- Overview
+- Departments
+- Staff
+- Properties
+- Task Details
+
+The page already has:
+
+- A date selector (Previous Day / Today / Next Day)
+- A “Refresh Data” button
+- Tabs for the 5 sections above
+- A “Task Details” area that currently says “No tasks found for this date”
+
+I want:
+
+1. All tabs to show **real, live data** coming from existing Tasks / Properties / Staff / Departments in the system.
+2. Everything scoped to the **selected date**.
+3. Navigation between dates should automatically reload data.
+4. Clicking on a task in “Task Details” should open the existing **task detail / edit** modal if one exists (or a simple detail view if not).
+
+Use existing models and APIs for tasks, staff, departments, properties, and finance if present. Do NOT invent new tables unless absolutely required; prefer to reuse the existing schemas.
+
+Follow these steps in order and modify the real project files in this Replit workspace.
+
+---
+
+## STEP 1 – Locate the Daily Operations page and supporting code
+
+1. Search the repo for `"Daily Operations Dashboard"` and `"No tasks found for this date"`.
+2. Identify:
+   - The main page component (likely something like `client/src/pages/DailyOperations.tsx` or similar).
+   - Any child components that correspond to the tabs: Overview, Departments, Staff, Properties, Task Details.
+3. Do NOT delete any JSX; we will wire up logic and data.
+
+---
+
+## STEP 2 – Understand existing Task / Property / Staff / Department models
+
+1. Search for existing **Task** APIs and types:
+   - Look for `task-routes`, `tasks-routes`, `/api/tasks`, or similar.
+   - Identify at least:
+     - Task ID
+     - Title / name
+     - Description
+     - `dueDate` or `scheduledDate`
+     - Status (pending, in-progress, completed, etc.)
+     - Priority (if available)
+     - `propertyId`
+     - `departmentId`
+     - `assignedStaffId` / `assigneeId`
+2. Identify the **Property**, **Department**, and **Staff** models:
+   - Properties: which table + API endpoint (e.g. `/api/properties`).
+   - Departments: which table / endpoint (e.g. `/api/departments`).
+   - Staff: staff/users/employees table and endpoint (e.g. `/api/staff`, `/api/users`, etc.).
+3. We will use these models in aggregations for the dashboard; do NOT create new tables for them.
+
+---
+
+## STEP 3 – Backend endpoint for Daily Operations data
+
+We need an endpoint that, given a date, returns data summarizing tasks across properties, departments, and staff.
+
+1. Create a new server route file if none exists, e.g.:
+
+   - `server/daily-operations-routes.ts`
+
+2. Mount it in the main server index:
+
+   ```ts
+   import dailyOperationsRoutes from "./daily-operations-routes";
+   app.use("/api/daily-operations", dailyOperationsRoutes);

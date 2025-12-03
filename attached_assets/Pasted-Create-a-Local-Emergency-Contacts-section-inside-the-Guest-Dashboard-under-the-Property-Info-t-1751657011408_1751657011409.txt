@@ -1,0 +1,51 @@
+Create a “Local & Emergency Contacts” section inside the Guest Dashboard under the “Property Info” tab.
+
+Purpose:  
+Give guests easy access to essential contact information and service providers during their stay, grouped by category, and fully editable from Admin/Manager settings per property.
+
+Display Format:
+Use clean, collapsible contact cards or a sectioned list with icons and action buttons (Call, WhatsApp, View Menu, etc.).
+
+---
+
+**Contact Categories & Entries:**
+
+1. **Emergency & Health**
+   - 🏥 Hospital / Clinic (Name, phone, address, Google Maps link)
+   - 🚓 Local Police (Phone, emergency hotline)
+
+2. **On-Site & Assigned Staff**
+   - 🙋‍♂️ Assigned Host or Check-in Manager (Name, phone, WhatsApp)
+   - 🧹 Housekeeper (Name, phone)
+   - 🧑‍💼 Portfolio Manager or Villa Supervisor (Name, phone, WhatsApp)
+
+3. **Transportation**
+   - 🚕 Taxi / Airport Transfer Contact (e.g., Siam Discoveries – name, phone, booking link)
+   - 🚗 Car Rental Provider (Company name, contact, location/delivery info)
+   - 🛵 Bike Rental Provider (Company name, contact, delivery info)
+
+4. **Wellness & In-Villa Spa**
+   - 💆‍♀️ Massage / Spa Therapist (Name, phone, WhatsApp, services offered: massage, pedicure, manicure)
+   - Booking notes: “Advance booking recommended” and “Subject to availability”
+
+5. **Culinary Services**
+   - 👨‍🍳 Private Chef Service (Breakfast, Lunch, Dinner – contact, WhatsApp, booking procedure)
+   - Note: If service must be confirmed by the manager, show message “Contact your host to confirm availability”
+
+6. **Tours & Experiences**
+   - 🏝️ Tour Operator (e.g., Siam Discoveries – contact, WhatsApp, activity menu link or QR code)
+
+7. **Convenience & Delivery**
+   - 📱 Recommended Delivery Apps (Grab, Foodpanda, Lineman, 7-Eleven delivery)
+   - Add logo icons and iOS/Android download links if possible
+
+---
+
+**Functionality:**
+- Admins and Managers can edit these fields from the backend, per property.
+- System should allow default contact templates per zone (e.g., “North Samui” or “Bangkok condos”) for quick setup.
+- Guests see these contacts only from 48 hours before check-in through to checkout.
+- Show “Call Now” or “Message on WhatsApp” buttons with clickable actions.
+
+Multilingual-ready layout for future localization.
+

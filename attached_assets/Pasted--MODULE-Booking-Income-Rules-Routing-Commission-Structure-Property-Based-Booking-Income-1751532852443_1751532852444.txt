@@ -1,0 +1,69 @@
+### MODULE: Booking Income Rules, Routing & Commission Structure
+
+🏡 Property-Based Booking Income Routing:
+- Each property has default payout rules for each OTA:
+  • Airbnb: split payout (e.g., Owner 70% / Management 30%)
+  • Direct bookings (Stripe): 100% to Management
+  • Booking.com: 100% to Management
+  • VRBO, Agoda, Marriott, etc.: default 100% Management unless set otherwise
+- Routing options configurable by Admin:
+  • Airbnb split % customizable
+  • Manual override per booking
+  • Stripe fee calculator (default 5%) deducted from gross amount
+
+🔁 Per-Booking Payout Tracker:
+- Booking record stores:
+  • Source channel
+  • Total rental income
+  • Routing applied
+  • Actual amounts received
+  • Management fee % (for later profit split)
+- Visual flow diagram:
+  • Guest > Platform > Owner + Management (with routing arrows)
+
+📄 Admin Controls:
+- Set payout logic per OTA & property
+- Edit individual reservations if special cases arise
+- Generate invoice per booking or per month (to Owner, from Owner, or for internal tracking)
+
+📤 Balance Requests & Payout Workflow:
+- If Owner balance > 0:
+  • Button: “Request Balance Payout”
+  • Notification to assigned Portfolio Manager & Admin
+  • Admin/PM clicks: “Upload Payment Slip” → triggers confirmation flow
+  • Owner receives: “Money Sent” + button: “Confirm Received”
+
+- If Owner owes money:
+  • Management triggers invoice
+  • Owner uploads slip and clicks “Mark as Paid”
+
+🧾 Auto-Logging:
+- All actions (payout requests, invoices, confirmations) stored in:
+  • Property timeline
+  • Owner dashboard
+  • Admin ledger
+
+📊 Dashboard Analytics:
+- Breakdown per period:
+  • Rental income
+  • Commission received
+  • Add-on services per booking
+  • Average nightly rate
+  • Occupancy by source (Airbnb, VRBO, Direct, etc.)
+- Graphs: by villa, by platform, by month
+
+🔍 Transparency for:
+- Referral Agents: 10% net management commission, tracked per month
+- Portfolio Managers: 50% of net commission, monthly performance breakdown
+- Admin: Total company revenue, per category and partner
+
+📅 Commission Payout Scheduling:
+- Per property: Set payout cycle (monthly, every 2 weeks, etc.)
+- Each user sees pending balances, confirmed payouts, and upcoming releases
+
+Benefits:
+✔️ Flexible payout logic across multiple OTAs  
+✔️ Real-time financial clarity per stakeholder  
+✔️ Commission and rental earnings visualized  
+✔️ Every invoice action logged in matching timeline  
+✔️ Stripe fees and unusual routing fully tracked

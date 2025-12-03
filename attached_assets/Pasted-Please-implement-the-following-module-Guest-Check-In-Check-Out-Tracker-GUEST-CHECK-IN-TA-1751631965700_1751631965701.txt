@@ -1,0 +1,58 @@
+Please implement the following module: 🧳 Guest Check-In / Check-Out Tracker
+
+🟩 GUEST CHECK-IN TASK
+Triggered automatically per reservation OR manually by Admin/PM.
+
+Steps:
+1. Assign check-in to staff/manager (can be auto or manual)
+2. Required actions for the assigned person:
+   - Upload photo of each guest's passport (mandatory for each adult)
+   - Select deposit:
+     - Dropdown options: None (default), Cash, Digital
+     - If Cash or Digital selected → enter amount + select currency
+     - Upload photo of deposit handover (optional but encouraged)
+   - Electricity meter reading:
+     - Upload photo of meter
+     - AI reads value from image (can override manually)
+     - Value is saved as **Check-In Reading**
+   - Option to write any additional notes (locked after submission)
+
+🟥 GUEST CHECK-OUT TASK
+Triggered on day of departure or earlier if scheduled manually.
+
+Steps:
+1. Upload final electricity meter photo
+2. AI reads meter again → compare with Check-In Reading
+3. System calculates usage:
+   - Default rate: 7 THB per kWh (editable per property)
+   - Editable box: enter custom rate if different
+   - Toggle:
+     - Electricity: Included / Guest Pays / Company Compensates
+     - If “Company Compensates” → optional field for explanation
+4. Summary table:
+   - Guest Name
+   - Property
+   - Check-In Date + Meter
+   - Check-Out Date + Meter
+   - Units Used
+   - Rate
+   - Total Charge
+
+5. Refund Calculation:
+   - Deposit Paid: (from check-in data)
+   - Electricity Cost: auto-filled
+   - Any discounts or damage costs? (Manual input + notes)
+   - Final Refund Amount shown clearly
+   - Toggle: Refund Method (Cash / Bank / Digital)
+   - Upload receipt if refunded
+
+🔁 HISTORY & AUDIT
+- Each check-in and check-out logged per guest and per property
+- Attachments stored with each task
+- PM and Admin can view/approve/refuse refunds
+- All check-ins and check-outs show in Property History Timeline
+
+✅ Also ensure:
+- AI scan can be toggled on/off for manual entries
+- Check-in/out tasks are created per guest reservation
+- PMs only see their properties and their check-in/out logs

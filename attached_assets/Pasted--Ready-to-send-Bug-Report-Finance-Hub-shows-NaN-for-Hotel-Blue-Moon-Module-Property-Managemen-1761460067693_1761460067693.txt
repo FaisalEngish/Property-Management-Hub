@@ -1,0 +1,105 @@
+🪲 Ready-to-send Bug Report — Finance Hub shows $NaN for Hotel Blue Moon
+
+Module: Property Management Hub → Finance Hub (Property: Hotel Blue Moon)
+
+Issue Summary:
+When opening Finance Hub for Hotel Blue Moon, the finance widgets (Total Revenue, Monthly Report, Net Profit, Occupancy %, etc.) display $NaN instead of numeric values.
+
+Expected Behavior:
+
+Widgets should display valid numeric values (e.g., $17,000, 23%, ₿3,000) or 0 if no data exists.
+
+No NaN should appear in UI.
+
+Steps to Reproduce:
+
+Go to Property Management Hub.
+
+Click View Report on Hotel Blue Moon.
+
+Observe Finance Hub widgets: Total Revenue / Monthly Report / Net Profit show $NaN.
+
+Actual Output:
+Finance metrics render as $NaN or NaN% across cards.
+
+Priority: 🔺 High — Misleading UI and potential data handling bug.
+
+Likely Root Causes & Quick Checks
+
+Missing / null / undefined numeric fields returned from backend (e.g., monthlyRevenue = null) and frontend arithmetic runs on them.
+
+String values (non-numeric) returned from API (e.g., "₿17,000" or "17,000") and parsed incorrectly.
+
+Division by zero when computing percentages (e.g., profit / totalRevenue where totalRevenue === 0).
+
+Incorrect JSON shape / missing property_id filter returning empty dataset and calculations see undefined.
+
+Locale/currency formatting issues where formatted string is used in arithmetic later.
+
+Frontend rendering code assumes numbers but gets objects (e.g., { value: null }) causing NaN.
+
+Recommended Immediate Debugging Steps (for dev)
+
+Inspect API response for the property (copy the JSON). Confirm numeric fields exist and are numbers: totalRevenue, monthlyRevenue, expenses, netProfit, occupancyRate.
+
+Check backend query: ensure property_id is used when fetching finance aggregates for Hotel Blue Moon.
+
+Search logs for any server-side computation errors or exceptions during aggregation.
+
+Temporarily log values right before frontend renders (console.log raw values returned).
+
+Check for formatting-before-calculation: ensure server/DB returns raw numbers (no currency symbols) and formatting is only for display.
+
+Recommended Fixes (server + client)
+Server-side
+
+Always return numeric types (integers/floats). If data is absent, return 0.
+
+Example pseudo-fix (pseudo-SQL/JS):
+
+-- SQL: coalesce to 0
+SELECT
+  COALESCE(SUM(amount), 0) AS total_revenue,
+  COALESCE(SUM(CASE WHEN DATE_TRUNC('month', date) = DATE_TRUNC('month', CURRENT_DATE) THEN amount END), 0) AS monthly_revenue,
+  COALESCE(SUM(expense), 0) AS total_expense
+FROM transactions
+WHERE property_id = :property_id;
+
+// Node: ensure numeric before sending
+const totalRevenue = Number(rows[0].total_revenue) || 0;
+res.json({ totalRevenue, monthlyRevenue: Number(rows[0].monthly_revenue) || 0, totalExpense: Number(rows[0].total_expense) || 0 });
+
+Frontend
+
+Defensive guards before any arithmetic:
+
+function safeNumber(v){ return (v === null || v === undefined || Number.isNaN(Number(v))) ? 0 : Number(v); }
+
+// usage
+const total = safeNumber(api.totalRevenue);
+const expense = safeNumber(api.totalExpense);
+const netProfit = total - expense; // always numeric
+const profitPct = total === 0 ? 0 : (netProfit / total) * 100;
+displayCurrency(total);
+displayCurrency(netProfit);
+displayPercent(profitPct);
+
+
+When formatting, format only for display (e.g., Intl.NumberFormat) and not feed formatted strings back into calculations.
+
+Protect percentage calculations from division-by-zero and show 0% or — instead of NaN%.
+
+Quick UI Snippets (example)
+// format helpers
+const fmtCurrency = (n) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(n);
+const fmtPercent = (n) => `${Math.round(n)}%`;
+
+// render
+const total = safeNumber(api.totalRevenue);
+const expense = safeNumber(api.totalExpense);
+const net = total - expense;
+const pct = total === 0 ? 0 : (net / total) * 100;
+
+document.querySelector('#total').textContent = fmtCurrency(total);
+document.querySelector('#net').textContent = fmtCurrency(net);
+document.querySelector('#pct').textContent = fmtPercent(pct);

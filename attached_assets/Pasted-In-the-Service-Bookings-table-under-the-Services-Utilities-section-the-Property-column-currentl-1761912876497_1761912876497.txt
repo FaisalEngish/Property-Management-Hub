@@ -1,0 +1,127 @@
+In the Service Bookings table under the “Services & Utilities” section, the Property column currently shows “Property 6” (the ID or label from property_id) instead of the actual property name (e.g. “Well Park Residence”).
+
+Expected Behavior:
+The column should display the property’s name (from the related Property model or table).
+
+⚙️ Technical Diagnosis
+
+The frontend table is likely binding something like:
+
+booking.property || booking.property_id
+
+
+which results in “Property 6” because it’s showing the numeric/string ID.
+
+The backend API endpoint (something like /api/service-bookings or /api/bookings/services) probably returns:
+
+{
+  "id": "BK-20251031-1267",
+  "property_id": 6,
+  ...
+}
+
+
+without including the related property name.
+
+🔧 Fix Plan
+🩵 STEP 1: Backend (Primary Fix)
+
+Ensure that the property name is included in the API response.
+
+If the backend is Node.js + Express + Prisma/Sequelize/ORM:
+
+Open the controller or route handler for service bookings (likely in:
+
+/server/controllers/serviceBookingController.js
+
+/server/routes/serviceBookings.js
+
+/api/controllers/ServiceBookingsController.ts)
+
+Find where service bookings are fetched, something like:
+
+const bookings = await ServiceBooking.findAll();
+
+
+or
+
+const bookings = await prisma.serviceBooking.findMany();
+
+
+✅ Modify it to include property relation:
+
+Sequelize Example:
+
+const bookings = await ServiceBooking.findAll({
+  include: [{ model: Property, as: 'property', attributes: ['id', 'name'] }],
+});
+
+
+Prisma Example:
+
+const bookings = await prisma.serviceBooking.findMany({
+  include: {
+    property: {
+      select: { id: true, name: true },
+    },
+  },
+});
+
+
+Mongo Example (Mongoose):
+
+const bookings = await ServiceBooking.find().populate('property', 'name');
+
+
+Then return that result as JSON.
+So the API now sends:
+
+{
+  "id": "BK-20251031-1267",
+  "property": { "id": 6, "name": "Well Park Residence" },
+  ...
+}
+
+🩵 STEP 2: Frontend Update
+
+Open the file responsible for rendering the Service Bookings table.
+Likely file path:
+
+/client/src/pages/ServiceBookings.jsx
+
+
+or
+
+/client/src/components/ServiceBookingsTable.tsx
+
+
+Find the part where the property column is rendered, something like:
+
+<td>{booking.property}</td>
+
+
+or
+
+<td>{`Property ${booking.property_id}`}</td>
+
+
+✅ Change it to use the nested name if available:
+
+<td>{booking.property?.name || booking.property_name || booking.property_id}</td>
+
+
+This ensures:
+
+Shows the property name if available from backend.
+
+Falls back to property_id only if the name isn’t returned.
+
+🩵 STEP 3: Verify
+
+Rebuild/restart the backend.
+
+Refresh the frontend page (/services/bookings).
+
+Inspect the Network tab → /api/service-bookings response → confirm property.name appears.
+
+Check the Property column now shows “Well Park Residence” (or the actual property name).

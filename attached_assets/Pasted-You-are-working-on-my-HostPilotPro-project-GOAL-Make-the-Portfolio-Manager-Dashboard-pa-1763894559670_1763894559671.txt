@@ -1,0 +1,169 @@
+You are working on my HostPilotPro project.
+
+# GOAL
+
+Make the **Portfolio Manager Dashboard** page fully functional.
+
+Dev URL (for reference only):  
+`/portfolio-manager-dashboard`
+
+Current UI sections (tabs):
+
+- Overview
+- Balance
+- Invoices
+- Task Logs
+- Notifications
+- Analytics
+
+Filters at top:
+
+- Manager selector (e.g. “reza”)
+- Start date
+- End date
+- Property filter (“All Properties” or a specific property)
+
+I want:
+
+1. A proper **data model** tying “portfolio managers” to properties, bookings/revenue, payouts, invoices, tasks, and notifications.
+2. All tabs pulling **live, correct data** based on:
+   - selected manager
+   - selected date range
+   - selected property filter
+3. Commission calculations and payout flows working end-to-end.
+4. Invoices, task logs, and notifications wired to existing systems where possible (e.g., reuse bookings, tasks, finance hub).
+
+Use the existing tech stack, patterns, and ORM used elsewhere in the project.
+
+---
+
+## STEP 1 – Locate the Portfolio Manager Dashboard page
+
+1. Search the repo for `"Portfolio Manager Dashboard"` in the client code.
+2. Identify:
+   - The main page component (likely something like `client/src/pages/PortfolioManagerDashboard.tsx`).
+   - Any child components for:
+     - header / filters
+     - summary cards
+     - Overview section
+     - Balance section
+     - Invoices section
+     - Task Logs section
+     - Notifications section
+     - Analytics section
+3. Do **not** throw away the existing JSX structure; we will wire it to real data.
+
+---
+
+## STEP 2 – Define/confirm data model for portfolio managers and commissions
+
+First, inspect existing schemas to avoid duplication:
+
+1. Search for any existing tables / types related to:
+   - managers
+   - commission
+   - payouts
+   - invoices (you may already have a generic invoices table)
+2. Reuse existing structures where possible; only add new tables if missing.
+
+If there is no dedicated model yet, add these (names can be adapted to match the current schema style):
+
+### 2.1 `portfolio_managers`
+
+Represents a manager profile linked to a user:
+
+- `id` (PK)
+- `organizationId`
+- `userId` (FK to users/staff table)
+- `displayName`
+- `email`
+- `phone`
+- `defaultCommissionRate` (decimal, percentage, e.g. 0.10 for 10%)
+- `isActive` (boolean)
+- `createdAt`, `updatedAt`
+
+### 2.2 `portfolio_manager_properties`
+
+Mapping of manager ↔ property:
+
+- `id` (PK)
+- `organizationId`
+- `managerId` (FK to `portfolio_managers.id`)
+- `propertyId` (FK to `properties.id`)
+- `commissionRate` (decimal, nullable; overrides defaultCommissionRate when not null)
+- `activeFrom` (date, nullable)
+- `activeTo` (date, nullable)
+- `createdAt`, `updatedAt`
+
+### 2.3 `portfolio_commissions`
+
+Stores calculated commission earnings per booking/period:
+
+- `id` (PK)
+- `organizationId`
+- `managerId`
+- `propertyId`
+- `bookingId` (FK to bookings table, nullable for manual adjustments)
+- `periodStart` (date)
+- `periodEnd` (date)
+- `commissionAmount` (decimal)
+- `currency`
+- `status` (enum: `"earned" | "paid" | "adjusted"`)
+
+### 2.4 `portfolio_payouts`
+
+Represents payouts (balance withdrawals) to the manager:
+
+- `id` (PK)
+- `organizationId`
+- `managerId`
+- `requestedByUserId`
+- `amount` (decimal)
+- `currency`
+- `status` (enum: `"pending" | "approved" | "rejected" | "paid" | "cancelled"`)
+- `requestedAt`
+- `processedAt` (nullable)
+- `notes` (text, nullable)
+
+### 2.5 `portfolio_manager_notifications`
+
+For in-dashboard notifications:
+
+- `id`
+- `organizationId`
+- `managerId`
+- `type` (string; e.g. `"commission_earned"`, `"payout_paid"`, `"task_completed"`, `"system"`)
+- `title`
+- `message`
+- `linkUrl` (nullable)
+- `status` (enum: `"unread" | "read"`)
+- `createdAt`
+- `readAt` (nullable)
+
+If you already have a generic notification system, you can instead add `managerId` to those records and filter appropriately instead of creating a new table.
+
+Add these schemas to the shared schema file and run migrations using the project’s migration tooling.
+
+---
+
+## STEP 3 – Commission calculation logic
+
+We want the dashboard to show **Total Commission Earnings**, **Portfolio Properties**, and **Pending Balance** based on actual revenue (e.g., bookings).
+
+1. Identify the existing **bookings / revenue** tables and APIs:
+   - Look for `bookings`, `booking-revenue`, or similar.
+2. Implement a commission service or utility, e.g. `server/portfolio/commission-service.ts` with functions:
+
+   ```ts
+   async function calculateManagerCommissionForPeriod(params: {
+     organizationId: string;
+     managerId: string;
+     startDate: string; // YYYY-MM-DD
+     endDate: string;   // YYYY-MM-DD
+     propertyId?: string; // optional filter
+   }): Promise<{
+     totalCommission: number;
+     currency: string;
+     breakdownByProperty: { propertyId; propertyName; commission: number; }[];
+     rawItems: { bookingId; propertyId; commissionAmount; }[];
+   }>

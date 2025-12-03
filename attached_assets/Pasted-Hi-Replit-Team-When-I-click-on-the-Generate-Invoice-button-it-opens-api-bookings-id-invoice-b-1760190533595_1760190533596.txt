@@ -1,0 +1,63 @@
+Hi Replit Team,
+
+When I click on the “Generate Invoice” button, it opens /api/bookings/:id/invoice but shows a 404 Page Not Found error.
+
+Please add this missing backend route inside server/routes.ts (right after the PATCH booking endpoint):
+
+// 🧾 Generate Invoice Route
+app.get("/api/bookings/:id/invoice", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const booking = await storage.getBookingById(id);
+
+    if (!booking) {
+      return res.status(404).json({ error: "Booking not found" });
+    }
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8" />
+          <title>Booking Invoice</title>
+          <style>
+            body { font-family: Arial, sans-serif; margin: 40px; color: #333; }
+            h1 { color: #007bff; border-bottom: 2px solid #007bff; padding-bottom: 5px; }
+            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+            th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+            th { background-color: #f5f5f5; }
+            .footer { margin-top: 20px; font-size: 13px; color: #666; }
+          </style>
+        </head>
+        <body>
+          <h1>Booking Invoice</h1>
+          <table>
+            <tr><th>Guest Name</th><td>${booking.guest_name}</td></tr>
+            <tr><th>Email</th><td>${booking.guest_email}</td></tr>
+            <tr><th>Phone</th><td>${booking.guest_phone}</td></tr>
+            <tr><th>Property</th><td>${booking.property_name}</td></tr>
+            <tr><th>Check-in</th><td>${booking.check_in}</td></tr>
+            <tr><th>Check-out</th><td>${booking.check_out}</td></tr>
+            <tr><th>Total Amount</th><td>${booking.total_amount} AUD</td></tr>
+            <tr><th>Status</th><td>${booking.status}</td></tr>
+          </table>
+          <p class="footer">Generated automatically by HostPilotPro</p>
+        </body>
+      </html>
+    `;
+
+    res.setHeader("Content-Type", "text/html");
+    res.send(html);
+  } catch (error) {
+    console.error("Invoice generation failed:", error);
+    res.status(500).json({ error: "Failed to generate invoice" });
+  }
+});
+
+
+After adding this route, please restart the server.
+Then the “Generate Invoice” button should open a proper HTML invoice in a new tab instead of showing 404.
+
+Thank you!
+
+— Farid

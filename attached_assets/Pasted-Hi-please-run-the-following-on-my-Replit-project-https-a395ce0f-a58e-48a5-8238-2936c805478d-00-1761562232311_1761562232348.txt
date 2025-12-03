@@ -1,0 +1,62 @@
+Hi — please run the following on my Replit project:
+https://a395ce0f-a58e-48a5-8238-2936c805478d-00-3hgn1cx2vrpqg.riker.replit.dev/
+
+Context:
+- Primary DB: Neon serverless Postgres (DATABASE_URL in env)
+- ORM: Drizzle ORM (schema in shared/schema.ts)
+- I want all previous bookings, financial data (income/expense/transactions/total revenue), assigned tasks, recent transactions, property documents, and any hardcoded seed/sample dashboard numbers removed.
+
+Mandatory: **Do NOT proceed until backups are created and uploaded**.
+
+Steps to perform (report status after each):
+
+1. Export backups:
+   export PGSSLMODE=require
+   pg_dump "$DATABASE_URL" -Fc -f /tmp/neon-backup-$(date +%F).dump
+   pg_dump "$DATABASE_URL" -f /tmp/neon-backup-$(date +%F).sql
+   tar czf /tmp/repo-backup-$(date +%F).tar.gz migrations shared/schema.ts package.json package-lock.json .env public/uploads storage property_documents
+
+   Upload the created files (/tmp/*) here and wait for my confirmation.
+
+2. (After I confirm backups) Stop the app.
+
+3. Option A (preferred): Selective purge of dashboard data:
+   # generate truncate list
+   psql "$DATABASE_URL" -Atc "SELECT 'TRUNCATE TABLE ' || quote_ident(tablename) || ' CASCADE;' FROM pg_tables WHERE schemaname='public' AND tablename ~* 'booking|transaction|finance|task|property|document|upload|invoice|payment|expense|income|revenue|transactions|bookings|tasks';" > /tmp/truncate_statements.sql
+   # review /tmp/truncate_statements.sql and then run:
+   psql "$DATABASE_URL" -f /tmp/truncate_statements.sql
+
+   Reset sequences:
+   [run the sequence reset commands included in the script above]
+
+   Remove uploads:
+   rm -rf ./public/uploads/* ./storage/* ./property_documents/*
+
+   Verify counts: run SELECT COUNT(*) on bookings, transactions, tasks (and respond with results).
+
+4. Option B (if complete wipe desired): Drop & recreate public schema, then recreate from Drizzle:
+   psql "$DATABASE_URL" -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public; GRANT ALL ON SCHEMA public TO public;"
+   mv ./migrations ./migrations_backup_$(date +%F) || true
+   rm -rf ./public/uploads/* ./storage/* ./property_documents/* || true
+   npm run db:push
+
+5. Remove any repo seed or sample files:
+   Run: grep -RIn "seed\|seeder\|initialData\|sampleData\|fixtures\|mock" . 
+   Remove/empty files containing sample data (report file list you changed).
+
+6. Flush caches if present (redis): redis-cli -u "$REDIS_URL" FLUSHALL || true
+
+7. Rotate secrets (JWT_SECRET, SESSION_SECRET, API keys) — I will supply new values or you can set temporary ones and report them.
+
+8. Restart app, run smoke tests:
+   - Confirm dashboard shows empty/zero data.
+   - Create a test booking/transaction/task and upload test document.
+   - Provide logs & verification screenshots.
+
+Deliverables:
+- Upload or attach `/tmp/neon-backup-*.dump`, `/tmp/neon-backup-*.sql`, `/tmp/repo-backup-*.tar.gz`.
+- Provide command log (or terminal transcript).
+- Provide verification results (counts for bookings, transactions, tasks).
+- If Option B used, confirm `npm run db:push` completed OK.
+
+**Do not run any destructive command until I confirm the backups.**

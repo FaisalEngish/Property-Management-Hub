@@ -1,0 +1,125 @@
+Hi! I need help implementing a local property image upload + display feature.
+
+Current situation
+
+On the “Property Hub” page I have:
+
+Hostaway Properties → these already show their own images with a slider.
+
+Local Properties → these currently show a demo / placeholder image on the property card, even though I didn’t upload any images.
+
+I want my own uploaded images for local properties to be shown on the local property cards, similar to Hostaway cards.
+
+Goal
+
+For local properties only:
+
+On the local property “View Details” page, add an image upload section where I can upload one or more images for that property.
+
+Save these uploaded images (using the same upload/storage mechanism already used elsewhere in the project – e.g., Cloudinary / existing file uploader).
+
+Store the image URLs in the backend/database linked to that specific local property.
+
+On the local property cards in the Property Hub, show those uploaded images:
+
+If there is one image, show that image instead of the demo image.
+
+If there are multiple images, show a slider on the card (left/right arrows) similar to the Hostaway properties image slider.
+
+If there are no uploaded images, keep using the current demo/placeholder image.
+
+Do not change the Hostaway properties behavior.
+
+Implementation details (what I’d like you to do)
+
+Backend / Database
+
+Identify the model used for local properties (e.g., Property, LocalProperty, etc.).
+
+Add a field to store multiple image URLs, e.g.:
+
+images as a string array / JSON array (depending on ORM/DB).
+
+Create/update an API endpoint for uploading and saving property images:
+
+Input: property ID + uploaded file(s).
+
+Output: list of stored image URLs.
+
+Ensure images are uploaded via whatever storage solution the project already uses (Cloudinary / S3 / local uploads). Please reuse existing upload utilities/services instead of adding a new approach.
+
+Property View Details Page (Local Property)
+
+Add an “Images” section on the local property details page only.
+
+Include:
+
+File input for uploading one or multiple images.
+
+“Upload” button that calls the new API endpoint.
+
+Show a small preview gallery of already uploaded images for that property.
+
+Make sure:
+
+Uploading images updates the backend.
+
+After successful upload, the UI refreshes the list of images for that property (without full page reload if possible).
+
+Local Property Card on Property Hub
+
+Locate the component that renders local property cards on the Property Hub.
+
+Replace the hardcoded/demo image with logic that:
+
+Uses the property’s images array if it exists and has items.
+
+Falls back to the current demo/placeholder image if images is empty or undefined.
+
+If images.length > 1, implement a simple slider on the card:
+
+Reuse the same slider pattern used for Hostaway properties (same transition/behavior if possible).
+
+Show previous/next arrows on hover or always visible (match existing style).
+
+Keep transitions smooth and responsive.
+
+General Requirements
+
+Do not break or change existing workflows:
+
+Don’t modify Hostaway property image logic.
+
+Don’t change any routes, IDs, or business logic.
+
+Keep changes scoped to:
+
+Local property model / API.
+
+Local property details page.
+
+Local property card component.
+
+Follow the existing coding style (TypeScript/React/Tailwind, etc.).
+
+Testing
+
+Test with a few local properties:
+
+Case 1: No images → card shows current demo image.
+
+Case 2: One uploaded image → card shows that image.
+
+Case 3: Multiple uploaded images → card shows slider and correctly cycles through uploaded images.
+
+Confirm that Hostaway properties still behave exactly as before.
+
+Finally, please tell me:
+
+Which files you modified/created.
+
+Any environment variables or config I need to set for image upload.
+
+How to use the new upload feature step by step.
+
+Thank you!

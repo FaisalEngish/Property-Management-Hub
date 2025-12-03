@@ -1,0 +1,122 @@
+Title: Captain Cortex AI → Internal DB–grounded Q&A (read-only)
+Goal: Property/Task/Utility/Finance বিষয়ে যেকোনো প্রশ্নে AI প্রথমে আমাদের API/DB থেকে ডেটা টেনে যাচাই করবে, তারপর উত্তর দেবে। অনুমানভিত্তিক উত্তর নয়।
+
+Scope
+
+AI Middleware (Question Router)
+
+Natural language থেকে intent/entities ধরবে (propertyName, month, utilityType, taskId, bookingId, date range ইত্যাদি)
+
+DB/API থেকে ডেটা টেনে এনে GPT-4 mini দিয়ে data-grounded উত্তর তৈরি করবে
+
+Internal Data Connectors (read-only)
+
+Use existing endpoints (উদাহরণ):
+
+GET /api/properties?name=
+
+GET /api/tasks?status=&assignedTo=&propertyId=
+
+GET /api/utility-bills?propertyId=&type=&month=
+
+GET /api/bookings?propertyId=&dateFrom=&dateTo=
+
+GET /api/finances?type=income|expense&month=
+
+Connector স্তরে 3s timeout, 2x retry, orgId filter বাধ্যতামূলক
+
+Security
+
+Read-only access (no create/update/delete)
+
+organizationId অবশ্যই req.user.organizationId থেকে bind করতে হবে
+
+সকল রিকোয়েস্টে audit log (route, orgId, userId, latency, cacheHit)
+
+Caching
+
+60s in-memory cache (key = route + qs + orgId)
+
+Cache bust signals: task/booking/property/finance create/update হলে সংশ্লিষ্ট cache keys invalidate
+
+Fallback & UX
+
+ডেটা না পেলে: “আমি internal system-এ তথ্য পাইনি — দয়া করে property নাম/সময় যাচাই করুন।”
+
+Partial data হলে: সতর্ক বার্তা সহ সম্ভব ডেটা দেখাবো
+
+Technical Plan
+
+server/cortex/ ফোল্ডার যোগ করুন:
+
+intent.ts → simple rules + keywords (property, utility, bill, due, task, booking, finance, month ইত্যাদি)
+
+extract.ts → entity parsing (property name, dates, utility type: electricity/water/internet/gas)
+
+connectors.ts → উপরোক্ত endpoints-এ read-only fetch helpers (with orgId)
+
+grounder.ts → প্রশ্ন অনুযায়ী 1..N connector কল, merge/normalize data
+
+answer.ts → GPT-4 mini prompt: “Use only provided data; if missing, say so”
+
+POST /api/cortex/answer (secured)
+
+Body: { question: string }
+
+Steps: intent → extract → connectors → grounder → LLM → answer
+
+Returns: { answer, sources: [{route, params}], latency, cached }
+
+LLM client: GPT-4 mini (বা 4o-mini) with JSON mode off, temperature 0.2
+
+Prompt (system)
+You are Captain Cortex for HostPilotPro.
+Rule 1: Only answer from provided internal data (properties/tasks/utility/finance/bookings).
+Rule 2: If data is missing/ambiguous, ask for the missing fields or say you cannot find it.
+Rule 3: Include concise, actionable summary. No speculation.
+
+Acceptance Criteria
+
+ Property প্রশ্নে /api/properties//api/utility-bills থেকে রিয়েল ডেটা এনে উত্তর
+
+ Task/Booking/Finance প্রশ্নে সংশ্লিষ্ট endpoints থেকে ডেটা এনে উত্তর
+
+ Data না থাকলে graceful fallback বার্তা
+
+ 60s cache + cache-bust on writes
+
+ সব উত্তরেই sources[] মেটাডাটা থাকবে (debug panel-এ দেখাতে পারি)
+
+ Avg end-to-end latency ≤ 1200ms (cache hit হলে ≤ 200ms)
+
+Test Cases
+
+Utility: “Villa A October electricity bill paid?” → bills endpoint hit, paid/pending status সহ তারিখ
+
+Task: “Test Villa-র pending maintenance কত?” → tasks?status=pending&propertyId=… count/summary
+
+Booking: “Next weekend Test Villa বুকড?” → bookings date window check + propertyId filter
+
+Finance: “Sep 2025 net profit?” → incomes − expenses (month filter)
+
+Missing data: Property name ভুল → polite clarification + zero speculation
+
+Logging & Observability
+
+console.info('[CORTEX]', { intent, orgId, userId, routes, latency, cacheHit })
+
+Error paths console.error('[CORTEX]', err) + 4xx/5xx mapping
+
+Feature flag: CORTEX_ENABLED=true
+
+Deliverables
+
+New endpoint: POST /api/cortex/answer
+
+server/cortex/* modules (intent, extract, connectors, grounder, answer)
+
+Unit tests for extract/connectors (ফোকাস: orgId binding & query shaping)
+
+Short README: how to extend intents/entities
+
+Please implement exactly as above.

@@ -1,0 +1,65 @@
+Please implement the following module: 🛠️ Maintenance, Utilities & Renovation Tracker
+
+🔧 MAINTENANCE LOG & BACKLOG
+- Visible to Admin, PM, Staff (property-linked), and Owners (for their villas)
+- Shows:
+  - Open maintenance issues
+  - Resolved maintenance issues (with date/time, photos, comments)
+  - Who reported it and who fixed it
+  - Attach receipts if any item was purchased
+  - Add button: “New Maintenance Issue” with:
+    - Dropdown: Urgency (Low, Normal, Urgent)
+    - Assigned to (Staff/Contractor)
+    - Task type (AC, Electrical, Plumbing, etc.)
+    - Auto timestamp + notes
+
+📆 RENOVATION & SERVICE TIMELINE
+- For each property, show:
+  - Last major renovation
+  - Last AC servicing
+  - Last pest control
+  - Last deep clean / steam clean
+  - Last pool system inspection
+  - Last septic tank service
+  - Last garden landscaping
+- For each entry:
+  - Date
+  - Short note/description
+  - Attachment upload (optional)
+
+⚠️ AI-DRIVEN FUTURE TASK SUGGESTIONS:
+- Based on historical data, the system should auto-suggest recurring services:
+  - “Next AC service due in 60 days (last was 10 May 2025)”
+  - “No pest control in last 120 days – schedule alert”
+  - Suggestions appear in Admin + PM dashboard and property overview
+  - Button: “Create Task from Suggestion”
+
+📋 UTILITIES TRACKING & BILL ALERTS:
+- Sections per property for:
+  - Electricity
+  - Water
+  - Internet
+  - Pest control
+  - (Custom: Admin can add custom utility titles like Gas, HOA Fee)
+- Each utility:
+  - Provider (dropdown or manually added)
+  - Account number
+  - Bill history (table: month, amount, receipt upload)
+  - Bill due date tracking with smart reminders:
+    - Example: Electricity usually arrives around 17th → if by 21st no receipt uploaded, send alert to PM/Admin
+  - Currency configurable (THB default)
+
+💡 PROPERTY INFO SIDEBAR
+- Appears in Admin / PM / Owner dashboard when viewing property
+- Quick overview:
+  - All utility accounts + bill status (Paid/Not Paid)
+  - Maintenance logs summary
+  - Last 3 major works or service events
+  - Button: View Full Maintenance Timeline
+
+All roles should only see data relevant to their assigned properties.
+
+Also test:
+✅ AI suggestions generate when past service dates are older than recommended intervals  
+✅ Utilities upload & alerts work on timer logic  
+✅ All logs editable with audit history for admin tracking

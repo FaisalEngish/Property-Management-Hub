@@ -1,0 +1,83 @@
+Hi! I need your help to make the entire project fully responsive across screen sizes (desktop, tablet, and mobile) without breaking any existing workflow or logic.
+
+Goal:
+
+Keep all current features, flows, and data handling exactly the same.
+
+Only improve layout/responsiveness so the UI is user-friendly on any device/screen size.
+
+What I want you to do:
+
+Global layout & containers
+
+Review the main layout components (sidebar, top navbar, content area, cards, property hub screens, etc.).
+
+Make sure containers use responsive widths (e.g. max-width, percentage-based, flex/grid) instead of fixed pixel widths where possible.
+
+Ensure horizontal scrolling is avoided on small screens unless absolutely necessary.
+
+Sidebar & navigation
+
+Make the sidebar behave well on small screens:
+
+Either collapse to an icon-only sidebar or become a slide-in/off-canvas menu triggered by a button on mobile.
+
+Ensure navigation items remain accessible and readable.
+
+Do not change any routes or navigation logic; only adjust layout/styling.
+
+Property cards / grids (like Property Hub screen)
+
+Make the property cards layout responsive:
+
+1 column on small screens, 2 columns on medium, 3–4 on large where appropriate.
+
+Ensure images scale correctly and keep aspect ratio on all devices.
+
+Keep the existing carousel behavior and interactions; just ensure it looks good and doesn’t overflow on small viewports.
+
+Typography & spacing
+
+Adjust font sizes, padding, and margins using responsive units or breakpoints so text stays readable on small devices.
+
+Avoid text overflow/clip issues in titles, buttons, and badges.
+
+Buttons, forms, and tables
+
+Make buttons and clickable elements comfortably tappable on mobile (height, spacing).
+
+For any tables or wide content, make them scrollable horizontally on small screens without breaking structure or data.
+
+Do not modify form validation or submission logic, only layout.
+
+Technical constraints
+
+Do not refactor or rename components, hooks, or APIs.
+
+Do not change any business logic or data fetching.
+
+Limit changes to layout classes/CSS and small structural wrappers (divs, flex/grid wrappers) where needed.
+
+Keep existing class names and patterns where possible and extend them with responsive variants instead of replacing everything.
+
+Testing
+
+Test the app in Replit’s preview and browser dev tools for:
+
+Desktop (≥ 1280px)
+
+Tablet (~768–1024px)
+
+Mobile (~375–430px)
+
+Verify:
+
+No layout breaks
+
+No hidden critical actions (buttons, links)
+
+No scrollbars caused by overflow except where intentionally added.
+
+If you need to introduce any global CSS or config changes (like breakpoints), please keep them minimal and consistent with the existing styling approach.
+
+Let me know which files you touched and a quick summary of the main responsive improvements you made.

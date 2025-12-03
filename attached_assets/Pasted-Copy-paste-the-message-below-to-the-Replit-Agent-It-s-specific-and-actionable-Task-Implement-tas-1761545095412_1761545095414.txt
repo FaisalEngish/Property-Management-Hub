@@ -1,0 +1,57 @@
+Copy/paste the message below to the Replit Agent. It’s specific and actionable.
+
+Task: Implement task-date filters and “Filter” button next to the search bar on Tasks page.
+
+Goal: Add a UI filter button beside the existing search input that allows users to filter tasks by: Today, This week, Next 7 days, Next 30 days, Next 90 days, and Custom range. Ensure API supports due_from and due_to query params and returns tasks ordered by due_date ascending with null due_date last. Update frontend to send those params and show filtered, chronological results.
+
+Files to update (frontend):
+
+src/components/TasksBar.jsx (or the component that houses search) — add the Filter button and dropdown. You can use the provided TasksBar.jsx code snippet.
+
+src/pages/tasks.jsx or src/pages/TasksPage.jsx — call API with due_from & due_to; sort tasks by due_date ascending; show filter label.
+
+CSS/Tailwind: use existing classes or tailwind classes from snippet.
+
+Files to update (backend) — implement in whichever backend is used (Node/Express or Laravel). Add support for these query params:
+
+Endpoint: GET /api/tasks?q=&due_from=YYYY-MM-DD&due_to=YYYY-MM-DD&page=&per_page=
+
+Behavior: if due_from and due_to provided, return only tasks with due_date between those dates (exclude null due_date). If not provided, return all tasks paginated. Always sort result by due_date ASC and push null due_date to the bottom.
+
+Provide example query (SQL or ORM). See included SQL/Knex/Laravel examples.
+
+Backend implementation hints:
+
+Node/Express: add parsing of due_from/due_to in the controller; build a WHERE due_date BETWEEN clause; order by CASE WHEN due_date IS NULL THEN 1 ELSE 0 END, due_date ASC.
+
+Laravel: use whereBetween('due_date', [$from,$to]) and orderByRaw.
+
+Test plan:
+
+API: GET /api/tasks?due_from=2025-10-26&due_to=2025-10-26 should only return tasks whose due_date = 2025-10-26.
+
+UI: Click “Next 30 days” — network request must include correct due_from & due_to.
+
+Sorting: tasks rendered in ascending due_date; tasks with null due_date appear after dated tasks.
+
+Acceptance criteria:
+
+Filter button visible and usable beside search field.
+
+Selecting a range queries backend and displays chronological tasks.
+
+Clear filter option resets to unfiltered list.
+
+Custom range opens date-picker (if available) or accept due_from/due_to passed from parent.
+
+Commands to run locally (example):
+
+Start frontend: npm run dev (or project-specific command).
+
+Start backend: npm run dev or php artisan serve.
+
+Run tests: npm test (or PHPUnit for Laravel).
+
+Deliverable: commit branch feature/task-date-filter with PR that includes screenshots and Postman examples for the API query and UI network request.
+
+If you need to change files but unsure which file is the “search bar” component — search for components rendering placeholder text "Search tasks by title, description, or property" and attach patch there.

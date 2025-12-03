@@ -1,0 +1,59 @@
+Please implement the following essential **Property Utilities, Billing, and Maintenance Cycle Tracking** modules across Admin, Portfolio Manager, and Owner dashboards:
+
+🏠 PROPERTY UTILITIES MODULE (per property):
+
+1. ✅ Utilities Tracker:
+   - Categories: Electricity, Water, Internet, Pest Control, Gas, HOA Fee, Other (custom field)
+   - Fields:
+     - Provider Name (e.g., PEA, CAT, AIS, etc.)
+     - Account Number
+     - Payment Frequency (Monthly, Quarterly, Yearly)
+     - Default Due Date (e.g., 17th of each month)
+     - Monthly Cost Estimate (optional)
+     - Linked receipt files (upload + OCR text read)
+
+2. 📑 Bill Log System:
+   - For each utility, create a bill history with:
+     - Billing Month (auto-filled or selected)
+     - Bill Amount
+     - Upload of scanned bill
+     - Upload of payment receipt
+     - Payment status: Pending / Paid / Overdue
+   - ✅ AI Reminder System:
+     - Predictive reminders based on prior bills (e.g., if water always arrives 12th, trigger reminder on 15th if no receipt uploaded)
+     - Notification to Admin or PM if delayed more than 3 days past usual pattern
+
+3. 🔔 Alert Dashboard:
+   - Highlight utilities with missing bills or receipts
+   - Allow manual override and status reset
+
+🛠️ PROPERTY MAINTENANCE HISTORY MODULE:
+
+1. 🧾 Service History Log (auto-logged or manually filled):
+   - Last full Renovation Date
+   - Last AC Clean
+   - Last Septic Tank Pump
+   - Last Pool Deep Clean
+   - Last Garden Overhaul
+   - Last Pest Control Spray
+   - Last Roof Inspection (optional)
+   - Add New Record button (for manual logs)
+
+2. 🧠 AI-Backed Future Service Suggestions:
+   - Based on prior intervals, system auto-calculates next recommended service date
+   - If service is past due by 7 days → highlight in red
+   - Allow PM/Admin to set service intervals per category (e.g., AC = every 6 months)
+
+3. 📆 Maintenance Timeline View:
+   - Visual calendar with past services and upcoming suggested dates
+   - Filter by task type, technician, or status
+
+✅ Access Levels:
+- Admin: Full edit + override
+- PM: Edit only for their properties
+- Owners: View only
+- Maintenance Staff: View only
+
+🔄 All these modules should be accessible via each Property Detail Page in the dashboard, and integrated with notifications and status highlights in both calendar view and finance overview.
+
+Please confirm once implemented and connected to the Property Profile framework.

@@ -1,0 +1,87 @@
+You are an AI coding agent working on this existing project:
+https://a395ce0f-a58e-48a5-8238-2936c805478d-00-3hgn1cx2vrpqg.riker.replit.dev/
+
+PHASE 1 GOAL (ONLY DO THIS PHASE)
+---------------------------------
+Unify local properties and Hostaway properties in the backend so they share ONE common Property model and API.
+
+Constraints:
+- Do NOT touch bookings, tasks, or finance logic yet (that will be later phases).
+- Keep the existing UI working exactly as it is for now.
+- Make minimal, clean changes that follow the existing stack and style.
+
+Step 1 – Understand current code
+--------------------------------
+1. Find:
+   - The Property model/schema (DB model, Prisma/Mongoose/TypeORM/etc. – use the actual stack).
+   - The existing local property storage (table/collection).
+   - The Hostaway integration code currently used to show properties in the Property Hub.
+   - The API endpoints used by the Property Hub page (likely something like GET /api/properties or similar).
+
+2. Confirm whether Hostaway properties are:
+   - Only coming from Hostaway API at request-time, or
+   - Already being stored in the DB.
+
+Step 2 – Extend Property model
+------------------------------
+1. Update the backend Property model to include at least:
+   - `source`: enum or string, values `"LOCAL"` or `"HOSTAWAY"`.
+   - `externalId`: string | null, Hostaway property ID when `source = "HOSTAWAY"`, null for local properties.
+   - If there is already similar fields, reuse them instead of duplicating.
+
+2. Add any necessary DB migration or schema update so these fields are persisted.
+
+3. Make sure:
+   - Existing local properties are assigned `source = "LOCAL"` and `externalId = null`.
+   - Code that creates local properties sets these defaults.
+
+Step 3 – Hostaway → Property mapping & storage
+----------------------------------------------
+1. Identify the place where Hostaway properties are fetched.
+2. Create or update a function like:
+   - `upsertHostawayProperties()` (name can follow project conventions)
+   which:
+   - Takes Hostaway property payloads.
+   - Maps them to the unified Property model.
+   - Upserts them into the Property table by matching:
+     - `source = "HOSTAWAY"` and `externalId = hostawayPropertyId`.
+
+3. If Hostaway properties are currently only in memory and not stored:
+   - Introduce a simple sync flow:
+     - For now, add a manual endpoint, e.g. `POST /api/hostaway/sync-properties` (admin-only).
+     - This endpoint calls the Hostaway API, maps properties, and upserts them into the Property table.
+   - If they are already stored, refactor so they comply with the new `source` & `externalId` fields.
+
+Step 4 – Unified Property list endpoint
+---------------------------------------
+1. Implement or update a single endpoint, e.g. `GET /api/properties`:
+   - Returns BOTH local and Hostaway properties from the Property table.
+   - Always includes in the response:
+     - `id`
+     - `name` or title
+     - location fields needed by the UI
+     - images/thumbnail currently shown in Property Hub
+     - `source`
+     - `externalId`
+   - Optionally support query params:
+     - `source` (filter by LOCAL or HOSTAWAY)
+     - but by default return all properties.
+
+2. If the Property Hub frontend currently calls a Hostaway-specific endpoint:
+   - Keep that endpoint working for now,
+   - BUT also expose the new unified `/api/properties` endpoint for the next phases.
+
+Step 5 – Keep everything compiling and tested
+--------------------------------------------
+1. Ensure the project builds and runs without TypeScript or runtime errors.
+2. Update type definitions/interfaces so `source` and `externalId` are available wherever properties are used.
+3. Make sure existing features for local properties are NOT broken.
+
+Deliverables
+------------
+1. Updated Property model with `source` and `externalId`.
+2. A Hostaway property sync function that upserts Hostaway properties into the Property table.
+3. A unified property list endpoint that returns both local and Hostaway properties with `source` and `externalId`.
+4. All tests (if any) passing and app running without errors.
+
+Do NOT implement bookings, task management, or Finance Hub integration yet. That will be done in later phases.

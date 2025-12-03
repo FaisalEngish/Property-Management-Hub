@@ -1,0 +1,101 @@
+==> Application exited early
+==> Common ways to troubleshoot your deploy: https://render.com/docs/troubleshooting-deploys
+==> Running 'npm start'
+> hostpilotpro@1.0.0 start
+> node dist/index.js
+🔗 Connecting to database: Neon
+Skipping seeding during debugging...
+✅ Demo seeding disabled - production mode active
+✅ Demo authentication middleware initialized
+[INIT] Booking revenue routes mounted ✅
+Unhandled Rejection at: Promise {
+  <rejected> TypeError: "clientId" must be a non-empty string
+      at CodedTypeError (file:///opt/render/project/src/node_modules/openid-client/build/index.js:89:17)
+      at new Configuration (file:///opt/render/project/src/node_modules/openid-client/build/index.js:463:19)
+      at Module.discovery (file:///opt/render/project/src/node_modules/openid-client/build/index.js:244:22)
+      at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+      at async memoize.maxAge (file:///opt/render/project/src/dist/index.js:46911:12)
+      at async setupAuth (file:///opt/render/project/src/dist/index.js:46960:18)
+      at async registerRoutes (file:///opt/render/project/src/dist/index.js:47810:5)
+      at async file:///opt/render/project/src/dist/index.js:65526:18 {
+    code: 'ERR_INVALID_ARG_TYPE',
+    [cause]: undefined
+  }
+} reason: TypeError: "clientId" must be a non-empty string
+    at CodedTypeError (file:///opt/render/project/src/node_modules/openid-client/build/index.js:89:17)
+    at new Configuration (file:///opt/render/project/src/node_modules/openid-client/build/index.js:463:19)
+    at Module.discovery (file:///opt/render/project/src/node_modules/openid-client/build/index.js:244:22)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async memoize.maxAge (file:///opt/render/project/src/dist/index.js:46911:12)
+    at async setupAuth (file:///opt/render/project/src/dist/index.js:46960:18)
+    at async registerRoutes (file:///opt/render/project/src/dist/index.js:47810:5)
+    at async file:///opt/render/project/src/dist/index.js:65526:18 {
+  code: 'ERR_INVALID_ARG_TYPE',
+  [cause]: undefined
+}
+==> Running 'npm start'
+> hostpilotpro@1.0.0 start
+> node dist/index.js
+🔗 Connecting to database: Neon
+Skipping seeding during debugging...
+✅ Demo seeding disabled - production mode active
+✅ Demo authentication middleware initialized
+[INIT] Booking revenue routes mounted ✅
+Unhandled Rejection at: Promise {
+  <rejected> TypeError: "clientId" must be a non-empty string
+      at CodedTypeError (file:///opt/render/project/src/node_modules/openid-client/build/index.js:89:17)
+      at new Configuration (file:///opt/render/project/src/node_modules/openid-client/build/index.js:463:19)
+      at Module.discovery (file:///opt/render/project/src/node_modules/openid-client/build/index.js:244:22)
+      at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+      at async memoize.maxAge (file:///opt/render/project/src/dist/index.js:46911:12)
+      at async setupAuth (file:///opt/render/project/src/dist/index.js:46960:18)
+      at async registerRoutes (file:///opt/render/project/src/dist/index.js:47810:5)
+      at async file:///opt/render/project/src/dist/index.js:65526:18 {
+    code: 'ERR_INVALID_ARG_TYPE',
+    [cause]: undefined
+  }
+} reason: TypeError: "clientId" must be a non-empty string
+    at CodedTypeError (file:///opt/render/project/src/node_modules/openid-client/build/index.js:89:17)
+    at new Configuration (file:///opt/render/project/src/node_modules/openid-client/build/index.js:463:19)
+    at Module.discovery (file:///opt/render/project/src/node_modules/openid-client/build/index.js:244:22)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async memoize.maxAge (file:///opt/render/project/src/dist/index.js:46911:12)
+    at async setupAuth (file:///opt/render/project/src/dist/index.js:46960:18)
+    at async registerRoutes (file:///opt/render/project/src/dist/index.js:47810:5)
+    at async file:///opt/render/project/src/dist/index.js:65526:18 {
+  code: 'ERR_INVALID_ARG_TYPE',
+  [cause]: undefined
+}
+==> Running 'npm start'
+> hostpilotpro@1.0.0 start
+> node dist/index.js
+🔗 Connecting to database: Neon
+Skipping seeding during debugging...
+✅ Demo seeding disabled - production mode active
+✅ Demo authentication middleware initialized
+[INIT] Booking revenue routes mounted ✅
+Unhandled Rejection at: Promise {
+  <rejected> TypeError: "clientId" must be a non-empty string
+      at CodedTypeError (file:///opt/render/project/src/node_modules/openid-client/build/index.js:89:17)
+      at new Configuration (file:///opt/render/project/src/node_modules/openid-client/build/index.js:463:19)
+      at Module.discovery (file:///opt/render/project/src/node_modules/openid-client/build/index.js:244:22)
+      at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+      at async memoize.maxAge (file:///opt/render/project/src/dist/index.js:46911:12)
+      at async setupAuth (file:///opt/render/project/src/dist/index.js:46960:18)
+      at async registerRoutes (file:///opt/render/project/src/dist/index.js:47810:5)
+      at async file:///opt/render/project/src/dist/index.js:65526:18 {
+    code: 'ERR_INVALID_ARG_TYPE',
+    [cause]: undefined
+  }
+} reason: TypeError: "clientId" must be a non-empty string
+    at CodedTypeError (file:///opt/render/project/src/node_modules/openid-client/build/index.js:89:17)
+    at new Configuration (file:///opt/render/project/src/node_modules/openid-client/build/index.js:463:19)
+    at Module.discovery (file:///opt/render/project/src/node_modules/openid-client/build/index.js:244:22)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async memoize.maxAge (file:///opt/render/project/src/dist/index.js:46911:12)
+    at async setupAuth (file:///opt/render/project/src/dist/index.js:46960:18)
+    at async registerRoutes (file:///opt/render/project/src/dist/index.js:47810:5)
+    at async file:///opt/render/project/src/dist/index.js:65526:18 {
+  code: 'ERR_INVALID_ARG_TYPE',
+  [cause]: undefined
+}

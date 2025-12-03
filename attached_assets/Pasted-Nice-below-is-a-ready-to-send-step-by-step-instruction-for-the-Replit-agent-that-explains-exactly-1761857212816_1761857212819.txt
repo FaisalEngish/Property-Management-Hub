@@ -1,0 +1,423 @@
+Nice — below is a ready-to-send, step-by-step instruction for the Replit agent that explains exactly what to change (backend + database + frontend), why, and includes code snippets you can drop in. It covers:
+
+fix $undefined (undefined price),
+
+add editable price input (with conditional visibility),
+
+enforce price = 0 for owner/company gifts,
+
+date-due optional with past dates disabled,
+
+show bookings in Service Bookings tab with auto booking id and guest ref,
+
+make the top Add Service open the same add-service modal,
+
+tests / validations and edge cases.
+
+Copy-paste this message to your Replit agent.
+
+Hi Replit agent — please implement the features below. I’ve divided them into Database / Backend / API changes and Frontend changes and added code snippets and validations. Implement, test locally, and open a PR. If anything is unclear, proceed with the most standard approach for this stack (Node/Express + Postgres + React/Vite). Thank you.
+
+1) Database schema (Postgres) — add service_bookings and columns for price & due date
+
+Run a migration like this (adjust to your migration tool):
+
+-- 1_create_service_bookings.sql
+CREATE TABLE IF NOT EXISTS service_bookings (
+  id SERIAL PRIMARY KEY,
+  booking_id VARCHAR(32) UNIQUE NOT NULL,
+  service_id INTEGER NOT NULL REFERENCES services(id) ON DELETE CASCADE,
+  guest_name VARCHAR(255) NOT NULL,
+  guest_email VARCHAR(255),
+  guest_phone VARCHAR(50),
+  property_id INTEGER REFERENCES properties(id),
+  billing_type VARCHAR(32) NOT NULL, -- e.g. 'auto_guest', 'auto_owner', 'owner_gift', 'company_gift'
+  price_cents INTEGER, -- store in cents; NULL when complimentary
+  date_due DATE, -- optional
+  status VARCHAR(32) DEFAULT 'booked',
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+);
+
+
+Notes:
+
+price_cents null means "no charge / complimentary". If stored as integer cents, display formatted as currency on frontend.
+
+Update services table to include default_price_cents (nullable):
+
+ALTER TABLE services
+  ADD COLUMN IF NOT EXISTS default_price_cents INTEGER;
+
+2) Backend API changes
+2.1 New endpoints (or extend existing)
+
+GET /api/services — return services with default_price_cents.
+
+POST /api/services — create/update service (Add Service button).
+
+POST /api/service-bookings — create booking.
+
+GET /api/service-bookings — list bookings (support filtering / pagination / ordering).
+
+2.2 Example Express route handlers (pseudocode)
+Create booking (important parts)
+// POST /api/service-bookings
+app.post('/api/service-bookings', async (req, res) => {
+  const {
+    service_id,
+    guest_name,
+    guest_email,
+    guest_phone,
+    property_id,
+    billing_type,
+    price, // in float or string like '123.45' from frontend
+    date_due // ISO date string or null
+  } = req.body;
+
+  if (!service_id || !guest_name || !billing_type) {
+    return res.status(400).json({ error: 'service_id, guest_name and billing_type are required' });
+  }
+
+  // Normalize price -> cents or null if complimentary
+  let price_cents = null;
+  if (!(billing_type === 'owner_gift' || billing_type === 'company_gift')) {
+    // price must be provided and numeric
+    if (price == null || isNaN(Number(price))) {
+      return res.status(400).json({ error: 'price is required for this billing type' });
+    }
+    price_cents = Math.round(Number(price) * 100);
+    if (price_cents < 0) return res.status(400).json({ error: 'price must be >= 0' });
+  } else {
+    price_cents = null; // complimentary
+  }
+
+  // Validate date_due if provided: must be today or future
+  if (date_due) {
+    const d = new Date(date_due);
+    const today = new Date();
+    today.setHours(0,0,0,0);
+    d.setHours(0,0,0,0);
+    if (d < today) {
+      return res.status(400).json({ error: 'date_due cannot be in the past' });
+    }
+  }
+
+  // Generate booking_id: BK-YYYYMMDD-XXXX
+  const now = new Date();
+  const datePart = now.toISOString().slice(0,10).replace(/-/g, '');
+  const rand = Math.floor(1000 + Math.random() * 9000);
+  const booking_id = `BK-${datePart}-${rand}`;
+
+  const result = await db.query(
+    `INSERT INTO service_bookings
+     (booking_id, service_id, guest_name, guest_email, guest_phone, property_id,
+      billing_type, price_cents, date_due)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
+    [booking_id, service_id, guest_name, guest_email, guest_phone, property_id, billing_type, price_cents, date_due]
+  );
+
+  return res.status(201).json({ booking: result.rows[0] });
+});
+
+List bookings
+// GET /api/service-bookings?order=desc&limit=50
+app.get('/api/service-bookings', async (req, res) => {
+  const order = req.query.order === 'asc' ? 'ASC' : 'DESC';
+  const limit = Math.min(100, Number(req.query.limit) || 50);
+
+  const rows = await db.query(
+    `SELECT sb.*, s.name as service_name FROM service_bookings sb
+      JOIN services s ON s.id = sb.service_id
+     ORDER BY sb.created_at ${order}
+     LIMIT $1`, [limit]);
+  return res.json({ bookings: rows.rows });
+});
+
+
+Notes:
+
+Return booking_id and guest_name so the UI can show booking_id — guest_name.
+
+Use transactions and error handling as appropriate.
+
+3) Frontend changes (React/Vite)
+
+Files to update: ServicesList (cards), ServiceModal / BookServiceModal, AddServiceButton, ServiceBookings tab/page.
+
+3.1 Show price properly (fix $undefined)
+
+Where you build the card price label, change from naive '$' + service.price to:
+
+// service.default_price_cents may be null
+function formatPrice(cents) {
+  if (cents == null) return '$0.00'; // or show '—' if you prefer
+  return '$' + (cents / 100).toFixed(2);
+}
+...
+<span className="price">
+  { service.default_price_cents == null ? '$0.00' : formatPrice(service.default_price_cents) }
+</span>
+
+
+Better: If you want to show blank when complimentary, use if (service.default_price_cents == null) 'Complimentary'.
+
+Reason: $undefined happens when service.default_price is missing. Use == null checks and format cents.
+
+3.2 “Book Service” modal — add price input and billing logic
+
+In the BookAddOnServiceModal component:
+
+Fields: Service (select), GuestName, Email (optional), Phone (optional), Property (select), BillingType (radio group), Price (input) — price input visible only when billing type requires payment, Date Due (optional date picker).
+
+Behavior:
+
+Billing types: auto_guest, auto_owner, owner_gift, company_gift.
+
+If billing_type is owner_gift or company_gift:
+
+Hide or disable the price input and set price to 0 or null when sending to server (use null for complimentary).
+
+Else:
+
+Show price input and require a positive numeric value.
+
+Date picker: optional — use <input type="date" min={todayISO} /> or react-datepicker. Set min to today to disable past dates.
+
+Example React snippet (simplified)
+const [billingType, setBillingType] = useState('auto_guest');
+const [price, setPrice] = useState(service?.default_price_cents ? (service.default_price_cents/100).toFixed(2) : '');
+const todayISO = new Date().toISOString().slice(0,10);
+
+return (
+  <form onSubmit={handleSubmit}>
+    {/* Billing radio group -> setBillingType */}
+    <div>
+      <label><input type="radio" name="billing" value="auto_guest" checked={billingType==='auto_guest'} onChange={e=>setBillingType(e.target.value)} /> Auto-Bill Guest</label>
+      <label><input type="radio" name="billing" value="auto_owner" checked={billingType==='auto_owner'} onChange={...} /> Auto-Bill Owner</label>
+      <label><input type="radio" name="billing" value="owner_gift" checked={billingType==='owner_gift'} onChange={...} /> Owner Gift</label>
+      <label><input type="radio" name="billing" value="company_gift" checked={billingType==='company_gift'} onChange={...} /> Company Gift</label>
+    </div>
+
+    {/* Price: only show when not gift */}
+    {(billingType !== 'owner_gift' && billingType !== 'company_gift') && (
+      <div>
+        <label>Price</label>
+        <input type="number" step="0.01" min="0" value={price} onChange={e=>setPrice(e.target.value)} />
+      </div>
+    )}
+
+    {/* Optional Date Due */}
+    <div>
+      <label>Date Due (optional)</label>
+      <input type="date" min={todayISO} value={dateDue || ''} onChange={e=>setDateDue(e.target.value)} />
+    </div>
+
+    <button type="submit">Book Service</button>
+  </form>
+);
+
+Submission logic (frontend)
+
+Prepare body:
+
+If billingType is owner/company gift → price=null.
+
+Else → parse price as float string; validate numeric and >= 0.
+
+POST to /api/service-bookings with JSON keys: service_id, guest_name, guest_email, guest_phone, property_id, billing_type, price (string/number or null), date_due (ISO or null).
+
+On success: close modal and navigate/refresh Service Bookings tab.
+
+3.3 Date picker & disable past dates
+
+If using native date input: min={todayISO}.
+
+If using react-datepicker: set minDate={new Date()} and filterDate={date => date >= new Date().setHours(0,0,0,0)}.
+
+Also perform server-side check (see backend) — client check is UX only.
+
+3.4 Add Service button
+
+Make the top “Add Service” button open the same modal as the service card’s editing/creation window.
+
+If currently non-functional, wire it to the modal open function:
+
+<button onClick={() => openServiceModal({ mode: 'create' })}>Add Service</button>
+
+
+Modal should support mode: 'create' and mode: 'edit'. create sends POST /api/services. edit sends PUT /api/services/:id.
+
+Modal fields: name, description, default price (optional), duration, active flag, icon, etc.
+
+3.5 Service Bookings page (list)
+
+Create / update ServiceBookings page to call GET /api/service-bookings and render bookings in list order.
+
+Display at least:
+
+Booking ID (booking.booking_id)
+
+Service name
+
+Guest name (and guest email/phone)
+
+Billing type (human readable)
+
+Price (format cents -> currency; show 'Complimentary' for null)
+
+Date due (if provided)
+
+Created at
+
+Default ordering: newest first (ORDER BY created_at DESC).
+
+Provide filters: service, property, date range (future), status.
+
+Each row should link to booking detail view.
+
+Example table columns:
+
+| Booking ID | Service | Guest | Billing | Price | Date Due | Created |
+| BK-20251031-1234 | Airport Transfer | Summer Ray (it@...) | Auto-Bill Guest | $25.00 | 2025-11-02 | 2025-10-31 02:12 |
+
+4) Validation & UX rules
+Price / Billing
+
+If billing is owner_gift or company_gift => price is complimentary => hide price input and send price = null.
+
+If billing is auto_guest or auto_owner => price must be numeric >= 0.00 (server returns 400 if missing).
+
+Display currency consistently with two decimals (ex: $25.00).
+
+Date due
+
+Optional field.
+
+If provided, server rejects dates in the past.
+
+Booking ID
+
+Must be unique. Use format BK-YYYYMMDD-XXXX. Backend ensures uniqueness (unique index on booking_id). If collision, regenerate.
+
+Edge cases
+
+If service default price is null and billing requires payment, prefill price input with empty — user must enter.
+
+If the service card previously displayed '$undefined', the fix is to guard null/undefined and format.
+
+If user sets price = 0 for paid billing type, accept (free of charge but still billed). If intent is to block price 0 for paid billing, clarify — currently we accept 0.
+
+5) Tests & QA steps (manual & automated)
+Manual test checklist (deliverable)
+
+Open Services page: none of the cards show $undefined. Each shows either $0.00 or formatted price.
+
+Click any card → “Book Service” modal opens.
+
+Choose billing: Auto-Bill Guest → price input visible and required. Enter 25 → submit → booking created, booking shows in Service Bookings list with BK-... id and price:$25.00.
+
+Choose billing: Owner Gift → price input hidden → submit → booking created with price null → Service Bookings shows Complimentary.
+
+Set Date Due to a past date (manually) → client/server should reject (server 400).
+
+Add Service button (top) opens full create-service modal → create new service with default price → service card appears and price shows.
+
+Open Service Bookings tab: bookings listed newest first. Each shows booking id and guest name.
+
+Try submitting booking without guest name → server 400.
+
+Verify price formatting, currency, two decimals.
+
+Run backend unit tests for booking creation (happy path & invalid billing/price/path date).
+
+Automated tests (suggestions)
+
+Unit test for POST /api/service-bookings:
+
+create booking with paid billing → returns 201 and price_cents set
+
+create booking with owner_gift → returns 201 and price_cents null
+
+attempt create booking with past date → returns 400
+
+attempt create booking with missing guest_name → returns 400
+
+6) Files to change (suggested)
+
+Backend:
+
+migrations/1_create_service_bookings.sql
+
+models/serviceBooking.js (or equivalent DB layer)
+
+routes/serviceBookings.js
+
+routes/services.js (ensure default_price_cents exists)
+
+db/index.js (new queries)
+
+Frontend:
+
+src/pages/Services.jsx (cards rendering)
+
+src/components/BookAddOnServiceModal.jsx
+
+src/components/ServiceModal.jsx (Add Service)
+
+src/pages/ServiceBookings.jsx (new list page)
+
+src/utils/format.js (formatPrice helper)
+
+Tests:
+
+tests/serviceBookings.test.js
+
+7) Small, copyable code you can drop in
+Booking ID generator (JS)
+function generateBookingId() {
+  const now = new Date();
+  const datePart = now.toISOString().slice(0,10).replace(/-/g, '');
+  const rand = Math.floor(1000 + Math.random() * 9000);
+  return `BK-${datePart}-${rand}`;
+}
+
+Server-side price normalization helper
+function normalizePriceForDB(priceString, billingType) {
+  if (billingType === 'owner_gift' || billingType === 'company_gift') return null;
+  const num = Number(priceString);
+  if (Number.isNaN(num) || num < 0) throw new Error('invalid_price');
+  return Math.round(num * 100);
+}
+
+Frontend: min date for native input
+const todayISO = new Date().toISOString().slice(0,10);
+<input type="date" min={todayISO} ... />
+
+8) Deployment notes & migration order
+
+Add DB migration (create table + alter services).
+
+Deploy backend code that reads/writes default_price_cents and service_bookings.
+
+Deploy frontend changes.
+
+Run smoke test via UI.
+
+If rolling back, reverse frontend first, then backend, then DB migration.
+
+9) Acceptance criteria (what I’ll check)
+
+No $undefined in service cards.
+
+Price input visible only when needed; hidden for owner/company gift.
+
+Price saved correctly (in cents) for paid bookings.
+
+Complimentary bookings store price_cents = null.
+
+Service Bookings shows list ordered by time and includes booking_id and guest_name.
+
+Date due is optional and server rejects past dates.
+
+Top Add Service button opens the create service modal and creates service.

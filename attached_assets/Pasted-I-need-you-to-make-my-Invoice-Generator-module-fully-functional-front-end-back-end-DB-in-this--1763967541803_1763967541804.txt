@@ -1,0 +1,411 @@
+I need you to make my Invoice Generator module fully functional (front-end + back-end + DB) in this project.
+
+Live page:
+https://a395ce0f-a58e-48a5-8238-2936c805478d-00-3hgn1cx2vrpqg.riker.replit.dev/invoice-generator
+
+Screenshot for reference (current UI):
+/mnt/data/d44393f5-e307-4fa9-86ce-10e630ca0890.png
+
+The UI is already mostly designed; I now need full functionality wired up. Please follow the project’s existing patterns (TypeScript, Express APIs, auth, DB layer, error handling, etc.) and keep code clean and well-typed.
+
+1. Inspect the existing code
+
+Find the React component(s) for the Invoice Generator page (likely something like InvoiceGenerator.tsx or a route component under src/pages/finance or similar) and the related tabs:
+
+All Invoices
+
+Create Invoice
+
+Templates
+
+Analytics
+
+Find the backend area where finance-related routes/models live (for example server/routes/finance, server/routes/invoices, or similar). We want to integrate into that structure rather than creating something inconsistent.
+
+Identify the DB/ORM used (Prisma, Mongoose, or raw SQL) and follow the same style.
+
+2. Database / Models
+
+Create or extend invoice-related models to support:
+
+Invoice
+
+id (primary)
+
+invoiceNumber (string, unique) – e.g. INV-2025-005
+
+clientType (enum/string: "Owner" | "Agent" | "Service Provider" or whatever matches existing client types)
+
+clientId or clientName (depending on existing schema; prefer FK to a clients/owners table if present)
+
+propertyId (FK to properties table/collection, if properties already exist in the project)
+
+templateId (nullable FK to invoice template)
+
+issueDate (date)
+
+dueDate (date)
+
+description (string, optional – high-level invoice description)
+
+status (enum: "draft" | "sent" | "paid" | "overdue" | "void")
+
+subtotal (number)
+
+taxTotal (number)
+
+discountTotal (number)
+
+total (number)
+
+createdAt, updatedAt
+
+InvoiceLineItem
+
+id
+
+invoiceId (FK to Invoice)
+
+description (string)
+
+quantity (number, default 1)
+
+unitPrice (number)
+
+taxRate (number, optional)
+
+discount (number, optional – flat or percentage, whichever is simpler to implement; document in comments)
+
+amount (number – computed: quantity * unitPrice, adjusted by tax/discount)
+
+InvoiceTemplate
+
+id
+
+name
+
+description (optional – default description)
+
+defaultLineItems (array/related table of line items with description, quantity, unitPrice, taxRate, discount)
+
+isActive
+
+createdAt, updatedAt
+
+Use whatever schema / migration approach the project already uses (Prisma schema, Mongoose models, SQL migrations, etc.).
+
+3. Backend API endpoints
+
+Under the existing Express setup, add REST endpoints for invoices and templates. They should all use the existing auth middleware (e.g., require logged-in user, same as /api/finance or similar).
+
+Invoice endpoints
+
+GET /api/invoices
+
+Query params: status?, clientId?, propertyId?, search?, fromDate?, toDate?, page?, limit?
+
+Returns paginated list of invoices with basic info + totals.
+
+GET /api/invoices/:id
+
+Returns invoice details including line items.
+
+POST /api/invoices
+
+Creates an invoice (draft or sent). Accepts:
+
+clientType, clientId/clientName, propertyId, templateId, issueDate, dueDate, description, status, lineItems.
+
+Server should:
+
+Validate required fields.
+
+Compute subtotal, taxTotal, discountTotal, and total based on line items.
+
+Assign an invoiceNumber if the front-end requests "Auto".
+
+If status="draft", validation can be looser (e.g., allow missing client/property but still store).
+
+PUT /api/invoices/:id
+
+Update invoice details and line items.
+
+Recalculate totals on server side.
+
+DELETE /api/invoices/:id
+
+Soft delete or hard delete, whichever matches rest of app; document choice in comments.
+
+GET /api/invoices/next-number
+
+Returns next available invoiceNumber using whatever sequence logic you think is best:
+
+Example: INV-YYYY-XXX where XXX is 3-digit incremental per year.
+
+Front-end "Auto" button will call this.
+
+GET /api/invoices/stats
+
+Returns basic stats for Analytics tab:
+
+Total invoiced per month (for last 6–12 months).
+
+Counts and sums by status (draft, sent, paid, overdue).
+
+Maybe total outstanding (unpaid + overdue).
+
+GET /api/invoices/export
+
+Query params: fromDate?, toDate?, status?, etc.
+
+Returns a CSV or simple downloadable file (we don’t need fancy formatting, just basic export so the "Export Report" button works).
+
+Invoice template endpoints
+
+GET /api/invoice-templates
+
+Returns list of active templates: id, name, description.
+
+GET /api/invoice-templates/:id
+
+Returns template with default line items.
+
+POST /api/invoice-templates
+
+PUT /api/invoice-templates/:id
+
+DELETE /api/invoice-templates/:id
+
+Standard CRUD so the Templates tab can manage presets of line items.
+
+Supporting endpoints (if not already available)
+
+Reuse existing endpoints to populate dropdowns:
+
+Clients / owners / agents.
+
+Properties list.
+
+If such endpoints don’t exist yet, create simple:
+
+GET /api/clients?type=Owner|Agent|ServiceProvider
+
+GET /api/properties (id + name/address).
+
+4. Front-end: Create Invoice tab
+
+In the Create Invoice tab, wire everything to the APIs:
+
+Form fields
+
+Invoice Number:
+
+Default value from /api/invoices/next-number on page load.
+
+When clicking the Auto button, refetch and replace the value.
+
+Client Type:
+
+Dropdown that controls which clients show in Client Name field.
+
+Client Name:
+
+Dropdown (or searchable select) populated from /api/clients?type=....
+
+Property:
+
+Dropdown of properties from /api/properties.
+
+Invoice Template:
+
+Dropdown populated from /api/invoice-templates.
+
+When a template is selected, pre-fill:
+
+Description (if template provides one).
+
+Line items list with template’s default items (user can still edit or remove them).
+
+Dates
+
+Issue Date and Due Date fields should be controlled components.
+
+Use whichever date picker is already used elsewhere in the project.
+
+Validate that dueDate >= issueDate (if both present). Show inline error message if wrong.
+
+Line Items section
+
+Allow dynamic list of line items.
+
+Columns: Description, Quantity, Unit Price, Tax % (optional), Discount (optional), Amount.
+
+Add Item button pushes a new empty row.
+
+When Quantity or Unit Price (or tax/discount) changes, update Amount and recompute:
+
+subtotal = sum(quantity * unitPrice)
+
+taxTotal = sum of tax per line.
+
+discountTotal if implemented.
+
+total = subtotal + taxTotal - discountTotal.
+
+Display Total: $X.XX at bottom (already present as a placeholder; make it reactive).
+
+Buttons
+
+Save as Draft
+
+Calls POST /api/invoices with status="draft".
+
+Validation:
+
+Allow incomplete info (e.g., allow missing client/property) but still ensure at least 1 line item with a description.
+
+On success, show toast/notification and keep user on same page with option:
+
+Either reset the form OR redirect to invoice detail; choose whichever is consistent with rest of app.
+
+Generate Invoice
+
+Calls POST /api/invoices with status="sent".
+
+Validation:
+
+Must have clientType and client selected.
+
+Must have property selected.
+
+Must have issueDate and dueDate.
+
+Must have at least 1 line item with positive amount.
+
+On success, redirect to invoice detail view or All Invoices tab.
+
+Clear Form
+
+Resets entire form and line items to initial state (including fetching a fresh invoice number from /api/invoices/next-number).
+
+Form state and UX
+
+Show loading spinners while fetching dropdown data or saving invoice.
+
+Show validation errors inline, not only as alerts.
+
+Use existing toast/notification system used in the rest of the app for success/error messages.
+
+5. Front-end: All Invoices tab
+
+Make the All Invoices tab actually load data and provide basic management:
+
+On load, call GET /api/invoices with default page=1 and limit=20.
+
+Display columns: Invoice Number, Client, Property, Issue Date, Due Date, Status, Total, Actions.
+
+Add filters/search:
+
+Search box (by invoice number or client name) → passes search query param.
+
+Status filter (All/Draft/Sent/Paid/Overdue).
+
+Date range filter (Issue date from/to).
+
+Pagination (Next/Previous).
+
+Action buttons:
+
+View (navigates to invoice detail page or expanded row).
+
+Edit (opens Create Invoice tab pre-filled using GET /api/invoices/:id).
+
+Delete (with confirmation, calls DELETE /api/invoices/:id, then refresh list).
+
+Wire up Export Report button in the header:
+
+When clicked, hit GET /api/invoices/export with current filters.
+
+Trigger browser file download.
+
+6. Front-end: Templates tab
+
+Implement CRUD UI for Invoice Templates:
+
+List existing templates (name, description, number of default line items, active/inactive).
+
+Allow create/edit modal or page where user can define:
+
+Template name.
+
+Template description (optional).
+
+Default line items (same structure as invoice line items but without status/dates).
+
+Save via POST /api/invoice-templates or PUT /api/invoice-templates/:id.
+
+Allow toggling active/inactive or deleting via DELETE /api/invoice-templates/:id.
+
+When a template is inactive, don’t show it in the Create Invoice template dropdown.
+
+7. Front-end: Analytics tab
+
+Use existing chart components/layout styles from the rest of the app to show:
+
+Total invoiced per month (last 6–12 months)
+
+Data from GET /api/invoices/stats.
+
+Status breakdown
+
+Simple bar or donut chart showing totals by status (draft, sent, paid, overdue).
+
+Show summary cards:
+
+Total Invoices.
+
+Total Invoiced Amount.
+
+Total Outstanding (unpaid/overdue).
+
+Total Paid.
+
+No need for extremely fancy analytics; just something useful and consistent with the current design.
+
+8. Security, validation, and code quality
+
+Use existing authentication/authorization middleware so only authorized users can access invoice data.
+
+Validate incoming data on the server and return meaningful error messages (400 with details).
+
+Handle errors gracefully in the front-end (use existing error/toast components).
+
+Keep everything strongly typed in TypeScript (types/interfaces for API payloads and responses).
+
+Add brief comments where behavior isn’t obvious (like invoice number generation logic).
+
+9. Manual test plan
+
+Before you finish, please:
+
+Create a new template, then create an invoice using that template and verify line items auto-populate.
+
+Create a draft invoice with partial info and confirm:
+
+It’s saved.
+
+It appears in All Invoices with status = Draft.
+
+Create a full invoice via Generate Invoice and check:
+
+Totals are correct.
+
+It shows up in All Invoices as Sent.
+
+Edit an existing invoice and confirm totals update after changing line items.
+
+Delete an invoice and confirm it disappears from the list.
+
+Use Export Report and verify that a file downloads with realistic columns.
+
+Check Analytics tab shows updated data after creating several invoices.

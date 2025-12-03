@@ -1,0 +1,62 @@
+// ✅ Improve Sidebar Navigation in HostPilotPro (Replit Prompt)
+// Objective: Organize and optimize the left-hand sidebar and top tabs for better user experience
+
+// ✅ Task Breakdown:
+1. Create clear section headers with emojis/icons (optional Tailwind or custom styling)
+2. Use collapsible sections (accordion style) for each major category
+3. Add active highlight styling for selected section
+4. Refactor top-level tabs (Users, Permissions, Access Control, Property Visibility) into subtabs when possible
+5. Add optional Command Palette (Ctrl+K) for fast navigation
+
+// 🧱 Suggested Sidebar Structure:
+const sidebarSections = [
+  {
+    title: "📊 Dashboards",
+    items: [
+      { label: "Admin Dashboard", icon: "🏠", route: "/admin" },
+      { label: "Enhanced Admin Dashboard", icon: "📈", route: "/admin/enhanced" },
+      { label: "Financial Dashboard", icon: "💰", route: "/admin/financial" },
+      { label: "Property Dashboard", icon: "🏡", route: "/admin/property" },
+    ],
+  },
+  {
+    title: "🏘️ Property Management",
+    items: [
+      { label: "Properties", icon: "📋", route: "/properties" },
+      { label: "Bookings", icon: "📆", route: "/bookings" },
+      { label: "Live Booking Calendar", icon: "🗓️", route: "/calendar" },
+      { label: "Tasks", icon: "✅", route: "/tasks" },
+    ],
+  },
+  {
+    title: "🧹 Operations",
+    items: [
+      { label: "Auto-Scheduling Rules", route: "/operations/scheduling" },
+      { label: "Maintenance Log & Warranty", route: "/operations/maintenance" },
+      { label: "Staff Profile & Payroll", route: "/operations/staff" },
+    ],
+  },
+  {
+    title: "💬 Guest Services",
+    items: [
+      { label: "Guest Portal Requests", route: "/guest/requests" },
+      { label: "Guest Activity Recommendations", route: "/guest/activities" },
+      { label: "Loyalty Tracker", route: "/guest/loyalty" },
+    ],
+  },
+  {
+    title: "⚙️ System & Admin",
+    items: [
+      { label: "User Management", route: "/admin/user-management" },
+      { label: "System Integrity Check", route: "/admin/integrity" },
+      { label: "AI Notifications", route: "/admin/ai" },
+      { label: "Finance Reset", route: "/admin/finance-reset" },
+      { label: "System Settings", route: "/admin/settings" },
+    ],
+  },
+];
+
+// 🧪 Optional Dev-Only Section
+const devTools = [
+  { label: "Sandbox Testing Dashboard", route: "/dev/sandbox" },
+  { label: "Demo In

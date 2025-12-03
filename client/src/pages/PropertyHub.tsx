@@ -1,0 +1,2556 @@
+import React, { useState, useMemo, useEffect } from "react";
+import { useLocation } from "wouter";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "../components/ui/card";
+import { Button } from "../components/ui/button";
+import { Badge } from "../components/ui/badge";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "../components/ui/tabs";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "../components/ui/tooltip";
+import {
+  Building2,
+  Calendar,
+  Grid3X3,
+  ClipboardList,
+  RefreshCw,
+  LayoutGrid,
+  Plus,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react";
+import TopBar from "../components/TopBar";
+import PropertyCard from "../components/PropertyCard";
+import PropertyFilters from "../components/PropertyFilters";
+import BulkActionPanel from "../components/BulkActionPanel";
+import MultiPropertyCalendar from "../components/MultiPropertyCalendar";
+import TaskTemplates from "../components/TaskTemplates";
+import CreatePropertyDialog from "../components/CreatePropertyDialog";
+import CreateBookingDialog from "../components/CreateBookingDialog";
+import CreateTaskDialog from "../components/CreateTaskDialog";
+import ReportsGenerateModal from "../components/ReportsGenerateModal";
+import AutomationCreateModal from "../components/AutomationCreateModal";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useToast } from "../hooks/use-toast";
+import { apiRequest } from "../lib/queryClient";
+import { useFastAuth } from "../lib/fastAuth";
+import { BackButton } from "./../components/BackButton";
+
+interface PropertyFiltersState {
+  search: string;
+  location: string;
+  status: string;
+  propertyType: string;
+  occupancyMin: number;
+  occupancyMax: number;
+  roiMin: number;
+  roiMax: number;
+  hasMaintenanceTasks: boolean;
+  lastBookingFrom: string;
+  lastBookingTo: string;
+}
+
+// RentCast Market Search Component
+function RentCastMarketSearch() {
+  const [city, setCity] = useState("");
+  const [state, setState] = useState("");
+  const [searchResults, setSearchResults] = useState<any>(null);
+  const [isSearching, setIsSearching] = useState(false);
+  const [selectedProperty, setSelectedProperty] = useState<any>(null);
+  const [propertyDetails, setPropertyDetails] = useState<any>(null);
+  const [isLoadingDetails, setIsLoadingDetails] = useState(false);
+  const [selectedListing, setSelectedListing] = useState<any>(null);
+  const [listingDetails, setListingDetails] = useState<any>(null);
+  const [isLoadingListingDetails, setIsLoadingListingDetails] = useState(false);
+  const { toast } = useToast();
+
+  const handleSearch = async () => {
+    if (!city || !state) {
+      toast({
+        title: "Missing Information",
+        description: "Please enter both city and state",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsSearching(true);
+    try {
+      const response = await fetch(
+        `/api/rentcast/market/search?city=${encodeURIComponent(city)}&state=${encodeURIComponent(state)}&limit=10`,
+      );
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Search failed");
+      }
+
+      setSearchResults(data);
+      toast({
+        title: "Search Complete",
+        description: `Found ${data.propertiesCount} properties in ${city}, ${state}`,
+      });
+    } catch (error: any) {
+      toast({
+        title: "Search Error",
+        description: error.message || "Failed to search market",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  const handlePropertyClick = async (property: any) => {
+    setSelectedProperty(property);
+    setIsLoadingDetails(true);
+
+    try {
+      // Fetch comprehensive property enrichment data
+      const response = await fetch(
+        `/api/rentcast/properties/${encodeURIComponent(property.id)}/enrich`,
+      );
+      const data = await response.json();
+
+      if (response.ok) {
+        setPropertyDetails(data);
+      } else {
+        throw new Error(data.message || "Failed to load details");
+      }
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to load property details",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoadingDetails(false);
+    }
+  };
+
+  const handleListingClick = async (listing: any) => {
+    setSelectedListing(listing);
+    setIsLoadingListingDetails(true);
+
+    try {
+      // Fetch comprehensive rental listing enrichment data
+      const response = await fetch(
+        `/api/rentcast/listings/rental/${encodeURIComponent(listing.id)}/enrich`,
+      );
+      const data = await response.json();
+
+      if (response.ok) {
+        setListingDetails(data);
+      } else {
+        throw new Error(data.message || "Failed to load details");
+      }
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to load listing details",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoadingListingDetails(false);
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Search Form */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Building2 className="h-5 w-5 text-purple-600" />
+            Search RentCast Market by City/State
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex gap-4">
+            <div className="flex-1">
+              <label className="text-sm font-medium mb-2 block">City</label>
+              <input
+                type="text"
+                placeholder="e.g., Los Angeles"
+                value={city}
+                onChange={(e) => setCity(e.target.value)}
+                className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+              />
+            </div>
+            <div className="w-32">
+              <label className="text-sm font-medium mb-2 block">State</label>
+              <input
+                type="text"
+                placeholder="CA"
+                value={state}
+                onChange={(e) => setState(e.target.value.toUpperCase())}
+                maxLength={2}
+                className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent uppercase"
+              />
+            </div>
+            <div className="flex items-end">
+              <Button
+                onClick={handleSearch}
+                disabled={isSearching}
+                className="bg-purple-600 hover:bg-purple-700"
+              >
+                {isSearching ? "Searching..." : "Search Market"}
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Search Results */}
+      {searchResults && (
+        <div className="space-y-6">
+          {/* Market Statistics */}
+          {searchResults.marketData && (
+            <Card className="bg-gradient-to-br from-purple-50 to-indigo-50">
+              <CardHeader>
+                <CardTitle>
+                  Market Statistics - {searchResults.city},{" "}
+                  {searchResults.state}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="bg-white/80 rounded-lg p-4">
+                    <div className="text-sm text-purple-600 font-semibold">
+                      Median Rent
+                    </div>
+                    <div className="text-2xl font-bold text-purple-900">
+                      $
+                      {searchResults.marketData.medianRent?.toLocaleString() ||
+                        "N/A"}
+                    </div>
+                  </div>
+                  <div className="bg-white/80 rounded-lg p-4">
+                    <div className="text-sm text-indigo-600 font-semibold">
+                      Median Price
+                    </div>
+                    <div className="text-2xl font-bold text-indigo-900">
+                      $
+                      {searchResults.marketData.medianPrice
+                        ? Math.round(
+                            searchResults.marketData.medianPrice / 1000,
+                          ) + "k"
+                        : "N/A"}
+                    </div>
+                  </div>
+                  <div className="bg-white/80 rounded-lg p-4">
+                    <div className="text-sm text-purple-600 font-semibold">
+                      Avg Rent
+                    </div>
+                    <div className="text-2xl font-bold text-purple-900">
+                      $
+                      {searchResults.marketData.averageRent?.toLocaleString() ||
+                        "N/A"}
+                    </div>
+                  </div>
+                  <div className="bg-white/80 rounded-lg p-4">
+                    <div className="text-sm text-indigo-600 font-semibold">
+                      Total Listings
+                    </div>
+                    <div className="text-2xl font-bold text-indigo-900">
+                      {searchResults.marketData.totalListings?.toLocaleString() ||
+                        "N/A"}
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Properties */}
+          {searchResults.properties && searchResults.properties.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle>
+                  Properties Found ({searchResults.propertiesCount})
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {searchResults.properties.map((prop: any, idx: number) => (
+                    <div
+                      key={idx}
+                      className="border rounded-lg p-4 bg-slate-50 hover:bg-slate-100 transition-colors cursor-pointer"
+                      onClick={() => handlePropertyClick(prop)}
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="font-semibold text-lg">
+                            {prop.address}
+                          </div>
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-2 text-sm">
+                            <div>
+                              <span className="text-slate-600">Type:</span>{" "}
+                              <span className="font-medium">
+                                {prop.propertyType}
+                              </span>
+                            </div>
+                            <div>
+                              <span className="text-slate-600">Beds:</span>{" "}
+                              <span className="font-medium">
+                                {prop.bedrooms || "N/A"}
+                              </span>
+                            </div>
+                            <div>
+                              <span className="text-slate-600">Baths:</span>{" "}
+                              <span className="font-medium">
+                                {prop.bathrooms || "N/A"}
+                              </span>
+                            </div>
+                            <div>
+                              <span className="text-slate-600">Sq Ft:</span>{" "}
+                              <span className="font-medium">
+                                {prop.squareFootage?.toLocaleString() || "N/A"}
+                              </span>
+                            </div>
+                          </div>
+                          {prop.lastSalePrice && (
+                            <div className="mt-2 text-sm">
+                              <span className="text-slate-600">Last Sale:</span>
+                              <span className="font-medium text-emerald-700 ml-2">
+                                ${prop.lastSalePrice.toLocaleString()}
+                                {prop.lastSaleDate &&
+                                  ` (${new Date(prop.lastSaleDate).getFullYear()})`}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                        <Button variant="ghost" size="sm" className="ml-4">
+                          View Details →
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Rental Listings */}
+          {searchResults.rentalListings &&
+            searchResults.rentalListings.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>
+                    Active Rental Listings ({searchResults.rentalListingsCount})
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {searchResults.rentalListings.map(
+                      (listing: any, idx: number) => (
+                        <div
+                          key={idx}
+                          className="border rounded-lg p-4 bg-purple-50 hover:bg-purple-100 transition-colors cursor-pointer"
+                          onClick={() => handleListingClick(listing)}
+                        >
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <div className="font-semibold text-lg">
+                                {listing.address}
+                              </div>
+                              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-2 text-sm">
+                                <div>
+                                  <span className="text-purple-600">
+                                    Price:
+                                  </span>{" "}
+                                  <span className="font-bold text-purple-900">
+                                    ${listing.price.toLocaleString()}/mo
+                                  </span>
+                                </div>
+                                <div>
+                                  <span className="text-purple-600">Beds:</span>{" "}
+                                  <span className="font-medium">
+                                    {listing.bedrooms}
+                                  </span>
+                                </div>
+                                <div>
+                                  <span className="text-purple-600">
+                                    Baths:
+                                  </span>{" "}
+                                  <span className="font-medium">
+                                    {listing.bathrooms}
+                                  </span>
+                                </div>
+                                <div>
+                                  <span className="text-purple-600">DOM:</span>{" "}
+                                  <span className="font-medium">
+                                    {listing.daysOnMarket} days
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                            <Button variant="ghost" size="sm" className="ml-4">
+                              View Details →
+                            </Button>
+                          </div>
+                        </div>
+                      ),
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+          {/* No Results */}
+          {(!searchResults.properties ||
+            searchResults.properties.length === 0) &&
+            (!searchResults.rentalListings ||
+              searchResults.rentalListings.length === 0) && (
+              <Card>
+                <CardContent className="py-12 text-center text-slate-500">
+                  No properties or listings found in this market
+                </CardContent>
+              </Card>
+            )}
+        </div>
+      )}
+
+      {/* Property Details Modal */}
+      {selectedProperty && (
+        <div
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+          onClick={() => setSelectedProperty(null)}
+        >
+          <div
+            className="bg-white rounded-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="sticky top-0 bg-white border-b px-6 py-4 flex items-center justify-between">
+              <h2 className="text-xl font-bold">{selectedProperty.address}</h2>
+              <Button variant="ghost" onClick={() => setSelectedProperty(null)}>
+                ✕
+              </Button>
+            </div>
+
+            <div className="p-6 space-y-6">
+              {isLoadingDetails ? (
+                <div className="text-center py-12">
+                  <div className="animate-spin h-8 w-8 border-4 border-purple-600 border-t-transparent rounded-full mx-auto mb-4"></div>
+                  <p className="text-slate-600">
+                    Loading comprehensive property data...
+                  </p>
+                </div>
+              ) : propertyDetails ? (
+                <div className="space-y-6">
+                  {/* Rent & Value Estimates */}
+                  {(propertyDetails.rentEstimate ||
+                    propertyDetails.valueEstimate) && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {propertyDetails.rentEstimate && (
+                        <Card className="bg-gradient-to-br from-purple-50 to-purple-100">
+                          <CardHeader>
+                            <CardTitle className="text-purple-900">
+                              Estimated Monthly Rent
+                            </CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            <div className="text-3xl font-bold text-purple-900 mb-2">
+                              $
+                              {propertyDetails.rentEstimate.estimatedRent?.toLocaleString()}
+                            </div>
+                            {propertyDetails.rentEstimate.rentRangeLow &&
+                              propertyDetails.rentEstimate.rentRangeHigh && (
+                                <div className="text-sm text-purple-700">
+                                  Range: $
+                                  {propertyDetails.rentEstimate.rentRangeLow.toLocaleString()}{" "}
+                                  - $
+                                  {propertyDetails.rentEstimate.rentRangeHigh.toLocaleString()}
+                                </div>
+                              )}
+                            {propertyDetails.rentEstimate.comparablesCount >
+                              0 && (
+                              <div className="text-xs text-purple-600 mt-2">
+                                Based on{" "}
+                                {propertyDetails.rentEstimate.comparablesCount}{" "}
+                                comparable properties
+                              </div>
+                            )}
+                          </CardContent>
+                        </Card>
+                      )}
+
+                      {propertyDetails.valueEstimate && (
+                        <Card className="bg-gradient-to-br from-indigo-50 to-indigo-100">
+                          <CardHeader>
+                            <CardTitle className="text-indigo-900">
+                              Estimated Property Value
+                            </CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            <div className="text-3xl font-bold text-indigo-900 mb-2">
+                              $
+                              {propertyDetails.valueEstimate.estimatedValue?.toLocaleString()}
+                            </div>
+                            {propertyDetails.valueEstimate.valueRangeLow &&
+                              propertyDetails.valueEstimate.valueRangeHigh && (
+                                <div className="text-sm text-indigo-700">
+                                  Range: $
+                                  {propertyDetails.valueEstimate.valueRangeLow.toLocaleString()}{" "}
+                                  - $
+                                  {propertyDetails.valueEstimate.valueRangeHigh.toLocaleString()}
+                                </div>
+                              )}
+                            {propertyDetails.valueEstimate.comparablesCount >
+                              0 && (
+                              <div className="text-xs text-indigo-600 mt-2">
+                                Based on{" "}
+                                {propertyDetails.valueEstimate.comparablesCount}{" "}
+                                comparable sales
+                              </div>
+                            )}
+                          </CardContent>
+                        </Card>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Property Details */}
+                  {propertyDetails.propertyDetails && (
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>Property Information</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                          <div>
+                            <div className="text-sm text-slate-600">
+                              Property Type
+                            </div>
+                            <div className="font-semibold">
+                              {propertyDetails.propertyDetails.propertyType ||
+                                "N/A"}
+                            </div>
+                          </div>
+                          <div>
+                            <div className="text-sm text-slate-600">
+                              Square Footage
+                            </div>
+                            <div className="font-semibold">
+                              {propertyDetails.propertyDetails.squareFootage?.toLocaleString() ||
+                                "N/A"}{" "}
+                              sq ft
+                            </div>
+                          </div>
+                          <div>
+                            <div className="text-sm text-slate-600">
+                              Lot Size
+                            </div>
+                            <div className="font-semibold">
+                              {propertyDetails.propertyDetails.lotSize?.toLocaleString() ||
+                                "N/A"}{" "}
+                              sq ft
+                            </div>
+                          </div>
+                          <div>
+                            <div className="text-sm text-slate-600">
+                              Year Built
+                            </div>
+                            <div className="font-semibold">
+                              {propertyDetails.propertyDetails.yearBuilt ||
+                                "N/A"}
+                            </div>
+                          </div>
+                          <div>
+                            <div className="text-sm text-slate-600">County</div>
+                            <div className="font-semibold">
+                              {propertyDetails.propertyDetails.county || "N/A"}
+                            </div>
+                          </div>
+                          {propertyDetails.propertyDetails.lastSalePrice && (
+                            <div>
+                              <div className="text-sm text-slate-600">
+                                Last Sale
+                              </div>
+                              <div className="font-semibold text-emerald-700">
+                                $
+                                {propertyDetails.propertyDetails.lastSalePrice.toLocaleString()}
+                                {propertyDetails.propertyDetails.lastSaleDate &&
+                                  ` (${new Date(propertyDetails.propertyDetails.lastSaleDate).getFullYear()})`}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+
+                  {/* Rental Comparables */}
+                  {propertyDetails.rentEstimate?.comparables &&
+                    propertyDetails.rentEstimate.comparables.length > 0 && (
+                      <Card>
+                        <CardHeader>
+                          <CardTitle>Rental Comparables</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="space-y-3">
+                            {propertyDetails.rentEstimate.comparables.map(
+                              (comp: any, idx: number) => (
+                                <div
+                                  key={idx}
+                                  className="border rounded-lg p-3 bg-purple-50"
+                                >
+                                  <div className="font-medium">
+                                    {comp.formattedAddress}
+                                  </div>
+                                  <div className="grid grid-cols-3 gap-2 mt-2 text-sm">
+                                    <div>
+                                      <span className="text-purple-600">
+                                        Rent:
+                                      </span>{" "}
+                                      <span className="font-semibold">
+                                        ${comp.price.toLocaleString()}/mo
+                                      </span>
+                                    </div>
+                                    <div>
+                                      <span className="text-purple-600">
+                                        Beds/Baths:
+                                      </span>{" "}
+                                      {comp.bedrooms}bd / {comp.bathrooms}ba
+                                    </div>
+                                    <div>
+                                      <span className="text-purple-600">
+                                        Distance:
+                                      </span>{" "}
+                                      {comp.distance.toFixed(1)} mi
+                                    </div>
+                                  </div>
+                                </div>
+                              ),
+                            )}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )}
+
+                  {/* Nearby Rentals */}
+                  {propertyDetails.nearbyRentals?.listings &&
+                    propertyDetails.nearbyRentals.listings.length > 0 && (
+                      <Card>
+                        <CardHeader>
+                          <CardTitle>
+                            Nearby Rental Listings (
+                            {propertyDetails.nearbyRentals.count})
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="space-y-3">
+                            {propertyDetails.nearbyRentals.listings.map(
+                              (listing: any, idx: number) => (
+                                <div
+                                  key={idx}
+                                  className="border rounded-lg p-3 bg-indigo-50"
+                                >
+                                  <div className="font-medium">
+                                    {listing.address}
+                                  </div>
+                                  <div className="grid grid-cols-3 gap-2 mt-2 text-sm">
+                                    <div>
+                                      <span className="text-indigo-600">
+                                        Price:
+                                      </span>{" "}
+                                      <span className="font-bold">
+                                        ${listing.price.toLocaleString()}/mo
+                                      </span>
+                                    </div>
+                                    <div>
+                                      <span className="text-indigo-600">
+                                        Size:
+                                      </span>{" "}
+                                      {listing.bedrooms}bd / {listing.bathrooms}
+                                      ba
+                                    </div>
+                                    <div>
+                                      <span className="text-indigo-600">
+                                        DOM:
+                                      </span>{" "}
+                                      {listing.daysOnMarket} days
+                                    </div>
+                                  </div>
+                                </div>
+                              ),
+                            )}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )}
+
+                  {/* Market Data */}
+                  {propertyDetails.marketData && (
+                    <Card className="bg-gradient-to-br from-emerald-50 to-teal-50">
+                      <CardHeader>
+                        <CardTitle>Local Market Statistics</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                          {propertyDetails.marketData.medianRent && (
+                            <div>
+                              <div className="text-sm text-emerald-700">
+                                Median Rent
+                              </div>
+                              <div className="text-xl font-bold text-emerald-900">
+                                $
+                                {propertyDetails.marketData.medianRent.toLocaleString()}
+                              </div>
+                            </div>
+                          )}
+                          {propertyDetails.marketData.averageRent && (
+                            <div>
+                              <div className="text-sm text-emerald-700">
+                                Avg Rent
+                              </div>
+                              <div className="text-xl font-bold text-emerald-900">
+                                $
+                                {propertyDetails.marketData.averageRent.toLocaleString()}
+                              </div>
+                            </div>
+                          )}
+                          {propertyDetails.marketData.medianPrice && (
+                            <div>
+                              <div className="text-sm text-teal-700">
+                                Median Price
+                              </div>
+                              <div className="text-xl font-bold text-teal-900">
+                                $
+                                {Math.round(
+                                  propertyDetails.marketData.medianPrice / 1000,
+                                )}
+                                k
+                              </div>
+                            </div>
+                          )}
+                          {propertyDetails.marketData.inventoryCount && (
+                            <div>
+                              <div className="text-sm text-teal-700">
+                                Inventory
+                              </div>
+                              <div className="text-xl font-bold text-teal-900">
+                                {propertyDetails.marketData.inventoryCount.toLocaleString()}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+                </div>
+              ) : (
+                <div className="text-center py-12 text-slate-500">
+                  No detailed data available for this property
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Rental Listing Details Modal */}
+      {selectedListing && (
+        <div
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+          onClick={() => setSelectedListing(null)}
+        >
+          <div
+            className="bg-white rounded-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="sticky top-0 bg-white border-b px-6 py-4 flex items-center justify-between">
+              <h2 className="text-xl font-bold">{selectedListing.address}</h2>
+              <Button variant="ghost" onClick={() => setSelectedListing(null)}>
+                ✕
+              </Button>
+            </div>
+
+            <div className="p-6 space-y-6">
+              {isLoadingListingDetails ? (
+                <div className="text-center py-12">
+                  <div className="animate-spin h-8 w-8 border-4 border-purple-600 border-t-transparent rounded-full mx-auto mb-4"></div>
+                  <p className="text-slate-600">
+                    Loading comprehensive listing data...
+                  </p>
+                </div>
+              ) : listingDetails ? (
+                <div className="space-y-6">
+                  {/* Listing Price & Details */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <Card className="bg-gradient-to-br from-purple-50 to-purple-100">
+                      <CardHeader>
+                        <CardTitle className="text-purple-900">
+                          Monthly Rent
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="text-3xl font-bold text-purple-900 mb-2">
+                          $
+                          {listingDetails.listingDetails?.price?.toLocaleString()}
+                          /mo
+                        </div>
+                        <div className="text-sm text-purple-700">
+                          {listingDetails.listingDetails?.status || "Active"}
+                        </div>
+                        <div className="text-xs text-purple-600 mt-2">
+                          Listed{" "}
+                          {listingDetails.listingDetails?.daysOnMarket || 0}{" "}
+                          days ago
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    <Card className="bg-gradient-to-br from-indigo-50 to-indigo-100">
+                      <CardHeader>
+                        <CardTitle className="text-indigo-900">
+                          Property Details
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-2 text-sm">
+                          <div>
+                            <span className="text-indigo-600">Type:</span>{" "}
+                            <span className="font-semibold ml-2">
+                              {listingDetails.listingDetails?.propertyType ||
+                                "N/A"}
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-indigo-600">Bedrooms:</span>{" "}
+                            <span className="font-semibold ml-2">
+                              {listingDetails.listingDetails?.bedrooms || "N/A"}
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-indigo-600">Bathrooms:</span>{" "}
+                            <span className="font-semibold ml-2">
+                              {listingDetails.listingDetails?.bathrooms ||
+                                "N/A"}
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-indigo-600">
+                              Square Footage:
+                            </span>{" "}
+                            <span className="font-semibold ml-2">
+                              {listingDetails.listingDetails?.squareFootage?.toLocaleString() ||
+                                "N/A"}{" "}
+                              sq ft
+                            </span>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+
+                  {/* Comparable Listings */}
+                  {listingDetails.comparableListings &&
+                    listingDetails.comparableListings.length > 0 && (
+                      <Card>
+                        <CardHeader>
+                          <CardTitle>Comparable Rental Listings</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="space-y-3">
+                            {listingDetails.comparableListings.map(
+                              (comp: any, idx: number) => (
+                                <div
+                                  key={idx}
+                                  className="border rounded-lg p-3 bg-purple-50"
+                                >
+                                  <div className="font-medium">
+                                    {comp.address}
+                                  </div>
+                                  <div className="grid grid-cols-3 gap-2 mt-2 text-sm">
+                                    <div>
+                                      <span className="text-purple-600">
+                                        Rent:
+                                      </span>{" "}
+                                      <span className="font-semibold">
+                                        ${comp.price.toLocaleString()}/mo
+                                      </span>
+                                    </div>
+                                    <div>
+                                      <span className="text-purple-600">
+                                        Size:
+                                      </span>{" "}
+                                      {comp.bedrooms}bd / {comp.bathrooms}ba
+                                    </div>
+                                    <div>
+                                      <span className="text-purple-600">
+                                        DOM:
+                                      </span>{" "}
+                                      {comp.daysOnMarket} days
+                                    </div>
+                                  </div>
+                                </div>
+                              ),
+                            )}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )}
+
+                  {/* Market Data */}
+                  {listingDetails.marketData && (
+                    <Card className="bg-gradient-to-br from-emerald-50 to-teal-50">
+                      <CardHeader>
+                        <CardTitle>Local Market Statistics</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                          {listingDetails.marketData.medianRent && (
+                            <div>
+                              <div className="text-sm text-emerald-700">
+                                Median Rent
+                              </div>
+                              <div className="text-xl font-bold text-emerald-900">
+                                $
+                                {listingDetails.marketData.medianRent.toLocaleString()}
+                              </div>
+                            </div>
+                          )}
+                          {listingDetails.marketData.averageRent && (
+                            <div>
+                              <div className="text-sm text-emerald-700">
+                                Avg Rent
+                              </div>
+                              <div className="text-xl font-bold text-emerald-900">
+                                $
+                                {listingDetails.marketData.averageRent.toLocaleString()}
+                              </div>
+                            </div>
+                          )}
+                          {listingDetails.marketData.medianPrice && (
+                            <div>
+                              <div className="text-sm text-teal-700">
+                                Median Price
+                              </div>
+                              <div className="text-xl font-bold text-teal-900">
+                                $
+                                {Math.round(
+                                  listingDetails.marketData.medianPrice / 1000,
+                                )}
+                                k
+                              </div>
+                            </div>
+                          )}
+                          {listingDetails.marketData.inventoryCount && (
+                            <div>
+                              <div className="text-sm text-teal-700">
+                                Inventory
+                              </div>
+                              <div className="text-xl font-bold text-teal-900">
+                                {listingDetails.marketData.inventoryCount.toLocaleString()}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+
+                  {/* Property Value Estimate (if available) */}
+                  {listingDetails.valueEstimate && (
+                    <Card className="bg-gradient-to-br from-amber-50 to-yellow-50">
+                      <CardHeader>
+                        <CardTitle className="text-amber-900">
+                          Estimated Property Value
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="text-3xl font-bold text-amber-900 mb-2">
+                          $
+                          {listingDetails.valueEstimate.estimatedValue?.toLocaleString()}
+                        </div>
+                        {listingDetails.valueEstimate.valueRangeLow &&
+                          listingDetails.valueEstimate.valueRangeHigh && (
+                            <div className="text-sm text-amber-700">
+                              Range: $
+                              {listingDetails.valueEstimate.valueRangeLow.toLocaleString()}{" "}
+                              - $
+                              {listingDetails.valueEstimate.valueRangeHigh.toLocaleString()}
+                            </div>
+                          )}
+                      </CardContent>
+                    </Card>
+                  )}
+                </div>
+              ) : (
+                <div className="text-center py-12 text-slate-500">
+                  No detailed data available for this listing
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Hostaway Sync Component
+function HostawaySync() {
+  const [syncResults, setSyncResults] = useState<any>(null);
+  const [isTestingConnection, setIsTestingConnection] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [isSyncingBookings, setIsSyncingBookings] = useState(false);
+  const [isLoadingInitial, setIsLoadingInitial] = useState(true);
+  const [imageIndices, setImageIndices] = useState<{ [key: number]: number }>(
+    {},
+  );
+  const { toast } = useToast();
+  const [, navigate] = useLocation(); // 👈 use same router as PropertyHub
+  const queryClient = useQueryClient(); // used to refresh /api/bookings and /api/properties
+
+  // Load previously synced Hostaway properties from database on mount
+  useEffect(() => {
+    const loadExistingProperties = async () => {
+      try {
+        console.log(
+          "📥 Loading existing Hostaway properties from DB on mount...",
+        );
+        const response = await fetch("/api/hostaway/listings", {
+          credentials: "include",
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success && data.listings && data.listings.length > 0) {
+            console.log(
+              `✅ Loaded ${data.listings.length} Hostaway properties from DB`,
+            );
+            setSyncResults(data);
+          } else {
+            console.log("ℹ️ No previously synced Hostaway properties found");
+          }
+        }
+      } catch (error) {
+        console.error("Error loading existing Hostaway properties:", error);
+      } finally {
+        setIsLoadingInitial(false);
+      }
+    };
+
+    loadExistingProperties();
+  }, []);
+
+  const testConnection = async () => {
+    setIsTestingConnection(true);
+    try {
+      const response = await fetch("/api/hostaway/test-connection", {
+        credentials: "include",
+      });
+      const result = await response.json();
+
+      if (result.success) {
+        toast({
+          title: "Connection Successful",
+          description: result.message,
+        });
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Connection Failed",
+          description: result.message,
+        });
+      }
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Connection Error",
+        description: error.message || "Failed to test connection",
+      });
+    } finally {
+      setIsTestingConnection(false);
+    }
+  };
+
+  const syncProperties = async () => {
+    setIsSyncing(true);
+    setSyncResults(null);
+
+    try {
+      // 1) Trigger server-side sync: Hostaway -> DB
+      console.log("🔄 Starting Hostaway properties sync...");
+      const syncResponse = await fetch("/api/hostaway/sync-properties", {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+
+      console.log(
+        "📡 [SYNC] Response status:",
+        syncResponse.status,
+        syncResponse.statusText,
+      );
+
+      if (syncResponse.status === 401) {
+        throw new Error(
+          "Please log in to your account first. Go to the Dashboard and sign in with your credentials.",
+        );
+      }
+
+      let syncData: any;
+      try {
+        syncData = await syncResponse.json();
+      } catch (parseError) {
+        console.error("[SYNC] Failed to parse response as JSON:", parseError);
+        throw new Error(
+          "Received invalid response from server during sync. Please try again.",
+        );
+      }
+
+      console.log("📦 [SYNC] Hostaway sync result:", syncData);
+
+      if (!syncResponse.ok || !syncData.success) {
+        throw new Error(
+          syncData.message || "Failed to sync properties from Hostaway",
+        );
+      }
+
+      // 2) After sync, load DB-backed Hostaway listings
+      console.log("📥 Loading Hostaway properties from DB...");
+      const listingsResponse = await fetch("/api/hostaway/listings", {
+        credentials: "include",
+      });
+
+      console.log(
+        "📡 [LISTINGS] Response status:",
+        listingsResponse.status,
+        listingsResponse.statusText,
+      );
+      console.log(
+        "📋 [LISTINGS] Content-Type:",
+        listingsResponse.headers.get("content-type"),
+      );
+
+      if (listingsResponse.status === 401) {
+        throw new Error(
+          "Please log in to your account first. Go to the Dashboard and sign in with your credentials.",
+        );
+      }
+
+      let listingsData: any;
+      try {
+        listingsData = await listingsResponse.json();
+      } catch (parseError) {
+        console.error(
+          "[LISTINGS] Failed to parse response as JSON:",
+          parseError,
+        );
+        throw new Error(
+          "Received invalid response from server when loading properties. Please try again.",
+        );
+      }
+
+      console.log("📦 [LISTINGS] Hostaway data received:", listingsData);
+
+      if (!listingsResponse.ok || !listingsData.success) {
+        throw new Error(
+          listingsData.message ||
+            "Failed to load Hostaway properties from database",
+        );
+      }
+
+      // This is what your UI uses to render the cards
+      setSyncResults(listingsData);
+
+      toast({
+        title: "Sync Complete",
+        description: `Successfully synced ${
+          syncData.synced ?? listingsData.count ?? 0
+        } properties from Hostaway`,
+      });
+
+      // 🔄 make sure the main PropertyHub data is fresh
+      queryClient.invalidateQueries({ queryKey: ["/api/properties"] });
+    } catch (error: any) {
+      console.error("❌ Hostaway sync error:", error);
+      toast({
+        variant: "destructive",
+        title: "Sync Failed",
+        description: error.message || "Failed to sync properties from Hostaway",
+      });
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  const syncBookings = async () => {
+    setIsSyncingBookings(true);
+
+    try {
+      console.log("🔄 Starting Hostaway bookings sync...");
+      const response = await fetch("/api/hostaway/sync-bookings", {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+
+      console.log(
+        "📡 [BOOKINGS SYNC] Response status:",
+        response.status,
+        response.statusText,
+      );
+
+      if (response.status === 401) {
+        throw new Error(
+          "Please log in to your account first. Go to the Dashboard and sign in with your credentials.",
+        );
+      }
+
+      let data: any;
+      try {
+        data = await response.json();
+      } catch (parseError) {
+        console.error(
+          "[BOOKINGS SYNC] Failed to parse response as JSON:",
+          parseError,
+        );
+        throw new Error(
+          "Received invalid response from server during bookings sync. Please try again.",
+        );
+      }
+
+      console.log("📦 [BOOKINGS SYNC] Hostaway bookings result:", data);
+
+      if (!response.ok || !data.success) {
+        throw new Error(
+          data.message || "Failed to sync bookings from Hostaway",
+        );
+      }
+
+      toast({
+        title: "Bookings Sync Complete",
+        description: `Successfully synced ${
+          data.synced ?? data.count ?? 0
+        } bookings from Hostaway`,
+      });
+
+      // 🔄 VERY IMPORTANT: refresh /api/bookings so MultiPropertyCalendar sees Hostaway bookings
+      queryClient.invalidateQueries({ queryKey: ["/api/bookings"] });
+    } catch (error: any) {
+      console.error("❌ Hostaway bookings sync error:", error);
+      toast({
+        variant: "destructive",
+        title: "Bookings Sync Failed",
+        description: error.message || "Failed to sync bookings from Hostaway",
+      });
+    } finally {
+      setIsSyncingBookings(false);
+    }
+  };
+
+  // Are we using DB-backed properties? (the state we want)
+  const isDbBacked = syncResults?.backend === "db";
+
+  return (
+    <div className="space-y-6">
+      {/* Control Panel */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Building2 className="h-5 w-5 text-blue-600" />
+            Hostaway Properties
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex gap-4">
+            <Button
+              onClick={testConnection}
+              disabled={isTestingConnection}
+              variant="outline"
+              data-testid="button-test-hostaway"
+            >
+              {isTestingConnection ? "Testing..." : "Test Connection"}
+            </Button>
+
+            <Button
+              onClick={syncProperties}
+              disabled={isSyncing}
+              className="bg-blue-600 hover:bg-blue-700"
+              data-testid="button-sync-hostaway"
+            >
+              {isSyncing ? (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  Syncing...
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Sync Properties
+                </>
+              )}
+            </Button>
+
+            <Button
+              onClick={syncBookings}
+              disabled={isSyncingBookings}
+              className="bg-emerald-600 hover:bg-emerald-700"
+              data-testid="button-sync-hostaway-bookings"
+            >
+              {isSyncingBookings ? (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  Syncing Bookings...
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Sync Bookings
+                </>
+              )}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Sync Results */}
+      {syncResults && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-xl font-semibold">
+              Hostaway Properties ({syncResults.count})
+            </h3>
+            <Badge variant="secondary" className="text-sm">
+              {syncResults.count} Properties
+            </Badge>
+          </div>
+
+          {syncResults.listings && syncResults.listings.length === 0 ? (
+            <Card>
+              <CardContent className="py-12 text-center text-slate-500">
+                <Building2 className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <p>No properties found in your Hostaway account</p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+              {syncResults.listings?.map((listing: any) => {
+                const currentIndex = imageIndices[listing.id] ?? 0;
+
+                // Support BOTH: DB-backed properties (images: string[])
+                // and raw Hostaway API (listingImages: [{ url }], thumbnailUrl)
+                let images: string[] = [];
+                if (
+                  Array.isArray(listing.images) &&
+                  listing.images.length > 0
+                ) {
+                  images = listing.images;
+                } else if (
+                  Array.isArray(listing.listingImages) &&
+                  listing.listingImages.length > 0
+                ) {
+                  images = listing.listingImages
+                    .map((img: any) => img?.url)
+                    .filter(Boolean);
+                } else if (listing.thumbnailUrl) {
+                  images = [listing.thumbnailUrl];
+                }
+
+                const totalImages = images.length;
+                const imageUrl = totalImages > 0 ? images[currentIndex] : null;
+
+                const handlePrevImage = (e: React.MouseEvent) => {
+                  e.stopPropagation();
+                  e.preventDefault();
+                  if (totalImages <= 1) return;
+                  const newIndex =
+                    currentIndex > 0 ? currentIndex - 1 : totalImages - 1;
+                  setImageIndices((prev) => ({
+                    ...prev,
+                    [listing.id]: newIndex,
+                  }));
+                };
+
+                const handleNextImage = (e: React.MouseEvent) => {
+                  e.stopPropagation();
+                  e.preventDefault();
+                  if (totalImages <= 1) return;
+                  const newIndex =
+                    currentIndex < totalImages - 1 ? currentIndex + 1 : 0;
+                  setImageIndices((prev) => ({
+                    ...prev,
+                    [listing.id]: newIndex,
+                  }));
+                };
+
+                const canViewDetails =
+                  isDbBacked && !!listing.id && !!listing.organizationId;
+
+                return (
+                  <Card key={listing.id} className="overflow-hidden">
+                    <div className="relative h-64 w-full bg-slate-200 overflow-hidden">
+                      {imageUrl ? (
+                        <div
+                          key={`${listing.id}-${currentIndex}`}
+                          className="w-full h-full"
+                          style={{
+                            animation:
+                              "smoothSlideIn 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards",
+                          }}
+                        >
+                          <img
+                            src={imageUrl}
+                            alt={listing.name || "Property image"}
+                            className="w-full h-full object-cover transition-transform duration-500 ease-out hover:scale-[1.03]"
+                            loading="eager"
+                            onError={(e) => {
+                              e.currentTarget.src =
+                                'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="400" height="300"%3E%3Crect fill="%23e2e8f0" width="400" height="300"/%3E%3Ctext fill="%2394a3b8" font-family="system-ui" font-size="18" x="50%25" y="50%25" text-anchor="middle" dominant-baseline="middle"%3ENo Image%3C/text%3E%3C/svg%3E';
+                            }}
+                          />
+                        </div>
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <Building2 className="h-16 w-16 text-slate-400" />
+                        </div>
+                      )}
+
+                      {/* Image navigation arrows */}
+                      {totalImages > 1 && (
+                        <>
+                          <button
+                            onClick={handlePrevImage}
+                            className="absolute left-2 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white text-slate-800 rounded-full p-2 shadow-lg transition-all duration-200 z-10 hover:scale-110"
+                            aria-label="Previous image"
+                            type="button"
+                          >
+                            <ChevronLeft className="h-5 w-5" />
+                          </button>
+                          <button
+                            onClick={handleNextImage}
+                            className="absolute right-2 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white text-slate-800 rounded-full p-2 shadow-lg transition-all duration-200 z-10 hover:scale-110"
+                            aria-label="Next image"
+                            type="button"
+                          >
+                            <ChevronRight className="h-5 w-5" />
+                          </button>
+
+                          {/* Image counter */}
+                          <div className="absolute bottom-3 left-1/2 -translate-x-1/2 bg-black/60 text-white text-xs px-2 py-1 rounded-md backdrop-blur-sm">
+                            {currentIndex + 1} / {totalImages}
+                          </div>
+                        </>
+                      )}
+
+                      {/* Total photos badge */}
+                      {totalImages > 1 && (
+                        <div className="absolute top-3 right-3 bg-black/60 text-white text-xs px-2 py-1 rounded-md backdrop-blur-sm">
+                          +{totalImages - 1} photos
+                        </div>
+                      )}
+                    </div>
+
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-lg line-clamp-2 leading-tight">
+                        {listing.name ||
+                          listing.internalListingName ||
+                          listing.externalListingName}
+                      </CardTitle>
+                      {(listing.city || listing.country) && (
+                        <p className="text-sm text-slate-600 flex items-center gap-1 mt-1">
+                          <Building2 className="h-3.5 w-3.5" />
+                          {[listing.city, listing.country]
+                            .filter(Boolean)
+                            .join(", ")}
+                        </p>
+                      )}
+                    </CardHeader>
+
+                    <CardContent className="space-y-3">
+                      {listing.description && (
+                        <p className="text-sm text-slate-600 line-clamp-2">
+                          {listing.description}
+                        </p>
+                      )}
+
+                      <div className="flex flex-wrap gap-2">
+                        {listing.price && (
+                          <Badge
+                            variant="outline"
+                            className="bg-blue-50 text-blue-700 border-blue-200"
+                          >
+                            ${listing.price}/night
+                          </Badge>
+                        )}
+                        {listing.bedroomsNumber && (
+                          <Badge variant="outline">
+                            {listing.bedroomsNumber} bed
+                          </Badge>
+                        )}
+                        {listing.personCapacity && (
+                          <Badge variant="outline">
+                            {listing.personCapacity} guests
+                          </Badge>
+                        )}
+                        {listing.bathroomsNumber && (
+                          <Badge variant="outline">
+                            {listing.bathroomsNumber} bath
+                          </Badge>
+                        )}
+                        {listing.averageReviewRating && (
+                          <Badge
+                            variant="outline"
+                            className="bg-amber-50 text-amber-700 border-amber-200"
+                          >
+                            ⭐ {listing.averageReviewRating}
+                          </Badge>
+                        )}
+                      </div>
+
+                      {/* Bottom bar: ID + View Details + Airbnb link */}
+                      <div className="flex items-center justify-between text-xs text-slate-500 pt-2 border-t mt-2">
+                        <span>ID: {listing.externalId || listing.id}</span>
+                        <div className="flex items-center gap-2">
+                          {canViewDetails && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-7 px-3 text-xs"
+                              onClick={() =>
+                                navigate(`/property/${listing.id}`)
+                              }
+                            >
+                              View Details →
+                            </Button>
+                          )}
+                          {listing.airbnbListingUrl && (
+                            <a
+                              href={listing.airbnbListingUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-blue-600 hover:text-blue-700 hover:underline"
+                            >
+                              Airbnb →
+                            </a>
+                          )}
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {isLoadingInitial && !syncResults && (
+        <div className="text-center py-12">
+          <div className="animate-spin h-12 w-12 border-4 border-blue-600 border-t-transparent rounded-full mx-auto mb-4"></div>
+          <p className="text-slate-600">Loading Hostaway properties...</p>
+        </div>
+      )}
+
+      {isSyncing && (
+        <div className="text-center py-12">
+          <div className="animate-spin h-12 w-12 border-4 border-blue-600 border-t-transparent rounded-full mx-auto mb-4"></div>
+          <p className="text-slate-600">
+            Syncing properties from Hostaway API...
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default function PropertyHub() {
+  const { user } = useFastAuth();
+  const [, navigate] = useLocation();
+  
+  // Read tab from URL query parameter, defaulting to "properties"
+  const urlParams = new URLSearchParams(window.location.search);
+  const tabFromUrl = urlParams.get("tab");
+  const [activeTab, setActiveTab] = useState(tabFromUrl || "properties");
+  const [selectedProperties, setSelectedProperties] = useState<any[]>([]);
+  const [filters, setFilters] = useState<PropertyFiltersState>({
+    search: "",
+    location: "",
+    status: "",
+    propertyType: "",
+    occupancyMin: 0,
+    occupancyMax: 100,
+    roiMin: 0,
+    roiMax: 50,
+    hasMaintenanceTasks: false,
+    lastBookingFrom: "",
+    lastBookingTo: "",
+  });
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(12); // Show 12 properties per page
+
+  // Dialog states for quick actions
+  const [isPropertyDialogOpen, setIsPropertyDialogOpen] = useState(false);
+  const [isBookingDialogOpen, setIsBookingDialogOpen] = useState(false);
+  const [isTaskDialogOpen, setIsTaskDialogOpen] = useState(false);
+  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+  const [isAutomationModalOpen, setIsAutomationModalOpen] = useState(false);
+
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  // Delete property mutation
+  const deleteMutation = useMutation({
+    mutationFn: async (id: number) => {
+      await apiRequest("DELETE", `/api/properties/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/properties"] });
+      toast({
+        title: "Success",
+        description: "Property deleted successfully",
+      });
+      // Clear deleted property from selection if it was selected
+      setSelectedProperties((prev) =>
+        prev.filter((p) => p.id !== deleteMutation.variables),
+      );
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: "Failed to delete property",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Delete property handler
+  const handleDeleteProperty = (id: number) => {
+    if (
+      window.confirm(
+        "Are you sure you want to delete this property? This action cannot be undone.",
+      )
+    ) {
+      deleteMutation.mutate(id);
+    }
+  };
+
+  // Refresh handler - refetch data and reset filters
+  const handleRefresh = () => {
+    // Reset all filters to default
+    setFilters({
+      search: "",
+      location: "",
+      status: "",
+      propertyType: "",
+      occupancyMin: 0,
+      occupancyMax: 100,
+      roiMin: 0,
+      roiMax: 50,
+      hasMaintenanceTasks: false,
+      lastBookingFrom: "",
+      lastBookingTo: "",
+    });
+
+    // Clear selected property ID filter
+    setSelectedPropertyId(null);
+
+    // Clear URL parameter if present
+    if (window.location.search) {
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+
+    // Refetch properties from API
+    refetchProperties();
+
+    // Show success feedback
+    toast({
+      title: "Refreshed",
+      description: "Property list updated and filters reset",
+    });
+  };
+
+  // Store selected property ID from URL parameter
+  const [selectedPropertyId, setSelectedPropertyId] = useState<number | null>(
+    null,
+  );
+
+  // Check for property selection from Dashboard
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const propertyId = urlParams.get("property");
+    if (propertyId) {
+      // Store the property ID to filter by ID, not by name search
+      setSelectedPropertyId(parseInt(propertyId, 10));
+    }
+  }, []);
+
+  // Fetch data
+  const {
+    data: properties = [],
+    isLoading: propertiesLoading,
+    isFetching: propertiesFetching,
+    refetch: refetchProperties,
+  } = useQuery({
+    queryKey: ["/api/properties"],
+    staleTime: 10 * 60 * 1000,
+  });
+
+  console.log("properties", properties);
+
+  const { data: bookings = [], isLoading: bookingsLoading } = useQuery({
+    queryKey: ["/api/bookings"],
+    staleTime: 10 * 60 * 1000,
+  });
+
+  console.log("bookings from API", bookings);
+
+  // Fetch expiring documents and insurance for all properties
+  const { data: expiringDocuments = [] } = useQuery({
+    queryKey: ["/api/property-documents/expiring?days=30"],
+    staleTime: 0,
+  });
+
+  const { data: expiringInsurance = [] } = useQuery({
+    queryKey: ["/api/property-insurance/expiring/30"],
+    staleTime: 0,
+  });
+
+  // Type assertions for safety
+  const propertiesArray = Array.isArray(properties) ? properties : [];
+  // separate local and hostaway properties so UI tabs are distinct
+  const localProperties = propertiesArray.filter(
+    (p: any) => p.source !== "HOSTAWAY",
+  );
+  const hostawayProperties = propertiesArray.filter(
+    (p: any) => p.source === "HOSTAWAY",
+  );
+
+  const bookingsArray = Array.isArray(bookings) ? bookings : [];
+
+  // Fetch RentCast enrichment data for all properties
+  const { data: rentcastEnrichment = {} } = useQuery({
+    queryKey: ["/api/rentcast/enrich-properties"],
+    enabled: propertiesArray.length > 0,
+    staleTime: 60 * 60 * 1000, // Cache for 1 hour
+  });
+
+  const rentcastData = rentcastEnrichment || {};
+
+  // Helper function to check if property has expiring items
+  const getPropertyExpiryStatus = (propertyId: number) => {
+    const hasExpiringDoc = (expiringDocuments as any[]).some(
+      (doc: any) => doc.propertyId === propertyId,
+    );
+    const hasExpiringIns = (expiringInsurance as any[]).some(
+      (ins: any) => ins.propertyId === propertyId,
+    );
+
+    if (hasExpiringDoc || hasExpiringIns) {
+      // Check if any are already expired (past today)
+      const expiredDoc = (expiringDocuments as any[]).find(
+        (doc: any) =>
+          doc.propertyId === propertyId &&
+          new Date(doc.expiryDate) < new Date(),
+      );
+      const expiredIns = (expiringInsurance as any[]).find(
+        (ins: any) =>
+          ins.propertyId === propertyId &&
+          new Date(ins.expiryDate) < new Date(),
+      );
+
+      if (expiredDoc || expiredIns) {
+        return "expired";
+      }
+      return "expiring";
+    }
+    return null;
+  };
+
+  // Filter properties
+  const filteredProperties = useMemo(() => {
+    return localProperties.filter((property: any) => {
+      // If a specific property ID is selected from Dashboard, only show that property
+      if (selectedPropertyId !== null && property.id !== selectedPropertyId) {
+        return false;
+      }
+
+      // Search filter
+      if (
+        filters.search &&
+        !property.name.toLowerCase().includes(filters.search.toLowerCase())
+      ) {
+        return false;
+      }
+
+      // Location filter
+      if (
+        filters.location &&
+        !property.address
+          ?.toLowerCase()
+          .includes(filters.location.toLowerCase())
+      ) {
+        return false;
+      }
+
+      // Status filter
+      if (filters.status && property.status !== filters.status) {
+        return false;
+      }
+
+      // Occupancy filter (mock data for demo)
+      const occupancyRate =
+        property.occupancyRate || Math.floor(Math.random() * 30) + 60;
+      if (
+        occupancyRate < filters.occupancyMin ||
+        occupancyRate > filters.occupancyMax
+      ) {
+        return false;
+      }
+
+      // ROI filter (mock data for demo)
+      const roi = property.roi || Math.random() * 20 + 5;
+      if (roi < filters.roiMin || roi > filters.roiMax) {
+        return false;
+      }
+
+      // Property type filter
+      if (filters.propertyType) {
+        const propertyType =
+          property.propertyType ||
+          (property.name?.toLowerCase().includes("villa")
+            ? "villa"
+            : property.name?.toLowerCase().includes("apartment")
+              ? "apartment"
+              : property.name?.toLowerCase().includes("condo")
+                ? "condo"
+                : property.name?.toLowerCase().includes("resort")
+                  ? "resort"
+                  : "villa");
+        if (propertyType !== filters.propertyType) {
+          return false;
+        }
+      }
+
+      // Last booking date filter
+      if (filters.lastBookingFrom || filters.lastBookingTo) {
+        const lastBookingDate = property.lastBookingDate || "2024-12-15";
+        const lastBooking = new Date(lastBookingDate);
+
+        if (filters.lastBookingFrom) {
+          const fromDate = new Date(filters.lastBookingFrom);
+          if (lastBooking < fromDate) {
+            return false;
+          }
+        }
+
+        if (filters.lastBookingTo) {
+          const toDate = new Date(filters.lastBookingTo);
+          if (lastBooking > toDate) {
+            return false;
+          }
+        }
+      }
+
+      // Maintenance tasks filter
+      if (filters.hasMaintenanceTasks) {
+        const maintenanceTasks =
+          property.maintenanceTasks || Math.floor(Math.random() * 5);
+        if (maintenanceTasks === 0) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+  }, [localProperties, filters, selectedPropertyId]);
+
+  // Pagination logic
+  const totalPages = Math.ceil(filteredProperties.length / itemsPerPage);
+  const paginatedProperties = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return filteredProperties.slice(startIndex, startIndex + itemsPerPage);
+  }, [filteredProperties, currentPage, itemsPerPage]);
+
+  // Reset pagination when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filters]);
+
+  const handleLoadMore = () => {
+    if (currentPage < totalPages) {
+      setCurrentPage((prev) => prev + 1);
+    }
+  };
+
+  // Property selection handlers
+  const handlePropertySelect = (property: any, selected: boolean) => {
+    if (selected) {
+      setSelectedProperties((prev) => [...prev, property]);
+    } else {
+      setSelectedProperties((prev) => prev.filter((p) => p.id !== property.id));
+    }
+  };
+
+  const handleSelectAll = () => {
+    if (selectedProperties.length === filteredProperties.length) {
+      setSelectedProperties([]);
+    } else {
+      setSelectedProperties(filteredProperties);
+    }
+  };
+
+  const handleClearSelection = () => {
+    setSelectedProperties([]);
+  };
+
+  const handleViewPropertyDetails = (property: any) => {
+    navigate(`/property/${property.id}`);
+  };
+
+  const handleCreateTaskFromTemplate = (template: any, propertyId: number) => {
+    // Simulate API call to create task
+    toast({
+      title: "Task Created",
+      description: `Created "${template.title}" for property ID ${propertyId}`,
+    });
+  };
+
+  // Transform data for calendar
+  const calendarProperties = propertiesArray.map((p: any, index: number) => ({
+    id: p.id,
+    name: p.name,
+    source: p.source,
+    color: `hsl(${(index * 137.5) % 360}, 70%, 50%)`,
+  }));
+
+  const calendarBookings = bookingsArray.map((b: any) => {
+    const bookingPropertyId =
+      b.propertyId || Math.floor(Math.random() * propertiesArray.length) + 1;
+    const property = propertiesArray.find(
+      (p: any) => p.id === bookingPropertyId,
+    );
+    return {
+      id: b.id,
+      propertyId: bookingPropertyId,
+      propertyName: property?.name || b.propertyName || "Unknown Property",
+      guestName: b.guestName || "Guest",
+      guestEmail: b.guestEmail,
+      guestPhone: b.guestPhone,
+      checkIn: b.checkInDate || b.checkIn || "2024-08-01",
+      checkOut: b.checkOutDate || b.checkOut || "2024-08-02",
+      status: b.status || "confirmed",
+      source: b.source,
+      bookingPlatform: b.bookingPlatform,
+      totalAmount: b.totalAmount || 0,
+      invoiceId: b.invoiceId,
+      guestId: b.guestId,
+    };
+  });
+
+  const isInitialLoading = propertiesLoading || bookingsLoading;
+  const isRefreshingEmptyData =
+    propertiesFetching && propertiesArray.length === 0;
+
+  if (isInitialLoading || isRefreshingEmptyData) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-slate-600">Loading Property Hub...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen flex bg-background">
+      <div className="flex-1 flex flex-col lg:ml-0">
+        <TopBar title="Property Management" />
+
+        <main className="flex-1 overflow-auto p-6">
+          <div className="max-w-7xl mx-auto">
+            <div className="relative mb-8">
+              {/* Header with Back Button layered on top */}
+              <div className="absolute top-0 left-0 z-50">
+                <BackButton
+                  fallbackRoute="/dashboard-hub"
+                  forceRoute={true}
+                  variant="ghost"
+                  className="!p-2 !rounded-md bg-white/90 backdrop-blur-md border border-slate-200 shadow-sm"
+                >
+                  <span className="hidden sm:inline text-sm">
+                    Back to Dashboard
+                  </span>
+                </BackButton>
+              </div>
+              {/* Header */}
+              <div className="flex items-center justify-between pt-10">
+                <div className="mt-4">
+                  <h1 className="text-4xl font-bold text-slate-800 mb-3 flex items-center gap-4">
+                    🏠 Property Management Hub
+                  </h1>
+                  <p className="text-lg text-slate-600 mb-2">
+                    Enhanced property management with advanced filtering, bulk
+                    actions, and calendar views
+                  </p>
+                  <div className="mt-3 text-sm text-emerald-600 font-medium flex items-center gap-2">
+                    <div className="h-2 w-2 bg-emerald-500 rounded-full animate-pulse"></div>
+                    Connected to Dashboard • Showing Real Data from API
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 sm:gap-4 flex-wrap sm:flex-nowrap">
+                  {user?.role === "admin" && (
+                    <Button
+                      onClick={() => setIsPropertyDialogOpen(true)}
+                      className="bg-emerald-600 hover:bg-emerald-700 text-white hover:scale-105 transition-all duration-200 text-xs sm:text-sm px-2 sm:px-4"
+                      data-testid="button-add-property"
+                    >
+                      <Plus className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-2" />
+                      <span className="hidden sm:inline">Add Property</span>
+                    </Button>
+                  )}
+                  <Button
+                    variant="outline"
+                    onClick={handleRefresh}
+                    className="hover:bg-emerald-50 hover:border-emerald-200 hover:text-emerald-700 hover:scale-105 transition-all duration-200 text-xs sm:text-sm px-2 sm:px-4"
+                    data-testid="button-refresh"
+                  >
+                    <RefreshCw className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-2" />
+                    <span className="hidden sm:inline">Refresh</span>
+                  </Button>
+                  <Badge
+                    variant="outline"
+                    className="px-2 sm:px-4 py-1 sm:py-2 text-xs sm:text-sm bg-emerald-100 text-emerald-700 border-emerald-200 font-semibold cursor-pointer hover:bg-emerald-200 hover:scale-105 transition-all duration-200 flex items-center gap-1 sm:gap-2 whitespace-nowrap rounded-lg"
+                    onClick={handleRefresh}
+                    data-testid="badge-properties-counter"
+                  >
+                    {propertiesArray.length}
+                    <span className="hidden lg:inline"> Properties</span>
+                  </Badge>
+                </div>
+              </div>
+            </div>
+            {/* Main Content Tabs */}
+            <Tabs
+              value={activeTab}
+              onValueChange={setActiveTab}
+              className="space-y-6"
+            >
+              <div className="overflow-x-auto -mx-3 px-3 sm:mx-0 sm:px-0">
+                <TabsList className="inline-flex w-auto min-w-full sm:grid sm:w-full sm:grid-cols-3 lg:grid-cols-5 gap-1">
+                  <TabsTrigger
+                    value="properties"
+                    className="flex items-center gap-1 sm:gap-2 px-2 sm:px-3 text-xs sm:text-sm whitespace-nowrap"
+                  >
+                    <LayoutGrid className="h-3 w-3 sm:h-4 sm:w-4" />
+                    {/* Show “Property” only on large screens */}
+                    <span className="hidden lg:inline">Property</span>
+                    {/* Always visible */}
+                    Cards
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="hostaway-sync"
+                    className="flex items-center gap-1 sm:gap-2 px-2 sm:px-3 text-xs sm:text-sm whitespace-nowrap"
+                  >
+                    <Building2 className="h-3 w-3 sm:h-4 sm:w-4" />
+                    Hostaway
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="calendar"
+                    className="flex items-center gap-1 sm:gap-2 px-2 sm:px-3 text-xs sm:text-sm whitespace-nowrap"
+                  >
+                    <Calendar className="h-3 w-3 sm:h-4 sm:w-4" />
+
+                    {/* Show full text on large screens */}
+                    <span className="hidden lg:inline">Calendar View</span>
+
+                    {/* Show short text on small screens */}
+                    <span className="lg:hidden">Calendar</span>
+                  </TabsTrigger>
+
+                  <TabsTrigger
+                    value="templates"
+                    className="flex items-center gap-1 sm:gap-2 px-2 sm:px-3 text-xs sm:text-sm whitespace-nowrap"
+                  >
+                    <ClipboardList className="h-3 w-3 sm:h-4 sm:w-4" />
+                    Templates
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="grid"
+                    className="flex items-center gap-1 sm:gap-2 px-2 sm:px-3 text-xs sm:text-sm whitespace-nowrap"
+                  >
+                    <Grid3X3 className="h-3 w-3 sm:h-4 sm:w-4" />
+                    Tools
+                  </TabsTrigger>
+                </TabsList>
+              </div>
+
+              {/* Property Cards Tab */}
+              <TabsContent value="properties" className="space-y-8">
+                {/* Section Header */}
+                <div className="flex items-center gap-3 mb-2">
+                  {/* <div className="p-3 bg-emerald-100 rounded-xl">
+                    <LayoutGrid className="h-6 w-6 text-emerald-600" />
+                  </div> */}
+                  {/* <h2 className="text-2xl font-bold text-slate-800">
+                    Property Cards
+                  </h2> */}
+                </div>
+
+                {/* Filters */}
+                <PropertyFilters
+                  filters={filters}
+                  onFiltersChange={setFilters}
+                  totalProperties={propertiesArray.length}
+                  filteredCount={filteredProperties.length}
+                />
+
+                {/* Bulk Actions */}
+                <BulkActionPanel
+                  selectedProperties={selectedProperties}
+                  onClearSelection={handleClearSelection}
+                  onRefresh={refetchProperties}
+                />
+
+                {/* Select All Button */}
+                {filteredProperties.length > 0 && (
+                  <div className="flex items-center justify-between bg-white/50 p-4 rounded-lg border border-slate-200/50 backdrop-blur-sm">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleSelectAll}
+                      className="hover:bg-emerald-50 hover:border-emerald-200 hover:text-emerald-700 hover:scale-105 transition-all duration-200"
+                    >
+                      {selectedProperties.length === filteredProperties.length
+                        ? "Deselect All"
+                        : "Select All"}
+                      ({filteredProperties.length})
+                    </Button>
+                    <div className="text-sm text-slate-600 font-medium">
+                      {selectedProperties.length} of {filteredProperties.length}{" "}
+                      selected
+                    </div>
+                  </div>
+                )}
+
+                {/* Property Cards Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                  {paginatedProperties.map((property: any) => (
+                    <PropertyCard
+                      key={property.id}
+                      property={property}
+                      isSelected={selectedProperties.some(
+                        (p) => p.id === property.id,
+                      )}
+                      onSelect={(selected) =>
+                        handlePropertySelect(property, selected)
+                      }
+                      onViewDetails={() => handleViewPropertyDetails(property)}
+                      onDelete={() => handleDeleteProperty(property.id)}
+                      expiryStatus={getPropertyExpiryStatus(property.id)}
+                      rentcastData={rentcastData[property.id]}
+                    />
+                  ))}
+                </div>
+
+                {/* Pagination & Load More */}
+                {filteredProperties.length > itemsPerPage && (
+                  <div className="mt-8 flex flex-col items-center gap-4">
+                    <div className="text-sm text-slate-600 bg-white/50 px-4 py-2 rounded-lg border border-slate-200/50 backdrop-blur-sm">
+                      Showing{" "}
+                      {Math.min(
+                        currentPage * itemsPerPage,
+                        filteredProperties.length,
+                      )}{" "}
+                      of {filteredProperties.length} properties
+                      {currentPage < totalPages &&
+                        ` • Page ${currentPage} of ${totalPages}`}
+                    </div>
+
+                    {currentPage < totalPages && (
+                      <Button
+                        onClick={handleLoadMore}
+                        variant="outline"
+                        size="lg"
+                        className="bg-emerald-50 hover:bg-emerald-100 border-emerald-200 text-emerald-700 hover:text-emerald-800 hover:scale-105 transition-all duration-200 shadow-sm"
+                      >
+                        📄 Load More Properties (
+                        {filteredProperties.length - currentPage * itemsPerPage}{" "}
+                        remaining)
+                      </Button>
+                    )}
+
+                    {currentPage >= totalPages &&
+                      filteredProperties.length > itemsPerPage && (
+                        <div className="text-sm text-emerald-600 font-medium bg-emerald-50 px-4 py-2 rounded-lg border border-emerald-200">
+                          ✅ All properties loaded!
+                        </div>
+                      )}
+                  </div>
+                )}
+
+                {filteredProperties.length === 0 && (
+                  <div className="text-center py-12">
+                    {propertiesFetching ? (
+                      <>
+                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600 mx-auto mb-4"></div>
+                        <h3 className="text-lg font-medium text-slate-900 mb-2">
+                          Loading properties...
+                        </h3>
+                        <p className="text-slate-600">
+                          Please wait while we fetch your properties.
+                        </p>
+                      </>
+                    ) : (
+                      <>
+                        <Building2 className="h-12 w-12 text-slate-400 mx-auto mb-4" />
+                        <h3 className="text-lg font-medium text-slate-900 mb-2">
+                          No properties found
+                        </h3>
+                        <p className="text-slate-600">
+                          Try adjusting your filters to see more properties.
+                        </p>
+                      </>
+                    )}
+                  </div>
+                )}
+              </TabsContent>
+
+              {/* RentCast Market Search Tab */}
+              <TabsContent value="rentcast-search" className="space-y-6">
+                <RentCastMarketSearch />
+              </TabsContent>
+
+              {/* Hostaway Sync Tab */}
+              <TabsContent value="hostaway-sync" className="space-y-6">
+                <HostawaySync />
+              </TabsContent>
+
+              {/* Calendar Tab */}
+              <TabsContent value="calendar">
+                {calendarProperties.length > 0 ? (
+                  <MultiPropertyCalendar
+                    properties={calendarProperties}
+                    bookings={calendarBookings}
+                  />
+                ) : propertiesFetching ? (
+                  <div className="text-center py-12">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600 mx-auto mb-4"></div>
+                    <h3 className="text-lg font-medium text-slate-900 mb-2">
+                      Loading Properties...
+                    </h3>
+                    <p className="text-slate-600">
+                      Please wait while we fetch your calendar data.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="text-center py-12">
+                    <Calendar className="h-12 w-12 text-slate-400 mx-auto mb-4" />
+                    <h3 className="text-lg font-medium text-slate-900 mb-2">
+                      No Properties Available
+                    </h3>
+                    <p className="text-slate-600">
+                      Add properties to view the calendar.
+                    </p>
+                  </div>
+                )}
+              </TabsContent>
+
+              {/* Task Templates Tab */}
+              <TabsContent value="templates">
+                <TaskTemplates
+                  selectedProperties={selectedProperties}
+                  onCreateTask={handleCreateTaskFromTemplate}
+                />
+              </TabsContent>
+
+              {/* Management Tools Tab */}
+              <TabsContent value="grid" className="space-y-6">
+                {/* Footer Insights Bar */}
+                <Card className="bg-gradient-to-r from-emerald-50 via-emerald-100/50 to-emerald-50 backdrop-blur-sm border border-emerald-200/50">
+                  <CardContent className="py-4">
+                    <div className="flex items-center justify-center">
+                      <div className="flex items-center gap-8 text-sm font-medium">
+                        <div className="flex items-center gap-2">
+                          <span className="text-lg">📊</span>
+                          <span className="text-emerald-800">
+                            Active Bookings:{" "}
+                            <strong>{bookingsArray.length}</strong>
+                          </span>
+                        </div>
+                        <div className="text-emerald-300">|</div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-lg">🔧</span>
+                          <span className="text-emerald-800">
+                            Pending Tasks: <strong>7</strong>
+                          </span>
+                        </div>
+                        <div className="text-emerald-300">|</div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-lg">🏢</span>
+                          <span className="text-emerald-800">
+                            Total Properties:{" "}
+                            <strong>{propertiesArray.length}</strong>
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {/* Enhanced Hub Items */}
+                  {[
+                    {
+                      title: "Properties List",
+                      description:
+                        "View and manage all properties with detailed information and status",
+                      href: "/property-hub",
+                      icon: Building2,
+                      badge: "Core",
+                      badgeIcon: "🏠",
+                      stats: `${propertiesArray.length} total properties`,
+                      actionText: "Add Property",
+                      actionIcon: "➕",
+                    },
+                    {
+                      title: "Calendar & Bookings",
+                      description:
+                        "Booking calendar, reservations management, and availability tracking",
+                      href: "/bookings",
+                      icon: Calendar,
+                      badge: "Bookings",
+                      badgeIcon: "📅",
+                      stats: `${bookingsArray.length} bookings this week`,
+                      actionText: "Create Booking",
+                      actionIcon: "📅",
+                    },
+                    {
+                      title: "Property Tasks",
+                      description:
+                        "Task management for cleaning, maintenance, and property operations",
+                      href: "/tasks",
+                      icon: ClipboardList,
+                      badge: "Tasks",
+                      badgeIcon: "✅",
+                      stats: "7 open tasks",
+                      actionText: "Add Task",
+                      actionIcon: "📝",
+                    },
+                    {
+                      title: "Reports & Analytics",
+                      description:
+                        "Generate comprehensive reports and analytics with PDF/CSV export capabilities",
+                      href: "/reports",
+                      icon: LayoutGrid,
+                      badge: "Analytics",
+                      badgeIcon: "📊",
+                      stats: "3 reports ready",
+                      actionText: "Generate Report",
+                      actionIcon: "📈",
+                    },
+                    {
+                      title: "Automation & Alerts",
+                      description:
+                        "Smart reminders, AI insights, and automated property management workflows",
+                      href: "/automation",
+                      icon: RefreshCw,
+                      badge: "AI & Auto",
+                      badgeIcon: "🤖",
+                      stats: "5 active rules",
+                      actionText: "Setup Alert",
+                      actionIcon: "⚡",
+                    },
+                  ].map((item) => {
+                    const IconComponent = item.icon;
+                    const cardContent = (
+                      <Card
+                        key={item.href}
+                        className={`h-full flex flex-col group cursor-pointer transition-all duration-500 ease-in-out bg-gradient-to-br from-white via-slate-50/40 to-emerald-50/20 backdrop-blur-sm border border-slate-200/60 hover:border-emerald-300/50 hover:shadow-2xl hover:shadow-emerald-500/30 hover:scale-[1.05] hover:-translate-y-2 relative overflow-hidden ${item.isComingSoon ? "opacity-85" : ""}`}
+                        onClick={() =>
+                          !item.isComingSoon && navigate(item.href)
+                        }
+                      >
+                        {/* Enhanced Glassmorphism overlay with glow effect */}
+                        <div className="absolute inset-0 bg-gradient-to-br from-white/70 via-emerald-50/30 to-white/40 opacity-80 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
+                        <div className="absolute inset-0 bg-gradient-to-t from-emerald-500/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
+
+                        {/* Coming Soon badge for future cards */}
+                        {item.isComingSoon && (
+                          <div className="absolute top-2 right-2 z-10">
+                            <Badge className="bg-gradient-to-r from-yellow-100 to-yellow-50 text-yellow-800 border-yellow-400/50 text-xs shadow-lg backdrop-blur-sm">
+                              Coming Soon
+                            </Badge>
+                          </div>
+                        )}
+
+                        <CardHeader className="pb-3 relative z-10 flex-shrink-0">
+                          <div className="flex items-start justify-between mb-3 gap-2">
+                            <div className="flex items-center space-x-2 min-w-0 flex-1">
+                              <div className="p-2.5 bg-gradient-to-br from-emerald-100/80 via-emerald-50/60 to-white/40 backdrop-blur-sm rounded-xl shadow-xl border border-emerald-200/50 group-hover:shadow-emerald-300/60 group-hover:scale-110 group-hover:rotate-3 transition-all duration-500 ease-out flex-shrink-0">
+                                <IconComponent className="h-5 w-5 text-emerald-700 group-hover:text-emerald-800 transition-colors duration-300" />
+                              </div>
+                              <CardTitle className="text-base font-semibold text-slate-800 group-hover:text-slate-900 transition-colors duration-300 line-clamp-2">
+                                {item.title}
+                              </CardTitle>
+                            </div>
+                            <Badge className="bg-gradient-to-r from-emerald-100/90 via-emerald-50/70 to-white/50 text-emerald-800 border-emerald-300/60 shadow-lg backdrop-blur-sm group-hover:shadow-emerald-200/80 transition-all duration-300 text-xs whitespace-nowrap flex-shrink-0">
+                              <span className="mr-1">{item.badgeIcon}</span>
+                              {item.badge}
+                            </Badge>
+                          </div>
+
+                          {/* Enhanced Quick Stats */}
+                          <div className="bg-gradient-to-r from-slate-50/80 via-white/60 to-slate-50/80 backdrop-blur-sm rounded-lg p-2.5 border border-slate-200/60 group-hover:border-emerald-200/60 group-hover:bg-gradient-to-r group-hover:from-emerald-50/40 group-hover:via-white/70 group-hover:to-emerald-50/40 transition-all duration-300">
+                            <p className="text-xs font-medium text-slate-700 group-hover:text-emerald-800 transition-colors duration-300 truncate">
+                              {item.stats}
+                            </p>
+                          </div>
+                        </CardHeader>
+
+                        <CardContent className="flex flex-col flex-1 relative z-10 pt-0">
+                          <p className="text-sm text-slate-600 leading-relaxed group-hover:text-slate-700 transition-colors duration-300 line-clamp-3 mb-4 flex-1">
+                            {item.description}
+                          </p>
+
+                          {/* Enhanced Quick Action Button */}
+                          <Button
+                            size="sm"
+                            className={`w-full bg-gradient-to-r from-emerald-500 via-emerald-600 to-emerald-500 hover:from-emerald-600 hover:via-emerald-700 hover:to-emerald-600 text-white shadow-xl hover:shadow-2xl hover:shadow-emerald-500/40 transition-all duration-300 group-hover:scale-105 backdrop-blur-sm border border-emerald-400/30 hover:border-emerald-300/50 mt-auto ${item.isComingSoon ? "opacity-60 cursor-not-allowed" : ""}`}
+                            disabled={item.isComingSoon}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (!item.isComingSoon) {
+                                // Handle quick actions - open respective dialogs
+                                if (item.actionText === "Add Property") {
+                                  setIsPropertyDialogOpen(true);
+                                } else if (
+                                  item.actionText === "Create Booking"
+                                ) {
+                                  setIsBookingDialogOpen(true);
+                                } else if (item.actionText === "Add Task") {
+                                  setIsTaskDialogOpen(true);
+                                } else if (
+                                  item.actionText === "Generate Report"
+                                ) {
+                                  setIsReportModalOpen(true);
+                                } else if (item.actionText === "Setup Alert") {
+                                  setIsAutomationModalOpen(true);
+                                }
+                              }
+                            }}
+                          >
+                            <span className="mr-2 text-base group-hover:scale-110 transition-transform duration-200">
+                              {item.actionIcon}
+                            </span>
+                            {item.isComingSoon
+                              ? "Coming Soon"
+                              : item.actionText}
+                          </Button>
+                        </CardContent>
+                      </Card>
+                    );
+
+                    // Wrap Coming Soon cards with tooltip
+                    if (item.isComingSoon) {
+                      return (
+                        <TooltipProvider key={item.href}>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              {cardContent}
+                            </TooltipTrigger>
+                            <TooltipContent
+                              side="top"
+                              className="bg-gradient-to-r from-slate-800 to-slate-700 text-white border border-slate-600 shadow-xl"
+                            >
+                              <div className="text-center">
+                                <p className="font-semibold text-sm">
+                                  {item.title}
+                                </p>
+                                <p className="text-xs text-slate-300 mt-1">
+                                  Feature launching soon!
+                                </p>
+                                <p className="text-xs text-emerald-300 mt-1">
+                                  Stay tuned for updates
+                                </p>
+                              </div>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      );
+                    }
+
+                    return cardContent;
+                  })}
+                </div>
+              </TabsContent>
+            </Tabs>
+          </div>
+
+          {/* Enterprise Footer */}
+          <footer className="mt-12 border-t border-slate-200 bg-slate-50/30 backdrop-blur-sm">
+            <div className="max-w-7xl mx-auto px-6 py-6">
+              <div className="flex items-center justify-center">
+                <div className="flex items-center gap-8 text-sm text-slate-600">
+                  <div className="flex items-center gap-2">
+                    <div className="h-2 w-2 bg-emerald-500 rounded-full animate-pulse"></div>
+                    <span className="font-medium">System Online</span>
+                  </div>
+                  <div className="text-slate-400">|</div>
+                  <div className="flex items-center gap-2">
+                    <span>Last Updated: Today</span>
+                  </div>
+                  <div className="text-slate-400">|</div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold text-emerald-600">
+                      v2.0.1
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <div className="text-center text-sm text-slate-500 mt-2">
+                HostPilotPro Property Management • Enterprise Edition
+              </div>
+            </div>
+          </footer>
+        </main>
+      </div>
+
+      {/* Quick Action Dialogs */}
+      <CreatePropertyDialog
+        open={isPropertyDialogOpen}
+        onOpenChange={setIsPropertyDialogOpen}
+      />
+      <CreateBookingDialog
+        open={isBookingDialogOpen}
+        onOpenChange={setIsBookingDialogOpen}
+      />
+      <CreateTaskDialog
+        isOpen={isTaskDialogOpen}
+        onOpenChange={setIsTaskDialogOpen}
+        defaultPropertyId={selectedPropertyId ?? undefined}
+      />
+      <ReportsGenerateModal
+        open={isReportModalOpen}
+        onClose={() => setIsReportModalOpen(false)}
+      />
+      <AutomationCreateModal
+        open={isAutomationModalOpen}
+        onClose={() => setIsAutomationModalOpen(false)}
+      />
+    </div>
+  );
+}

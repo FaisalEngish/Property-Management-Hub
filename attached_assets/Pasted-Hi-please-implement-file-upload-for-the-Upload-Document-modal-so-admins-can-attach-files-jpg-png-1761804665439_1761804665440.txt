@@ -1,0 +1,182 @@
+Hi — please implement file upload for the Upload Document modal so admins can attach files (jpg, png, pdf, xlsx/xls). Do only what’s requested below. When finished, paste the grep outputs, the commit/PR link, and any server logs.
+
+1) Reproduce & capture current behavior
+
+Start the app on Replit (dev mode).
+
+Log in as admin@test.com.
+
+Open Property → Document Center and click Upload Document.
+
+Confirm there is no file input or file is not sent on upload. Note the modal component path shown in DOM inspector.
+
+Record the exact time and take one screenshot of the Upload modal.
+
+2) Find the files to edit
+
+From project root run and attach outputs:
+
+# find modal / upload UI
+grep -R --line-number "Upload Document" .
+grep -R --line-number "property document" .
+grep -R --line-number "Document Center" src || true
+
+# find server routes dealing with documents
+grep -R --line-number "/api/documents" server || true
+grep -R --line-number "documents" server || true
+
+
+Likely files to modify (examples):
+
+Frontend modal: src/components/Documents/UploadDocumentModal.jsx (or similar under src/components or src/pages)
+
+Backend route: server/routes/documents.js, api/documents, or similar
+
+Storage folder: server/uploads/documents (or add one)
+
+Attach the grep output showing the exact file paths you will edit.
+
+3) Frontend changes — add file picker + FormData POST
+
+Implement these exact behaviors in the modal component:
+
+Add an <input type="file" accept=".pdf,.jpg,.jpeg,.png,.xlsx,.xls" />.
+
+Enforce client-side validation:
+
+Allowed MIME types: application/pdf, image/jpeg, image/png, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel.
+
+Max size: 10 MB (10 * 1024 * 1024).
+
+Show clear user error alerts for invalid type or too-large file.
+
+On submit, send FormData with the file and fields (file_name, category, file_type, tags, description, optionally property_id) to POST /api/documents/upload.
+
+If the app uses cookie sessions, include withCredentials: true in axios/fetch.
+
+Minimal example (adapt to existing code style):
+
+// add input
+<input
+  type="file"
+  accept=".pdf,.jpg,.jpeg,.png,.xlsx,.xls"
+  onChange={handleFileChange}
+/>
+
+// on submit
+const fd = new FormData();
+fd.append('file', file);
+fd.append('file_name', filename);
+... axios.post('/api/documents/upload', fd, { headers: {'Content-Type': 'multipart/form-data'}, withCredentials: true })
+
+
+Do not change the UI styling except to add the input control and field validation.
+
+4) Backend changes — add multipart endpoint + validation
+
+Add POST /api/documents/upload (or modify existing) with these exact requirements:
+
+Use multer (or existing multipart parser) to accept file field.
+
+Server-side validation:
+
+Allowed MIME types same as frontend.
+
+Limit fileSize to 10 MB.
+
+Save files to disk at server/uploads/documents/ (create folder if missing) with sanitized filename DateNow_originalname OR integrate existing storage helper if the project uses S3 — store returned URL in DB.
+
+Require authentication + role check (only Admin, Administrator, Portfolio Manager, Owner allowed). If permission fails, remove uploaded file and return 403.
+
+Insert document metadata into documents table (or existing table): file_name, file_path (or URL), mime_type, size, category, file_type, tags, description, uploaded_by, property_id, created_at.
+
+Return 200 JSON with saved document record.
+
+Minimal Express/multer pattern to adapt:
+
+const upload = multer({ storage, fileFilter, limits: { fileSize: 10*1024*1024 }});
+router.post('/upload', ensureAuth, upload.single('file'), async (req, res) => {
+  // role check, save metadata row, return JSON
+});
+
+
+If the project already has an /api/documents route, mount this handler there. Do not change global auth behavior.
+
+5) Security & sanity checks
+
+Validate file type server-side (don't trust client).
+
+Sanitize filenames; prevent path traversal.
+
+Ensure static serving of uploaded files is safe, or use signed URLs.
+
+If saving on disk, ensure uploads directory is not executable.
+
+Keep existing auth middleware in place; add robust role check (handle both role string and roles array).
+
+Suggested robust role check:
+
+const ALLOWED = new Set(['Admin','Administrator','Portfolio Manager','Owner']);
+const roles = req.user?.roles || (req.user?.role ? [req.user.role] : []);
+if (!Array.isArray(roles) || !roles.some(r => ALLOWED.has(r))) return res.status(403).json({error:'Access denied'});
+
+6) Tests to run (manual)
+
+Run and attach results of these tests:
+
+Upload a small PDF (≤1MB) — expect 200 and document appears in the list.
+
+Upload JPG and PNG — expect 200.
+
+Upload XLSX — expect 200.
+
+Upload file >10MB — expect rejection (413 or 400) with clear message.
+
+Upload unsupported file (exe) — expect 400 unsupported type.
+
+Verify non-admin user receives 403.
+
+Confirm uploaded file exists in server/uploads/documents and DB row added.
+
+From browser devtools > Network, confirm request is multipart/form-data and response JSON contains document metadata.
+
+Example curl (for testing with cookie):
+
+curl -i -X POST -H "Cookie: <session_cookie>" \
+  -F "file=@/path/to/file.pdf" \
+  -F "file_name=Lease.pdf" \
+  https://<dev-url>/api/documents/upload
+
+7) Acceptance criteria (what I will check)
+
+Upload modal shows a functional file picker that accepts .pdf, .jpg, .jpeg, .png, .xlsx, .xls.
+
+Backend accepts and stores files up to 10 MB; rejects larger files with a clear error.
+
+Server returns 200 with document metadata; document appears in Document Center list after upload.
+
+Only allowed roles can upload; non-privileged users get 403.
+
+No unrelated files or features were modified.
+
+Provide commit/PR link, grep outputs from step 2, example API response (first record), and screenshots showing success.
+
+8) What to attach in your reply
+
+Output of the grep commands from Step 2.
+
+Files modified (paths) and a commit/PR link.
+
+Example POST /api/documents/upload response JSON.
+
+Server logs for any upload errors (if occurred).
+
+Screenshot of Document Center showing the uploaded file in the list.
+
+9) Do NOT touch
+
+Global authentication middleware except to reuse it.
+
+Unrelated pages/modules, styles, or DB migrations without asking.
+
+Production-only configurations (S3 credentials, etc.) — use local uploads folder.

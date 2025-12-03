@@ -1,0 +1,146 @@
+Context (what’s happening now):
+
+Inside the Property Management Hub dashboard, both buttons:
+
+“Generate Report” under “Reports & Analytics”
+
+“Setup Alert” under “Automation & Alerts”
+are not functional.
+
+When clicked, both currently trigger a toast alert saying
+“Generate Report functionality coming soon!”
+or “Setup Alert coming soon!”
+
+No modal, dropdown, or action is triggered.
+
+🎯 Expected behavior (correct output):
+
+Generate Report button
+
+When clicked, a dropdown (or modal) should appear directly in the current dashboard view.
+
+The dropdown should allow the user to select a report type (e.g. Bookings, Finances, Tasks).
+
+After selecting a type, a blue “Generate Report” button should appear.
+
+On clicking “Generate Report”, a request should be sent to
+POST /api/reports/generate (Express + Drizzle route)
+to generate the report and display the summary or export link below.
+
+Setup Alert button
+
+When clicked, it should open the Create Automation modal directly on the same page, not navigate to /automation.
+
+The modal should show form inputs: name, trigger, action, and schedule.
+
+On clicking “Create Automation”, send POST /api/automations to the backend.
+
+On success, show a small success alert (or close the modal).
+
+🧩 Troubleshooting analysis
+
+The button click handlers currently show a static “Coming Soon” toast instead of opening modals.
+
+No modal components (ReportsGenerateModal or AutomationCreateModal) exist or are imported.
+
+Backend routes /api/reports/generate and /api/automations already exist but are not being called from the UI.
+
+This is purely a frontend interaction issue, not a database or server issue.
+
+🧰 What you need to do now
+
+Locate the dashboard component file
+Search for the component rendering these two cards. Example filenames:
+src/client/src/pages/PropertyHub.tsx, Dashboard.tsx, or PropertyManagementHub.tsx.
+Inside it, find the two buttons labeled:
+
+"Generate Report"
+
+"Setup Alert"
+
+Replace existing onClick handlers
+Remove the current toast('Coming Soon') or alert() logic.
+Replace with modal toggle states.
+
+const [openReportModal, setOpenReportModal] = useState(false);
+const [openAutomationModal, setOpenAutomationModal] = useState(false);
+
+<button onClick={() => setOpenReportModal(true)}>Generate Report</button>
+<button onClick={() => setOpenAutomationModal(true)}>Setup Alert</button>
+
+<ReportsGenerateModal open={openReportModal} onClose={() => setOpenReportModal(false)} />
+<AutomationCreateModal open={openAutomationModal} onClose={() => setOpenAutomationModal(false)} />
+
+
+Create two modal components (if missing):
+
+src/client/src/components/ReportsGenerateModal.tsx
+
+src/client/src/components/AutomationCreateModal.tsx
+
+These modals should use Axios to call:
+
+POST /api/reports/generate
+
+POST /api/automations
+
+Both should display results inline or close on success.
+
+Do not navigate to a different route (no navigate('/automation')).
+Everything should open inline as modals.
+
+Verify backend routes are accessible
+Run:
+
+curl -X GET ${VITE_API_URL:-http://localhost:4000}/api/reports/summary
+curl -X GET ${VITE_API_URL:-http://localhost:4000}/api/automations
+
+
+If both return valid JSON, backend is fine.
+
+Run frontend locally
+
+npm run dev
+
+
+Then test clicks.
+✅ Clicking Generate Report should open a dropdown + blue button.
+✅ Clicking Setup Alert should open Create Automation modal.
+
+✅ Expected deliverables after fix
+
+Functional UI modals appear when buttons are clicked (no more “Coming Soon” alert).
+
+Generate Report modal:
+
+Dropdown → Select type → Blue button → triggers /api/reports/generate.
+
+Displays generated summary or success message inline.
+
+Setup Alert modal:
+
+Opens a form → Fill fields → “Create Automation” → calls /api/automations.
+
+Closes or confirms success without leaving the page.
+
+No routing changes, no backend structure changes, no schema migration needed.
+
+🧾 Agent output JSON (after fix)
+
+When finished, respond in this format:
+
+{
+  "status": "success",
+  "fix_scope": "frontend UI interaction",
+  "actions_performed": [
+    "Removed static toast placeholders",
+    "Added ReportsGenerateModal component",
+    "Added AutomationCreateModal component",
+    "Wired both modals to dashboard buttons"
+  ],
+  "verified_endpoints": [
+    { "endpoint": "/api/reports/generate", "status": 201 },
+    { "endpoint": "/api/automations", "status": 200 }
+  ],
+  "result": "Buttons now open modals and function as expected"
+}

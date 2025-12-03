@@ -1,0 +1,63 @@
+📦 MODULE: SMART PRICING & PERFORMANCE TOOLKIT
+
+👨‍💻 Description:
+Build an AI- and data-powered pricing insight suite to help optimize nightly rates, detect underperformance, and capitalize on high-demand periods. Use available reservation and calendar data, plus external holiday/event APIs.
+
+⚙️ COMPONENTS:
+
+1. 📈 Year-on-Year Performance Tracker
+   - Input: Monthly booking stats from current and previous years.
+   - Output: ADR, occupancy %, total revenue difference.
+   - Alert if underperforming vs same month last year.
+
+2. 🌍 Global Holiday & Event Awareness
+   - Use a holiday API like Calendarific.
+   - Highlight international holidays, Thai public holidays, and regional peak travel dates.
+   - Match booking origin data to suggest pricing boosts.
+
+3. 💸 Internal Price Deviation Checker
+   - Compare pricing per bedroom across all portfolio listings.
+   - Detect outliers and alert for underpriced listings.
+   - Filter by location, size, rating, amenities.
+
+4. 🔍 Booking Gap & Undervalued Dates Detector
+   - Detect booking gaps (e.g. 1- or 2-night holes).
+   - Flag undervalued long weekends or high-demand weekdays with low ADR.
+   - Suggest removing min-stay for specific gaps.
+
+5. 🧠 AI-Powered Weekly Performance Summary (ChatGPT API)
+   - Summary includes:
+     - Bookings last 7 and 30 days
+     - Avg. lead time
+     - Occupancy vs targets
+     - Price vs competitors
+     - AI-generated suggestions
+
+6. 🔁 Direct Booking Price Optimizer
+   - Compare OTA net payout (after commission) to current direct rates.
+   - Suggest smarter direct pricing to maintain competitiveness while saving OTA fees.
+   - Allow perks like “free airport pickup” to match OTA value.
+
+7. 📚 Historical Booking Pattern AI
+   - Analyze 2–3 years of data for booking windows and patterns.
+   - If current occupancy lags behind historical norms, trigger alert.
+   - Smart trend analysis.
+
+8. 📅 Holiday Heatmap Calendar View
+   - Color-coded calendar for pricing strategy.
+     - 🟢 Green: High demand — increase price
+     - 🟡 Yellow: Normal — keep or tweak price
+     - 🔴 Red: Low demand — promote or reduce price
+   - Combine with historical demand and current pace.
+
+9. 🔔 Smart Alert System
+   - All modules trigger alerts across:
+     - In-app dashboards (Admin / Manager)
+     - WhatsApp notifications (if enabled)
+     - Weekly email digests
+
+🧩 Visibility:
+- Admin: Access to full analytics.
+- Portfolio Manager: Own villas only.
+- Owner: Simplified visual dashboard and price suggestions.
+

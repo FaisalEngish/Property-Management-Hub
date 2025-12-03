@@ -1,0 +1,81 @@
+import React, { useState } from 'react';
+
+const sampleData = [
+  {
+    property: 'Villa Aruna',
+    manager: 'Dean',
+    area: 'Bophut',
+    bedrooms: 3,
+    bookings: [
+      { guest: 'John Smith', checkin: '2025-07-21', checkout: '2025-07-26', status: 'Confirmed' },
+      { guest: 'Sarah Johnson', checkin: '2025-07-27', checkout: '2025-07-30', status: 'Pending' },
+    ],
+  },
+  {
+    property: 'Villa Tramonto',
+    manager: 'Jane',
+    area: 'Lamai',
+    bedrooms: 2,
+    bookings: [
+      { guest: 'Alice', checkin: '2025-07-23', checkout: '2025-07-24', status: 'Confirmed' },
+    ],
+  },
+];
+
+export default function CalendarView() {
+  const [search, setSearch] = useState('');
+  const [filterArea, setFilterArea] = useState('');
+  const [filterManager, setFilterManager] = useState('');
+
+  const filtered = sampleData.filter(
+    p =>
+      p.property.toLowerCase().includes(search.toLowerCase()) &&
+      (!filterArea || p.area === filterArea) &&
+      (!filterManager || p.manager === filterManager)
+  );
+
+  return (
+    <div className="p-4">
+      <h2 className="text-2xl font-bold mb-4">Multi Property Calendar</h2>
+
+      <div className="flex flex-wrap gap-3 mb-4">
+        <input
+          type="text"
+          placeholder="Search property"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          className="border p-2 rounded"
+        />
+        <select onChange={e => setFilterArea(e.target.value)} className="border p-2 rounded">
+          <option value="">All Areas</option>
+          <option value="Bophut">Bophut</option>
+          <option value="Lamai">Lamai</option>
+        </select>
+        <select onChange={e => setFilterManager(e.target.value)} className="border p-2 rounded">
+          <option value="">All Managers</option>
+          <option value="Dean">Dean</option>
+          <option value="Jane">Jane</option>
+        </select>
+      </div>
+
+      {filtered.map((villa, i) => (
+        <div key={i} className="border rounded p-3 mb-4 bg-white shadow">
+          <h3 className="font-bold text-lg">{villa.property}</h3>
+          <p className="text-sm mb-1">Manager: {villa.manager} | Area: {villa.area} | Bedrooms: {villa.bedrooms}</p>
+          <div className="flex flex-col gap-2">
+            {villa.bookings.map((b, j) => (
+              <div key={j} className="flex justify-between items-center border p-2 rounded bg-gray-50">
+                <span>
+                  <b>{b.guest}</b>: {b.checkin} → {b.checkout}
+                </span>
+                <span className={`px-2 py-1 rounded text-white ${b.status === 'Confirmed' ? 'bg-green-600' : 'bg-yellow-500'}`}>
+                  {b.status}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}

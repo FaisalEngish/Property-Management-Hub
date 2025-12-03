@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Property Creation Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        form { background: #f5f5f5; padding: 20px; border-radius: 8px; }
+        input, textarea { width: 100%; margin: 10px 0; padding: 8px; }
+        button { background: #007bff; color: white; padding: 10px 20px; border: none; border-radius: 4px; }
+        .result { margin-top: 20px; padding: 10px; background: #e9ecef; border-radius: 4px; }
+    </style>
+</head>
+<body>
+    <h1>Direct Property Creation Test</h1>
+    
+    <form id="propertyForm">
+        <h3>Create Property</h3>
+        <input type="text" id="name" placeholder="Property Name" required>
+        <input type="text" id="address" placeholder="Address" required>
+        <textarea id="description" placeholder="Description"></textarea>
+        <input type="number" id="bedrooms" placeholder="Bedrooms">
+        <input type="number" id="bathrooms" placeholder="Bathrooms">
+        <button type="submit">Create Property</button>
+    </form>
+    
+    <div id="result" class="result"></div>
+    
+    <script>
+        document.getElementById('propertyForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const data = {
+                organizationId: 'default-org',
+                name: document.getElementById('name').value,
+                address: document.getElementById('address').value,
+                description: document.getElementById('description').value,
+                bedrooms: parseInt(document.getElementById('bedrooms').value) || null,
+                bathrooms: parseInt(document.getElementById('bathrooms').value) || null,
+                status: 'active',
+                currency: 'THB'
+            };
+            
+            console.log('Sending data:', data);
+            
+            try {
+                const response = await fetch('/api/properties', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(data),
+                    credentials: 'include'
+                });
+                
+                console.log('Response status:', response.status);
+                const result = await response.json();
+                console.log('Response data:', result);
+                
+                document.getElementById('result').innerHTML = 
+                    `<h4>Result:</h4><pre>${JSON.stringify(result, null, 2)}</pre>`;
+                    
+                if (response.ok) {
+                    document.getElementById('propertyForm').reset();
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                document.getElementById('result').innerHTML = 
+                    `<h4>Error:</h4><pre>${error.message}</pre>`;
+            }
+        });
+        
+        // Test GET properties on page load
+        window.addEventListener('load', async () => {
+            try {
+                const response = await fetch('/api/properties', {
+                    credentials: 'include'
+                });
+                const properties = await response.json();
+                console.log('Current properties:', properties.length);
+                
+                document.getElementById('result').innerHTML = 
+                    `<h4>Current Properties in Database:</h4><p>${properties.length} properties found</p>`;
+            } catch (error) {
+                console.error('Error fetching properties:', error);
+            }
+        });
+    </script>
+</body>
+</html>

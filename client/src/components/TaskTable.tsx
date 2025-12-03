@@ -1,0 +1,556 @@
+import React, { useState } from "react";
+import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
+import { CheckCircle, XCircle, Edit, User, DollarSign, Upload, X } from "lucide-react";
+import { Link } from "wouter";
+
+interface TaskTableProps {
+  tasks: any[];
+  isLoading: boolean;
+}
+
+export default function TaskTable({ tasks, isLoading }: TaskTableProps) {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const [editingTask, setEditingTask] = useState<any>(null);
+  const [editForm, setEditForm] = useState<any>({});
+  const [evidencePhotos, setEvidencePhotos] = useState<string[]>([]);
+
+  // Get current user for achievement checks
+  const { data: user } = useQuery({
+    queryKey: ["/api/auth/user"],
+  });
+
+  // Get staff members for assignee dropdown
+  const { data: users = [] } = useQuery({
+    queryKey: ["/api/users"],
+  });
+
+  const updateTaskMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: number; data: any }) => {
+      await apiRequest("PUT", `/api/tasks/${id}`, data);
+      return data;
+    },
+    onSuccess: async (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
+      setEditingTask(null);
+      setEditForm({});
+      setEvidencePhotos([]);
+      toast({
+        title: "Success",
+        description: "Task updated successfully",
+      });
+
+      // Invalidate finance cache if task was completed (auto-link creates finance record)
+      if (data.status === 'completed') {
+        console.log('💰 Invalidating finance cache for auto-linked expense');
+        queryClient.invalidateQueries({ queryKey: ["/api/finance"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/finance/analytics"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
+        // Force refetch to show new finance record immediately
+        queryClient.refetchQueries({ queryKey: ["/api/finance"] });
+        queryClient.refetchQueries({ queryKey: ["/api/finance/analytics"] });
+      }
+
+      // Invalidate achievement cache if task was marked completed or approved
+      // Backend already recalculates achievements in PUT /api/tasks/:id
+      if ((data.status === 'completed' || data.status === 'approved') && user?.id) {
+        console.log('🎮 Invalidating achievement cache for user:', user.id, 'status:', data.status);
+        queryClient.invalidateQueries({ queryKey: [`/api/achievements/user/${user.id}`] });
+        queryClient.invalidateQueries({ queryKey: ["/api/achievements/definitions"] });
+        // Force refetch to update UI immediately
+        queryClient.refetchQueries({ queryKey: [`/api/achievements/user/${user.id}`] });
+      }
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to update task",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const approveTaskMutation = useMutation({
+    mutationFn: async (id: number) => {
+      await apiRequest("PUT", `/api/tasks/${id}`, { status: 'approved' });
+    },
+    onSuccess: async () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
+      toast({
+        title: "Task Approved",
+        description: "Task has been approved and can now be started",
+      });
+
+      // Invalidate achievement cache - backend already recalculates achievements
+      if (user?.id) {
+        console.log('🎮 Invalidating achievement cache for user:', user.id, 'status: approved');
+        queryClient.invalidateQueries({ queryKey: [`/api/achievements/user/${user.id}`] });
+        queryClient.invalidateQueries({ queryKey: ["/api/achievements/definitions"] });
+        // Force refetch to update UI immediately
+        queryClient.refetchQueries({ queryKey: [`/api/achievements/user/${user.id}`] });
+      }
+    },
+  });
+
+  const rejectTaskMutation = useMutation({
+    mutationFn: async (id: number) => {
+      await apiRequest("PUT", `/api/tasks/${id}`, { status: 'rejected' });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
+      toast({
+        title: "Task Rejected",
+        description: "Task has been rejected",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleEditTask = (task: any) => {
+    console.log("🔧 Edit task clicked:", task.id, task.title);
+    setEditingTask(task);
+    setEditForm({
+      title: task.title,
+      description: task.description,
+      type: task.type,
+      priority: task.priority,
+      assignedTo: task.assignedTo,
+      dueDate: task.dueDate ? task.dueDate.split('T')[0] : '',
+    });
+    setEvidencePhotos(task.evidencePhotos || []);
+  };
+
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (!files) return;
+
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png'];
+
+    Array.from(files).forEach((file) => {
+      if (!allowedTypes.includes(file.type)) {
+        toast({
+          title: "Invalid file type",
+          description: "Only .jpg and .png files are allowed",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        if (reader.result) {
+          setEvidencePhotos(prev => [...prev, reader.result as string]);
+        }
+      };
+      reader.readAsDataURL(file);
+    });
+
+    event.target.value = '';
+  };
+
+  const removePhoto = (index: number) => {
+    setEvidencePhotos(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleSaveTask = () => {
+    if (editingTask) {
+      updateTaskMutation.mutate({
+        id: editingTask.id,
+        data: {
+          ...editForm,
+          evidencePhotos: evidencePhotos
+        }
+      });
+    }
+  };
+
+  const handleAssigneeChange = (taskId: number, assignedTo: string) => {
+    updateTaskMutation.mutate({
+      id: taskId,
+      data: { assignedTo }
+    });
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'pending': return 'secondary';
+      case 'in-progress': return 'default';
+      case 'completed': return 'outline';
+      default: return 'secondary';
+    }
+  };
+
+  const getStatusDot = (status: string) => {
+    switch (status) {
+      case 'pending': return 'bg-yellow-500';
+      case 'in-progress': return 'bg-blue-500';
+      case 'completed': return 'bg-green-500';
+      default: return 'bg-gray-500';
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Tasks</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="animate-pulse space-y-4">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="h-12 bg-gray-200 rounded" />
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Tasks</CardTitle>
+      </CardHeader>
+      <CardContent>
+        {tasks.length === 0 ? (
+          <p className="text-gray-500 text-center py-8">No tasks found</p>
+        ) : (
+          <div className="overflow-auto max-h-[calc(100vh-300px)]">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Task</TableHead>
+                  <TableHead>Property</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Assignee</TableHead>
+                  <TableHead>Due Date</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {tasks.map((task) => {
+                  const assignedUser = users.find((user: any) => user.id === task.assignedTo);
+                  const staffMembers = users.filter((user: any) => user.role === 'staff' || user.role === 'admin');
+                  
+                  return (
+                    <TableRow key={task.id}>
+                      <TableCell>
+                        <div className="flex items-center">
+                          <div className={`flex-shrink-0 h-2 w-2 rounded-full mr-3 ${getStatusDot(task.status)}`} />
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => handleEditTask(task)}
+                                className="text-sm font-medium text-blue-600 hover:text-blue-800 cursor-pointer text-left"
+                                data-testid={`button-edit-task-${task.id}`}
+                              >
+                                {task.title}
+                              </button>
+                              {task.financeRecordId && (
+                                <Badge variant="outline" className="ml-2 text-xs px-2 py-0 bg-green-50 text-green-700 border-green-300">
+                                  <DollarSign className="w-3 h-3 mr-1" />
+                                  Finance Linked
+                                </Badge>
+                              )}
+                            </div>
+                            <div className="text-sm text-gray-500">{task.description}</div>
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-sm text-gray-900">
+                        Property {task.propertyId}
+                      </TableCell>
+                      <TableCell className="text-sm text-gray-900 capitalize">
+                        {task.type.replace('-', ' ')}
+                      </TableCell>
+                      <TableCell>
+                        <Select
+                          value={task.assignedTo || ''}
+                          onValueChange={(value) => handleAssigneeChange(task.id, value)}
+                        >
+                          <SelectTrigger className="w-32" data-testid={`select-assignee-${task.id}`}>
+                            <SelectValue>
+                              <div className="flex items-center">
+                                <Avatar className="h-5 w-5 mr-2">
+                                  <AvatarFallback className="text-xs">
+                                    {assignedUser ? assignedUser.firstName?.[0] : '?'}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <span className="truncate">
+                                  {assignedUser ? assignedUser.firstName : 'Unassigned'}
+                                </span>
+                              </div>
+                            </SelectValue>
+                          </SelectTrigger>
+                          <SelectContent>
+                            {staffMembers.map((user: any) => (
+                              <SelectItem key={user.id} value={user.id}>
+                                <div className="flex items-center">
+                                  <Avatar className="h-5 w-5 mr-2">
+                                    <AvatarFallback className="text-xs">
+                                      {user.firstName?.[0]}
+                                    </AvatarFallback>
+                                  </Avatar>
+                                  {user.firstName} {user.lastName}
+                                </div>
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </TableCell>
+                      <TableCell className="text-sm text-gray-900">
+                        {task.dueDate ? new Date(task.dueDate).toLocaleDateString() : '-'}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={getStatusColor(task.status)}>
+                          {task.status.replace('-', ' ')}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex space-x-1">
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => handleEditTask(task)}
+                          >
+                            <Edit className="h-3 w-3" />
+                          </Button>
+                          
+                          {task.status === 'pending' && (
+                            <>
+                              <Button 
+                                variant="default"
+                                size="sm"
+                                onClick={() => approveTaskMutation.mutate(task.id)}
+                                className="bg-green-600 hover:bg-green-700"
+                              >
+                                <CheckCircle className="h-3 w-3" />
+                              </Button>
+                              <Button 
+                                variant="destructive"
+                                size="sm"
+                                onClick={() => rejectTaskMutation.mutate(task.id)}
+                              >
+                                <XCircle className="h-3 w-3" />
+                              </Button>
+                            </>
+                          )}
+                          
+                          {(task.status === 'approved' || task.status === 'in_progress') && task.status !== 'completed' && (
+                            <Button 
+                              variant="default" 
+                              size="sm"
+                              onClick={() => {
+                                console.log("✅ Complete task clicked:", task.id, task.title);
+                                updateTaskMutation.mutate({ id: task.id, data: { status: 'completed' } });
+                              }}
+                              data-testid={`button-complete-task-${task.id}`}
+                            >
+                              Complete
+                            </Button>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+      </CardContent>
+
+      {/* Task Edit Dialog */}
+      <Dialog open={!!editingTask} onOpenChange={(open) => {
+        if (!open) {
+          setEditingTask(null);
+          setEvidencePhotos([]);
+        }
+      }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit Task</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="title">Task Title</Label>
+              <Input
+                id="title"
+                value={editForm.title || ''}
+                onChange={(e) => setEditForm(prev => ({ ...prev, title: e.target.value }))}
+              />
+            </div>
+            <div>
+              <Label htmlFor="description">Description</Label>
+              <Textarea
+                id="description"
+                value={editForm.description || ''}
+                onChange={(e) => setEditForm(prev => ({ ...prev, description: e.target.value }))}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="type">Type</Label>
+                <Select
+                  value={editForm.type || ''}
+                  onValueChange={(value) => setEditForm(prev => ({ ...prev, type: value }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="cleaning">Cleaning</SelectItem>
+                    <SelectItem value="maintenance">Maintenance</SelectItem>
+                    <SelectItem value="inspection">Inspection</SelectItem>
+                    <SelectItem value="setup">Setup</SelectItem>
+                    <SelectItem value="repair">Repair</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="priority">Priority</Label>
+                <Select
+                  value={editForm.priority || ''}
+                  onValueChange={(value) => setEditForm(prev => ({ ...prev, priority: value }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="low">Low</SelectItem>
+                    <SelectItem value="medium">Medium</SelectItem>
+                    <SelectItem value="high">High</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div>
+              <Label htmlFor="assignee">Assignee</Label>
+              <Select
+                value={editForm.assignedTo || ''}
+                onValueChange={(value) => setEditForm(prev => ({ ...prev, assignedTo: value }))}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {users.filter((user: any) => user.role === 'staff' || user.role === 'admin').map((user: any) => (
+                    <SelectItem key={user.id} value={user.id}>
+                      {user.firstName} {user.lastName}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="dueDate">Due Date</Label>
+              <Input
+                id="dueDate"
+                type="date"
+                value={editForm.dueDate || ''}
+                onChange={(e) => setEditForm(prev => ({ ...prev, dueDate: e.target.value }))}
+              />
+            </div>
+            
+            {/* Finance Link Information */}
+            {editingTask?.financeRecordId && (
+              <Alert className="bg-green-50 border-green-200">
+                <DollarSign className="h-4 w-4 text-green-600" />
+                <AlertDescription className="text-green-800">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <strong>Finance Record Linked</strong>
+                      <p className="text-sm mt-1">
+                        This task has been automatically linked to Finance Hub as an expense record.
+                        {editingTask?.financeLinkedAt && (
+                          <span className="text-xs text-green-600 block mt-1">
+                            Linked on: {new Date(editingTask.financeLinkedAt).toLocaleDateString()}
+                          </span>
+                        )}
+                      </p>
+                    </div>
+                    <Link href="/finance">
+                      <Button variant="outline" size="sm" className="ml-2">
+                        View in Finance Hub
+                      </Button>
+                    </Link>
+                  </div>
+                </AlertDescription>
+              </Alert>
+            )}
+            
+            {/* Evidence Photos Upload Section */}
+            {evidencePhotos.length > 0 && (
+              <div>
+                <Label>Evidence Photos ({evidencePhotos.length})</Label>
+                <div className="grid grid-cols-3 gap-2 mt-2">
+                  {evidencePhotos.map((photo, index) => (
+                    <div key={index} className="relative group">
+                      <img 
+                        src={photo} 
+                        alt={`Evidence ${index + 1}`}
+                        className="w-full h-20 object-cover rounded border"
+                      />
+                      <button
+                        onClick={() => removePhoto(index)}
+                        className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                        data-testid={`button-remove-photo-${index}`}
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            <div className="flex justify-between items-center space-x-2">
+              <div>
+                <input
+                  type="file"
+                  id="evidence-upload"
+                  accept=".jpg,.jpeg,.png"
+                  multiple
+                  onChange={handleFileUpload}
+                  className="hidden"
+                  data-testid="input-evidence-upload"
+                />
+                <Button 
+                  variant="outline" 
+                  onClick={() => document.getElementById('evidence-upload')?.click()}
+                  className="bg-blue-600 text-white hover:bg-blue-700"
+                  data-testid="button-upload-evidence"
+                >
+                  <Upload className="h-4 w-4 mr-2" />
+                  Upload Evidence
+                </Button>
+              </div>
+              <div className="flex space-x-2">
+                <Button variant="outline" onClick={() => setEditingTask(null)}>
+                  Cancel
+                </Button>
+                <Button onClick={handleSaveTask} disabled={updateTaskMutation.isPending}>
+                  Save Changes
+                </Button>
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </Card>
+  );
+}

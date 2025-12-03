@@ -1,0 +1,50 @@
+Create a new module inside the Property Settings section called "Goals & Improvement Plan".
+
+🔹 Visibility: 
+- Admin, Manager, and Owner dashboards only.
+
+🔹 Layout Structure:
+1. Title: "🏆 Performance Goals & Improvement Plan"
+2. Section 1: Revenue Target
+   - Input: Set monthly / quarterly / yearly revenue goal (number field + currency dropdown)
+   - Display: Live progress bar with % and current revenue (dummy data until API connected)
+   - Optional: Button to attach reward or condition (e.g. "If revenue > 1M THB, buy new outdoor sofa")
+
+3. Section 2: Planned Upgrades & Fixes
+   - Button: "➕ Add Planned Upgrade"
+     - Fields:
+       - Upgrade Type (Dropdown: Furniture, Appliance, Renovation, Decor, Safety)
+       - Description (Text input)
+       - Suggested Budget (Optional)
+       - Target Date (Date picker)
+       - Priority Level (Low, Medium, High)
+       - Image/File Attachment (Optional)
+       - Condition trigger (Optional toggle: "Only if revenue > X THB")
+   - Display: List format of all upgrades with status (Pending, Approved, Done)
+   - Toggle: Sort by Priority / Date / Category
+
+4. Section 3: Notes & Timeline
+   - Field: Free-text notes by Admin/Manager with date
+   - Display: Simple note timeline with edit/delete for Admin/Manager only
+   - Owner can comment only
+
+5. Section 4 (Optional): AI Suggestion Banner
+   - Show a banner with mock suggestion:
+     > "📢 AI Suggests: Based on your booking patterns and review comments, consider upgrading your patio set before Q1."
+   - Future: Connect AI recommendation engine once data flows in
+
+🔹 Edit Permissions:
+- Admin & Manager: Full control (add/edit/delete)
+- Owner: View and comment
+- Staff: View-only (for task awareness)
+
+🔹 Position:
+Place this module under "Utilities" tab inside Property Settings or create a separate sidebar item titled "Goals & Plan"
+
+🔹 Include Demo Sample:
+For one demo property, pre-fill:
+- Revenue Target: 1,000,000 THB (Current: 745,000 THB)
+- Planned Upgrade: Replace patio set once target reached
+- Note: "Suggest repainting pool tiles before high season"
+
+This module should be part of the testable guest and manager dashboards.

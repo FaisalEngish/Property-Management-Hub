@@ -1,0 +1,51 @@
+The issue:
+Under the Enhanced Admin Dashboard → “Tasks” tab, the “Due” column always shows “No date” even though each task has a valid due date stored in the database.
+
+Objective:
+Make the “Due” field correctly display each task’s real due date as per the Task Management data.
+
+Steps to investigate and fix:
+
+1. **Check API Response**
+   - Inspect the API endpoint that provides task data (likely `/api/tasks` or similar).
+   - Verify if the API returns a proper `due_date`, `dueDate`, `due`, or `deadline` field.
+   - If the response shows `null`, empty string, or invalid date → fix this in the backend serialization.
+
+2. **Backend Fix (if needed)**
+   - Ensure the backend sends a valid ISO date string.
+   - For example, in Node/Express:
+     ```js
+     due_date: task.due_date ? new Date(task.due_date).toISOString() : null
+     ```
+   - Or in Django Serializer:
+     ```py
+     due_date = serializers.DateTimeField(format='%Y-%m-%dT%H:%M:%SZ', required=False, allow_null=True)
+     ```
+   - Test the endpoint again and confirm the date is now returned properly.
+
+3. **Frontend Fix**
+   - Locate the React component that renders each task in the Tasks tab (e.g. `TaskCard.jsx` or `TaskItem.jsx`).
+   - Replace the current due date rendering logic with the following safe formatter:
+     ```jsx
+     function formatDueDate(task) {
+       const raw = task.due_date ?? task.dueDate ?? task.due ?? task.deadline;
+       if (!raw) return 'No date';
+       const d = raw instanceof Date ? raw : new Date(raw);
+       if (isNaN(d.getTime())) return 'No date';
+       return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+     }
+     ```
+   - Then update the JSX render:
+     ```jsx
+     <div>Due: <strong>{formatDueDate(task)}</strong></div>
+     ```
+
+4. **Verify the Fix**
+   - Refresh the dashboard.
+   - Confirm that each task now shows its correct due date instead of “No date.”
+   - Check a few tasks with different due dates to ensure consistent formatting.
+
+Expected result:
+All tasks listed under the Enhanced Admin Dashboard → Tasks should display the correct “Due” date from the Task Management system instead of showing “No date.”
+
+Please apply the fix and confirm once complete.

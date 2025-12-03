@@ -1,0 +1,97 @@
+🪲 Bug Report — Tasks Not Persistent (Dashboard & Task Management)
+
+Module: Dashboard → Task Management / Tasks
+
+Issue Summary:
+New tasks appear when created but disappear after a short time. Tasks are not persistently stored or displayed in Task Management and the Dashboard no longer shows urgent tasks. Task details vanish from lists and the dashboard’s urgent/active task widgets are empty or missing records.
+
+Screenshots:
+(Attached: Screenshot (4) showing dashboard and task cards.)
+
+Steps to Reproduce:
+
+Go to Task Management (or create a task via the Dashboard task creator).
+
+Create a new task (fill title, description, due date, priority, assignee).
+
+Confirm the new task briefly appears in the task list and/or dashboard widget.
+
+Wait ~minutes (or navigate away and return).
+
+Observe the task disappears from Task Management and Dashboard urgent task lists.
+
+Actual Output:
+
+Newly created tasks show initially, then vanish.
+
+Task Management list shows no details for recently added tasks.
+
+Dashboard urgent/active task widgets do not display those tasks.
+
+No persistent history or records visible for the created tasks.
+
+Expected Output:
+
+Tasks should be persisted in the database and remain visible in Task Management until explicitly deleted or archived.
+
+Dashboard should list urgent/high-priority tasks and reflect task state changes in real time (or on refresh).
+
+Newly created tasks must survive page navigation, refresh, and sessions.
+
+Priority: 🔺 Critical — Data loss / persistence issue affecting task tracking.
+
+Likely Root Causes (investigation checklist):
+
+Backend write failure — Task POST succeeds in frontend UI (optimistic update) but server fails to persist (DB insert error / transaction rollback).
+
+Short TTL / auto-clean job — Background job/cron or scheduled cleanup may be wrongly deleting new tasks (e.g., misconfigured filter, accidental condition like created_at < now() or TTL index on tasks collection).
+
+Incorrect flags/soft-delete — Tasks may be saved but flagged as deleted, archived, or inactive immediately after creation by another process.
+
+Cache/State overwrite — Server or client cache (Redis, in-memory, or localStorage) overriding recent writes with stale data from an older snapshot.
+
+Filtering/Query bug — Task list queries might filter out tasks inadvertently (date ranges, user filters, property filters, priority filters), showing blank results.
+
+Auth/Permission issue — Task created under a different user/context and not visible to the current user due to permission checks.
+
+Frontend race/subscribe bug — Websocket/sync mechanism or polling replaces local optimistic-created task with server state that lacks it.
+
+Timezone / date logic — New tasks may get created with invalid due/created timestamps that place them outside query windows.
+
+Recommended Immediate Checks & Fixes (for devs):
+
+Verify server response & DB write:
+
+Check the API response on creation (status code, response body). Ensure DB insert returns success and an id.
+
+Inspect DB (tasks table/collection) for newly created record immediately after creation. Confirm fields: id, created_at, status, deleted flag.
+
+Search for cleanup jobs:
+
+Check scheduled jobs/cron, background workers, or TTL indexes that could delete tasks. Temporarily disable suspected jobs and recreate a task.
+
+Audit logs:
+
+Look in server logs for DELETE/UPDATE calls targeting tasks shortly after creation. Identify what component triggers it.
+
+Check caching layers:
+
+Inspect Redis or other caches for keys that may expire or overwrite task lists. Ensure cache invalidation happens after create.
+
+Confirm the query used for list endpoints:
+
+Ensure GET /tasks (or equivalent) query does not apply strict filters (e.g., due_date >= today) that hide fresh tasks.
+
+Validate permission & context:
+
+Ensure the task is created under the same property/user context and visible to the current user.
+
+Frontend state handling:
+
+Verify frontend does not rely only on optimistic UI — ensure it re-fetches or subscribes properly and handles server errors.
+
+If using websockets/push updates, confirm messages are correct and not triggering removes.
+
+Add temporary monitoring:
+
+Add a debug flag for task creation to log created ID, DB write result, and subsequent reads for a short period.

@@ -1,0 +1,82 @@
+🪲 Bug Report — Finance Hub Cards Mismatch with Property Dashboard
+
+Module: Property Management Hub → Finance Hub / Property Dashboard
+Context / Short Summary:
+When viewing a property (e.g., Hotel Blue Moon) the Property Dashboard shows property-specific metrics (Monthly Revenue, Occupancy, etc.), but after clicking View Report the Finance Hub cards show values that do not match the selected property (cards show global/other-property aggregates or stale values). This leads to inconsistent, confusing data for users.
+
+Steps to Reproduce:
+
+Open Property Management Hub.
+
+Note the property-specific figures on the property card/dashboard (e.g., Monthly Revenue, Occupancy).
+
+Click View Report for that property.
+
+Observe Finance Hub cards (Total Revenue, Monthly Revenue, Net Profit, Transactions) — values do not match the property dashboard values.
+
+Actual Output:
+Finance Hub displays values that are inconsistent with the selected property (global totals, other-property data, or stale values).
+
+Expected Output:
+Finance Hub should show only financial metrics for the selected property, matching the property dashboard numbers (or clearly explain any aggregation scope differences).
+
+Priority: 🔺 High — data integrity & user trust issue.
+
+Likely Root Causes (investigation checklist)
+
+property_id not passed to Finance Hub on navigation (missing query param / route param).
+
+Finance Hub uses a default “All Properties” query instead of the selected property filter.
+
+Frontend state/context lost during redirection (e.g., not persisting selected property in router state).
+
+Backend aggregation query ignores property_id or uses incorrect join/filter.
+
+Cache or CDN returning stale/global aggregated data (Redis, client cache, or service worker).
+
+Race condition / optimistic UI replaced by later global dataset via websocket/poll.
+
+Mismatch between units/formatting (server returns raw number in one place, formatted string in another) causing incorrect display or rounding differences.
+
+Multi-tenant scoping or permission logic filters out property-specific records causing fallbacks to global values.
+
+Recommended Immediate Checks & Fixes
+
+Verify navigation payload: Ensure the View Report action includes property_id in the URL or state (e.g., /finance-hub?property_id=abc123 or router state).
+
+Confirm Finance API call: Inspect the network call when Finance Hub loads — verify endpoint includes property_id and backend returns property-specific aggregates.
+
+Compare raw numbers: Copy the raw API responses used by the property card and Finance Hub for the same property and timestamp; compare numbers to find where divergence begins.
+
+Check cache invalidation: Ensure caches are invalidated after property selection or on transaction writes. Disable caching temporarily to confirm.
+
+DB query audit: Confirm SQL/NoSQL aggregation uses WHERE property_id = :property_id (or corresponding filter). Use COALESCE / IFNULL to avoid null math issues.
+
+Log lifecycle events: Add temporary logs on Finance Hub load: incoming property_id, DB query results, and response payload.
+
+Guard UI formatting vs calculation: Ensure raw numbers used for calculations; formatting should not be fed back into arithmetic.
+
+Add unit/regression tests: Add an automated test asserting that Finance Hub values match property dashboard totals for a known property dataset.
+
+Suggested Short Fix (example)
+
+Pass property_id in route: navigate('/finance-hub?property_id='+property.id)
+
+Backend example (pseudo-SQL):
+
+SELECT COALESCE(SUM(amount),0) AS total_revenue
+FROM transactions
+WHERE property_id = :property_id;
+
+
+Frontend: fetch /api/finance?property_id=abc123 and render the numeric values returned.
+
+What to include when you send this to the devs
+
+Screenshot(s) of property dashboard and Finance Hub (attached).
+
+Network trace / raw JSON for both property dashboard API and Finance Hub API for the same property and time.
+
+Server logs / timestamps around the request.
+
+Any caching layers (Redis, service worker) in use.

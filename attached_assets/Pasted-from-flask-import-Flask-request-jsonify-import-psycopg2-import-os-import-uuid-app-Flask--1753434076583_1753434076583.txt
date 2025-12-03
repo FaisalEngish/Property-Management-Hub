@@ -1,0 +1,104 @@
+from flask import Flask, request, jsonify
+import psycopg2
+import os
+import uuid
+
+app = Flask(__name__)
+
+# Master database (stores client info and signup requests)
+MASTER_DB = os.getenv("MASTER_DB_URL", "postgres://user:pass@host/db")
+
+def get_conn(db_url):
+    return psycopg2.connect(db_url)
+
+# ===== 1️⃣ Route for client enquiry (signup request) =====
+@app.route('/enquiry', methods=['POST'])
+def enquiry():
+    data = request.json
+    company_name = data['company_name']
+    email = data['email']
+
+    conn = get_conn(MASTER_DB)
+    cur = conn.cursor()
+    cur.execute("INSERT INTO signup_requests (company_name, email) VALUES (%s, %s)", (company_name, email))
+    conn.commit()
+    cur.close()
+    conn.close()
+
+    return jsonify({"message": "Signup enquiry received"}), 200
+
+
+# ===== 2️⃣ Admin Approves & Creates Client =====
+@app.route('/admin/create_client', methods=['POST'])
+def create_client():
+    data = request.json
+    request_id = data['request_id']
+    hostaway_api_key = data['api_key']
+
+    conn = get_conn(MASTER_DB)
+    cur = conn.cursor()
+
+    # Get signup request info
+    cur.execute("SELECT company_name, email FROM signup_requests WHERE id = %s", (request_id,))
+    row = cur.fetchone()
+    if not row:
+        return jsonify({"error": "Invalid request_id"}), 400
+
+    company_name, email = row
+    client_id = str(uuid.uuid4())[:8]
+    schema_name = f"client_{client_id}"
+
+    # ===== Create new schema for this client =====
+    cur.execute(f"CREATE SCHEMA {schema_name}")
+    # Example table creation in client schema
+    cur.execute(f"""
+        CREATE TABLE {schema_name}.properties (
+            id SERIAL PRIMARY KEY,
+            name TEXT,
+            location TEXT
+        );
+    """)
+    cur.execute(f"""
+        CREATE TABLE {schema_name}.bookings (
+            id SERIAL PRIMARY KEY,
+            property_id INT,
+            guest_name TEXT,
+            check_in DATE,
+            check_out DATE
+        );
+    """)
+
+    # Save client info to master DB
+    cur.execute("""
+        INSERT INTO clients (client_id, company_name, schema_name, api_key)
+        VALUES (%s, %s, %s, %s)
+    """, (client_id, company_name, schema_name, hostaway_api_key))
+
+    conn.commit()
+    cur.close()
+    conn.close()
+
+    return jsonify({"message": f"Client {company_name} created", "client_id": client_id}), 200
+
+
+# ===== 3️⃣ Middleware to load correct schema per login =====
+@app.before_request
+def attach_client():
+    client_id = request.headers.get("X-Client-ID")
+    if client_id:
+        # Lookup schema name for this client
+        conn = get_conn(MASTER_DB)
+        cur = conn.cursor()
+        cur.execute("SELECT schema_name, api_key FROM clients WHERE client_id = %s", (client_id,))
+        row = cur.fetchone()
+        cur.close()
+        conn.close()
+
+        if row:
+            schema_name, api_key = row
+            request.schema = schema_name
+            request.hostaway_api_key = api_key
+        else:
+            request.schema = None
+            request.hostaway_api_key = None
+

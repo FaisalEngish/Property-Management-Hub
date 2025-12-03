@@ -1,0 +1,30 @@
+8:50:37 AM [express] GET /api/dashboard/stats 200 in 1ms :: {"message":"Unauthorized"}
+8:50:37 AM [express] GET /api/bookings 401 in 2ms :: {"message":"Unauthorized"}
+8:50:37 AM [express] GET /api/finance/analytics 401 in 1ms :: {"message":"Unauthorized"}
+8:50:38 AM [express] GET /api/tasks 401 in 1ms :: {"message":"Unauthorized"}
+8:50:38 AM [express] GET /api/bookings 401 in 1ms :: {"message":"Unauthorized"}
+8:50:38 AM [express] GET /api/properties 401 in 1ms :: {"message":"Unauthorized"}
+Ultra-fast cache hit: GET:/:anonymous
+8:50:38 AM [express] GET /api/dashboard/stats 304 in 0ms :: {"message":"Unauthorized"}
+8:50:38 AM [express] GET /api/finance 401 in 0ms :: {"message":"Unauthorized"}
+8:50:38 AM [express] GET /api/finance/analytics 401 in 1ms :: {"message":"Unauthorized"}
+8:50:38 AM [express] GET /api/users 401 in 1ms :: {"message":"Unauthorized"}
+8:50:38 AM [express] GET /api/system-settings 401 in 1ms :: {"message":"Unauthorized"}
+8:50:38 AM [express] GET /api/currency/rates 401 in 1ms :: {"message":"Unauthorized"}
+8:50:40 AM [express] GET /api/tasks 401 in 4ms :: {"message":"Unauthorized"}
+8:50:40 AM [express] GET /api/bookings 401 in 1ms :: {"message":"Unauthorized"}
+8:50:40 AM [express] GET /api/finance/analytics 401 in 0ms :: {"message":"Unauthorized"}
+8:50:40 AM [express] GET /api/finance 401 in 0ms :: {"message":"Unauthorized"}
+8:50:40 AM [express] GET /api/properties 401 in 1ms :: {"message":"Unauthorized"}
+8:50:40 AM [express] GET /api/users 401 in 3ms :: {"message":"Unauthorized"}
+8:50:40 AM [express] GET /api/system-settings 401 in 2ms :: {"message":"Unauthorized"}
+8:50:40 AM [express] GET /api/currency/rates 401 in 2ms :: {"message":"Unauthorized"}
+8:50:44 AM [express] POST /api/auth/demo-logout 200 in 216ms :: {"message":"Logout successful","redi…
+8:50:47 AM [express] GET /api/system-settings 401 in 2ms :: {"message":"Unauthorized"}
+8:50:48 AM [express] GET /api/system-settings 401 in 4ms :: {"message":"Unauthorized"}
+
+i getting that unauthorized error on replit project as well. The problem on render is still persisting.
+
+When I log out of current session of admin user, it automatically redirects the same user. it doesn't log out correctly.
+
+So identify and fix the user authentication in this project first then make all user work for render as well

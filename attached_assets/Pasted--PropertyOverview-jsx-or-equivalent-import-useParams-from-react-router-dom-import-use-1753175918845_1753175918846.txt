@@ -1,0 +1,86 @@
+// PropertyOverview.jsx (or equivalent)
+import { useParams } from "react-router-dom";
+import { usePropertyData, useUserRole } from "../hooks";
+import BookingPieChart from "../components/BookingPieChart";
+
+export default function PropertyOverview() {
+  const { propertyId } = useParams();
+  const { userRole, visibleProperties } = useUserRole(); // Filter based on assigned villas
+  const property = usePropertyData(propertyId);
+
+  if (!visibleProperties.includes(propertyId) && userRole !== 'Admin') {
+    return <div>Access Denied</div>;
+  }
+
+  return (
+    <div className="container mx-auto p-4">
+      <div className="flex flex-col lg:flex-row justify-between">
+        {/* Property Header */}
+        <div className="w-full lg:w-2/3">
+          <h1 className="text-3xl font-bold">{property.name}</h1>
+          <p className="text-gray-500">{property.location}</p>
+          <div className="flex space-x-4 mt-2 text-sm text-gray-700">
+            <span>{property.bedrooms} Bedrooms</span>
+            <span>{property.bathrooms} Bathrooms</span>
+            <span>{property.capacity} Guests</span>
+            <span>฿{property.nightlyRate}/night</span>
+          </div>
+        </div>
+        <div className="w-full lg:w-1/3 mt-4 lg:mt-0">
+          <div className="bg-white shadow-md rounded-xl p-4">
+            <h2 className="font-semibold text-lg mb-2">Quick Stats</h2>
+            <p>Status: <span className="text-green-600">Active</span></p>
+            <p>Property ID: #{property.id}</p>
+            <p>Occupancy: {property.occupancyRate}%</p>
+            <p>Rating: ⭐ {property.rating} ({property.reviewCount} reviews)</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Booking Source Chart */}
+      <div className="mt-6">
+        <h2 className="text-xl font-bold mb-2">Booking Source Breakdown</h2>
+        <BookingPieChart data={property.bookingSources} />
+      </div>
+
+      {/* Descriptions */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+        <DescriptionBlock title="General Description" text={property.description} />
+        <DescriptionBlock title="Space Description" text={property.spaceDescription} />
+        <DescriptionBlock title="Interaction" text={property.interaction} />
+        <DescriptionBlock title="Neighborhood" text={property.neighborhood} />
+        <DescriptionBlock title="Transit" text={property.transit} />
+        <DescriptionBlock title="Other Notes" text={property.otherNotes} />
+      </div>
+
+      {/* Action Buttons */}
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-10">
+        <ActionButton label="View Tasks" to={`/tasks/${propertyId}`} />
+        <ActionButton label="View Bookings" to={`/bookings/${propertyId}`} />
+        <ActionButton label="Edit Property" to={`/properties/${propertyId}/edit`} />
+        <ActionButton label="View Utilities" to={`/utilities/${propertyId}`} />
+        <ActionButton label="View Accounting" to={`/accounting/${propertyId}`} />
+        <ActionButton label="View Important Info" to={`/info/${propertyId}`} />
+        <ActionButton label="View Documents" to={`/documents/${propertyId}`} />
+      </div>
+    </div>
+  );
+}
+
+// Components
+function ActionButton({ label, to }) {
+  return (
+    <a href={to} className="bg-blue-600 text-white text-center p-3 rounded-xl hover:bg-blue-700">
+      {label}
+    </a>
+  );
+}
+
+function DescriptionBlock({ title, text }) {
+  return (
+    <div className="bg-white p-4 rounded-xl shadow">
+      <h3 className="font-semibold text-md mb-1">{title}</h3>
+      <p className="text-gray-700 text-sm">{text || "Not available."}</p>
+    </div>
+  );
+}

@@ -1,0 +1,89 @@
+🔌 **Utility Tracker – Electricity, Water, Internet, and Custom Bills**
+
+---
+
+### 1. **Overview**
+
+Track monthly recurring utility bills per villa, automate reminders, upload receipts, and log confirmations.
+
+---
+
+### 2. **Per Property Settings**
+
+In the Utilities tab of Property Settings:
+
+- **Electricity Provider**  
+  - Dropdown (e.g., PEA, MEA, Other)
+  - Account Number
+  - Bill Arrival Day (e.g., 14th)
+  
+- **Water Provider**  
+  - Dropdown (e.g., Deepwell, Local Authority, Other)
+  - Account Number / Details
+  - Bill Arrival Day
+
+- **Internet Provider**  
+  - Dropdown (e.g., AIS, True, 3BB, NT, CAT, TOT, Other)
+  - Account Number
+  - Contract Package
+  - Bill Arrival Day
+
+- **+ Add Custom Utility Type** (e.g., Pest Control, Gas, Residence Fee)
+  - Custom title
+  - Account/reference info
+  - Arrival day
+
+---
+
+### 3. **Automated Notifications**
+
+- On each utility’s expected arrival date, system checks:
+  - **If bill uploaded?**
+    - ✅ Yes → OK
+    - ❌ No → Alert created
+- If **no bill uploaded after 4 days**, reminder sent again to Admin & PM
+
+---
+
+### 4. **Bill Upload + Payment Confirmation**
+
+- Staff/PM uploads bill
+- After payment, upload payment receipt
+- Click ✅ “Mark as Paid”
+- Enters Finance Log
+
+---
+
+### 5. **Finance Dashboard Integration**
+
+- Owner sees utility expenses (e.g., Electricity May = 15,000 THB)
+- Log history for each utility with:
+  - Date
+  - Amount
+  - Status (Paid/Unpaid)
+  - Uploaded files
+
+---
+
+### 6. **Smart Grouping**
+
+- Filter or group utilities by:
+  - Property
+  - Provider
+  - Status
+  - Department (for reporting)
+
+---
+
+### 7. **Optional Future Feature: API Integration**
+
+- For countries like Thailand, consider future integration with:
+  - **PEA Smart Plus API**
+  - Or auto-scanning uploaded PDFs for data extraction (OCR)
+
+---
+
+### 8. **Admin Flexibility**
+
+- Support multiple countries and providers
+- Dropdowns customizable per subscription or default by country

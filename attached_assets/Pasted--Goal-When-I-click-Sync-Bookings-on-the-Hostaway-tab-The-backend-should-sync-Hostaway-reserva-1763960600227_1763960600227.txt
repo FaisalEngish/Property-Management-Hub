@@ -1,0 +1,351 @@
+🎯 Goal
+
+When I click “Sync Bookings” on the Hostaway tab:
+
+The backend should sync Hostaway reservations into my local bookings table using the existing syncBookingsToDatabase function.
+
+The bookings API /api/bookings should then return those Hostaway bookings (they already have source: "HOSTAWAY").
+
+The MultiPropertyCalendar on the Property Hub tab should show those bookings alongside local ones.
+
+Hostaway bookings must be read-only in the calendar (no drag-to-reschedule).
+
+Please follow these steps exactly.
+
+STEP 1 – Add Hostaway sync routes in routes.ts
+
+Open the main backend routes file (likely server/routes.ts).
+
+Find the Hostaway routes block that already has:
+
+GET /api/hostaway/test-connection
+
+GET /api/hostaway/listings
+
+GET /api/hostaway/listings/:id
+
+Immediately after those existing Hostaway routes, add these two new routes:
+
+  // Sync Hostaway properties into our local DB
+  app.post("/api/hostaway/sync-properties", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user || {};
+      const organizationId = user.organizationId || "default-org";
+
+      const { hostawayService } = await import("./hostawayService");
+      const { clearCache } = await import("./performanceOptimizer");
+      const { clearUltraFastCache } = await import("./ultraFastMiddleware");
+
+      const result = await hostawayService.syncPropertiesToDatabase(organizationId);
+
+      // Invalidate caches so Hostaway properties show up everywhere
+      console.log("🗑️ Clearing caches after Hostaway properties sync");
+      clearCache("properties");
+      clearUltraFastCache("/api/properties");
+      clearUltraFastCache("/api/dashboard");
+
+      res.json({
+        success: result.success,
+        synced: result.synced,
+        errors: result.errors,
+        backend: "db",
+        listings: result.properties ?? [],
+        count: result.properties?.length ?? 0,
+      });
+    } catch (error: any) {
+      console.error("Error syncing Hostaway properties:", error);
+      res.status(500).json({
+        success: false,
+        message: error.message || "Failed to sync Hostaway properties",
+      });
+    }
+  });
+
+  // Sync Hostaway reservations into our local bookings table
+  app.post("/api/hostaway/sync-bookings", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user || {};
+      const organizationId = user.organizationId || "default-org";
+
+      const { hostawayService } = await import("./hostawayService");
+      const { clearCache } = await import("./performanceOptimizer");
+      const { clearUltraFastCache } = await import("./ultraFastMiddleware");
+
+      const result = await hostawayService.syncBookingsToDatabase(organizationId);
+
+      // Invalidate caches so calendar & dashboards see the new bookings
+      console.log("🗑️ Clearing caches after Hostaway bookings sync");
+      clearCache("bookings");
+      clearCache("properties"); // bookings affect occupancy / lastBooking, etc.
+      clearUltraFastCache("/api/bookings");
+      clearUltraFastCache("/api/dashboard");
+      clearUltraFastCache("/api/properties");
+
+      res.json({
+        success: result.success,
+        synced: result.synced,
+        errors: result.errors,
+        backend: "db",
+        bookings: result.bookings ?? [],
+        count: result.bookings?.length ?? 0,
+      });
+    } catch (error: any) {
+      console.error("Error syncing Hostaway bookings:", error);
+      res.status(500).json({
+        success: false,
+        message: error.message || "Failed to sync Hostaway bookings",
+      });
+    }
+  });
+
+
+Don’t change anything else in hostawayService.ts – syncPropertiesToDatabase and syncBookingsToDatabase are already implemented and should be used as-is.
+
+STEP 2 – Update Hostaway tab UI to trigger sync + refresh queries
+
+Open the Hostaway integration page file. It contains a HostawaySync React component and buttons like “Test Connection” and “Sync Properties”. The file name is something like:
+
+client/src/pages/HostawayIntegration/PropertyHub.tsx
+(use the one in my project that matches this pattern and content).
+
+Inside HostawaySync, at the top where state is declared, replace the existing state block with this (or extend it to match exactly):
+
+function HostawaySync() {
+  const [syncResults, setSyncResults] = useState<any>(null);
+  const [isTestingConnection, setIsTestingConnection] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [isSyncingBookings, setIsSyncingBookings] = useState(false);
+  const [imageIndices, setImageIndices] = useState<{ [key: number]: number }>(
+    {},
+  );
+  const { toast } = useToast();
+  const [, navigate] = useLocation(); // same router hook used elsewhere in this file
+  const queryClient = useQueryClient(); // used to refresh /api/bookings and /api/properties
+
+
+Find the existing syncProperties function and, after a successful sync and toast, add an invalidate call so properties refresh. The success branch should end like this:
+
+      // This is what your UI uses to render the cards
+      setSyncResults(listingsData);
+
+      toast({
+        title: "Sync Complete",
+        description: `Successfully synced ${
+          syncData.synced ?? listingsData.count ?? 0
+        } properties from Hostaway`,
+      });
+
+      // 🔄 make sure the main PropertyHub data is fresh
+      queryClient.invalidateQueries({ queryKey: ["/api/properties"] });
+
+
+Just below syncProperties, add this new function to sync Hostaway bookings:
+
+  const syncBookings = async () => {
+    setIsSyncingBookings(true);
+
+    try {
+      console.log("🔄 Starting Hostaway bookings sync...");
+      const response = await fetch("/api/hostaway/sync-bookings", {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+
+      console.log(
+        "📡 [BOOKINGS SYNC] Response status:",
+        response.status,
+        response.statusText,
+      );
+
+      if (response.status === 401) {
+        throw new Error(
+          "Please log in to your account first. Go to the Dashboard and sign in with your credentials.",
+        );
+      }
+
+      let data: any;
+      try {
+        data = await response.json();
+      } catch (parseError) {
+        console.error(
+          "[BOOKINGS SYNC] Failed to parse response as JSON:",
+          parseError,
+        );
+        throw new Error(
+          "Received invalid response from server during bookings sync. Please try again.",
+        );
+      }
+
+      console.log("📦 [BOOKINGS SYNC] Hostaway bookings result:", data);
+
+      if (!response.ok || !data.success) {
+        throw new Error(
+          data.message || "Failed to sync bookings from Hostaway",
+        );
+      }
+
+      toast({
+        title: "Bookings Sync Complete",
+        description: `Successfully synced ${
+          data.synced ?? data.count ?? 0
+        } bookings from Hostaway`,
+      });
+
+      // 🔄 VERY IMPORTANT: refresh /api/bookings so MultiPropertyCalendar sees Hostaway bookings
+      queryClient.invalidateQueries({ queryKey: ["/api/bookings"] });
+    } catch (error: any) {
+      console.error("❌ Hostaway bookings sync error:", error);
+      toast({
+        variant: "destructive",
+        title: "Bookings Sync Failed",
+        description: error.message || "Failed to sync bookings from Hostaway",
+      });
+    } finally {
+      setIsSyncingBookings(false);
+    }
+  };
+
+
+In the JSX where the buttons are defined (inside the Card for “Hostaway Properties”), change the button row to include a third button for bookings sync:
+
+Find this block:
+
+          <div className="flex gap-4">
+            <Button
+              onClick={testConnection}
+              disabled={isTestingConnection}
+              variant="outline"
+              data-testid="button-test-hostaway"
+            >
+              {isTestingConnection ? "Testing..." : "Test Connection"}
+            </Button>
+
+            <Button
+              onClick={syncProperties}
+              disabled={isSyncing}
+              className="bg-blue-600 hover:bg-blue-700"
+              data-testid="button-sync-hostaway"
+            >
+              {isSyncing ? (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  Syncing...
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Sync Properties
+                </>
+              )}
+            </Button>
+          </div>
+
+
+Replace it with:
+
+          <div className="flex gap-4">
+            <Button
+              onClick={testConnection}
+              disabled={isTestingConnection}
+              variant="outline"
+              data-testid="button-test-hostaway"
+            >
+              {isTestingConnection ? "Testing..." : "Test Connection"}
+            </Button>
+
+            <Button
+              onClick={syncProperties}
+              disabled={isSyncing}
+              className="bg-blue-600 hover:bg-blue-700"
+              data-testid="button-sync-hostaway"
+            >
+              {isSyncing ? (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  Syncing...
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Sync Properties
+                </>
+              )}
+            </Button>
+
+            <Button
+              onClick={syncBookings}
+              disabled={isSyncingBookings}
+              className="bg-emerald-600 hover:bg-emerald-700"
+              data-testid="button-sync-hostaway-bookings"
+            >
+              {isSyncingBookings ? (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  Syncing Bookings...
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Sync Bookings
+                </>
+              )}
+            </Button>
+          </div>
+
+STEP 3 – Calendar: keep /api/bookings but make Hostaway bookings read-only
+
+Open MultiPropertyCalendar.tsx (the component used on the Property Hub “Calendar” tab).
+
+Find the handleDragStart function. It looks like:
+
+  const handleDragStart = (e: React.DragEvent, booking: Booking) => {
+    setDraggedBooking(booking);
+    e.dataTransfer.effectAllowed = "move";
+  };
+
+
+Replace it with this so Hostaway bookings cannot be dragged:
+
+  const handleDragStart = (e: React.DragEvent, booking: Booking) => {
+    // Do not allow drag-reschedule for Hostaway bookings (read-only in this phase)
+    if (booking.source === "HOSTAWAY") {
+      e.preventDefault();
+      toast({
+        title: "Read-only booking",
+        description:
+          "Hostaway bookings are synced from your channel manager and can't be rescheduled here yet.",
+      });
+      return;
+    }
+
+    setDraggedBooking(booking);
+    e.dataTransfer.effectAllowed = "move";
+  };
+
+
+Do not change how the calendar fetches bookings – it should continue using /api/bookings (React Query key like ["/api/bookings"] or similar). The new backend sync route writes Hostaway bookings into the same table, so the calendar will see them automatically after we invalidate that query in syncBookings.
+
+STEP 4 – Sanity check & test flow
+
+After making all the above changes:
+
+Restart the dev server if needed.
+
+In the app UI:
+
+Go to the Hostaway tab.
+
+Click Sync Properties (once or whenever properties change).
+
+Click Sync Bookings and wait for the success toast.
+
+Go to the Property Hub → Multi Property Calendar tab:
+
+Confirm that bookings with source: "HOSTAWAY" appear alongside local bookings.
+
+Confirm that you cannot drag Hostaway bookings, but you can still drag local ones.
+
+Please implement all of the above exactly

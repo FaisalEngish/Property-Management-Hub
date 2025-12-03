@@ -1,0 +1,59 @@
+Create a new smart module called “AI Notifications & Reminders” available in the Admin, Portfolio Manager, and Owner dashboards — per property.
+
+🔹 Location:
+- Inside the Property Dashboard (right side panel or separate tab)
+- Title: “AI Notifications & Reminders 🧠”
+
+🔹 Purpose:
+Automatically scan property data like service intervals, bills, and maintenance history to trigger alerts and planning suggestions.
+
+🔹 Components:
+
+1. Smart Alerts Timeline:
+   - Display area for:
+     - “Next Pest Control Due: Estimated 18 July 2025”
+     - “Electricity Bill from PEA not uploaded yet (due on 17th)”
+     - “Pool cleaning overdue – last done 10 days ago”
+     - “Last major AC clean was 13 months ago – AI recommends a new service”
+
+2. Trigger Points:
+   - AI reads date gaps from:
+     - Service logs
+     - Uploaded bills
+     - Maintenance timeline
+   - Sends notifications if:
+     - A task is overdue
+     - A recurring task is about to be due
+     - A bill is expected based on past arrival dates (e.g., always on 15–17th monthly)
+
+3. Notification Visibility:
+   - Admin/Manager: Can see all alerts, override or mark as complete
+   - Owner: Can view alerts for their own villa(s), cannot delete
+   - Staff: Only relevant alerts (e.g., "Today’s scheduled garden task")
+
+4. Alert Types (icons and color-coded):
+   - 🧹 Cleaning (standard vs deep)
+   - 💡 Electricity bills
+   - 🌱 Garden services
+   - 🦟 Pest control
+   - 🔧 Maintenance
+   - ❄️ AC service
+   - 💧 Water bills
+   - 📅 Upcoming check-in/reminder
+   - 🛠 Suggested upgrades (linked to Goals module)
+
+5. AI Action Buttons:
+   - "Mark as Done"
+   - "Create Task" (Pre-fills task form)
+   - "Dismiss Reminder"
+   - "Snooze for X days"
+
+6. Future Extension Ready:
+   - Once synced with Hostaway + OCR/Receipt uploader, connect actual bills
+   - Add push notifications to WhatsApp or staff dashboards
+
+7. Include Demo:
+   - Demo Property Aruna:
+     - Alert: Pest control overdue (Last 31 May)
+     - Alert: Electric bill expected (17 July)
+     - Alert: Pool cleaning missed last week

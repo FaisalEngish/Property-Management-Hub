@@ -1,0 +1,781 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HostPilotPro - Property Management Platform</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <script>
+    tailwind.config = {
+        theme: {
+            extend: {
+                fontFamily: {
+                    'inter': ['Inter', 'sans-serif'],
+                },
+                colors: {
+                    primary: '#1976D2',
+                    secondary: '#424242',
+                    accent: '#FF9800',
+                    success: '#4CAF50',
+                    warning: '#FF9800',
+                    error: '#F44336',
+                    surface: '#FFFFFF',
+                    background: '#FAFAFA'
+                }
+            }
+        }
+    };
+    </script>
+</head>
+<body class="font-inter bg-background text-gray-900">
+    <!-- @COMPONENT: AppLayout -->
+    <div class="min-h-screen flex">
+        <!-- @COMPONENT: Sidebar -->
+        <aside id="sidebar" class="w-64 bg-white shadow-lg transform -translate-x-full lg:translate-x-0 transition-transform duration-300 ease-in-out fixed lg:static inset-y-0 left-0 z-50">
+            <div class="flex items-center justify-between h-16 px-6 border-b border-gray-200">
+                <h1 class="text-xl font-bold text-primary">HostPilotPro</h1>
+                <button id="closeSidebar" class="lg:hidden text-gray-500 hover:text-gray-700">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            
+            <!-- @COMPONENT: UserProfile -->
+            <div class="p-4 border-b border-gray-200">
+                <div class="flex items-center space-x-3">
+                    <!-- A professional headshot of a smiling property manager in business attire -->
+                    <img src="https://pixabay.com/get/g80848095772f719cb5b6aca7d45a63be811acc80b8822d039e0ca68a489981102e642d35fbd7e79bc6db2fe25ed8ab595f13ff18d8822e5f1b28e931317b24af_1280.jpg" alt="User Avatar" class="w-10 h-10 rounded-full object-cover">
+                    <div>
+                        <p class="font-medium text-sm" data-bind="user.name">Sarah Johnson</p>
+                        <p class="text-xs text-gray-500" data-bind="user.role">Portfolio Manager</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- @COMPONENT: Navigation -->
+            <nav class="mt-4 px-4">
+                <div class="space-y-2">
+                    <a href="#" class="nav-item active" data-role="dashboard">
+                        <i class="fas fa-chart-line w-5"></i>
+                        <span>Dashboard</span>
+                    </a>
+                    <a href="#" class="nav-item" data-role="properties">
+                        <i class="fas fa-building w-5"></i>
+                        <span>Properties</span>
+                    </a>
+                    <a href="#" class="nav-item" data-role="tasks">
+                        <i class="fas fa-tasks w-5"></i>
+                        <span>Tasks</span>
+                    </a>
+                    <a href="#" class="nav-item" data-role="guests">
+                        <i class="fas fa-users w-5"></i>
+                        <span>Guests</span>
+                    </a>
+                    <a href="#" class="nav-item" data-role="bookings">
+                        <i class="fas fa-calendar-alt w-5"></i>
+                        <span>Bookings</span>
+                    </a>
+                    <a href="#" class="nav-item" data-role="finances">
+                        <i class="fas fa-dollar-sign w-5"></i>
+                        <span>Finances</span>
+                    </a>
+                    <a href="#" class="nav-item" data-role="inventory">
+                        <i class="fas fa-boxes w-5"></i>
+                        <span>Inventory</span>
+                    </a>
+                    <a href="#" class="nav-item" data-role="reports">
+                        <i class="fas fa-chart-bar w-5"></i>
+                        <span>Reports</span>
+                    </a>
+                    <a href="#" class="nav-item" data-role="settings">
+                        <i class="fas fa-cog w-5"></i>
+                        <span>Settings</span>
+                    </a>
+                </div>
+            </nav>
+
+            <!-- @COMPONENT: RoleSelector -->
+            <div class="absolute bottom-4 left-4 right-4">
+                <div class="bg-gray-100 rounded-lg p-3">
+                    <label class="block text-xs font-medium text-gray-700 mb-2">View as:</label>
+                    <select id="roleSelector" class="w-full text-sm border-gray-300 rounded-md focus:ring-primary focus:border-primary">
+                        <option value="admin">Admin</option>
+                        <option value="portfolio-manager" selected>Portfolio Manager</option>
+                        <option value="owner">Owner</option>
+                        <option value="staff">Staff</option>
+                        <option value="retail-agent">Retail Agent</option>
+                        <option value="referral-agent">Referral Agent</option>
+                        <option value="guest">Guest</option>
+                    </select>
+                </div>
+            </div>
+        </aside>
+        <!-- @END_COMPONENT: Sidebar -->
+
+        <!-- @COMPONENT: MainContent -->
+        <div class="flex-1 flex flex-col lg:ml-0">
+            <!-- @COMPONENT: TopBar -->
+            <header class="bg-white shadow-sm border-b border-gray-200 h-16 flex items-center justify-between px-6">
+                <div class="flex items-center space-x-4">
+                    <button id="openSidebar" class="lg:hidden text-gray-500 hover:text-gray-700">
+                        <i class="fas fa-bars"></i>
+                    </button>
+                    <h2 class="text-lg font-semibold text-gray-900" id="pageTitle">Dashboard</h2>
+                </div>
+                
+                <div class="flex items-center space-x-4">
+                    <!-- @COMPONENT: NotificationBell -->
+                    <button class="relative text-gray-500 hover:text-gray-700">
+                        <i class="fas fa-bell text-lg"></i>
+                        <span class="absolute -top-1 -right-1 bg-error text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">3</span>
+                    </button>
+                    
+                    <!-- @COMPONENT: UserMenu -->
+                    <div class="relative">
+                        <button class="flex items-center space-x-2 text-gray-700 hover:text-gray-900">
+                            <!-- A professional headshot of a smiling property manager in business attire -->
+                            <img src="https://pixabay.com/get/g80848095772f719cb5b6aca7d45a63be811acc80b8822d039e0ca68a489981102e642d35fbd7e79bc6db2fe25ed8ab595f13ff18d8822e5f1b28e931317b24af_1280.jpg" alt="User Avatar" class="w-8 h-8 rounded-full object-cover">
+                            <i class="fas fa-chevron-down text-sm"></i>
+                        </button>
+                    </div>
+                </div>
+            </header>
+            <!-- @END_COMPONENT: TopBar -->
+
+            <!-- @COMPONENT: MainArea -->
+            <main class="flex-1 overflow-auto">
+                <!-- @COMPONENT: DashboardView -->
+                <div id="dashboardView" class="p-6">
+                    <!-- @COMPONENT: StatsCards -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                        <div class="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-sm font-medium text-gray-600">Total Properties</p>
+                                    <p class="text-2xl font-bold text-gray-900" data-bind="stats.totalProperties">24</p>
+                                </div>
+                                <div class="bg-primary bg-opacity-10 p-3 rounded-lg">
+                                    <i class="fas fa-building text-primary text-xl"></i>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-sm font-medium text-gray-600">Active Bookings</p>
+                                    <p class="text-2xl font-bold text-gray-900" data-bind="stats.activeBookings">156</p>
+                                </div>
+                                <div class="bg-success bg-opacity-10 p-3 rounded-lg">
+                                    <i class="fas fa-calendar-check text-success text-xl"></i>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-sm font-medium text-gray-600">Pending Tasks</p>
+                                    <p class="text-2xl font-bold text-gray-900" data-bind="stats.pendingTasks">12</p>
+                                </div>
+                                <div class="bg-warning bg-opacity-10 p-3 rounded-lg">
+                                    <i class="fas fa-tasks text-warning text-xl"></i>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-sm font-medium text-gray-600">Monthly Revenue</p>
+                                    <p class="text-2xl font-bold text-gray-900" data-bind="stats.monthlyRevenue">$48,250</p>
+                                </div>
+                                <div class="bg-accent bg-opacity-10 p-3 rounded-lg">
+                                    <i class="fas fa-dollar-sign text-accent text-xl"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <!-- @COMPONENT: RecentBookings -->
+                        <div class="bg-white rounded-lg shadow-sm border border-gray-200">
+                            <div class="p-6 border-b border-gray-200">
+                                <h3 class="text-lg font-semibold text-gray-900">Recent Bookings</h3>
+                            </div>
+                            <div class="p-6">
+                                <!-- @MAP: recentBookings.map(booking => ( -->
+                                <div class="flex items-center justify-between py-3 border-b border-gray-100 last:border-0">
+                                    <div class="flex items-center space-x-3">
+                                        <!-- A cozy modern vacation rental living room with stylish furniture -->
+                                        <img src="https://images.unsplash.com/photo-1586023492125-27b2c045efd7?ixlib=rb-4.0.3&auto=format&fit=crop&w=100&h=100" alt="Property" class="w-12 h-12 rounded-lg object-cover">
+                                        <div>
+                                            <p class="font-medium text-gray-900" data-bind="booking.propertyName">Sunset Villa</p>
+                                            <p class="text-sm text-gray-500" data-bind="booking.guestName">John & Sarah Smith</p>
+                                        </div>
+                                    </div>
+                                    <div class="text-right">
+                                        <p class="text-sm font-medium text-gray-900" data-bind="booking.dates">Nov 15-20</p>
+                                        <p class="text-sm text-gray-500" data-bind="booking.amount">$1,250</p>
+                                    </div>
+                                </div>
+                                <!-- @END_MAP )) -->
+
+                                <div class="flex items-center justify-between py-3 border-b border-gray-100">
+                                    <div class="flex items-center space-x-3">
+                                        <!-- A modern beachfront apartment with ocean views -->
+                                        <img src="https://images.unsplash.com/photo-1512917774080-9991f1c4c750?ixlib=rb-4.0.3&auto=format&fit=crop&w=100&h=100" alt="Property" class="w-12 h-12 rounded-lg object-cover">
+                                        <div>
+                                            <p class="font-medium text-gray-900">Ocean Breeze Apt</p>
+                                            <p class="text-sm text-gray-500">Mike Johnson</p>
+                                        </div>
+                                    </div>
+                                    <div class="text-right">
+                                        <p class="text-sm font-medium text-gray-900">Nov 18-25</p>
+                                        <p class="text-sm text-gray-500">$1,850</p>
+                                    </div>
+                                </div>
+
+                                <div class="flex items-center justify-between py-3">
+                                    <div class="flex items-center space-x-3">
+                                        <!-- A rustic mountain cabin with wooden exterior -->
+                                        <img src="https://images.unsplash.com/photo-1449824913935-59a10b8d2000?ixlib=rb-4.0.3&auto=format&fit=crop&w=100&h=100" alt="Property" class="w-12 h-12 rounded-lg object-cover">
+                                        <div>
+                                            <p class="font-medium text-gray-900">Mountain Retreat</p>
+                                            <p class="text-sm text-gray-500">Davis Family</p>
+                                        </div>
+                                    </div>
+                                    <div class="text-right">
+                                        <p class="text-sm font-medium text-gray-900">Nov 22-28</p>
+                                        <p class="text-sm text-gray-500">$950</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- @COMPONENT: TaskOverview -->
+                        <div class="bg-white rounded-lg shadow-sm border border-gray-200">
+                            <div class="p-6 border-b border-gray-200">
+                                <h3 class="text-lg font-semibold text-gray-900">Task Overview</h3>
+                            </div>
+                            <div class="p-6">
+                                <!-- @MAP: tasks.map(task => ( -->
+                                <div class="flex items-center justify-between py-3 border-b border-gray-100 last:border-0">
+                                    <div class="flex items-center space-x-3">
+                                        <div class="w-3 h-3 rounded-full bg-warning"></div>
+                                        <div>
+                                            <p class="font-medium text-gray-900" data-bind="task.title">Deep Clean - Sunset Villa</p>
+                                            <p class="text-sm text-gray-500" data-bind="task.assignedTo">Maria Rodriguez</p>
+                                        </div>
+                                    </div>
+                                    <div class="text-right">
+                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-warning bg-opacity-10 text-warning">
+                                            In Progress
+                                        </span>
+                                    </div>
+                                </div>
+                                <!-- @END_MAP )) -->
+
+                                <div class="flex items-center justify-between py-3 border-b border-gray-100">
+                                    <div class="flex items-center space-x-3">
+                                        <div class="w-3 h-3 rounded-full bg-primary"></div>
+                                        <div>
+                                            <p class="font-medium text-gray-900">Pool Maintenance</p>
+                                            <p class="text-sm text-gray-500">Pool Pro Services</p>
+                                        </div>
+                                    </div>
+                                    <div class="text-right">
+                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary bg-opacity-10 text-primary">
+                                            Scheduled
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <div class="flex items-center justify-between py-3">
+                                    <div class="flex items-center space-x-3">
+                                        <div class="w-3 h-3 rounded-full bg-success"></div>
+                                        <div>
+                                            <p class="font-medium text-gray-900">Garden Maintenance</p>
+                                            <p class="text-sm text-gray-500">Green Thumb Co.</p>
+                                        </div>
+                                    </div>
+                                    <div class="text-right">
+                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-success bg-opacity-10 text-success">
+                                            Completed
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- @COMPONENT: QuickActions -->
+                    <div class="mt-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <button class="bg-white rounded-lg shadow-sm border border-gray-200 p-6 text-center hover:shadow-md transition-shadow" data-event="click:createBooking">
+                            <i class="fas fa-plus-circle text-primary text-2xl mb-3"></i>
+                            <p class="font-medium text-gray-900">New Booking</p>
+                        </button>
+
+                        <button class="bg-white rounded-lg shadow-sm border border-gray-200 p-6 text-center hover:shadow-md transition-shadow" data-event="click:addProperty">
+                            <i class="fas fa-home text-success text-2xl mb-3"></i>
+                            <p class="font-medium text-gray-900">Add Property</p>
+                        </button>
+
+                        <button class="bg-white rounded-lg shadow-sm border border-gray-200 p-6 text-center hover:shadow-md transition-shadow" data-event="click:createTask">
+                            <i class="fas fa-clipboard-list text-warning text-2xl mb-3"></i>
+                            <p class="font-medium text-gray-900">Create Task</p>
+                        </button>
+
+                        <button class="bg-white rounded-lg shadow-sm border border-gray-200 p-6 text-center hover:shadow-md transition-shadow" data-event="click:viewReports">
+                            <i class="fas fa-chart-line text-accent text-2xl mb-3"></i>
+                            <p class="font-medium text-gray-900">View Reports</p>
+                        </button>
+                    </div>
+                </div>
+                <!-- @END_COMPONENT: DashboardView -->
+
+                <!-- @COMPONENT: PropertiesView -->
+                <div id="propertiesView" class="p-6 hidden">
+                    <div class="mb-6 flex justify-between items-center">
+                        <h2 class="text-2xl font-bold text-gray-900">Properties</h2>
+                        <button class="bg-primary text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors" data-event="click:addProperty">
+                            <i class="fas fa-plus mr-2"></i>Add Property
+                        </button>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        <!-- @MAP: properties.map(property => ( -->
+                        <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+                            <!-- A luxury vacation rental with a swimming pool and tropical landscaping -->
+                            <img src="https://images.unsplash.com/photo-1564013799919-ab600027ffc6?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=250" alt="Property" class="w-full h-48 object-cover">
+                            <div class="p-6">
+                                <h3 class="font-semibold text-lg text-gray-900 mb-2" data-bind="property.name">Sunset Villa</h3>
+                                <p class="text-gray-600 text-sm mb-4" data-bind="property.address">123 Ocean Drive, Miami Beach</p>
+                                <div class="flex items-center justify-between mb-4">
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-success bg-opacity-10 text-success">
+                                        Active
+                                    </span>
+                                    <span class="text-sm text-gray-500" data-bind="property.bookings">8 bookings</span>
+                                </div>
+                                <div class="flex space-x-2">
+                                    <button class="flex-1 bg-gray-100 text-gray-700 px-3 py-2 rounded-md text-sm hover:bg-gray-200 transition-colors">
+                                        View
+                                    </button>
+                                    <button class="flex-1 bg-primary text-white px-3 py-2 rounded-md text-sm hover:bg-blue-700 transition-colors">
+                                        Manage
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- @END_MAP )) -->
+                    </div>
+                </div>
+                <!-- @END_COMPONENT: PropertiesView -->
+
+                <!-- @COMPONENT: TasksView -->
+                <div id="tasksView" class="p-6 hidden">
+                    <div class="mb-6 flex justify-between items-center">
+                        <h2 class="text-2xl font-bold text-gray-900">Task Management</h2>
+                        <button class="bg-primary text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors" data-event="click:createTask">
+                            <i class="fas fa-plus mr-2"></i>Create Task
+                        </button>
+                    </div>
+
+                    <!-- @COMPONENT: TaskFilters -->
+                    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
+                        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                                <select class="w-full border-gray-300 rounded-md focus:ring-primary focus:border-primary">
+                                    <option>All Tasks</option>
+                                    <option>Pending</option>
+                                    <option>In Progress</option>
+                                    <option>Completed</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Type</label>
+                                <select class="w-full border-gray-300 rounded-md focus:ring-primary focus:border-primary">
+                                    <option>All Types</option>
+                                    <option>Cleaning</option>
+                                    <option>Maintenance</option>
+                                    <option>Pool Service</option>
+                                    <option>Garden</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Property</label>
+                                <select class="w-full border-gray-300 rounded-md focus:ring-primary focus:border-primary">
+                                    <option>All Properties</option>
+                                    <option>Sunset Villa</option>
+                                    <option>Ocean Breeze Apt</option>
+                                    <option>Mountain Retreat</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Assignee</label>
+                                <select class="w-full border-gray-300 rounded-md focus:ring-primary focus:border-primary">
+                                    <option>All Staff</option>
+                                    <option>Maria Rodriguez</option>
+                                    <option>Pool Pro Services</option>
+                                    <option>Green Thumb Co.</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- @COMPONENT: TaskList -->
+                    <div class="bg-white rounded-lg shadow-sm border border-gray-200">
+                        <div class="overflow-x-auto">
+                            <table class="w-full">
+                                <thead class="bg-gray-50 border-b border-gray-200">
+                                    <tr>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Task</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Property</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Assignee</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Due Date</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white divide-y divide-gray-200">
+                                    <!-- @MAP: tasks.map(task => ( -->
+                                    <tr data-mock="true">
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <div class="flex items-center">
+                                                <div class="flex-shrink-0 h-2 w-2 bg-warning rounded-full mr-3"></div>
+                                                <div>
+                                                    <div class="text-sm font-medium text-gray-900">Deep Clean - Pre-arrival</div>
+                                                    <div class="text-sm text-gray-500">Full property deep cleaning</div>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">Sunset Villa</td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">Maria Rodriguez</td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">Nov 14, 2024</td>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-warning bg-opacity-10 text-warning">
+                                                In Progress
+                                            </span>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                            <button class="text-primary hover:text-blue-700 mr-3">Edit</button>
+                                            <button class="text-success hover:text-green-700">Complete</button>
+                                        </td>
+                                    </tr>
+                                    <!-- @END_MAP )) -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                <!-- @END_COMPONENT: TasksView -->
+
+                <!-- @COMPONENT: BookingsView -->
+                <div id="bookingsView" class="p-6 hidden">
+                    <div class="mb-6 flex justify-between items-center">
+                        <h2 class="text-2xl font-bold text-gray-900">Booking Calendar</h2>
+                        <button class="bg-primary text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors" data-event="click:newBooking">
+                            <i class="fas fa-plus mr-2"></i>New Booking
+                        </button>
+                    </div>
+
+                    <!-- @COMPONENT: CalendarView -->
+                    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                        <div class="flex items-center justify-between mb-6">
+                            <h3 class="text-lg font-semibold text-gray-900">November 2024</h3>
+                            <div class="flex space-x-2">
+                                <button class="p-2 text-gray-400 hover:text-gray-600">
+                                    <i class="fas fa-chevron-left"></i>
+                                </button>
+                                <button class="p-2 text-gray-400 hover:text-gray-600">
+                                    <i class="fas fa-chevron-right"></i>
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- Calendar Grid -->
+                        <div class="grid grid-cols-7 gap-1 mb-4">
+                            <div class="p-2 text-center text-sm font-medium text-gray-500">Sun</div>
+                            <div class="p-2 text-center text-sm font-medium text-gray-500">Mon</div>
+                            <div class="p-2 text-center text-sm font-medium text-gray-500">Tue</div>
+                            <div class="p-2 text-center text-sm font-medium text-gray-500">Wed</div>
+                            <div class="p-2 text-center text-sm font-medium text-gray-500">Thu</div>
+                            <div class="p-2 text-center text-sm font-medium text-gray-500">Fri</div>
+                            <div class="p-2 text-center text-sm font-medium text-gray-500">Sat</div>
+                        </div>
+                        
+                        <div class="grid grid-cols-7 gap-1" data-mock="true">
+                            <!-- Calendar days with booking indicators -->
+                            <div class="aspect-square p-1 text-center text-sm text-gray-400">27</div>
+                            <div class="aspect-square p-1 text-center text-sm text-gray-400">28</div>
+                            <div class="aspect-square p-1 text-center text-sm text-gray-400">29</div>
+                            <div class="aspect-square p-1 text-center text-sm text-gray-400">30</div>
+                            <div class="aspect-square p-1 text-center text-sm text-gray-400">31</div>
+                            <div class="aspect-square p-1 text-center text-sm text-gray-900 relative">
+                                1
+                                <div class="w-1 h-1 bg-primary rounded-full absolute bottom-1 left-1/2 transform -translate-x-1/2"></div>
+                            </div>
+                            <div class="aspect-square p-1 text-center text-sm text-gray-900">2</div>
+                            
+                            <!-- Week 2 -->
+                            <div class="aspect-square p-1 text-center text-sm text-gray-900">3</div>
+                            <div class="aspect-square p-1 text-center text-sm text-gray-900">4</div>
+                            <div class="aspect-square p-1 text-center text-sm text-gray-900">5</div>
+                            <div class="aspect-square p-1 text-center text-sm text-gray-900">6</div>
+                            <div class="aspect-square p-1 text-center text-sm text-gray-900">7</div>
+                            <div class="aspect-square p-1 text-center text-sm text-gray-900">8</div>
+                            <div class="aspect-square p-1 text-center text-sm text-gray-900">9</div>
+                            
+                            <!-- Week 3 with bookings -->
+                            <div class="aspect-square p-1 text-center text-sm text-gray-900">10</div>
+                            <div class="aspect-square p-1 text-center text-sm text-gray-900">11</div>
+                            <div class="aspect-square p-1 text-center text-sm text-gray-900">12</div>
+                            <div class="aspect-square p-1 text-center text-sm text-gray-900">13</div>
+                            <div class="aspect-square p-1 text-center text-sm text-gray-900">14</div>
+                            <div class="aspect-square p-1 text-center text-sm text-white bg-primary rounded relative">
+                                15
+                                <div class="text-xs absolute -bottom-1 left-1/2 transform -translate-x-1/2 whitespace-nowrap text-white">Check-in</div>
+                            </div>
+                            <div class="aspect-square p-1 text-center text-sm text-white bg-primary rounded">16</div>
+                        </div>
+                    </div>
+                </div>
+                <!-- @END_COMPONENT: BookingsView -->
+
+                <!-- @COMPONENT: FinancesView -->
+                <div id="financesView" class="p-6 hidden">
+                    <div class="mb-6">
+                        <h2 class="text-2xl font-bold text-gray-900">Financial Dashboard</h2>
+                    </div>
+
+                    <!-- @COMPONENT: FinancialSummary -->
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                            <h3 class="text-lg font-semibold text-gray-900 mb-4">Revenue Overview</h3>
+                            <div class="space-y-3">
+                                <div class="flex justify-between">
+                                    <span class="text-gray-600">This Month</span>
+                                    <span class="font-semibold text-gray-900">$48,250</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-gray-600">Last Month</span>
+                                    <span class="font-semibold text-gray-900">$52,100</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-gray-600">YTD</span>
+                                    <span class="font-semibold text-gray-900">$485,750</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                            <h3 class="text-lg font-semibold text-gray-900 mb-4">Commissions</h3>
+                            <div class="space-y-3">
+                                <div class="flex justify-between">
+                                    <span class="text-gray-600">Pending</span>
+                                    <span class="font-semibold text-warning">$3,250</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-gray-600">Paid</span>
+                                    <span class="font-semibold text-success">$28,500</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-gray-600">Total</span>
+                                    <span class="font-semibold text-gray-900">$31,750</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                            <h3 class="text-lg font-semibold text-gray-900 mb-4">Expenses</h3>
+                            <div class="space-y-3">
+                                <div class="flex justify-between">
+                                    <span class="text-gray-600">Cleaning</span>
+                                    <span class="font-semibold text-gray-900">$4,200</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-gray-600">Maintenance</span>
+                                    <span class="font-semibold text-gray-900">$1,850</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-gray-600">Utilities</span>
+                                    <span class="font-semibold text-gray-900">$2,100</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- @COMPONENT: TransactionsTable -->
+                    <div class="bg-white rounded-lg shadow-sm border border-gray-200">
+                        <div class="p-6 border-b border-gray-200">
+                            <h3 class="text-lg font-semibold text-gray-900">Recent Transactions</h3>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="w-full">
+                                <thead class="bg-gray-50 border-b border-gray-200">
+                                    <tr>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Property</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white divide-y divide-gray-200" data-mock="true">
+                                    <tr>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">Nov 12, 2024</td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">Booking Payment</td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">Sunset Villa</td>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-success bg-opacity-10 text-success">
+                                                Income
+                                            </span>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-success">+$1,250.00</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">Nov 10, 2024</td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">Cleaning Service</td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">Ocean Breeze Apt</td>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-error bg-opacity-10 text-error">
+                                                Expense
+                                            </span>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-error">-$120.00</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                <!-- @END_COMPONENT: FinancesView -->
+            </main>
+            <!-- @END_COMPONENT: MainArea -->
+        </div>
+        <!-- @END_COMPONENT: MainContent -->
+    </div>
+    <!-- @END_COMPONENT: AppLayout -->
+
+    <!-- @COMPONENT: MobileOverlay -->
+    <div id="mobileOverlay" class="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden hidden"></div>
+    <!-- @END_COMPONENT: MobileOverlay -->
+
+    <style>
+        .nav-item {
+            @apply flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-colors;
+        }
+        
+        .nav-item.active {
+            @apply text-primary bg-primary bg-opacity-10;
+        }
+        
+        .nav-item i {
+            @apply text-lg;
+        }
+    </style>
+
+    <script>
+    (function() {
+        // TODO: Implement business logic, API calls, and state management
+        
+        // Mobile sidebar toggle
+        const openSidebar = document.getElementById('openSidebar');
+        const closeSidebar = document.getElementById('closeSidebar');
+        const sidebar = document.getElementById('sidebar');
+        const mobileOverlay = document.getElementById('mobileOverlay');
+
+        function showSidebar() {
+            sidebar.classList.remove('-translate-x-full');
+            mobileOverlay.classList.remove('hidden');
+        }
+
+        function hideSidebar() {
+            sidebar.classList.add('-translate-x-full');
+            mobileOverlay.classList.add('hidden');
+        }
+
+        openSidebar?.addEventListener('click', showSidebar);
+        closeSidebar?.addEventListener('click', hideSidebar);
+        mobileOverlay?.addEventListener('click', hideSidebar);
+
+        // Navigation handling
+        const navItems = document.querySelectorAll('.nav-item');
+        const pageTitle = document.getElementById('pageTitle');
+        
+        // View containers
+        const views = {
+            dashboard: document.getElementById('dashboardView'),
+            properties: document.getElementById('propertiesView'),
+            tasks: document.getElementById('tasksView'),
+            bookings: document.getElementById('bookingsView'),
+            finances: document.getElementById('financesView')
+        };
+
+        function showView(viewName) {
+            // Hide all views
+            Object.values(views).forEach(view => {
+                if (view) view.classList.add('hidden');
+            });
+            
+            // Show selected view
+            if (views[viewName]) {
+                views[viewName].classList.remove('hidden');
+            }
+            
+            // Update page title
+            const titles = {
+                dashboard: 'Dashboard',
+                properties: 'Properties',
+                tasks: 'Tasks',
+                bookings: 'Bookings',
+                finances: 'Finances'
+            };
+            
+            if (pageTitle && titles[viewName]) {
+                pageTitle.textContent = titles[viewName];
+            }
+        }
+
+        // Add click handlers to navigation items
+        navItems.forEach(item => {
+            item.addEventListener('click', (e) => {
+                e.preventDefault();
+                
+                // Remove active class from all items
+                navItems.forEach(nav => nav.classList.remove('active'));
+                
+                // Add active class to clicked item
+                item.classList.add('active');
+                
+                // Get the view name from data-role attribute
+                const role = item.getAttribute('data-role');
+                
+                if (role && views[role]) {
+                    showView(role);
+                    
+                    // Hide sidebar on mobile after navigation
+                    if (window.innerWidth < 1024) {
+                        hideSidebar();
+                    }
+                }
+            });
+        });
+
+        // Role selector functionality
+        const roleSelector = document.getElementById('roleSelector');
+        
+        roleSelector?.addEventListener('change', (e) => {
+            const selectedRole = e.target.value;
+            // TODO: Implement role-based view changes and permissions
+            console.log('Role changed to:', selectedRole);
+        });
+
+        // Initialize with dashboard view
+        showView('dashboard');
+    })();
+    </script>
+</body>
+</html>

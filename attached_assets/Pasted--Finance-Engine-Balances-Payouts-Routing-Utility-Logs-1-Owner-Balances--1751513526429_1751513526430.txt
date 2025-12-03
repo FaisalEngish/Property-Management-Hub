@@ -1,0 +1,82 @@
+💰 **Finance Engine: Balances, Payouts, Routing & Utility Logs**
+
+---
+
+### 1. **Owner Balances + Payout Requests**
+
+- 👤 Each owner dashboard shows:
+  - Real-time balance (based on completed bookings only)
+  - Summary: this month’s earnings, expenses, net income
+  - Buttons:
+    - `📤 Request Balance Payout`
+    - `📥 Upload Payment Received`
+
+- 🔄 Payout Flow:
+  - Owner clicks “Request Payout”
+  - Admin + assigned Portfolio Manager get notified
+  - Admin uploads receipt of transfer
+  - Owner gets notified: “Payment on the way”
+  - Owner must confirm via `✅ Received` button
+  - All actions logged in:
+    - Property dashboard
+    - Owner financial timeline
+
+---
+
+### 2. **Reverse Flow: Owner Owes Management**
+
+- 🧾 Admin/Manager can request payment from owner
+  - Add due amount
+  - Upload receipt when payment is received
+- Logs updated on owner & property dashboards
+
+---
+
+### 3. **Utility Tracker + Recurring Bills**
+
+- 💡 Per-property utility setup:
+  - Input: account numbers for Electric, Water, Internet, Custom
+  - Expected bill arrival dates (e.g. 10th, 14th of each month)
+  - Example providers (Thailand):
+    - PEA, 3BB, CAT, AIS, True, NT, Deepwell
+
+- 📆 System auto-generates due task on expected date:
+  - Upload scanned bill
+  - Upload payment receipt
+  - Confirm payment
+- 🔔 Auto-reminders after 4 days if missing
+
+---
+
+### 4. **Recurring Service Fees Auto-deducted**
+
+- 🧹 Pool, garden, pest, cleaning, staff
+  - Per-property rates configured in property settings
+  - Charged monthly (auto-created expense task)
+  - Option: owner-billed or company-covered
+
+---
+
+### 5. **Payout Routing Rules (By Platform)**
+
+- 🛎️ For each property: define payout logic:
+  - Airbnb: Owner 70% / Management 30% (split payout)
+  - VRBO / Booking.com / Direct: 100% to Management
+  - Stripe: Add 5% fee note
+- 🔧 Admin override per booking possible
+
+---
+
+### 6. **Staff Salary & Portfolio Manager Invoicing**
+
+- 🧾 Staff see monthly salary overview (for future phase)
+- 📊 Portfolio Managers see:
+  - Monthly earnings (50% of commission)
+  - Balance request tool
+  - Auto-invoice generator (based on villa commissions)
+  - Exportable invoices
+
+---
+
+🎯 Goal:
+End-to-end visibility and automation for all financial processes—owners, managers, agents, and staff. Total control, transparent logs, and smooth payouts.

@@ -1,0 +1,58 @@
+### MODULE: Add-On Services Booking Engine & Routing System
+
+Purpose:
+Allow guests (and internal staff) to book extra services (massages, chefs, transport, etc.), while routing the expense to the correct payer: guest, owner, company, or complimentary.
+
+Core Features:
+
+• **Guest-Facing Booking Menu**:
+  - Accessible via Guest Dashboard
+  - Categories: Cleaning, Laundry, Massages, Chef, Taxi, Tours, Baby Setups, etc.
+  - Each item has:
+    - Description
+    - Price per item or hour
+    - “Request Now” button
+    - Auto display of upcoming tasks (e.g. “Next clean is on July 6”)
+
+• **Price Management**:
+  - Admin can set default price per service in global settings.
+  - Property Managers can override prices per villa.
+  - Services can be:
+    - Prepriced
+    - Marked as “Ask Manager for Quote”
+
+• **Internal Booking Routing**:
+  - Every booking request can be marked as:
+    - Guest-paid
+    - Owner-paid
+    - Company-paid
+    - Complimentary (but still logged for record)
+  - Each route affects the correct balance log.
+
+• **Manager View**:
+  - Managers can create bookings from backend if guest asks by message.
+  - Auto logs request into Guest Timeline and creates task in Staff Dashboard.
+
+• **Invoicing & Logging**:
+  - All booked add-ons appear in:
+    - Guest billing logs
+    - Owner monthly expense logs (if routed there)
+    - Staff task module (e.g., massage at 3PM → task assigned)
+
+• **Complimentary Logic**:
+  - Admin or Manager can flag a service as:
+    - Owner Gift
+    - Company Gift
+    - Still shown in logs (for cost analysis)
+    - Still appears in staff tasks, just with zero charge.
+
+• **Optional Auto-Sync**:
+  - If massage or cleaning booked, create task instantly.
+  - AI verifies if it’s already scheduled (e.g., during-stay clean already booked).
+
+Benefits:
+✔️ One-click guest bookings  
+✔️ Track who pays what  
+✔️ Create task automatically  
+✔️ Prevents missed extras revenue  
+✔️ Clear accountability and gift visibility

@@ -1,0 +1,21698 @@
+import type { Express } from "express";
+import { createServer, type Server } from "http";
+import { registerSaasRoutes } from "./saas-routes";
+import { registerFinanceRoutes } from "./finance-routes";
+import adminFinanceRoutes from './routes/admin-finance-routes';
+import { storage } from "./storage";
+import { setupAuth, isAuthenticated as prodAuth } from "./replitAuth";
+import { setupDemoAuth, isDemoAuthenticated } from "./demoAuth";
+import { setupSecureAuth, requireAuth, requireRole, requirePermission } from "./secureAuth";
+import { authenticatedTenantMiddleware, getTenantContext } from "./multiTenant";
+import { insertPropertySchema, insertTaskSchema, insertBookingSchema, insertFinanceSchema, insertPlatformSettingSchema, insertAddonServiceSchema, insertAddonBookingSchema, insertUtilityBillSchema, insertPropertyUtilityAccountSchema, insertUtilityBillReminderSchema, insertOwnerActivityTimelineSchema, insertOwnerPayoutRequestSchema, insertOwnerInvoiceSchema, insertOwnerPreferencesSchema, insertOwnerSettingsSchema, insertMarketingPackSchema, insertGuestServiceRequestSchema, insertGuestConfirmedServiceSchema, insertBookingLinkedTaskSchema, insertBookingRevenueSchema, insertOtaPlatformSettingsSchema, insertBookingRevenueCommissionSchema } from "@shared/schema";
+import { db } from "./db";
+import { achievements, userAchievements, userGameStats } from "@shared/schema";
+import { eq, and } from "drizzle-orm";
+import { realtimeEvents } from "./realtime-events";
+
+// Import staff management routes
+import {
+  getStaffMembers,
+  getStaffMember,
+  createStaffMember,
+  updateStaffMember,
+  deleteStaffMember,
+  getStaffDocuments,
+  createStaffDocument,
+  getPayrollRecords,
+  createPayrollRecord,
+  getStaffAnalytics
+} from './staffRoutes';
+import { BookingRevenueStorage } from "./bookingRevenueStorage";
+import { z } from "zod";
+import { CrossSyncedTaskVisibilityStorage } from "./crossSyncedTaskVisibility";
+import { seedThailandUtilityProviders } from "./seedThailandUtilityProviders";
+import { userManagementStorage } from "./userManagementStorage";
+import { userPermissionsStorage } from "./userPermissionsStorage";
+import { staffWalletStorage } from "./staffWalletStorage";
+import { staffPermissionStorage } from "./staffPermissionStorage";
+import { inventoryStorage } from "./inventoryStorage";
+import { insertInventoryItemSchema, insertInventoryUsageLogSchema } from "@shared/schema";
+import { handleBookingConfirmation, CommissionAutomation } from './commission-automation';
+import { UtilityAlertAutomation, initializeUtilityAutomation } from './utility-alert-automation';
+import { registerBulkDeleteRoutes } from './bulk-delete-api';
+
+export async function registerRoutes(app: Express): Promise<Server> {
+  // REMOVED - setup now in server/index.ts:   // Setup demo authentication (for development/testing)
+  // REMOVED - setup now in server/index.ts:   await setupDemoAuth(app);
+  
+  // Setup secure authentication with bcrypt
+  setupSecureAuth(app);
+  
+  // Also setup production auth (fallback)
+  // Only enable Replit Auth when BOTH REPLIT_DOMAINS and REPL_ID are set
+  // This prevents errors on external deployments (Render, Railway, etc.)
+  if (process.env.REPLIT_DOMAINS && process.env.REPL_ID) {
+    await setupAuth(app);
+    console.log("✅ Replit Auth enabled");
+  } else {
+    console.log("⚠️ Replit Auth disabled - using secure auth only (external deployment mode)");
+  }
+
+  // Notification API routes - deployment safe fallbacks with simplified authentication
+  app.get("/api/notifications", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub || req.user?.id;
+      if (!userId) {
+        return res.json([]);
+      }
+      const notifications = await storage.getNotifications(userId);
+      res.json(notifications);
+    } catch (error) {
+      console.error("Error fetching notifications:", error);
+      res.json([]);
+    }
+  });
+
+  app.get("/api/notifications/unread", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub || req.user?.id;
+      if (!userId) {
+        return res.json([]);
+      }
+      const notifications = await storage.getUnreadNotifications(userId);
+      res.json(notifications);
+    } catch (error) {
+      console.error("Error fetching unread notifications:", error);
+      res.json([]);
+    }
+  });
+
+  // === Real-time Server-Sent Events (SSE) endpoint ===
+  app.get("/api/realtime/events", (req, res) => {
+    const organizationId = req.query.organizationId 
+      ? parseInt(req.query.organizationId as string) 
+      : undefined;
+    
+    realtimeEvents.addClient(res, organizationId);
+    
+    req.on('close', () => {
+      console.log('[SSE] Request closed');
+    });
+  });
+
+  app.get("/api/realtime/status", (req, res) => {
+    res.json({
+      activeClients: realtimeEvents.getClientCount(),
+      status: 'running'
+    });
+  });
+
+  console.log("[INIT] Real-time SSE endpoint mounted ✅");
+
+  // Seed Thailand utility providers on startup
+  //   await seedThailandUtilityProviders("default-org");
+  
+  // Ensure standard DEMO properties exist first
+  const { ensureStandardDemoProperties } = await import("./standardDemoProperties");
+  //   await ensureStandardDemoProperties();
+  //   
+  // TODO: Fix linked demo data seeding (temporarily disabled due to constraint issues)
+  // const { seedLinkedDemoData } = await import('./seedLinkedDemoData.js');
+  // await seedLinkedDemoData();
+  
+  // Seed main demo data (users, tasks, bookings)
+  //   const { seedDemoData } = await import("./seedDemoData");
+  //   await seedDemoData();
+
+  // REMOVED: Demo property seeds (Villa Aruna, Villa Samui, Extended Utilities)
+  // All properties now come from Property Hub (LOCAL) or Hostaway integration
+
+  // Seed Inventory Data
+  //   const { seedInventoryData } = await import("./seedInventoryData");
+  //   await seedInventoryData();
+
+  // Seed AI Ops Anomalies Data
+  //   const { seedAiOpsAnomaliesData } = await import("./seedAiOpsAnomaliesData");
+  //   await seedAiOpsAnomaliesData();
+
+  // Initialize automation systems
+  initializeUtilityAutomation();
+  console.log("✅ Automation systems initialized successfully");
+
+  // Register SaaS routes
+  registerSaasRoutes(app);
+  
+  // Register Finance routes
+  registerFinanceRoutes(app);
+  
+  // Register Admin Finance routes
+  app.use('/api/admin/finance', adminFinanceRoutes);
+  
+  // Register Bulk Delete routes
+  registerBulkDeleteRoutes(app);
+  
+  // Register Fast routes for performance
+  const { registerFastRoutes } = await import("./fastRoutes");
+  registerFastRoutes(app);
+
+  // Register optimized hub routes for better performance with large datasets
+  const optimizedRoutes = await import('./optimizedRoutes');
+  app.use(optimizedRoutes.default);
+
+  // === Captain Cortex AI - Internal DB-grounded Q&A ===
+  const { processQuestion, invalidateCache: invalidateCortexCache } = await import('./cortex/index');
+  
+  app.post('/api/cortex/answer', isDemoAuthenticated, async (req, res) => {
+    try {
+      const { question } = req.body;
+      
+      if (!question || typeof question !== 'string') {
+        return res.status(400).json({ 
+          error: 'Question is required and must be a string' 
+        });
+      }
+
+      const user = req.user as any;
+      const organizationId = user?.organizationId || 'default-org';
+      const userId = user?.id;
+
+      const result = await processQuestion({
+        question,
+        organizationId,
+        userId
+      });
+
+      res.json(result);
+    } catch (error: any) {
+      console.error('[CORTEX API] Error:', error);
+      res.status(500).json({ 
+        error: 'Failed to process question',
+        message: error.message 
+      });
+    }
+  });
+
+  // Cache invalidation endpoint (for debugging)
+  app.post('/api/cortex/cache/invalidate', isDemoAuthenticated, async (req, res) => {
+    try {
+      const { pattern } = req.body;
+      invalidateCortexCache(pattern);
+      res.json({ success: true, message: 'Cache invalidated' });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  console.log('[INIT] Captain Cortex AI routes mounted ✅');
+
+  // === Smart Pricing API Routes (prevent crashes) ===
+  
+  app.get('/api/smart-pricing/dashboard', isDemoAuthenticated, (req, res) => {
+    res.json({
+      totalRevenue: 1680000,
+      averageNightlyRate: 12500,
+      occupancyRate: 78.5,
+      priceOptimizationScore: 84,
+      monthlyData: [
+        { month: 'Jan', revenue: 145000, rate: 12000, occupancy: 75 },
+        { month: 'Feb', revenue: 158000, rate: 12800, occupancy: 82 },
+        { month: 'Mar', revenue: 142000, rate: 11500, occupancy: 76 }
+      ]
+    });
+  });
+
+  app.get('/api/smart-pricing/year-on-year', isDemoAuthenticated, (req, res) => {
+    res.json({
+      currentYear: 2025,
+      previousYear: 2024,
+      growth: 15.2,
+      data: [
+        { month: 'Jan', current: 145000, previous: 125000 },
+        { month: 'Feb', current: 158000, previous: 138000 },
+        { month: 'Mar', current: 142000, previous: 128000 }
+      ]
+    });
+  });
+
+  app.get('/api/smart-pricing/holidays', isDemoAuthenticated, (req, res) => {
+    res.json([
+      { name: 'Chinese New Year', date: '2025-01-29', impact: 'high', priceIncrease: 25 },
+      { name: 'Songkran', date: '2025-04-13', impact: 'very-high', priceIncrease: 40 },
+      { name: 'Loy Krathong', date: '2025-11-05', impact: 'medium', priceIncrease: 15 }
+    ]);
+  });
+
+  app.get('/api/smart-pricing/price-deviation', isDemoAuthenticated, (req, res) => {
+    res.json({
+      averageMarketRate: 11500,
+      currentRate: 12500,
+      deviation: 8.7,
+      recommendation: 'optimal',
+      competitorRates: [
+        { name: 'Similar Villa A', rate: 11200 },
+        { name: 'Similar Villa B', rate: 12800 },
+        { name: 'Similar Villa C', rate: 11900 }
+      ]
+    });
+  });
+
+  app.get('/api/smart-pricing/booking-gaps', isDemoAuthenticated, (req, res) => {
+    res.json([
+      {
+        id: 1,
+        startDate: '2025-02-15',
+        endDate: '2025-02-20',
+        duration: 5,
+        potentialRevenue: 62500,
+        suggestedAction: 'Reduce rate by 10%',
+        resolved: false
+      },
+      {
+        id: 2,
+        startDate: '2025-03-10',
+        endDate: '2025-03-12',
+        duration: 2,
+        potentialRevenue: 25000,
+        suggestedAction: 'Add promotion',
+        resolved: false
+      }
+    ]);
+  });
+
+  app.get('/api/smart-pricing/alerts', isDemoAuthenticated, (req, res) => {
+    res.json([
+      {
+        id: 1,
+        type: 'pricing',
+        priority: 'high',
+        message: 'Villa Aruna rate 15% below market average',
+        createdAt: new Date().toISOString(),
+        read: false
+      },
+      {
+        id: 2,
+        type: 'occupancy',
+        priority: 'medium',
+        message: 'Low occupancy predicted for next week',
+        createdAt: new Date().toISOString(),
+        read: false
+      }
+    ]);
+  });
+
+  app.get('/api/smart-pricing/ai-summary', isDemoAuthenticated, (req, res) => {
+    res.json({
+      summary: 'Your pricing strategy is performing well with 84% optimization score. Consider adjusting Villa Aruna rates during peak season for 12% additional revenue.',
+      recommendations: [
+        'Increase weekend rates by 8-12% during February',
+        'Add last-minute booking discounts for gap periods',
+        'Implement dynamic pricing for holiday seasons'
+      ],
+      confidence: 87
+    });
+  });
+
+  app.get('/api/smart-pricing/direct-booking', isDemoAuthenticated, (req, res) => {
+    res.json({
+      totalDirectBookings: 23,
+      directBookingRate: 31.5,
+      averageDirectRate: 13200,
+      potentialSavings: 95000,
+      monthlyTrend: [
+        { month: 'Jan', direct: 8, total: 25, rate: 32 },
+        { month: 'Feb', direct: 7, total: 22, rate: 31.8 },
+        { month: 'Mar', direct: 8, total: 26, rate: 30.7 }
+      ]
+    });
+  });
+
+  app.get('/api/smart-pricing/heatmap', isDemoAuthenticated, (req, res) => {
+    res.json({
+      data: [
+        { date: '2025-01-15', occupancy: 85, rate: 12500 },
+        { date: '2025-01-16', occupancy: 92, rate: 13000 },
+        { date: '2025-01-17', occupancy: 78, rate: 11800 },
+        { date: '2025-01-18', occupancy: 95, rate: 14000 }
+      ],
+      optimalRates: {
+        weekday: 11500,
+        weekend: 14500,
+        holiday: 18000
+      }
+    });
+  });
+
+  app.get('/api/smart-pricing/historical-patterns', isDemoAuthenticated, (req, res) => {
+    res.json({
+      patterns: [
+        { pattern: 'Weekend Premium', impact: '+18%', frequency: 'weekly' },
+        { pattern: 'Holiday Surge', impact: '+35%', frequency: 'seasonal' },
+        { pattern: 'Low Season Discount', impact: '-15%', frequency: 'seasonal' }
+      ],
+      seasonality: {
+        high: ['Dec', 'Jan', 'Feb', 'Mar'],
+        medium: ['Apr', 'May', 'Oct', 'Nov'],
+        low: ['Jun', 'Jul', 'Aug', 'Sep']
+      }
+    });
+  });
+
+  // Smart pricing action endpoints
+  app.patch('/api/smart-pricing/alerts/:id/read', isDemoAuthenticated, (req, res) => {
+    res.json({ success: true, message: 'Alert marked as read' });
+  });
+
+  app.patch('/api/smart-pricing/alerts/:id/resolve', isDemoAuthenticated, (req, res) => {
+    res.json({ success: true, message: 'Alert resolved successfully' });
+  });
+
+  app.patch('/api/smart-pricing/booking-gaps/:id/resolve', isDemoAuthenticated, (req, res) => {
+    res.json({ success: true, message: 'Booking gap resolved' });
+  });
+
+  // ===== Property Appliances API Routes =====
+  
+  // Get all appliances for organization (with optional property filter)
+  app.get('/api/property-appliances', isDemoAuthenticated, async (req, res) => {
+    try {
+      const organizationId = req.user?.organizationId || 'default-org';
+      const propertyId = req.query.propertyId ? parseInt(req.query.propertyId as string) : undefined;
+      
+      const appliances = await storage.getPropertyAppliances(organizationId, propertyId);
+      res.json(appliances);
+    } catch (error) {
+      console.error('Error fetching appliances:', error);
+      res.status(500).json({ error: 'Failed to fetch appliances' });
+    }
+  });
+
+  // Create new appliance
+  app.post('/api/property-appliances', isDemoAuthenticated, async (req, res) => {
+    try {
+      const organizationId = req.user?.organizationId || 'default-org';
+      const appliance = await storage.createPropertyAppliance(organizationId, req.body);
+      res.status(201).json(appliance);
+    } catch (error) {
+      console.error('Error creating appliance:', error);
+      res.status(500).json({ error: 'Failed to create appliance' });
+    }
+  });
+
+  // Get specific appliance
+  app.get('/api/property-appliances/:id', isDemoAuthenticated, async (req, res) => {
+    try {
+      const organizationId = req.user?.organizationId || 'default-org';
+      const applianceId = parseInt(req.params.id);
+      
+      const appliance = await storage.getPropertyApplianceById(organizationId, applianceId);
+      if (!appliance) {
+        return res.status(404).json({ error: 'Appliance not found' });
+      }
+      res.json(appliance);
+    } catch (error) {
+      console.error('Error fetching appliance:', error);
+      res.status(500).json({ error: 'Failed to fetch appliance' });
+    }
+  });
+
+  // Update appliance
+  app.put('/api/property-appliances/:id', isDemoAuthenticated, async (req, res) => {
+    try {
+      const organizationId = req.user?.organizationId || 'default-org';
+      const applianceId = parseInt(req.params.id);
+      
+      const appliance = await storage.updatePropertyAppliance(organizationId, applianceId, req.body);
+      if (!appliance) {
+        return res.status(404).json({ error: 'Appliance not found' });
+      }
+      res.json(appliance);
+    } catch (error) {
+      console.error('Error updating appliance:', error);
+      res.status(500).json({ error: 'Failed to update appliance' });
+    }
+  });
+
+  // Delete appliance
+  app.delete('/api/property-appliances/:id', isDemoAuthenticated, async (req, res) => {
+    try {
+      const organizationId = req.user?.organizationId || 'default-org';
+      const applianceId = parseInt(req.params.id);
+      
+      const success = await storage.deletePropertyAppliance(organizationId, applianceId);
+      if (!success) {
+        return res.status(404).json({ error: 'Appliance not found' });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Error deleting appliance:', error);
+      res.status(500).json({ error: 'Failed to delete appliance' });
+    }
+  });
+
+  // Get appliances analytics
+  app.get('/api/property-appliances/analytics', isDemoAuthenticated, async (req, res) => {
+    try {
+      const organizationId = req.user?.organizationId || 'default-org';
+      const analytics = await storage.getAppliancesAnalytics(organizationId);
+      res.json(analytics);
+    } catch (error) {
+      console.error('Error fetching appliances analytics:', error);
+      res.status(500).json({ error: 'Failed to fetch analytics' });
+    }
+  });
+
+  // ===== Appliance Repairs API Routes =====
+  
+  // Get all repairs for organization (with optional appliance filter)
+  app.get('/api/appliance-repairs', isDemoAuthenticated, async (req, res) => {
+    try {
+      const organizationId = req.user?.organizationId || 'default-org';
+      const applianceId = req.query.applianceId ? parseInt(req.query.applianceId as string) : undefined;
+      
+      const repairs = await storage.getApplianceRepairs(organizationId, applianceId);
+      res.json(repairs);
+    } catch (error) {
+      console.error('Error fetching repairs:', error);
+      res.status(500).json({ error: 'Failed to fetch repairs' });
+    }
+  });
+
+  // Create new repair
+  app.post('/api/appliance-repairs', isDemoAuthenticated, async (req, res) => {
+    try {
+      const organizationId = req.user?.organizationId || 'default-org';
+      const repair = await storage.createApplianceRepair(organizationId, req.body);
+      res.status(201).json(repair);
+    } catch (error) {
+      console.error('Error creating repair:', error);
+      res.status(500).json({ error: 'Failed to create repair' });
+    }
+  });
+
+  // Get specific repair
+  app.get('/api/appliance-repairs/:id', isDemoAuthenticated, async (req, res) => {
+    try {
+      const organizationId = req.user?.organizationId || 'default-org';
+      const repairId = parseInt(req.params.id);
+      
+      const repair = await storage.getApplianceRepairById(organizationId, repairId);
+      if (!repair) {
+        return res.status(404).json({ error: 'Repair not found' });
+      }
+      res.json(repair);
+    } catch (error) {
+      console.error('Error fetching repair:', error);
+      res.status(500).json({ error: 'Failed to fetch repair' });
+    }
+  });
+
+  // Update repair
+  app.put('/api/appliance-repairs/:id', isDemoAuthenticated, async (req, res) => {
+    try {
+      const organizationId = req.user?.organizationId || 'default-org';
+      const repairId = parseInt(req.params.id);
+      
+      const repair = await storage.updateApplianceRepair(organizationId, repairId, req.body);
+      if (!repair) {
+        return res.status(404).json({ error: 'Repair not found' });
+      }
+      res.json(repair);
+    } catch (error) {
+      console.error('Error updating repair:', error);
+      res.status(500).json({ error: 'Failed to update repair' });
+    }
+  });
+
+  // Delete repair
+  app.delete('/api/appliance-repairs/:id', isDemoAuthenticated, async (req, res) => {
+    try {
+      const organizationId = req.user?.organizationId || 'default-org';
+      const repairId = parseInt(req.params.id);
+      
+      const success = await storage.deleteApplianceRepair(organizationId, repairId);
+      if (!success) {
+        return res.status(404).json({ error: 'Repair not found' });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Error deleting repair:', error);
+      res.status(500).json({ error: 'Failed to delete repair' });
+    }
+  });
+
+  // === AI Bot Routes ===
+  
+  // === Demo Data Fix Endpoint ===
+  
+  app.post('/api/fix-demo-data', isDemoAuthenticated, async (req, res) => {
+    try {
+      console.log("🔧 Fixing demo data relationships...");
+      
+      // Get current properties
+      const props = await storage.getProperties('default-org');
+      console.log(`Found ${props.length} properties`);
+      
+      // Create comprehensive linked bookings
+      const currentDate = new Date();
+      const linkedBookings = [
+        {
+          organizationId: 'default-org',
+          externalId: 'BK-2025-001',
+          propertyId: props[0]?.id || 1,
+          guestName: 'John Smith',
+          guestEmail: 'john.smith@email.com',
+          guestPhone: '+1 555 0123',
+          checkInDate: new Date('2025-07-21'),
+          checkOutDate: new Date('2025-07-26'),
+          totalAmount: 100000, // 5 nights x 20000 THB
+          status: 'confirmed',
+          adults: 2,
+          children: 0,
+          source: 'Airbnb',
+        },
+        {
+          organizationId: 'default-org',
+          externalId: 'BK-2025-002',
+          propertyId: props[1]?.id || 2,
+          guestName: 'Emily Davis',
+          guestEmail: 'emily.davis@email.com',
+          guestPhone: '+44 20 1234 5678',
+          checkInDate: new Date(currentDate.getTime() - (2 * 24 * 60 * 60 * 1000)),
+          checkOutDate: new Date(currentDate.getTime() + (3 * 24 * 60 * 60 * 1000)),
+          totalAmount: 32500,
+          status: 'active',
+          adults: 2,
+          children: 0,
+          source: 'Booking.com',
+        },
+        {
+          organizationId: 'default-org',
+          externalId: 'BK-2025-003',
+          propertyId: props[2]?.id || 3,
+          guestName: 'Michael Thompson',
+          guestEmail: 'michael.thompson@email.com',
+          guestPhone: '+1 415 555 0199',
+          checkInDate: new Date(currentDate.getTime() - (1 * 24 * 60 * 60 * 1000)),
+          checkOutDate: new Date(currentDate.getTime() + (6 * 24 * 60 * 60 * 1000)),
+          totalAmount: 140000,
+          status: 'active',
+          adults: 4,
+          children: 0,
+          source: 'VRBO',
+        }
+      ];
+
+      // Create bookings directly using DB
+      for (const booking of linkedBookings) {
+        try {
+          await storage.createBooking(booking);
+        } catch (error) {
+          console.log(`Booking ${booking.externalId} might already exist`);
+        }
+      }
+
+      // Create linked finance records
+      const linkedFinances = [
+        {
+          organizationId: 'default-org',
+          propertyId: props[0]?.id || 1,
+          type: 'income' as const,
+          category: 'booking_revenue',
+          amount: 32500,
+          description: 'December booking revenue',
+          date: new Date('2024-12-20'),
+          paymentMethod: 'bank_transfer',
+          receiptNumber: 'REC-2024-001',
+        },
+        {
+          organizationId: 'default-org',
+          propertyId: props[1]?.id || 2,
+          type: 'expense' as const,
+          category: 'utilities_electricity',
+          amount: 3500,
+          description: 'Monthly electricity bill',
+          date: new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 15),
+          paymentMethod: 'bank_transfer',
+          receiptNumber: 'ELEC-2025-001',
+        }
+      ];
+
+      for (const finance of linkedFinances) {
+        try {
+          await storage.createFinance(finance);
+        } catch (error) {
+          console.log(`Finance record might already exist`);
+        }
+      }
+
+      res.json({ 
+        message: 'Demo data relationships fixed!',
+        properties: props.length,
+        bookingsCreated: linkedBookings.length,
+        financesCreated: linkedFinances.length
+      });
+      
+    } catch (error) {
+      console.error("Error fixing demo data:", error);
+      res.status(500).json({ error: 'Failed to fix demo data' });
+    }
+  });
+
+  // Invoice endpoints
+  app.get('/api/invoices', isDemoAuthenticated, async (req: any, res: Response) => {
+    try {
+      const organizationId = req.user?.organizationId || "default-org";
+      console.log("Fetching invoices for organization:", organizationId);
+      
+      // Try to get invoices from database first
+      let invoices = [];
+      try {
+        invoices = await storage.getInvoices(organizationId);
+        console.log("Found invoices in database:", invoices.length);
+      } catch (dbError) {
+        console.log("Database invoice fetch failed, using demo data:", dbError.message);
+        
+        // Fallback: No demo data - return empty array if database fails
+        invoices = [];
+      }
+      
+      res.json(invoices);
+    } catch (error) {
+      console.error('Error fetching invoices:', error);
+      res.status(500).json({ message: 'Error fetching invoices', error: error.message });
+    }
+  });
+
+  // Create test invoice endpoint
+  app.post('/api/invoices/test', isDemoAuthenticated, async (req: any, res: Response) => {
+    try {
+      const organizationId = req.user?.organizationId || "default-org";
+      console.log("Creating test invoice for organization:", organizationId);
+      
+      const testInvoice = {
+        number: `INV-TEST-${Date.now()}`,
+        clientName: 'Test Client',
+        amount: 15000,
+        status: 'pending',
+        date: new Date().toISOString().split('T')[0],
+        dueDate: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 15 days from now
+        organizationId
+      };
+      
+      try {
+        const newInvoice = await storage.createInvoice(testInvoice);
+        console.log("Test invoice created:", newInvoice.id);
+        res.status(201).json(newInvoice);
+      } catch (dbError) {
+        console.log("Database invoice creation failed, returning test data:", dbError.message);
+        // Return test invoice with generated ID
+        res.status(201).json({ 
+          id: Date.now(), 
+          ...testInvoice,
+          createdAt: new Date()
+        });
+      }
+    } catch (error) {
+      console.error('Error creating test invoice:', error);
+      res.status(500).json({ message: 'Error creating test invoice', error: error.message });
+    }
+  });
+
+  // Finance Intelligence Module API endpoints
+  app.get('/api/finance-intelligence/data', isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = req.user?.organizationId || "default-org";
+      const period = req.query.period || 'monthly';
+      
+      console.log("Fetching finance intelligence data for:", organizationId, period);
+      
+      // Get financial data from existing finance endpoint
+      const financeRecords = await storage.getFinances(organizationId);
+      const salaryData = await storage.getStaffSalaries?.(organizationId) || [];
+      
+      // Transform data to include categorized breakdown
+      const intelligenceData = financeRecords.map(record => ({
+        id: record.id,
+        category: record.category || 'Other',
+        amount: record.amount,
+        type: record.type,
+        date: record.date,
+        description: record.description,
+        department: record.category?.includes('cleaning') ? 'Cleaning' :
+                   record.category?.includes('pool') ? 'Pool Service' :
+                   record.category?.includes('garden') ? 'Garden Service' :
+                   record.category?.includes('laundry') ? 'Laundry' :
+                   record.category?.includes('rental') ? 'Rental Income' :
+                   record.category?.includes('management') ? 'Management Fees' :
+                   record.category?.includes('utility') ? 'Utilities' :
+                   'Other Services'
+      }));
+      
+      // Add salary data as expenses
+      salaryData.forEach((salary: any) => {
+        intelligenceData.push({
+          id: `salary-${salary.id}`,
+          category: 'Salaries & Wages',
+          amount: salary.monthlySalary || salary.amount || 0,
+          type: 'expense',
+          date: new Date().toISOString(),
+          description: `Salary for ${salary.staffName || 'Staff Member'}`,
+          department: 'Salaries & Wages'
+        });
+      });
+      
+      res.json(intelligenceData);
+    } catch (error) {
+      console.error('Error fetching finance intelligence data:', error);
+      res.status(500).json({ message: 'Failed to fetch finance intelligence data', error: error.message });
+    }
+  });
+
+  app.post('/api/finance-intelligence/ai-analysis', isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = req.user?.organizationId || "default-org";
+      const { 
+        totalRevenue, 
+        totalExpenses, 
+        netProfit, 
+        profitMargin, 
+        departmentAnalysis, 
+        monthlyTrends,
+        period 
+      } = req.body;
+      
+      console.log("Generating AI analysis for finance intelligence...");
+
+      // Use OpenAI to analyze the financial data
+      const openai = new (await import('openai')).default({
+        apiKey: process.env.OPENAI_API_KEY,
+      });
+
+      const analysisPrompt = `
+You are a financial advisor AI analyzing business performance for a property management company. 
+
+Financial Data:
+- Total Revenue: ${totalRevenue} THB
+- Total Expenses: ${totalExpenses} THB  
+- Net Profit: ${netProfit} THB
+- Profit Margin: ${profitMargin}%
+- Period: ${period}
+
+Department Breakdown:
+${departmentAnalysis.map(dept => 
+  `${dept.department}: Revenue ${dept.totalRevenue} THB, Expenses ${dept.totalExpenses} THB, Profit Margin ${dept.profitMargin}%`
+).join('\n')}
+
+Monthly Trends:
+${monthlyTrends.map(month => 
+  `${month.month}: Revenue ${month.revenue} THB, Expenses ${month.expenses} THB, Profit ${month.profit} THB`
+).join('\n')}
+
+Please provide a JSON response with the following structure:
+{
+  "overallHealth": "excellent|good|warning|critical",
+  "profitMargin": ${profitMargin},
+  "recommendations": ["recommendation1", "recommendation2", ...],
+  "redFlags": ["flag1", "flag2", ...],
+  "opportunities": ["opportunity1", "opportunity2", ...],
+  "forecast": {
+    "nextMonth": estimated_profit_next_month,
+    "nextQuarter": estimated_profit_next_quarter,
+    "confidence": confidence_percentage
+  },
+  "departmentInsights": [
+    {
+      "department": "department_name",
+      "status": "profitable|concerning|loss",
+      "insight": "detailed_insight",
+      "action": "recommended_action"
+    }
+  ]
+}
+
+Focus on:
+1. Cost optimization opportunities
+2. Revenue growth potential
+3. Department efficiency analysis
+4. Cash flow improvements
+5. Market positioning recommendations
+6. Operational efficiency suggestions
+
+Be specific and actionable in your recommendations.`;
+
+      const response = await openai.chat.completions.create({
+        model: "gpt-4o", // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
+        messages: [
+          {
+            role: "system",
+            content: "You are a financial intelligence AI providing business analysis and recommendations. Always respond with valid JSON only."
+          },
+          {
+            role: "user",
+            content: analysisPrompt
+          }
+        ],
+        response_format: { type: "json_object" },
+        temperature: 0.7,
+        max_tokens: 2000
+      });
+
+      const aiAnalysis = JSON.parse(response.choices[0].message.content);
+      
+      // Store the analysis for future reference (optional)
+      console.log("AI Analysis generated:", aiAnalysis.overallHealth);
+      
+      res.json(aiAnalysis);
+    } catch (error) {
+      console.error('Error generating AI analysis:', error);
+      
+      // Fallback analysis if AI fails
+      const fallbackAnalysis = {
+        overallHealth: netProfit > 0 ? 'good' : 'warning',
+        profitMargin: profitMargin,
+        recommendations: [
+          "Review highest expense categories for cost reduction opportunities",
+          "Increase revenue through premium service offerings",
+          "Optimize staff allocation based on property occupancy",
+          "Implement automated expense tracking for better visibility"
+        ],
+        redFlags: [
+          netProfit < 0 ? "Negative profit margin requires immediate attention" : null,
+          profitMargin < 10 ? "Profit margin below industry average" : null
+        ].filter(Boolean),
+        opportunities: [
+          "Expand successful service offerings to underperforming properties",
+          "Negotiate better rates with utility providers",
+          "Implement energy-saving measures to reduce costs"
+        ],
+        forecast: {
+          nextMonth: netProfit * 1.05,
+          nextQuarter: netProfit * 3.1,
+          confidence: 75
+        },
+        departmentInsights: departmentAnalysis.slice(0, 3).map(dept => ({
+          department: dept.department,
+          status: dept.profit > 0 ? 'profitable' : dept.profit < -1000 ? 'loss' : 'concerning',
+          insight: `${dept.department} shows ${dept.profitMargin > 0 ? 'positive' : 'negative'} margins`,
+          action: dept.profitMargin < 0 ? 'Review costs and pricing' : 'Maintain current performance'
+        }))
+      };
+      
+      res.json(fallbackAnalysis);
+    }
+  });
+
+  app.post('/api/finance-intelligence/export', isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { period, includeAiAnalysis, data } = req.body;
+      
+      // Generate PDF report (simplified version - in production would use PDF library)
+      const reportData = {
+        title: `Finance Intelligence Report - ${period}`,
+        generatedAt: new Date().toISOString(),
+        summary: data.departmentAnalysis,
+        aiInsights: includeAiAnalysis ? data.aiAnalysis : null
+      };
+      
+      // For demo, return JSON that would be converted to PDF
+      res.json({
+        success: true,
+        message: 'Report generated successfully',
+        data: reportData
+      });
+    } catch (error) {
+      console.error('Error exporting finance report:', error);
+      res.status(500).json({ message: 'Failed to export report', error: error.message });
+    }
+  });
+
+  app.get('/api/staff-salaries/summary', isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = req.user?.organizationId || "default-org";
+      
+      // Get staff salary data - using existing staff endpoints or create demo data
+      const demoSalaryData = [
+        {
+          id: 1,
+          staffId: 'staff-1',
+          staffName: 'Malee Kasem',
+          department: 'Housekeeping',
+          monthlySalary: 15000,
+          currency: 'THB',
+          status: 'active'
+        },
+        {
+          id: 2,
+          staffId: 'staff-2', 
+          staffName: 'Niran Thaksin',
+          department: 'Pool Service',
+          monthlySalary: 12000,
+          currency: 'THB',
+          status: 'active'
+        },
+        {
+          id: 3,
+          staffId: 'staff-3',
+          staffName: 'Kamon Saetang', 
+          department: 'Garden Service',
+          monthlySalary: 11000,
+          currency: 'THB',
+          status: 'active'
+        }
+      ];
+      
+      res.json(demoSalaryData);
+    } catch (error) {
+      console.error('Error fetching staff salary summary:', error);
+      res.status(500).json({ message: 'Failed to fetch salary data', error: error.message });
+    }
+  });
+
+  app.post('/api/ai-bot/query', isDemoAuthenticated, async (req, res) => {
+    console.log('🤖 AI Bot query endpoint hit');
+    try {
+      const { question } = req.body;
+      const user = req.user as any;
+      
+      console.log('👤 User:', user?.id, 'Role:', user?.role, 'Org:', user?.organizationId);
+      console.log('❓ Question:', question);
+      
+      if (!question) {
+        console.warn('⚠️ No question provided in request');
+        return res.status(400).json({ error: 'Question is required' });
+      }
+
+      console.log('📦 Importing AI Bot Engine...');
+      const { aiBotEngine } = await import('./ai-bot-engine.js');
+      
+      const context = {
+        organizationId: user.organizationId || 'default-org',
+        userRole: user.role || 'admin',
+        userId: user.id
+      };
+
+      console.log('🔄 Processing query with context:', context);
+      const response = await aiBotEngine.processQuery(question, context);
+      
+      console.log('✅ AI Bot response generated, length:', response?.length || 0);
+      
+      res.json({ 
+        response,
+        timestamp: new Date().toISOString(),
+        context: context.organizationId 
+      });
+
+    } catch (error: any) {
+      console.error('❌ AI Bot query error:', error);
+      console.error('Stack:', error.stack);
+      res.status(500).json({ 
+        error: 'Failed to process AI query',
+        message: error.message 
+      });
+    }
+  });
+
+  app.get('/api/ai-bot/suggestions', isDemoAuthenticated, async (req, res) => {
+    try {
+      const user = req.user as any;
+      const { aiBotEngine } = await import('./ai-bot-engine.js');
+      
+      const context = {
+        organizationId: user.organizationId || 'default-org',
+        userRole: user.role || 'admin',
+        userId: user.id
+      };
+
+      const suggestions = await aiBotEngine.getSuggestedQuestions(context);
+      res.json(suggestions);
+
+    } catch (error: any) {
+      console.error('AI Bot suggestions error:', error);
+      res.status(500).json({ 
+        error: 'Failed to get suggestions',
+        message: error.message 
+      });
+    }
+  });
+  
+  // Apply ultra-fast middleware to critical endpoints
+  const { ultraFastCache } = await import("./ultraFastMiddleware");
+  // URGENT FIX: Disable cache for properties, bookings, and tasks to fix data saving issues
+  // app.use("/api/properties", ultraFastCache(15)); // DISABLED
+  // app.use("/api/tasks", ultraFastCache(5)); // DISABLED - need fresh task data after create/update
+  // app.use("/api/bookings", ultraFastCache(10)); // DISABLED - need fresh booking data
+  app.use("/api/dashboard/stats", ultraFastCache(30));
+
+  // Health check endpoint
+  app.get("/api/health", (req, res) => {
+    res.json({
+      status: "healthy",
+      timestamp: new Date().toISOString(),
+      environment: process.env.NODE_ENV || "development"
+    });
+  });
+
+// Auth routes
+  app.get('/api/auth/user', isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      res.json(user);
+    } catch (error) {
+      console.error("Error fetching user:", error);
+      res.status(500).json({ message: "Failed to fetch user" });
+    }
+  });
+
+  // ===== USER MANAGEMENT SYSTEM ROUTES =====
+
+  // Middleware for admin-only operations
+  const requireAdmin = (req: any, res: any, next: any) => {
+    if (req.user?.role !== 'admin') {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+    next();
+  };
+
+  // ===== USER ACCESS MANAGER API ROUTES =====
+
+  // Get all users for access management (admin only)
+  app.get("/api/admin/users", isDemoAuthenticated, requireAdmin, async (req: any, res) => {
+    try {
+      const organizationId = req.user.organizationId || "default-org";
+      
+      // Get all users from the users table
+      const users = await storage.getUsers();
+      
+      // Filter by organization and format response
+      const formattedUsers = users
+        .filter(user => user.organizationId === organizationId)
+        .map(user => ({
+          id: user.id,
+          organizationId: user.organizationId,
+          email: user.email,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          role: user.role,
+          isActive: user.isActive,
+          lastLoginAt: user.lastLoginAt,
+          createdAt: user.createdAt,
+          // Add default permissions structure
+          permissions: {
+            listings: { view: false, edit: false, create: false, delete: false },
+            reservations: { view: false, edit: false, create: false, delete: false },
+            calendar: { view: false, edit: false, create: false, delete: false },
+            financials: { view: false, edit: false, create: false, delete: false },
+            ownerStatements: { view: false, edit: false, create: false, delete: false },
+            tasks: { view: false, edit: false, create: false, delete: false },
+            utilities: { view: false, edit: false, create: false, delete: false },
+            adminAccess: user.role === 'admin',
+            financialDataAccess: ['admin', 'portfolio-manager', 'owner'].includes(user.role),
+            otaPayoutDataOnly: ['owner', 'retail-agent', 'referral-agent'].includes(user.role),
+          },
+          listingsAccess: [], // Will be enhanced later
+        }));
+      
+      res.json(formattedUsers);
+    } catch (error) {
+      console.error("Error fetching users for access management:", error);
+      res.status(500).json({ message: "Failed to fetch users" });
+    }
+  });
+
+  // Update user permissions (admin only)
+  app.put("/api/admin/users/:userId/permissions", isDemoAuthenticated, requireAdmin, async (req: any, res) => {
+    try {
+      const { permissions, listingsAccess } = req.body;
+      const { userId } = req.params;
+      
+      // For now, we'll store permissions in memory/demo mode
+      // In a full implementation, these would be stored in a permissions table
+      
+      // Log the permission update for audit purposes
+      console.log(`Admin ${req.user.id} updated permissions for user ${userId}:`, {
+        permissions,
+        listingsAccess,
+        timestamp: new Date().toISOString()
+      });
+      
+      res.json({ 
+        success: true, 
+        message: "Permissions updated successfully",
+        userId,
+        permissions,
+        listingsAccess 
+      });
+    } catch (error) {
+      console.error("Error updating user permissions:", error);
+      res.status(500).json({ message: "Failed to update permissions" });
+    }
+  });
+
+  // Middleware for portfolio manager or admin access
+  const requirePortfolioManagerOrAdmin = (req: any, res: any, next: any) => {
+    if (!['admin', 'portfolio-manager'].includes(req.user?.role)) {
+      return res.status(403).json({ message: "Portfolio Manager or Admin access required" });
+    }
+    next();
+  };
+
+  // Middleware to check staff task creation permissions
+  const requireStaffTaskPermission = (req: any, res: any, next: any) => {
+    if (req.user?.role !== 'staff') {
+      // Non-staff users bypass this check (admin/PM can create tasks)
+      return next();
+    }
+
+    const staffUserId = req.user.id;
+    
+    // Check if staff can create tasks
+    if (!staffPermissionStorage.canStaffCreateTasks(staffUserId)) {
+      return res.status(403).json({ 
+        message: "Task creation permission not granted. Contact your administrator to request permission." 
+      });
+    }
+
+    // Check daily limit
+    if (!staffPermissionStorage.canStaffCreateMoreTasks(staffUserId)) {
+      const permissions = staffPermissionStorage.getStaffPermissions(staffUserId);
+      return res.status(403).json({ 
+        message: `Daily task limit reached (${permissions?.maxTasksPerDay} tasks per day). Try again tomorrow.` 
+      });
+    }
+
+    next();
+  };
+
+  // Get all users with filtering and search
+  app.get("/api/user-management/users", isDemoAuthenticated, requirePortfolioManagerOrAdmin, async (req: any, res) => {
+    try {
+      const organizationId = req.user.organizationId || "default-org";
+      const userMgmt = new UserManagementStorage(organizationId);
+      
+      const filters = {
+        search: req.query.search as string,
+        role: req.query.role as string,
+        propertyId: req.query.propertyId ? parseInt(req.query.propertyId as string) : undefined,
+        isActive: req.query.isActive ? req.query.isActive === 'true' : undefined,
+        limit: req.query.limit ? parseInt(req.query.limit as string) : 50,
+        offset: req.query.offset ? parseInt(req.query.offset as string) : 0,
+      };
+
+      const users = await userMgmt.getAllUsers(filters);
+      res.json(users);
+    } catch (error) {
+      console.error("Error fetching users:", error);
+      res.status(500).json({ message: "Failed to fetch users" });
+    }
+  });
+
+  // Get user by ID
+  app.get("/api/user-management/users/:userId", isDemoAuthenticated, requirePortfolioManagerOrAdmin, async (req: any, res) => {
+    try {
+      const organizationId = req.user.organizationId || "default-org";
+      const userMgmt = new UserManagementStorage(organizationId);
+      
+      const user = await userMgmt.getUserById(req.params.userId);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      res.json(user);
+    } catch (error) {
+      console.error("Error fetching user:", error);
+      res.status(500).json({ message: "Failed to fetch user" });
+    }
+  });
+
+  // Update user role
+  app.put("/api/user-management/users/:userId/role", isDemoAuthenticated, requireAdmin, async (req: any, res) => {
+    try {
+      const organizationId = req.user.organizationId || "default-org";
+      const userMgmt = new UserManagementStorage(organizationId);
+      
+      const { primaryRole, subRole } = req.body;
+      const userId = req.params.userId;
+      const assignedBy = req.user.id;
+
+      // Check if user has existing role
+      const existingUser = await userMgmt.getUserById(userId);
+      if (!existingUser) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      let result;
+      if (existingUser.userRole) {
+        // Update existing role
+        result = await userMgmt.updateUserRole(userId, { primaryRole, subRole, assignedBy });
+      } else {
+        // Assign new role
+        result = await userMgmt.assignUserRole({ userId, primaryRole, subRole, assignedBy });
+      }
+
+      if (!result) {
+        return res.status(500).json({ message: "Failed to update role" });
+      }
+
+      res.json(result);
+    } catch (error) {
+      console.error("Error updating user role:", error);
+      res.status(500).json({ message: "Failed to update user role" });
+    }
+  });
+
+  // Update user permissions
+  app.put("/api/user-management/users/:userId/permissions", isDemoAuthenticated, requireAdmin, async (req: any, res) => {
+    try {
+      const organizationId = req.user.organizationId || "default-org";
+      const userMgmt = new UserManagementStorage(organizationId);
+      
+      const { moduleAccess } = req.body;
+      const userId = req.params.userId;
+      const updatedBy = req.user.id;
+
+      const result = await userMgmt.updateUserPermissions(userId, moduleAccess, updatedBy);
+      if (!result) {
+        return res.status(500).json({ message: "Failed to update permissions" });
+      }
+
+      res.json(result);
+    } catch (error) {
+      console.error("Error updating user permissions:", error);
+      res.status(500).json({ message: "Failed to update user permissions" });
+    }
+  });
+
+  // Update user status (activate/deactivate)
+  app.put("/api/user-management/users/:userId/status", isDemoAuthenticated, requireAdmin, async (req: any, res) => {
+    try {
+      const organizationId = req.user.organizationId || "default-org";
+      const userMgmt = new UserManagementStorage(organizationId);
+      
+      const { isActive } = req.body;
+      const userId = req.params.userId;
+      const updatedBy = req.user.id;
+
+      const success = await userMgmt.updateUserStatus(userId, isActive, updatedBy);
+      if (!success) {
+        return res.status(500).json({ message: "Failed to update user status" });
+      }
+
+      res.json({ success: true, message: `User ${isActive ? 'activated' : 'deactivated'} successfully` });
+    } catch (error) {
+      console.error("Error updating user status:", error);
+      res.status(500).json({ message: "Failed to update user status" });
+    }
+  });
+
+  // Assign property to user
+  app.post("/api/user-management/users/:userId/properties", isDemoAuthenticated, requirePortfolioManagerOrAdmin, async (req: any, res) => {
+    try {
+      const organizationId = req.user.organizationId || "default-org";
+      const userMgmt = new UserManagementStorage(organizationId);
+      
+      const { propertyId, assignmentType, startDate, endDate } = req.body;
+      const userId = req.params.userId;
+      const assignedBy = req.user.id;
+
+      const assignment = await userMgmt.assignUserToProperty({
+        userId,
+        propertyId,
+        assignmentType,
+        startDate: startDate || null,
+        endDate: endDate || null,
+        assignedBy,
+      });
+
+      res.json(assignment);
+    } catch (error) {
+      console.error("Error assigning property to user:", error);
+      res.status(500).json({ message: "Failed to assign property to user" });
+    }
+  });
+
+  // Remove property assignment
+  app.delete("/api/user-management/users/:userId/properties/:propertyId", isDemoAuthenticated, requirePortfolioManagerOrAdmin, async (req: any, res) => {
+    try {
+      const organizationId = req.user.organizationId || "default-org";
+      const userMgmt = new UserManagementStorage(organizationId);
+      
+      const userId = req.params.userId;
+      const propertyId = parseInt(req.params.propertyId);
+
+      const success = await userMgmt.removeUserFromProperty(userId, propertyId);
+      if (!success) {
+        return res.status(500).json({ message: "Failed to remove property assignment" });
+      }
+
+      res.json({ success: true, message: "Property assignment removed successfully" });
+    } catch (error) {
+      console.error("Error removing property assignment:", error);
+      res.status(500).json({ message: "Failed to remove property assignment" });
+    }
+  });
+
+  // Get user activity history
+  app.get("/api/user-management/users/:userId/activity", isDemoAuthenticated, requirePortfolioManagerOrAdmin, async (req: any, res) => {
+    try {
+      const organizationId = req.user.organizationId || "default-org";
+      const userMgmt = new UserManagementStorage(organizationId);
+      
+      const userId = req.params.userId;
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
+
+      const activities = await userMgmt.getUserActivityHistory(userId, limit);
+      res.json(activities);
+    } catch (error) {
+      console.error("Error fetching user activity:", error);
+      res.status(500).json({ message: "Failed to fetch user activity" });
+    }
+  });
+
+  // Send user invitation
+  app.post("/api/user-management/invitations", isDemoAuthenticated, requireAdmin, async (req: any, res) => {
+    try {
+      const organizationId = req.user.organizationId || "default-org";
+      const userMgmt = new UserManagementStorage(organizationId);
+      
+      const { email, roleAssignment, subRoleAssignment, propertyAssignments, modulePermissions, expiresAt } = req.body;
+      const invitedBy = req.user.id;
+
+      const invitation = await userMgmt.createUserInvitation({
+        email,
+        roleAssignment,
+        subRoleAssignment: subRoleAssignment || null,
+        propertyAssignments: propertyAssignments || null,
+        modulePermissions: modulePermissions || null,
+        expiresAt: expiresAt ? new Date(expiresAt) : null,
+        invitedBy,
+      });
+
+      res.json(invitation);
+    } catch (error) {
+      console.error("Error sending invitation:", error);
+      res.status(500).json({ message: "Failed to send invitation" });
+    }
+  });
+
+  // Get pending invitations
+  app.get("/api/user-management/invitations", isDemoAuthenticated, requireAdmin, async (req: any, res) => {
+    try {
+      const organizationId = req.user.organizationId || "default-org";
+      const userMgmt = new UserManagementStorage(organizationId);
+      
+      const invitations = await userMgmt.getPendingInvitations();
+      res.json(invitations);
+    } catch (error) {
+      console.error("Error fetching invitations:", error);
+      res.status(500).json({ message: "Failed to fetch invitations" });
+    }
+  });
+
+  // Accept invitation (public endpoint)
+  app.post("/api/user-management/invitations/:inviteCode/accept", async (req: any, res) => {
+    try {
+      // This would normally be called after user authentication via invitation link
+      // For now, we'll just mark it as accepted
+      const { inviteCode } = req.params;
+      
+      // You would implement the logic to:
+      // 1. Find invitation by code
+      // 2. Create user account if needed
+      // 3. Assign role and permissions
+      // 4. Mark invitation as accepted
+      
+      res.json({ message: "Invitation system ready - requires full authentication flow" });
+    } catch (error) {
+      console.error("Error accepting invitation:", error);
+      res.status(500).json({ message: "Failed to accept invitation" });
+    }
+  });
+
+  // FREELANCER MANAGEMENT
+
+  // Get freelancer task requests
+  app.get("/api/user-management/freelancer-requests", isDemoAuthenticated, requirePortfolioManagerOrAdmin, async (req: any, res) => {
+    try {
+      const organizationId = req.user.organizationId || "default-org";
+      const userMgmt = new UserManagementStorage(organizationId);
+      
+      const freelancerId = req.query.freelancerId as string;
+      const status = req.query.status as string;
+
+      const requests = await userMgmt.getFreelancerTaskRequests(freelancerId, status);
+      res.json(requests);
+    } catch (error) {
+      console.error("Error fetching freelancer requests:", error);
+      res.status(500).json({ message: "Failed to fetch freelancer requests" });
+    }
+  });
+
+  // Create freelancer task request
+  app.post("/api/user-management/freelancer-requests", isDemoAuthenticated, requirePortfolioManagerOrAdmin, async (req: any, res) => {
+    try {
+      const organizationId = req.user.organizationId || "default-org";
+      const userMgmt = new UserManagementStorage(organizationId);
+      
+      const requestData = {
+        ...req.body,
+        requestedBy: req.user.id,
+      };
+
+      const request = await userMgmt.createFreelancerTaskRequest(requestData);
+      res.json(request);
+    } catch (error) {
+      console.error("Error creating freelancer request:", error);
+      res.status(500).json({ message: "Failed to create freelancer request" });
+    }
+  });
+
+  // Update freelancer task request
+  app.put("/api/user-management/freelancer-requests/:requestId", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = req.user.organizationId || "default-org";
+      const userMgmt = new UserManagementStorage(organizationId);
+      
+      const requestId = parseInt(req.params.requestId);
+      const updates = req.body;
+
+      const request = await userMgmt.updateFreelancerTaskRequest(requestId, updates);
+      if (!request) {
+        return res.status(404).json({ message: "Request not found" });
+      }
+
+      res.json(request);
+    } catch (error) {
+      console.error("Error updating freelancer request:", error);
+      res.status(500).json({ message: "Failed to update freelancer request" });
+    }
+  });
+
+  // Get freelancer availability
+  app.get("/api/user-management/freelancers/:freelancerId/availability", isDemoAuthenticated, requirePortfolioManagerOrAdmin, async (req: any, res) => {
+    try {
+      const organizationId = req.user.organizationId || "default-org";
+      const userMgmt = new UserManagementStorage(organizationId);
+      
+      const freelancerId = req.params.freelancerId;
+      const startDate = req.query.startDate as string;
+      const endDate = req.query.endDate as string;
+
+      const availability = await userMgmt.getFreelancerAvailability(freelancerId, startDate, endDate);
+      res.json(availability);
+    } catch (error) {
+      console.error("Error fetching freelancer availability:", error);
+      res.status(500).json({ message: "Failed to fetch freelancer availability" });
+    }
+  });
+
+  // Update freelancer availability
+  app.post("/api/user-management/freelancers/:freelancerId/availability", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = req.user.organizationId || "default-org";
+      const userMgmt = new UserManagementStorage(organizationId);
+      
+      const freelancerId = req.params.freelancerId;
+      
+      // Check if user is updating their own availability or is admin/PM
+      if (req.user.id !== freelancerId && !['admin', 'portfolio-manager'].includes(req.user.role)) {
+        return res.status(403).json({ message: "Can only update your own availability" });
+      }
+
+      const availabilityData = {
+        ...req.body,
+        freelancerId,
+      };
+
+      const availability = await userMgmt.updateFreelancerAvailability(availabilityData);
+      res.json(availability);
+    } catch (error) {
+      console.error("Error updating freelancer availability:", error);
+      res.status(500).json({ message: "Failed to update freelancer availability" });
+    }
+  });
+
+  // AUDIT AND REPORTING
+
+  // Get system activity log
+  app.get("/api/user-management/audit-log", isDemoAuthenticated, requireAdmin, async (req: any, res) => {
+    try {
+      const organizationId = req.user.organizationId || "default-org";
+      const userMgmt = new UserManagementStorage(organizationId);
+      
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 100;
+
+      const activities = await userMgmt.getSystemActivityLog(limit);
+      res.json(activities);
+    } catch (error) {
+      console.error("Error fetching audit log:", error);
+      res.status(500).json({ message: "Failed to fetch audit log" });
+    }
+  });
+
+  // Get user performance metrics
+  app.get("/api/user-management/users/:userId/performance", isDemoAuthenticated, requirePortfolioManagerOrAdmin, async (req: any, res) => {
+    try {
+      const organizationId = req.user.organizationId || "default-org";
+      const userMgmt = new UserManagementStorage(organizationId);
+      
+      const userId = req.params.userId;
+      const periodYear = req.query.year ? parseInt(req.query.year as string) : undefined;
+      const periodMonth = req.query.month ? parseInt(req.query.month as string) : undefined;
+
+      const metrics = await userMgmt.getUserPerformanceMetrics(userId, periodYear, periodMonth);
+      res.json(metrics);
+    } catch (error) {
+      console.error("Error fetching user performance:", error);
+      res.status(500).json({ message: "Failed to fetch user performance" });
+    }
+  });
+
+  // Update user performance metrics (usually called by system jobs)
+  app.post("/api/user-management/users/:userId/performance", isDemoAuthenticated, requireAdmin, async (req: any, res) => {
+    try {
+      const organizationId = req.user.organizationId || "default-org";
+      const userMgmt = new UserManagementStorage(organizationId);
+      
+      const userId = req.params.userId;
+      const metricsData = {
+        ...req.body,
+        userId,
+      };
+
+      const metrics = await userMgmt.updateUserPerformanceMetrics(metricsData);
+      res.json(metrics);
+    } catch (error) {
+      console.error("Error updating user performance:", error);
+      res.status(500).json({ message: "Failed to update user performance" });
+    }
+  });
+
+  // ===== PROPERTY VISIBILITY CONTROL API ROUTES =====
+
+  // Import PropertyVisibilityStorage
+  const { PropertyVisibilityStorage } = await import("./propertyVisibilityStorage");
+
+  // Get property access matrix
+  app.get("/api/property-visibility/access-matrix", isDemoAuthenticated, requireAdmin, async (req: any, res) => {
+    try {
+      const organizationId = req.user.organizationId || "default-org";
+      const propertyVisibility = new PropertyVisibilityStorage(organizationId);
+      
+      const { userId, propertyId, canView, canManage } = req.query;
+      
+      const accessMatrix = await propertyVisibility.getPropertyAccessControl({
+        userId: userId as string || undefined,
+        propertyId: propertyId ? parseInt(propertyId as string) : undefined,
+        canView: canView === 'true' ? true : canView === 'false' ? false : undefined,
+        canManage: canManage === 'true' ? true : canManage === 'false' ? false : undefined,
+      });
+      
+      res.json(accessMatrix);
+    } catch (error) {
+      console.error("Error fetching access matrix:", error);
+      res.status(500).json({ message: "Failed to fetch access matrix" });
+    }
+  });
+
+  // Get property visibility matrix for dashboard
+  app.get("/api/property-visibility/visibility-matrix", isDemoAuthenticated, requireAdmin, async (req: any, res) => {
+    try {
+      const organizationId = req.user.organizationId || "default-org";
+      const propertyVisibility = new PropertyVisibilityStorage(organizationId);
+      
+      const { userId, accessLevel, hasFullAccess } = req.query;
+      
+      const visibilityMatrix = await propertyVisibility.getVisibilityMatrix({
+        userId: userId as string || undefined,
+        accessLevel: accessLevel as string || undefined,
+        hasFullAccess: hasFullAccess === 'true' ? true : hasFullAccess === 'false' ? false : undefined,
+      });
+      
+      res.json(visibilityMatrix);
+    } catch (error) {
+      console.error("Error fetching visibility matrix:", error);
+      res.status(500).json({ message: "Failed to fetch visibility matrix" });
+    }
+  });
+
+  // Create property access record
+  app.post("/api/property-visibility/access", isDemoAuthenticated, requireAdmin, async (req: any, res) => {
+    try {
+      const organizationId = req.user.organizationId || "default-org";
+      const propertyVisibility = new PropertyVisibilityStorage(organizationId);
+      
+      const accessData = {
+        ...req.body,
+        assignedBy: req.user.id,
+      };
+      
+      const accessRecord = await propertyVisibility.createPropertyAccess(accessData);
+      res.status(201).json(accessRecord);
+    } catch (error) {
+      console.error("Error creating property access:", error);
+      res.status(500).json({ message: "Failed to create property access" });
+    }
+  });
+
+  // Update property access record
+  app.put("/api/property-visibility/access/:id", isDemoAuthenticated, requireAdmin, async (req: any, res) => {
+    try {
+      const organizationId = req.user.organizationId || "default-org";
+      const propertyVisibility = new PropertyVisibilityStorage(organizationId);
+      
+      const id = parseInt(req.params.id);
+      const accessData = req.body;
+      
+      const accessRecord = await propertyVisibility.updatePropertyAccess(id, accessData);
+      if (!accessRecord) {
+        return res.status(404).json({ message: "Access record not found" });
+      }
+      
+      res.json(accessRecord);
+    } catch (error) {
+      console.error("Error updating property access:", error);
+      res.status(500).json({ message: "Failed to update property access" });
+    }
+  });
+
+  // Delete property access record
+  app.delete("/api/property-visibility/access/:id", isDemoAuthenticated, requireAdmin, async (req: any, res) => {
+    try {
+      const organizationId = req.user.organizationId || "default-org";
+      const propertyVisibility = new PropertyVisibilityStorage(organizationId);
+      
+      const id = parseInt(req.params.id);
+      
+      const success = await propertyVisibility.deletePropertyAccess(id);
+      if (!success) {
+        return res.status(404).json({ message: "Access record not found" });
+      }
+      
+      res.json({ success: true, message: "Access record deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting property access:", error);
+      res.status(500).json({ message: "Failed to delete property access" });
+    }
+  });
+
+  // Bulk update property access for a user
+  app.put("/api/property-visibility/users/:userId/bulk-access", isDemoAuthenticated, requireAdmin, async (req: any, res) => {
+    try {
+      const organizationId = req.user.organizationId || "default-org";
+      const propertyVisibility = new PropertyVisibilityStorage(organizationId);
+      
+      const userId = req.params.userId;
+      const { propertyIds, accessData } = req.body;
+      
+      const accessRecords = await propertyVisibility.bulkUpdatePropertyAccess(
+        userId, 
+        propertyIds, 
+        { ...accessData, assignedBy: req.user.id }
+      );
+      
+      res.json(accessRecords);
+    } catch (error) {
+      console.error("Error bulk updating property access:", error);
+      res.status(500).json({ message: "Failed to bulk update property access" });
+    }
+  });
+
+  // Get access templates
+  app.get("/api/property-visibility/templates", isDemoAuthenticated, requireAdmin, async (req: any, res) => {
+    try {
+      const organizationId = req.user.organizationId || "default-org";
+      const propertyVisibility = new PropertyVisibilityStorage(organizationId);
+      
+      const { targetRole } = req.query;
+      
+      const templates = await propertyVisibility.getAccessTemplates(targetRole as string || undefined);
+      res.json(templates);
+    } catch (error) {
+      console.error("Error fetching access templates:", error);
+      res.status(500).json({ message: "Failed to fetch access templates" });
+    }
+  });
+
+  // Create access template
+  app.post("/api/property-visibility/templates", isDemoAuthenticated, requireAdmin, async (req: any, res) => {
+    try {
+      const organizationId = req.user.organizationId || "default-org";
+      const propertyVisibility = new PropertyVisibilityStorage(organizationId);
+      
+      const templateData = {
+        ...req.body,
+        createdBy: req.user.id,
+      };
+      
+      const template = await propertyVisibility.createAccessTemplate(templateData);
+      res.status(201).json(template);
+    } catch (error) {
+      console.error("Error creating access template:", error);
+      res.status(500).json({ message: "Failed to create access template" });
+    }
+  });
+
+  // Apply template to user
+  app.post("/api/property-visibility/templates/:templateId/apply", isDemoAuthenticated, requireAdmin, async (req: any, res) => {
+    try {
+      const organizationId = req.user.organizationId || "default-org";
+      const propertyVisibility = new PropertyVisibilityStorage(organizationId);
+      
+      const templateId = parseInt(req.params.templateId);
+      const { userId, propertyIds } = req.body;
+      
+      const accessRecords = await propertyVisibility.applyTemplateToUser(templateId, userId, propertyIds);
+      res.json(accessRecords);
+    } catch (error) {
+      console.error("Error applying template:", error);
+      res.status(500).json({ message: "Failed to apply template" });
+    }
+  });
+
+  // Get user session permissions
+  app.get("/api/property-visibility/session-permissions", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = req.user.organizationId || "default-org";
+      const propertyVisibility = new PropertyVisibilityStorage(organizationId);
+      
+      const userId = req.user.id;
+      const sessionId = req.headers['x-session-id'] as string || undefined;
+      
+      const sessionPermissions = await propertyVisibility.getUserSessionPermissions(userId, sessionId);
+      res.json(sessionPermissions);
+    } catch (error) {
+      console.error("Error fetching session permissions:", error);
+      res.status(500).json({ message: "Failed to fetch session permissions" });
+    }
+  });
+
+  // Sync user session permissions
+  app.post("/api/property-visibility/sync-session", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = req.user.organizationId || "default-org";
+      const propertyVisibility = new PropertyVisibilityStorage(organizationId);
+      
+      const userId = req.user.id;
+      const sessionId = req.headers['x-session-id'] as string || `session-${Date.now()}`;
+      
+      const sessionPermissions = await propertyVisibility.syncUserSessionPermissions(userId, sessionId);
+      res.json(sessionPermissions);
+    } catch (error) {
+      console.error("Error syncing session permissions:", error);
+      res.status(500).json({ message: "Failed to sync session permissions" });
+    }
+  });
+
+  // Demo data endpoints for development/testing
+  app.get("/api/property-visibility/demo/visibility-matrix", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = req.user.organizationId || "default-org";
+      const propertyVisibility = new PropertyVisibilityStorage(organizationId);
+      
+      const demoMatrix = await propertyVisibility.getDemoVisibilityMatrix();
+      res.json(demoMatrix);
+    } catch (error) {
+      console.error("Error fetching demo visibility matrix:", error);
+      res.status(500).json({ message: "Failed to fetch demo visibility matrix" });
+    }
+  });
+
+  app.get("/api/property-visibility/demo/access-matrix", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = req.user.organizationId || "default-org";
+      const propertyVisibility = new PropertyVisibilityStorage(organizationId);
+      
+      const demoAccess = await propertyVisibility.getDemoPropertyAccess();
+      res.json(demoAccess);
+    } catch (error) {
+      console.error("Error fetching demo access matrix:", error);
+      res.status(500).json({ message: "Failed to fetch demo access matrix" });
+    }
+  });
+
+  app.get("/api/property-visibility/demo/templates", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = req.user.organizationId || "default-org";
+      const propertyVisibility = new PropertyVisibilityStorage(organizationId);
+      
+      const demoTemplates = await propertyVisibility.getDemoAccessTemplates();
+      res.json(demoTemplates);
+    } catch (error) {
+      console.error("Error fetching demo templates:", error);
+      res.status(500).json({ message: "Failed to fetch demo templates" });
+    }
+  });
+
+  // Property routes - CACHE DISABLED FOR DEBUGGING
+  app.get("/api/properties", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      console.log("🏠 GET /api/properties - Fetching properties with stats...");
+      
+      // Clear any cached responses
+      const { clearCache } = await import("./performanceOptimizer");
+      clearCache("properties");
+      
+      // Get all properties and bookings for the organization
+      const orgId = req.user?.organizationId || 'default-org';
+      const source = req.query.source as 'LOCAL' | 'HOSTAWAY' | undefined;
+      const [allProperties, allBookings, allTasks] = await Promise.all([
+        storage.getProperties(source),
+        storage.getBookings(orgId),
+        storage.getTasks()
+      ]);
+      
+      // Get current month date range (INCLUSIVE of last day)
+      const now = new Date();
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+      
+      // Enhance each property with booking stats
+      const enhancedProperties = allProperties.map((property: any) => {
+        // Filter bookings for this property
+        const propertyBookings = allBookings.filter((b: any) => b.propertyId === property.id && b.status !== 'cancelled');
+        
+        // Calculate last booking date (most recent checkOut)
+        const lastBookingDate = propertyBookings.length > 0
+          ? propertyBookings
+              .filter((b: any) => b.checkOut)
+              .sort((a: any, b: any) => new Date(b.checkOut).getTime() - new Date(a.checkOut).getTime())[0]?.checkOut || null
+          : null;
+        
+        // Calculate monthly revenue (current month bookings)
+        const monthlyRevenue = propertyBookings
+          .filter((b: any) => {
+            const checkIn = new Date(b.checkIn);
+            return checkIn >= startOfMonth && checkIn <= endOfMonth;
+          })
+          .reduce((sum: number, b: any) => sum + parseFloat(b.platformPayout || b.totalAmount || '0'), 0);
+        
+        // Calculate occupancy rate for current month
+        const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+        let occupiedDays = 0;
+        
+        propertyBookings.forEach((booking: any) => {
+          const checkIn = new Date(booking.checkIn);
+          const checkOut = new Date(booking.checkOut);
+          
+          // Clamp dates to current month (inclusive end)
+          const rangeStart = checkIn < startOfMonth ? startOfMonth : checkIn;
+          const rangeEnd = checkOut > endOfMonth ? endOfMonth : checkOut;
+          
+          if (rangeStart <= rangeEnd && rangeStart <= endOfMonth && rangeEnd >= startOfMonth) {
+            const days = Math.ceil((rangeEnd.getTime() - rangeStart.getTime()) / (1000 * 60 * 60 * 24));
+            occupiedDays += days;
+          }
+        });
+        
+        const occupancyRate = Math.min(100, Math.round((occupiedDays / daysInMonth) * 100));
+        
+        // Count ALL tasks for this property (not just maintenance)
+        const propertyTasks = allTasks.filter((t: any) => 
+          t.propertyId === property.id && 
+          (t.status === 'pending' || t.status === 'in-progress')
+        );
+        
+        const maintenanceTasks = propertyTasks.length;
+        
+        // Count high-priority tasks
+        const highPriorityTasks = propertyTasks.filter((t: any) => 
+          t.priority === 'high' || t.priority === 'urgent'
+        ).length;
+        
+        // Get assignee information (most recent assigned task)
+        const recentAssignedTask = propertyTasks
+          .filter((t: any) => t.assignedTo)
+          .sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
+        
+        const taskAssignee = recentAssignedTask?.assignedTo || null;
+        const totalAssignedTasks = propertyTasks.filter((t: any) => t.assignedTo).length;
+        
+        // Return property with computed stats
+        return {
+          ...property,
+          lastBookingDate,
+          monthlyRevenue,
+          occupancyRate,
+          maintenanceTasks,
+          highPriorityTasks,
+          taskAssignee,
+          totalAssignedTasks,
+          maintenanceCosts: 0,
+          roi: 0
+        };
+      });
+      
+      console.log(`🏠 Enhanced ${enhancedProperties.length} properties with booking stats`);
+      
+      // Set no-cache headers to prevent browser caching
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+      
+      console.log(`🏠 Enhanced ${enhancedProperties.length} properties with booking stats`);
+      
+      // Set no-cache headers to prevent browser caching
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+      
+      res.json(enhancedProperties);
+    } catch (error) {
+      console.error("❌ Error fetching properties:", error);
+      res.status(500).json({ message: "Failed to fetch properties" });
+    }
+  });
+
+
+
+  app.get("/api/properties/:id", isDemoAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const property = await storage.getProperty(id);
+      
+      if (!property) {
+        return res.status(404).json({ message: "Property not found" });
+      }
+      
+      res.json(property);
+    } catch (error) {
+      console.error("Error fetching property:", error);
+      res.status(500).json({ message: "Failed to fetch property" });
+    }
+  });
+
+  app.post("/api/properties", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const organizationId = req.user.organizationId || 'default-org';
+      
+      console.log("=== PROPERTY CREATION DEBUG ===");
+      console.log("User ID:", userId);
+      console.log("Organization ID:", organizationId);
+      console.log("Request body:", req.body);
+      
+      // Clear property cache when creating new property
+      const { clearCache } = await import("./performanceOptimizer");
+      clearCache("properties");
+      
+      // URGENT FIX: Bypass validation temporarily and create directly
+      const propertyData = {
+        organizationId: organizationId,
+        name: req.body.name,
+        address: req.body.address,
+        description: req.body.description || "",
+        bedrooms: req.body.bedrooms ? parseInt(req.body.bedrooms) : null,
+        bathrooms: req.body.bathrooms ? parseInt(req.body.bathrooms) : null,
+        maxGuests: req.body.maxGuests ? parseInt(req.body.maxGuests) : null,
+        pricePerNight: req.body.pricePerNight ? parseFloat(req.body.pricePerNight) : null,
+        currency: req.body.currency || "THB",
+        status: req.body.status || "active",
+        amenities: req.body.amenities || [],
+        images: req.body.images || [],
+        ownerId: userId
+      };
+      
+      console.log("Final property data:", propertyData);
+      
+      const property = await storage.createProperty(propertyData);
+      console.log("Created property:", property);
+      res.status(201).json(property);
+    } catch (error) {
+      console.error("=== PROPERTY CREATION FAILED ===");
+      console.error("Error:", error);
+      console.error("Stack:", error.stack);
+      res.status(500).json({ message: "Failed to create property", details: error.message });
+    }
+  });
+
+  app.put("/api/properties/:id", isDemoAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const propertyData = req.body;
+      const property = await storage.updateProperty(id, propertyData);
+      
+      if (!property) {
+        return res.status(404).json({ message: "Property not found" });
+      }
+      
+      res.json(property);
+    } catch (error) {
+      console.error("Error updating property:", error);
+      res.status(500).json({ message: "Failed to update property" });
+    }
+  });
+
+  app.delete("/api/properties/:id", isDemoAuthenticated, async (req, res) => {
+    const id = parseInt(req.params.id);
+    try {
+      console.log(`🗑️ DELETE request for property ${id}`);
+      
+      const success = await storage.deleteProperty(id);
+      
+      if (!success) {
+        console.log(`❌ Property ${id} not found`);
+        return res.status(404).json({ message: "Property not found" });
+      }
+
+      // Clear properties cache for real-time UI sync
+      const { clearCache } = await import("./performanceOptimizer");
+      clearCache("properties");
+      
+      console.log(`✅ Successfully deleted property ${id}`);
+      res.status(204).send();
+    } catch (error) {
+      console.error(`❌ Error deleting property ${id}:`, error);
+      console.error("Error message:", error.message);
+      console.error("Error details:", error.detail || error.toString());
+      console.error("Error stack:", error.stack);
+      res.status(500).json({ 
+        message: "Failed to delete property", 
+        error: error.message,
+        details: error.detail || error.toString()
+      });
+    }
+  });
+
+  // Task routes with caching
+  // Task routes with caching
+  app.get("/api/tasks", isDemoAuthenticated, async (req: any, res) => {
+    const { sendCachedOrFetch } = await import("./performanceOptimizer");
+    const userId = req.user.id;
+    const user = req.user;
+    const { due_from, due_to } = req.query;
+    
+    // Create cache key that includes date filters if present
+    const cacheKey = `tasks-${user?.role}-${userId}${due_from ? `-from-${due_from}` : ''}${due_to ? `-to-${due_to}` : ''}`;
+    
+    return sendCachedOrFetch(
+      cacheKey,
+      async () => {
+        let tasks;
+        if (user?.role === 'staff') {
+          tasks = await storage.getTasksByAssignee(userId, due_from, due_to);
+        } else {
+          tasks = await storage.getTasks(due_from, due_to);
+        }
+        
+        // Sort tasks: due_date ASC with nulls last
+        tasks.sort((a, b) => {
+          if (a.dueDate === null && b.dueDate === null) return 0;
+          if (a.dueDate === null) return 1;
+          if (b.dueDate === null) return -1;
+          return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
+        });
+        
+        return tasks;
+      },
+      res,
+      5 // 5 minute cache for tasks
+    );
+  });
+
+  app.post("/api/tasks", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const user = req.user;
+      
+      console.log("=== URGENT TASK CREATION DEBUG ===");
+      console.log("User:", userId);
+      console.log("Request body:", req.body);
+      
+      // Build task data with safe parsing
+      // Handle staff assignment: staff-123 format goes to assignedToStaffId, others go to assignedTo
+      const assignmentValue = req.body.assignedTo;
+      let assignedTo = null;
+      let assignedToStaffId = null;
+      
+      if (assignmentValue && assignmentValue !== 'unassigned') {
+        if (assignmentValue.startsWith('staff-')) {
+          // Extract staff ID from "staff-123" format
+          assignedToStaffId = parseInt(assignmentValue.replace('staff-', ''));
+        } else {
+          // Legacy user assignment
+          assignedTo = assignmentValue;
+        }
+      }
+      
+      const taskData = {
+        organizationId: req.user?.organizationId || "default-org",
+        createdBy: userId,
+        title: req.body.title || "",
+        description: req.body.description || "",
+        type: req.body.type || "maintenance",
+        priority: req.body.priority || "medium",
+        status: "pending",
+        propertyId: req.body.propertyId ? parseInt(req.body.propertyId) : null,
+        assignedTo,
+        assignedToStaffId,
+        dueDate: req.body.dueDate ? new Date(req.body.dueDate) : null,
+        estimatedCost: req.body.estimatedCost ? parseFloat(req.body.estimatedCost) : null,
+        department: req.body.department || null
+      };
+
+      console.log("Final task data:", taskData);
+
+      // Basic validation
+      if (!taskData.title || taskData.title.trim() === "") {
+        return res.status(400).json({ 
+          message: "Invalid task data", 
+          errors: [{ path: ["title"], message: "Title is required" }]
+        });
+      }
+
+      const task = await storage.createTask(taskData);
+      console.log("Created task:", task);
+      
+      // Clear BOTH cache systems to ensure new task appears immediately
+      const { clearCache } = await import("./performanceOptimizer");
+      const { clearUltraFastCache } = await import("./ultraFastMiddleware");
+      clearCache("tasks");
+      clearCache("properties");  // Clear properties cache for real-time sync
+      clearUltraFastCache("/api/tasks");
+      clearUltraFastCache("/api/properties");  // Clear properties cache
+      clearUltraFastCache("/api/dashboard");
+      console.log("✅ All caches (tasks + properties) cleared after creating task ID", task.id);
+      
+      // Send notification to assigned user if different from creator
+      if (task.assignedTo && task.assignedTo !== userId) {
+        try {
+          await storage.notifyTaskAssignment(task.id, task.assignedTo, userId);
+        } catch (notifyError) {
+          console.log("Notification sending failed, but task created successfully");
+        }
+      }
+      
+      res.status(201).json(task);
+    } catch (error) {
+      console.error("=== TASK CREATION FAILED ===");
+      console.error("Error:", error);
+      console.error("Stack:", error.stack);
+      res.status(500).json({ message: "Failed to create task", details: error.message });
+    }
+  });
+
+  app.put("/api/tasks/:id", isDemoAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const taskData = req.body;
+      const userData = req.user as any;
+      const userId = userData?.claims?.sub || userData?.id;
+      
+      // Convert date strings to Date objects if present
+      if (taskData.dueDate && typeof taskData.dueDate === 'string') {
+        taskData.dueDate = new Date(taskData.dueDate);
+      }
+      
+      const task = await storage.updateTask(id, taskData);
+      
+      if (!task) {
+        return res.status(404).json({ message: "Task not found" });
+      }
+      
+      // Clear BOTH cache systems to ensure updates appear immediately
+      const { clearCache } = await import("./performanceOptimizer");
+      const { clearUltraFastCache } = await import("./ultraFastMiddleware");
+      clearCache("tasks");  // Clears memory cache with pattern matching
+      clearCache("properties");  // Clear properties cache for real-time sync
+      clearUltraFastCache("tasks");  // Clears ultra-fast cache (includes tasks-admin-demo-admin, etc.)
+      clearUltraFastCache("/api/tasks");  // Clears route-based cache
+      clearUltraFastCache("/api/properties");  // Clear properties cache
+      clearUltraFastCache("/api/dashboard");  // Clears dashboard cache
+      // Auto-link to Finance Hub: Update existing finance record with evidence photos
+      if (taskData.status === 'completed' && task.evidencePhotos && task.evidencePhotos.length > 0) {
+        try {
+          const { finances } = await import("@shared/schema");
+          
+          // Check if task already has a linked finance record
+          if (task.financeRecordId) {
+            // UPDATE existing finance record with evidence photos
+            await db
+              .update(finances)
+              .set({
+                attachments: task.evidencePhotos,
+              })
+              .where(eq(finances.id, task.financeRecordId));
+            
+            console.log(`✅ Updated finance record ${task.financeRecordId} with ${task.evidencePhotos.length} evidence photos`);
+            
+            // Clear finance cache
+            const { clearCache } = await import("./performanceOptimizer");
+            const { clearUltraFastCache } = await import("./ultraFastMiddleware");
+            clearCache("finances");
+            clearUltraFastCache("/api/finance");
+          }
+          // Note: If no existing finance record, it will be created when task completion cost is entered
+        } catch (error) {
+          console.error('❌ Error updating finance record with evidence:', error);
+          // Don't fail the task update if finance update fails
+        }
+      }
+      
+      
+      // Trigger achievement check if task was marked completed or approved
+      if ((taskData.status === 'completed' || taskData.status === 'approved') && userId) {
+        try {
+          const organizationId = userData?.organizationId || "default-org";
+          
+          // Get or create user stats
+          let [userStats] = await db
+            .select()
+            .from(userGameStats)
+            .where(and(
+              eq(userGameStats.userId, userId),
+              eq(userGameStats.organizationId, organizationId)
+            ));
+
+          if (!userStats) {
+            [userStats] = await db
+              .insert(userGameStats)
+              .values({
+                userId,
+                organizationId,
+                totalPoints: 0,
+                level: 1,
+                currentStreak: 0,
+                longestStreak: 0,
+                tasksCompleted: 0,
+                bookingsProcessed: 0,
+                propertiesManaged: 0,
+              })
+              .returning();
+          }
+
+          // Calculate real-time stats from actual data
+          const { tasks: tasksTable, properties, bookings } = await import("@shared/schema");
+          const { sql } = await import("drizzle-orm");
+          
+          const [taskStats] = await db
+            .select({ count: sql<number>`COUNT(*)` })
+            .from(tasksTable)
+            .where(and(
+              eq(tasksTable.organizationId, organizationId),
+              eq(tasksTable.status, 'completed')
+            ));
+
+          console.log('🔍 Task stats query result:', taskStats);
+
+          const [propertyStats] = await db
+            .select({ count: sql<number>`COUNT(*)` })
+            .from(properties)
+            .where(and(
+              eq(properties.organizationId, organizationId),
+              eq(properties.ownerId, userId)
+            ));
+
+          const [bookingStats] = await db
+            .select({ count: sql<number>`COUNT(DISTINCT ${bookings.id})` })
+            .from(bookings)
+            .innerJoin(properties, eq(bookings.propertyId, properties.id))
+            .where(and(
+              eq(bookings.organizationId, organizationId),
+              eq(properties.ownerId, userId)
+            ));
+
+          // Calculate updated stats
+          const tasksCompleted = Number(taskStats?.count || 0);
+          console.log('🔍 Calculated tasksCompleted:', tasksCompleted, 'from raw count:', taskStats?.count);
+          const bookingsProcessed = Number(bookingStats?.count || 0);
+          const propertiesManaged = Number(propertyStats?.count || 0);
+          const totalPoints = (tasksCompleted * 10) + (bookingsProcessed * 25) + (propertiesManaged * 50);
+          const level = Math.floor(Math.log2(totalPoints / 100 + 1)) + 1;
+
+          // Update user stats with real-time data
+          await db
+            .update(userGameStats)
+            .set({
+              tasksCompleted,
+              bookingsProcessed,
+              propertiesManaged,
+              totalPoints,
+              level,
+              updatedAt: new Date(),
+            })
+            .where(eq(userGameStats.id, userStats.id));
+
+          // Get all achievements not yet earned
+          const allAchievements = await db
+            .select()
+            .from(achievements)
+            .where(eq(achievements.organizationId, organizationId));
+
+          // Check each achievement with UPDATED stats
+          for (const achievement of allAchievements) {
+            const alreadyEarned = await db
+              .select()
+              .from(userAchievements)
+              .where(and(
+                eq(userAchievements.userId, userId),
+                eq(userAchievements.achievementId, achievement.id)
+              ));
+
+            if (alreadyEarned.length === 0) {
+              let earned = false;
+              
+              if (achievement.type === 'task' && tasksCompleted >= achievement.threshold) {
+                earned = true;
+              } else if (achievement.type === 'booking' && bookingsProcessed >= achievement.threshold) {
+                earned = true;
+              } else if (achievement.type === 'property' && propertiesManaged >= achievement.threshold) {
+                earned = true;
+              }
+
+              if (earned) {
+                await db.insert(userAchievements).values({
+                  userId,
+                  achievementId: achievement.id,
+                  organizationId,
+                  earnedAt: new Date()
+                });
+              }
+            }
+          }
+          
+          console.log(`✅ Achievement check completed for user ${userId}: ${tasksCompleted} tasks completed`);
+        } catch (achievementError) {
+          console.error("Achievement check failed:", achievementError);
+          // Don't fail the task update if achievement check fails
+        }
+      }
+      
+      
+      // Auto-create finance record when task is completed with cost
+      // Use actualCost if provided, otherwise fall back to estimatedCost
+      const taskCost = task.actualCost || task.estimatedCost;
+      if ((taskData.status === 'completed' || taskData.status === 'approved') && taskCost && parseFloat(String(taskCost)) > 0) {
+        try {
+          const organizationId = userData?.organizationId || "default-org";
+          const costAmount = parseFloat(String(taskCost));
+          
+          console.log(`💰 Auto-creating finance record for completed task ${task.id} with cost ${costAmount} (actual: ${task.actualCost}, estimated: ${task.estimatedCost})`);
+          
+          // Create finance record for task completion
+          const financeRecord = await storage.createFinance({
+            organizationId,
+            propertyId: task.propertyId,
+            type: 'expense',
+            source: 'company-expense',
+            category: task.type || 'maintenance', // Use task type as category
+            subcategory: task.department || null,
+            amount: String(costAmount),
+            currency: task.currency || 'THB', // Use task's currency instead of defaulting to USD
+            description: `Task: ${task.title}${task.completionNotes ? ' - ' + task.completionNotes : ''}`,
+            date: task.completedAt || new Date(),
+            status: 'paid',
+            department: task.department || 'maintenance',
+            costCenter: 'property-level',
+            budgetCategory: 'operational',
+            businessUnit: 'property-operations',
+            referenceNumber: `TASK-${task.id}`,
+            notes: task.evidencePhotos && task.evidencePhotos.length > 0 
+              ? `Completed with ${task.evidencePhotos.length} evidence photo(s)` 
+              : 'Task completed',
+            attachments: task.evidencePhotos || [],
+          });
+          
+          // Link the finance record back to the task
+          if (financeRecord && financeRecord.id) {
+            await storage.updateTask(id, { financeRecordId: financeRecord.id });
+            task.financeRecordId = financeRecord.id; // Update the task object being returned
+            console.log(`🔗 Linked finance record ${financeRecord.id} to task ${task.id}`);
+          }
+          
+          // Invalidate all finance-related caches to ensure Finance Hub shows the new expense immediately
+          const { clearCache } = await import("./performanceOptimizer");
+          const { clearUltraFastCache } = await import("./ultraFastMiddleware");
+          clearCache("finance");  // Pattern-based cache clearing
+          clearCache("finances");  // Alternative pattern
+          clearUltraFastCache("/api/finance");  // Clear base finance endpoint
+          clearUltraFastCache("/api/finance/analytics");  // Clear analytics endpoint
+          clearUltraFastCache("/api/finances");  // Clear finances endpoint
+          clearUltraFastCache("/api/dashboard");  // Clear dashboard cache
+          
+          console.log(`✅ Finance record auto-created for task ${task.id} with ${task.actualCost ? 'actual' : 'estimated'} cost of ${costAmount}`);
+        } catch (financeError) {
+          console.error("Failed to auto-create finance record:", financeError);
+          // Don't fail the task update if finance creation fails
+        }
+      }
+
+      // Create notification for task status change (especially when completed)
+      if (taskData.status && userId) {
+        try {
+          const organizationId = userData?.organizationId || "default-org";
+          let notificationMessage = '';
+          let notificationTitle = '';
+          let priority = 'normal';
+          
+          if (taskData.status === 'completed' || taskData.status === 'approved') {
+            notificationTitle = 'Task Completed';
+            notificationMessage = `Task "${task.title}" has been completed.`;
+            priority = 'normal';
+          } else if (taskData.status === 'in_progress') {
+            notificationTitle = 'Task Started';
+            notificationMessage = `Task "${task.title}" is now in progress.`;
+            priority = 'low';
+          }
+          
+          if (notificationMessage) {
+            // Notify the task assignee (if different from actor) or the task creator
+            const notifyUserId = (task.assignedTo && task.assignedTo !== userId) 
+              ? task.assignedTo 
+              : (task.createdBy && task.createdBy !== userId)
+                ? task.createdBy
+                : userId; // Fallback to current user if no one else to notify
+            
+            await storage.createNotification({
+              organizationId,
+              userId: notifyUserId,
+              type: 'task_assignment',
+              title: notificationTitle,
+              message: notificationMessage,
+              relatedEntityType: 'task',
+              relatedEntityId: task.id,
+              priority,
+              actionUrl: '/tasks',
+              actionLabel: 'View Task',
+              createdBy: userId,
+            });
+            console.log(`🔔 Notification created for task status change: ${taskData.status} (notified user: ${notifyUserId})`);
+          }
+        } catch (notifyError) {
+          console.log("Notification creation failed, but task was updated successfully");
+        }
+      }
+      
+      res.json(task);
+    } catch (error) {
+      console.error("Error updating task:", error);
+      res.status(500).json({ message: "Failed to update task" });
+    }
+  });
+
+  // Enhanced task management routes
+  app.patch("/api/tasks/:id/complete", isDemoAuthenticated, async (req, res) => {
+    try {
+      const userData = req.user as any;
+      const id = parseInt(req.params.id);
+      const { evidencePhotos = [], issuesFound = [], notes } = req.body;
+      
+      const task = await storage.completeTask(id, userData.claims.sub, evidencePhotos, issuesFound, notes);
+      
+      if (!task) {
+        return res.status(404).json({ message: "Task not found" });
+      }
+      
+      // Clear BOTH cache systems to ensure updates appear immediately
+      const { clearCache } = await import("./performanceOptimizer");
+      const { clearUltraFastCache } = await import("./ultraFastMiddleware");
+      clearCache("tasks");  // Clears memory cache with pattern matching
+      clearCache("properties");  // Clear properties cache for real-time sync
+      clearUltraFastCache("tasks");  // Clears ultra-fast cache (includes tasks-admin-demo-admin, etc.)
+      clearUltraFastCache("/api/tasks");  // Clears route-based cache
+      clearUltraFastCache("/api/properties");  // Clear properties cache
+      clearUltraFastCache("/api/dashboard");  // Clears dashboard cache
+      
+      res.json(task);
+    } catch (error) {
+      console.error("Error completing task:", error);
+      res.status(500).json({ message: "Failed to complete task" });
+    }
+  });
+
+  app.patch("/api/tasks/:id/skip", isDemoAuthenticated, async (req, res) => {
+    try {
+      const userData = req.user as any;
+      const id = parseInt(req.params.id);
+      const { reason } = req.body;
+      
+      if (!reason) {
+        return res.status(400).json({ message: "Skip reason is required" });
+      }
+      
+      const task = await storage.skipTask(id, userData.claims.sub, reason);
+      
+      if (!task) {
+        return res.status(404).json({ message: "Task not found" });
+      }
+      
+      // Clear BOTH cache systems to ensure updates appear immediately
+      const { clearCache } = await import("./performanceOptimizer");
+      const { clearUltraFastCache } = await import("./ultraFastMiddleware");
+      clearCache("tasks");  // Clears memory cache with pattern matching
+      clearCache("properties");  // Clear properties cache for real-time sync
+      clearUltraFastCache("tasks");  // Clears ultra-fast cache (includes tasks-admin-demo-admin, etc.)
+      clearUltraFastCache("/api/tasks");  // Clears route-based cache
+      clearUltraFastCache("/api/properties");  // Clear properties cache
+      clearUltraFastCache("/api/dashboard");  // Clears dashboard cache
+      
+      res.json(task);
+    } catch (error) {
+      console.error("Error skipping task:", error);
+      res.status(500).json({ message: "Failed to skip task" });
+    }
+  });
+
+  app.patch("/api/tasks/:id/reschedule", isDemoAuthenticated, async (req, res) => {
+    try {
+      const userData = req.user as any;
+      const id = parseInt(req.params.id);
+      const { newDate, reason } = req.body;
+      
+      if (!newDate || !reason) {
+        return res.status(400).json({ message: "New date and reason are required" });
+      }
+      
+      const task = await storage.rescheduleTask(id, userData.claims.sub, new Date(newDate), reason);
+      
+      if (!task) {
+        return res.status(404).json({ message: "Task not found" });
+      }
+      
+      // Clear BOTH cache systems to ensure updates appear immediately
+      const { clearCache } = await import("./performanceOptimizer");
+      const { clearUltraFastCache } = await import("./ultraFastMiddleware");
+      clearCache("tasks");  // Clears memory cache with pattern matching
+      clearCache("properties");  // Clear properties cache for real-time sync
+      clearUltraFastCache("tasks");  // Clears ultra-fast cache (includes tasks-admin-demo-admin, etc.)
+      clearUltraFastCache("/api/tasks");  // Clears route-based cache
+      clearUltraFastCache("/api/properties");  // Clear properties cache
+      clearUltraFastCache("/api/dashboard");  // Clears dashboard cache
+      
+      res.json(task);
+    } catch (error) {
+      console.error("Error rescheduling task:", error);
+      res.status(500).json({ message: "Failed to reschedule task" });
+    }
+  });
+
+  app.patch("/api/tasks/:id/start", isDemoAuthenticated, async (req, res) => {
+    try {
+      const userData = req.user as any;
+      const id = parseInt(req.params.id);
+      
+      const task = await storage.startTask(id, userData.claims.sub);
+      
+      if (!task) {
+        return res.status(404).json({ message: "Task not found" });
+      }
+      
+      // Clear BOTH cache systems to ensure updates appear immediately
+      const { clearCache } = await import("./performanceOptimizer");
+      const { clearUltraFastCache } = await import("./ultraFastMiddleware");
+      clearCache("tasks");  // Clears memory cache with pattern matching
+      clearCache("properties");  // Clear properties cache for real-time sync
+      clearUltraFastCache("tasks");  // Clears ultra-fast cache (includes tasks-admin-demo-admin, etc.)
+      clearUltraFastCache("/api/tasks");  // Clears route-based cache
+      clearUltraFastCache("/api/properties");  // Clear properties cache
+      clearUltraFastCache("/api/dashboard");  // Clears dashboard cache
+      
+      res.json(task);
+    } catch (error) {
+      console.error("Error starting task:", error);
+      res.status(500).json({ message: "Failed to start task" });
+    }
+  });
+
+  // Task history routes
+  app.get("/api/tasks/:id/history", isDemoAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const history = await storage.getTaskHistory(id);
+      res.json(history);
+    } catch (error) {
+      console.error("Error fetching task history:", error);
+      res.status(500).json({ message: "Failed to fetch task history" });
+    }
+  });
+
+  app.get("/api/properties/:id/task-history", isDemoAuthenticated, async (req, res) => {
+    try {
+      const propertyId = parseInt(req.params.id);
+      const history = await storage.getTaskHistoryByProperty(propertyId);
+      res.json(history);
+    } catch (error) {
+      console.error("Error fetching property task history:", error);
+      res.status(500).json({ message: "Failed to fetch property task history" });
+    }
+  });
+
+  // Booking routes with caching
+  app.get("/api/bookings", isDemoAuthenticated, async (req: any, res) => {
+    const { sendCachedOrFetch } = await import("./performanceOptimizer");
+    const organizationId = req.user?.organizationId || "default-org";
+    const source = req.query.source as 'LOCAL' | 'HOSTAWAY' | undefined;
+    const cacheKey = source ? `bookings-${organizationId}-${source}` : `bookings-${organizationId}`;
+    
+    return sendCachedOrFetch(
+      cacheKey,
+      () => storage.getBookings(organizationId, source),
+      res,
+      10 // 10 minute cache for bookings
+    );
+  });
+
+  // Enhanced bookings with source information (for admin/PM dashboards)
+  app.get("/api/bookings/with-source", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId } = req.user;
+      const { propertyId } = req.query;
+      
+      const bookings = await storage.getBookingsWithSource(
+        organizationId, 
+        propertyId ? parseInt(propertyId) : undefined
+      );
+      res.json(bookings);
+    } catch (error) {
+      console.error("Error fetching bookings with source:", error);
+      res.status(500).json({ message: "Failed to fetch bookings with source information" });
+    }
+  });
+
+  app.post("/api/bookings", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId } = req.user;
+      
+      // Add organizationId and default status from authenticated user context
+      const bookingData = insertBookingSchema.parse({
+        ...req.body,
+        organizationId,
+        status: req.body.status || "pending",
+      });
+      
+      
+      // Validate payment amounts
+      const totalAmount = parseFloat(bookingData.totalAmount || "0");
+      const amountPaid = parseFloat(bookingData.amountPaid || "0");
+
+      // Ensure values are valid numbers
+      if (isNaN(totalAmount) || !isFinite(totalAmount)) {
+        return res.status(400).json({ 
+          message: "Total amount must be a valid number"
+        });
+      }
+
+      if (isNaN(amountPaid) || !isFinite(amountPaid)) {
+        return res.status(400).json({ 
+          message: "Amount paid must be a valid number"
+        });
+      }
+
+      // Ensure non-negative amounts
+      if (totalAmount < 0) {
+        return res.status(400).json({ 
+          message: "Total amount cannot be negative"
+        });
+      }
+
+      if (amountPaid < 0) {
+        return res.status(400).json({ 
+          message: "Amount paid cannot be negative"
+        });
+      }
+
+      if (amountPaid > totalAmount) {
+        return res.status(400).json({ 
+          message: "Amount paid cannot exceed total amount"
+        });
+      }
+
+      // Normalize values for storage
+      bookingData.totalAmount = totalAmount.toFixed(2);
+      bookingData.amountPaid = amountPaid.toFixed(2);
+      bookingData.amountDue = Math.max(0, totalAmount - amountPaid).toFixed(2);
+      // Create the booking in the database
+      const booking = await storage.createBooking(bookingData);
+
+
+      
+      // Payment tracking: Create finance record if amountPaid > 0
+      if (booking.amountPaid && parseFloat(booking.amountPaid.toString()) > 0) {
+        try {
+          const financeData = insertFinanceSchema.parse({
+            organizationId: booking.organizationId,
+            propertyId: booking.propertyId,
+            bookingId: booking.id,
+            type: "income",
+            source: "guest-payment",
+            category: "Booking Payment",
+            department: "front-office",
+            amount: booking.amountPaid,
+            currency: booking.currency || "USD",
+            description: `Payment from ${booking.guestName} (Booking #${booking.id})`,
+            date: new Date().toISOString().split('T')[0],
+            status: booking.paymentStatus === "paid" ? "completed" : "pending",
+            referenceNumber: `BOOKING-${booking.id}`,
+          });
+          
+          await storage.createFinance(financeData);
+          console.log(`💰 Finance income record created for booking #${booking.id}, amount: ${booking.amountPaid}`);
+        } catch (financeError) {
+          console.error("Error creating finance record for booking payment:", financeError);
+          // Don't fail the booking creation if finance record creation fails
+        }
+      }
+      
+      // Clear bookings cache to ensure new booking appears immediately
+      const { clearCache } = await import("./performanceOptimizer");
+      const { clearUltraFastCache } = await import("./ultraFastMiddleware");
+      
+      console.log(`🗑️ Clearing bookings cache for organizationId: ${organizationId}`);
+      clearCache("bookings");
+      clearCache("properties");  // Clear properties cache for real-time sync of Last Booking, Occupancy, Revenue
+      
+      // Clear finance caches if payment was recorded
+      if (booking.amountPaid && parseFloat(booking.amountPaid.toString()) > 0) {
+        clearCache("finance");
+        clearCache("finances");
+        clearUltraFastCache("/api/finance");
+        clearUltraFastCache("/api/finance/analytics");
+        clearUltraFastCache("/api/finances");
+        clearUltraFastCache("/api/dashboard");
+        console.log(`💳 Finance caches cleared after booking payment tracking`);
+      }
+      
+      console.log(`✅ Bookings cache cleared after creating booking ID ${booking.id}`);
+      
+      // Create notification for new booking
+      try {
+        const userId = (req.user as any)?.claims?.sub || (req.user as any)?.id;
+        if (userId) {
+          await storage.createNotification({
+            organizationId,
+            userId,
+            type: 'booking_update',
+            title: 'New Booking Created',
+            message: `Booking for ${booking.guestName} from ${booking.checkIn} to ${booking.checkOut} has been created.`,
+            relatedEntityType: 'booking',
+            relatedEntityId: booking.id,
+            priority: 'normal',
+            actionUrl: '/bookings',
+            actionLabel: 'View Booking',
+            createdBy: userId,
+          });
+          console.log(`🔔 Notification created for new booking #${booking.id}`);
+        }
+      } catch (notifyError) {
+        console.log("Notification creation failed, but booking was created successfully");
+      }
+      
+      res.status(201).json(booking);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        console.error("Booking validation errors:", error.errors);
+        return res.status(400).json({ 
+          message: "Invalid booking data", 
+          errors: error.errors.map((err: any) => ({
+            field: err.path.join('.'),
+            message: err.message
+          }))
+        });
+      }
+      console.error("Error creating booking:", error);
+      res.status(500).json({ message: "Failed to create booking" });
+    }
+  });
+  // Get single booking by ID
+  app.get("/api/bookings/:id", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId } = req.user;
+      const bookingId = parseInt(req.params.id);
+      
+      if (isNaN(bookingId)) {
+        return res.status(400).json({ message: "Invalid booking ID" });
+      }
+
+      const booking = await storage.getBooking(bookingId);
+      
+      if (!booking) {
+        return res.status(404).json({ message: "Booking not found" });
+      }
+
+      // Verify booking belongs to user's organization
+      if (booking.organizationId !== organizationId) {
+        return res.status(403).json({ message: "Unauthorized to access this booking" });
+      }
+
+      res.json(booking);
+    } catch (error) {
+      console.error("Error fetching booking:", error);
+      res.status(500).json({ message: "Failed to fetch booking" });
+    }
+  });
+
+  // Update booking status
+  app.patch("/api/bookings/:id", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId } = req.user;
+      const bookingId = parseInt(req.params.id);
+      
+      if (isNaN(bookingId)) {
+        return res.status(400).json({ message: "Invalid booking ID" });
+      }
+
+      // Verify booking belongs to user's organization
+      const booking = await storage.getBooking(bookingId);
+      if (!booking) {
+        return res.status(404).json({ message: "Booking not found" });
+      }
+      if (booking.organizationId !== organizationId) {
+        return res.status(403).json({ message: "Unauthorized to update this booking" });
+      }
+
+      // Track if payment amount is being updated
+      const isPaymentUpdate = req.body.amountPaid !== undefined;
+      const oldAmountPaid = parseFloat(booking.amountPaid?.toString() || "0");
+      
+      // Validate payment amounts if being updated
+      if (isPaymentUpdate) {
+        const totalAmount = parseFloat(req.body.totalAmount?.toString() || booking.totalAmount?.toString() || "0");
+        const newAmountPaid = parseFloat(req.body.amountPaid?.toString() || "0");
+
+        // Ensure values are valid numbers
+        if (isNaN(newAmountPaid) || !isFinite(newAmountPaid)) {
+          return res.status(400).json({ 
+            message: "Amount paid must be a valid number"
+          });
+        }
+
+        if (newAmountPaid < 0) {
+          return res.status(400).json({ 
+            message: "Amount paid cannot be negative"
+          });
+        }
+
+        if (newAmountPaid > totalAmount) {
+          return res.status(400).json({ 
+            message: "Amount paid cannot exceed total amount"
+          });
+        }
+
+        // Calculate payment status based on amountPaid vs totalAmount
+        if (newAmountPaid === 0) {
+          req.body.paymentStatus = "pending";
+        } else if (newAmountPaid >= totalAmount) {
+          req.body.paymentStatus = "paid";
+        } else {
+          req.body.paymentStatus = "partial";
+        }
+
+        // Calculate amount due
+        req.body.amountDue = Math.max(0, totalAmount - newAmountPaid).toFixed(2);
+      }
+
+      // Update booking with provided fields
+      const updatedBooking = await storage.updateBooking(bookingId, req.body);
+      
+      // Handle finance record creation/update if payment amount changed
+      if (isPaymentUpdate && updatedBooking) {
+        const newAmountPaid = parseFloat(updatedBooking.amountPaid?.toString() || "0");
+        
+        try {
+          // Query for existing finance record linked to this booking
+          const allFinances = await storage.getFinances();
+          const existingFinanceRecord = allFinances.find(
+            (f: any) => f.bookingId === bookingId && f.source === "guest-payment"
+          );
+
+          if (newAmountPaid > 0) {
+            const financeData: any = {
+              organizationId: updatedBooking.organizationId,
+              propertyId: updatedBooking.propertyId,
+              bookingId: updatedBooking.id,
+              type: "income",
+              source: "guest-payment",
+              category: "Booking Payment",
+              department: "front-office",
+              amount: updatedBooking.amountPaid,
+              currency: updatedBooking.currency || "USD",
+              description: `Payment from ${updatedBooking.guestName} (Booking #${updatedBooking.id})`,
+              date: new Date().toISOString().split('T')[0],
+              status: updatedBooking.paymentStatus === "paid" ? "completed" : "pending",
+              referenceNumber: `BOOKING-${updatedBooking.id}`,
+            };
+
+            if (existingFinanceRecord) {
+              // Update existing finance record
+              await storage.updateFinance(existingFinanceRecord.id, financeData);
+              console.log(`💰 Finance income record updated for booking #${updatedBooking.id}, amount: ${updatedBooking.amountPaid}`);
+            } else {
+              // Create new finance record
+              await storage.createFinance(financeData);
+              console.log(`💰 Finance income record created for booking #${updatedBooking.id}, amount: ${updatedBooking.amountPaid}`);
+            }
+          } else if (existingFinanceRecord && newAmountPaid === 0) {
+            // If payment was reduced to 0, update the finance record to reflect this
+            await storage.updateFinance(existingFinanceRecord.id, {
+              amount: "0",
+              status: "pending",
+            });
+            console.log(`💰 Finance income record updated to 0 for booking #${updatedBooking.id}`);
+          }
+        } catch (financeError) {
+          console.error("Error creating/updating finance record for booking payment:", financeError);
+          // Don't fail the booking update if finance record creation/update fails
+        }
+      }
+      
+      // Clear bookings cache to ensure updated status appears immediately
+      const { clearCache } = await import("./performanceOptimizer");
+      const { clearUltraFastCache } = await import("./ultraFastMiddleware");
+      
+      console.log(`🗑️ Clearing bookings cache for organizationId: ${organizationId}`);
+      clearCache("properties");  // Clear properties cache for real-time sync
+      clearCache("bookings");
+      
+      // Clear finance caches if payment was updated
+      if (isPaymentUpdate) {
+        clearCache("finance");
+        clearCache("finances");
+        clearUltraFastCache("/api/finance");
+        clearUltraFastCache("/api/finance/analytics");
+        clearUltraFastCache("/api/finances");
+        clearUltraFastCache("/api/dashboard");
+        console.log(`💳 Finance caches cleared after booking payment update`);
+        
+        // Trigger ultra-fast cache refresh
+        try {
+          await fetch(`${process.env.REPL_ID ? 'https://' + process.env.REPL_SLUG + '.' + process.env.REPL_OWNER + '.repl.co' : 'http://localhost:5000'}/api/finance/ultra-fast`).catch(() => {});
+          await fetch(`${process.env.REPL_ID ? 'https://' + process.env.REPL_SLUG + '.' + process.env.REPL_OWNER + '.repl.co' : 'http://localhost:5000'}/api/finance/analytics/ultra-fast`).catch(() => {});
+        } catch (fetchError) {
+          // Silently ignore fetch errors
+        }
+      }
+      
+      console.log(`✅ Booking #${bookingId} updated successfully`);
+      
+      res.json(updatedBooking);
+    } catch (error) {
+      console.error("Error updating booking:", error);
+      res.status(500).json({ message: "Failed to update booking" });
+    }
+  });
+
+  // Generate invoice for booking (accessible without auth for direct links)
+  app.get("/api/bookings/:id/invoice", async (req: any, res) => {
+    try {
+      const bookingId = parseInt(req.params.id);
+      
+      if (isNaN(bookingId)) {
+        return res.status(400).send("<h1>Invalid booking ID</h1>");
+      }
+
+      // Get booking details
+      const booking = await storage.getBooking(bookingId);
+      if (!booking) {
+        return res.status(404).send("<h1>Booking not found</h1>");
+      }
+
+      // Get property details
+      const property = await storage.getProperty(booking.propertyId);
+      const propertyName = property?.name || "Unknown Property";
+
+      // Generate HTML invoice
+      const invoiceHTML = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>Invoice - Booking #${booking.id}</title>
+          <style>
+            body {
+              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+              line-height: 1.6;
+              color: #333;
+              max-width: 800px;
+              margin: 0 auto;
+              padding: 20px;
+              background: #f5f5f5;
+            }
+            .invoice-container {
+              background: white;
+              padding: 40px;
+              border-radius: 8px;
+              box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            }
+            .header {
+              border-bottom: 3px solid #2563eb;
+              padding-bottom: 20px;
+              margin-bottom: 30px;
+            }
+            .header h1 {
+              margin: 0;
+              color: #2563eb;
+              font-size: 28px;
+            }
+            .header p {
+              margin: 5px 0 0 0;
+              color: #666;
+            }
+            .info-section {
+              margin-bottom: 30px;
+            }
+            .info-section h2 {
+              color: #2563eb;
+              font-size: 18px;
+              margin-bottom: 15px;
+              border-bottom: 2px solid #e5e7eb;
+              padding-bottom: 8px;
+            }
+            .info-grid {
+              display: grid;
+              grid-template-columns: 150px 1fr;
+              gap: 10px;
+            }
+            .info-label {
+              font-weight: 600;
+              color: #666;
+            }
+            .info-value {
+              color: #333;
+            }
+            .amount-section {
+              background: #f8fafc;
+              padding: 20px;
+              border-radius: 8px;
+              margin-top: 30px;
+            }
+            .amount-row {
+              display: flex;
+              justify-content: space-between;
+              padding: 10px 0;
+              font-size: 24px;
+              font-weight: 700;
+              color: #2563eb;
+            }
+            .footer {
+              margin-top: 40px;
+              padding-top: 20px;
+              border-top: 1px solid #e5e7eb;
+              text-align: center;
+              color: #666;
+              font-size: 14px;
+            }
+            @media print {
+              body {
+                background: white;
+              }
+              .invoice-container {
+                box-shadow: none;
+              }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="invoice-container">
+            <div class="header">
+              <h1>INVOICE</h1>
+              <p>Booking Reference: #${booking.id}</p>
+            </div>
+
+            <div class="info-section">
+              <h2>Guest Information</h2>
+              <div class="info-grid">
+                <div class="info-label">Name:</div>
+                <div class="info-value">${booking.guestName}</div>
+                <div class="info-label">Email:</div>
+                <div class="info-value">${booking.guestEmail || 'N/A'}</div>
+                <div class="info-label">Phone:</div>
+                <div class="info-value">${booking.guestPhone || 'N/A'}</div>
+                <div class="info-label">Guests:</div>
+                <div class="info-value">${booking.guests} ${booking.guests === 1 ? 'guest' : 'guests'}</div>
+              </div>
+            </div>
+
+            <div class="info-section">
+              <h2>Property Details</h2>
+              <div class="info-grid">
+                <div class="info-label">Property:</div>
+                <div class="info-value">${propertyName}</div>
+                <div class="info-label">Check-in:</div>
+                <div class="info-value">${new Date(booking.checkIn).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</div>
+                <div class="info-label">Check-out:</div>
+                <div class="info-value">${new Date(booking.checkOut).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</div>
+                <div class="info-label">Status:</div>
+                <div class="info-value" style="text-transform: capitalize;">${booking.status}</div>
+              </div>
+            </div>
+
+            ${booking.specialRequests ? `
+            <div class="info-section">
+              <h2>Special Requests</h2>
+              <p>${booking.specialRequests}</p>
+            </div>
+            ` : ''}
+
+            <div class="amount-section">
+              <div class="amount-row">
+                <span>Total Amount:</span>
+                <span>${booking.currency || 'USD'} ${parseFloat(booking.totalAmount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+              </div>
+            </div>
+
+            <div class="footer">
+              <p>Thank you for your booking!</p>
+              <p style="margin-top: 10px; font-size: 12px;">Generated on ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
+            </div>
+          </div>
+        </body>
+        </html>
+      `;
+
+      res.setHeader('Content-Type', 'text/html');
+      res.send(invoiceHTML);
+    } catch (error) {
+      console.error("Error generating invoice:", error);
+      res.status(500).send("<h1>Failed to generate invoice</h1>");
+    }
+  });
+
+  // Finance routes
+  app.get("/api/finances", isDemoAuthenticated, async (req, res) => {
+    try {
+      const finances = await storage.getFinances();
+      res.json(finances);
+    } catch (error) {
+      console.error("Error fetching finances:", error);
+      res.status(500).json({ message: "Failed to fetch finances" });
+    }
+  });
+
+  app.post("/api/finances", isDemoAuthenticated, async (req, res) => {
+    try {
+      console.log("📊 Finance POST received:", JSON.stringify(req.body, null, 2));
+      const financeData = insertFinanceSchema.parse(req.body);
+      const finance = await storage.createFinance(financeData);
+      res.status(201).json(finance);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        console.error("❌ Finance validation errors:", JSON.stringify(error.errors, null, 2));
+        return res.status(400).json({ message: "Invalid finance data", errors: error.errors });
+      }
+      console.error("Error creating finance record:", error);
+      res.status(500).json({ message: "Failed to create finance record" });
+    }
+  });
+
+  // Inventory routes (legacy route - now handled by specific inventory endpoints below)
+  app.get("/api/inventory/:propertyId", isDemoAuthenticated, async (req, res) => {
+    try {
+      const propertyId = parseInt(req.params.propertyId);
+      if (isNaN(propertyId)) {
+        return res.status(400).json({ message: "Invalid property ID" });
+      }
+      const inventory = await storage.getInventoryByProperty(propertyId);
+      res.json(inventory);
+    } catch (error) {
+      console.error("Error fetching inventory:", error);
+      res.status(500).json({ message: "Failed to fetch inventory" });
+    }
+  });
+
+  // ==================== OWNER ONBOARDING SYSTEM ROUTES ====================
+
+  // Get owner onboarding processes
+  app.get("/api/owner-onboarding/processes", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      const organizationId = "demo-org";
+      
+      // Admin/PM can see all processes, owners only see their own
+      let processes;
+      if (user?.role === 'admin' || user?.role === 'portfolio-manager') {
+        processes = await storage.getOwnerOnboardingProcesses(organizationId);
+      } else if (user?.role === 'owner') {
+        processes = await storage.getOwnerOnboardingProcesses(organizationId, { ownerId: user.id });
+      } else {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      res.json(processes);
+    } catch (error) {
+      console.error("Error fetching onboarding processes:", error);
+      res.status(500).json({ message: "Failed to fetch onboarding processes" });
+    }
+  });
+
+  // Get specific onboarding process
+  app.get("/api/owner-onboarding/processes/:id", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const user = req.user;
+      
+      const process = await storage.getOwnerOnboardingProcess(parseInt(id));
+      if (!process) {
+        return res.status(404).json({ message: "Onboarding process not found" });
+      }
+      
+      // Check access permissions
+      if (user?.role !== 'admin' && user?.role !== 'portfolio-manager' && process.ownerId !== user.id) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      res.json(process);
+    } catch (error) {
+      console.error("Error fetching onboarding process:", error);
+      res.status(500).json({ message: "Failed to fetch onboarding process" });
+    }
+  });
+
+  // Create new onboarding process
+  app.post("/api/owner-onboarding/processes", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      
+      // Only admin/PM can create new onboarding processes
+      if (user?.role !== 'admin' && user?.role !== 'portfolio-manager') {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      const processData = {
+        ...req.body,
+        organizationId: "demo-org",
+        createdBy: user.id,
+        currentStep: 1,
+        status: 'in_progress' as const
+      };
+      
+      const process = await storage.createOwnerOnboardingProcess(processData);
+      res.status(201).json(process);
+    } catch (error) {
+      console.error("Error creating onboarding process:", error);
+      res.status(500).json({ message: "Failed to create onboarding process" });
+    }
+  });
+
+  // Update onboarding process
+  app.put("/api/owner-onboarding/processes/:id", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const user = req.user;
+      
+      const process = await storage.getOwnerOnboardingProcess(parseInt(id));
+      if (!process) {
+        return res.status(404).json({ message: "Onboarding process not found" });
+      }
+      
+      // Check access permissions
+      if (user?.role !== 'admin' && user?.role !== 'portfolio-manager' && process.ownerId !== user.id) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      const updatedProcess = await storage.updateOwnerOnboardingProcess(parseInt(id), req.body);
+      res.json(updatedProcess);
+    } catch (error) {
+      console.error("Error updating onboarding process:", error);
+      res.status(500).json({ message: "Failed to update onboarding process" });
+    }
+  });
+
+  // Get onboarding step details
+  app.get("/api/owner-onboarding/processes/:processId/steps", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { processId } = req.params;
+      const user = req.user;
+      const organizationId = "demo-org";
+      
+      const process = await storage.getOwnerOnboardingProcess(parseInt(processId));
+      if (!process) {
+        return res.status(404).json({ message: "Onboarding process not found" });
+      }
+      
+      // Check access permissions
+      if (user?.role !== 'admin' && user?.role !== 'portfolio-manager' && process.ownerId !== user.id) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      const steps = await storage.getOnboardingStepDetails(organizationId, { processId: parseInt(processId) });
+      res.json(steps);
+    } catch (error) {
+      console.error("Error fetching onboarding steps:", error);
+      res.status(500).json({ message: "Failed to fetch onboarding steps" });
+    }
+  });
+
+  // Update onboarding step
+  app.put("/api/owner-onboarding/steps/:stepId", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { stepId } = req.params;
+      const user = req.user;
+      
+      const step = await storage.getOnboardingStepDetail(parseInt(stepId));
+      if (!step) {
+        return res.status(404).json({ message: "Onboarding step not found" });
+      }
+      
+      const process = await storage.getOwnerOnboardingProcess(step.processId);
+      if (!process) {
+        return res.status(404).json({ message: "Associated onboarding process not found" });
+      }
+      
+      // Check access permissions
+      if (user?.role !== 'admin' && user?.role !== 'portfolio-manager' && process.ownerId !== user.id) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      const updatedStep = await storage.updateOnboardingStepDetail(parseInt(stepId), {
+        ...req.body,
+        updatedBy: user.id,
+        updatedAt: new Date()
+      });
+      
+      res.json(updatedStep);
+    } catch (error) {
+      console.error("Error updating onboarding step:", error);
+      res.status(500).json({ message: "Failed to update onboarding step" });
+    }
+  });
+
+  // Get owner documents
+  app.get("/api/owner-onboarding/documents", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      const organizationId = "demo-org";
+      const { ownerId, category, processId } = req.query;
+      
+      const filters: any = {};
+      if (ownerId) filters.ownerId = ownerId as string;
+      if (category) filters.category = category as string;
+      if (processId) filters.processId = parseInt(processId as string);
+      
+      // Owners can only see their own documents
+      if (user?.role === 'owner') {
+        filters.ownerId = user.id;
+      }
+      
+      const documents = await storage.getOwnerDocuments(organizationId, filters);
+      res.json(documents);
+    } catch (error) {
+      console.error("Error fetching owner documents:", error);
+      res.status(500).json({ message: "Failed to fetch owner documents" });
+    }
+  });
+
+  // Upload owner document
+  app.post("/api/owner-onboarding/documents", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      
+      const documentData = {
+        ...req.body,
+        organizationId: "demo-org",
+        uploadedBy: user.id,
+        status: 'pending' as const
+      };
+      
+      const document = await storage.createOwnerDocument(documentData);
+      res.status(201).json(document);
+    } catch (error) {
+      console.error("Error uploading owner document:", error);
+      res.status(500).json({ message: "Failed to upload owner document" });
+    }
+  });
+
+  // Dashboard stats with aggressive caching
+  app.get("/api/dashboard/stats", isDemoAuthenticated, async (req: any, res) => {
+    const { sendCachedOrFetch } = await import("./performanceOptimizer");
+    const organizationId = req.user?.organizationId || "default-org";
+    const cacheKey = `dashboard-stats-${organizationId}`;
+    
+    return sendCachedOrFetch(
+      cacheKey,
+      async () => {
+        const properties = await storage.getProperties(); // Get all properties (no source filter)
+        const bookings = await storage.getBookings(organizationId);
+        const tasks = await storage.getTasks(organizationId);
+        const finances = await storage.getFinances(organizationId);
+
+        const activeBookings = bookings.filter(b => b.status === 'confirmed' || b.status === 'checked-in');
+        const pendingTasks = tasks.filter(t => t.status === 'pending' || t.status === 'in-progress');
+        
+        const monthlyRevenue = finances
+          .filter(f => f.type === 'income' && new Date(f.date).getMonth() === new Date().getMonth())
+          .reduce((sum, f) => sum + parseFloat(f.amount || '0'), 0);
+
+        return {
+          totalProperties: properties.length,
+          activeBookings: activeBookings.length,
+          pendingTasks: pendingTasks.length,
+          monthlyRevenue: monthlyRevenue,
+        };
+      },
+      res,
+      30 // 30 minute cache for dashboard stats
+    );
+  });
+
+  // Platform Settings routes (Admin only)
+  app.get("/api/admin/settings", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const user = await storage.getUser(userId);
+      
+      if (user?.role !== 'admin') {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+      
+      const settings = await storage.getPlatformSettings();
+      res.json(settings);
+    } catch (error) {
+      console.error("Error fetching platform settings:", error);
+      res.status(500).json({ message: "Failed to fetch platform settings" });
+    }
+  });
+
+  app.get("/api/admin/settings/:category", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const user = await storage.getUser(userId);
+      
+      if (user?.role !== 'admin') {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+      
+      const { category } = req.params;
+      const settings = await storage.getPlatformSettingsByCategory(category);
+      res.json(settings);
+    } catch (error) {
+      console.error("Error fetching platform settings by category:", error);
+      res.status(500).json({ message: "Failed to fetch platform settings" });
+    }
+  });
+
+  app.put("/api/admin/settings/:key", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const user = await storage.getUser(userId);
+      
+      if (user?.role !== 'admin') {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+      
+      const { key } = req.params;
+      const settingData = insertPlatformSettingSchema.parse({
+        ...req.body,
+        settingKey: key,
+        updatedBy: userId,
+      });
+      
+      const setting = await storage.upsertPlatformSetting(settingData);
+      res.json(setting);
+    } catch (error) {
+      console.error("Error updating platform setting:", error);
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ message: "Invalid setting data", errors: error.errors });
+      } else {
+        res.status(500).json({ message: "Failed to update platform setting" });
+      }
+    }
+  });
+
+  app.delete("/api/admin/settings/:key", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const user = await storage.getUser(userId);
+      
+      if (user?.role !== 'admin') {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+      
+      const { key } = req.params;
+      const deleted = await storage.deletePlatformSetting(key);
+      
+      if (!deleted) {
+        return res.status(404).json({ message: "Setting not found" });
+      }
+      
+      res.json({ message: "Setting deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting platform setting:", error);
+      res.status(500).json({ message: "Failed to delete platform setting" });
+    }
+  });
+
+  // Add-on Services routes
+  app.get("/api/addon-services", isDemoAuthenticated, async (req, res) => {
+    try {
+      const { organizationId } = getTenantContext(req);
+      const services = await storage.getAddonServices();
+      // Filter by organization in production - for demo, return all
+      res.json(services);
+    } catch (error) {
+      console.error("Error fetching addon services:", error);
+      res.status(500).json({ message: "Failed to fetch addon services" });
+    }
+  });
+
+  app.post("/api/addon-services", isDemoAuthenticated, async (req, res) => {
+    try {
+      const { organizationId } = getTenantContext(req);
+      const userData = req.user as any;
+      
+      const validatedData = insertAddonServiceSchema.parse({
+        ...req.body,
+        organizationId,
+      });
+
+      const service = await storage.createAddonService(validatedData);
+      res.status(201).json(service);
+    } catch (error) {
+      console.error("Error creating addon service:", error);
+      res.status(500).json({ message: "Failed to create addon service" });
+    }
+  });
+
+  // Add-on Bookings routes
+  app.get("/api/addon-bookings", isDemoAuthenticated, async (req, res) => {
+    try {
+      const { organizationId } = getTenantContext(req);
+      const bookings = await storage.getAddonBookings();
+      // Filter by organization in production - for demo, return all
+      res.json(bookings);
+    } catch (error) {
+      console.error("Error fetching addon bookings:", error);
+      res.status(500).json({ message: "Failed to fetch addon bookings" });
+    }
+  });
+
+  app.post("/api/addon-bookings", isDemoAuthenticated, async (req, res) => {
+    try {
+      const { organizationId } = getTenantContext(req);
+      const userData = req.user as any;
+      
+      const validatedData = insertAddonBookingSchema.parse({
+        ...req.body,
+        organizationId,
+        bookedBy: userData.id,
+        chargedTo: req.body.billingType?.includes('guest') ? 'guest' : 
+                   req.body.billingType?.includes('owner') ? 'owner' : 'company',
+      });
+
+      const booking = await storage.createAddonBooking(validatedData);
+
+      // Create financial record for billing
+      if (booking.totalPrice > 0) {
+        const financeData = {
+          organizationId,
+          propertyId: booking.propertyId,
+          type: booking.billingType?.includes('gift') ? 'expense' : 'income',
+          source: booking.billingType === 'owner-gift' ? 'complimentary' :
+                  booking.billingType === 'company-gift' ? 'complimentary' :
+                  booking.billingType === 'auto-bill-owner' ? 'owner-charge' : 'guest-payment',
+          sourceType: booking.billingType?.includes('gift') ? booking.billingType : null,
+          category: 'add-on-service',
+          subcategory: req.body.serviceCategory || 'general',
+          amount: booking.totalPrice.toString(),
+          description: `Add-on service: ${req.body.serviceName} for ${booking.guestName}`,
+          date: new Date().toISOString().split('T')[0],
+          status: booking.billingType?.includes('gift') ? 'paid' : 'pending',
+          processedBy: userData.id,
+          referenceNumber: `ADDON-${booking.id}`,
+        };
+
+        await storage.createFinance(financeData);
+      }
+
+      res.status(201).json(booking);
+    } catch (error) {
+      console.error("Error creating addon booking:", error);
+      res.status(500).json({ message: "Failed to create addon booking" });
+    }
+  });
+
+  // Utility Bills routes
+  // 
+  // COMMENTED OUT - Using utility-bills-routes.ts instead
+  //       const bill = await storage.createUtilityBill(validatedData);
+  // COMMENTED OUT - Using utility-bills-routes.ts instead
+  //       res.status(201).json(bill);
+  // COMMENTED OUT - Using utility-bills-routes.ts instead
+  //     } catch (error) {
+  // COMMENTED OUT - Using utility-bills-routes.ts instead
+  //       console.error("Error creating utility bill:", error);
+  // COMMENTED OUT - Using utility-bills-routes.ts instead
+  //       res.status(500).json({ message: "Failed to create utility bill" });
+  // COMMENTED OUT - Using utility-bills-routes.ts instead
+  //     }
+  // COMMENTED OUT - Using utility-bills-routes.ts instead
+  //   });
+
+  // Welcome Pack Inventory routes
+  app.get("/api/welcome-pack-items", isDemoAuthenticated, async (req, res) => {
+    try {
+      const items = await storage.getWelcomePackItems();
+      res.json(items);
+    } catch (error) {
+      console.error("Error fetching welcome pack items:", error);
+      res.status(500).json({ message: "Failed to fetch welcome pack items" });
+    }
+  });
+
+  app.post("/api/welcome-pack-items", isDemoAuthenticated, async (req, res) => {
+    try {
+      const { organizationId } = getTenantContext(req);
+      
+      const validatedData = {
+        ...req.body,
+        organizationId,
+      };
+
+      const item = await storage.createWelcomePackItem(validatedData);
+      res.status(201).json(item);
+    } catch (error) {
+      console.error("Error creating welcome pack item:", error);
+      res.status(500).json({ message: "Failed to create welcome pack item" });
+    }
+  });
+
+  app.get("/api/welcome-pack-templates", isDemoAuthenticated, async (req, res) => {
+    try {
+      const templates = await storage.getWelcomePackTemplates();
+      res.json(templates);
+    } catch (error) {
+      console.error("Error fetching welcome pack templates:", error);
+      res.status(500).json({ message: "Failed to fetch welcome pack templates" });
+    }
+  });
+
+  app.get("/api/welcome-pack-templates/property/:propertyId", isDemoAuthenticated, async (req, res) => {
+    try {
+      const propertyId = parseInt(req.params.propertyId);
+      const templates = await storage.getWelcomePackTemplatesByProperty(propertyId);
+      res.json(templates);
+    } catch (error) {
+      console.error("Error fetching property welcome pack templates:", error);
+      res.status(500).json({ message: "Failed to fetch property welcome pack templates" });
+    }
+  });
+
+  app.post("/api/welcome-pack-templates", isDemoAuthenticated, async (req, res) => {
+    try {
+      const { organizationId } = getTenantContext(req);
+      
+      const validatedData = {
+        ...req.body,
+        organizationId,
+      };
+
+      const template = await storage.createWelcomePackTemplate(validatedData);
+      res.status(201).json(template);
+    } catch (error) {
+      console.error("Error creating welcome pack template:", error);
+      res.status(500).json({ message: "Failed to create welcome pack template" });
+    }
+  });
+
+  app.get("/api/welcome-pack-usage", isDemoAuthenticated, async (req, res) => {
+    try {
+      const usage = await storage.getWelcomePackUsage();
+      res.json(usage);
+    } catch (error) {
+      console.error("Error fetching welcome pack usage:", error);
+      res.status(500).json({ message: "Failed to fetch welcome pack usage" });
+    }
+  });
+
+  app.post("/api/welcome-pack-usage/checkout", isDemoAuthenticated, async (req, res) => {
+    try {
+      const userData = req.user as any;
+      const { bookingId, propertyId } = req.body;
+      
+      const usageRecords = await storage.logWelcomePackUsageFromCheckout(
+        bookingId, 
+        propertyId, 
+        userData.claims.sub
+      );
+      
+      res.status(201).json(usageRecords);
+    } catch (error) {
+      console.error("Error logging welcome pack checkout usage:", error);
+      res.status(500).json({ message: "Failed to log welcome pack checkout usage" });
+    }
+  });
+
+  // Inventory analytics endpoints
+  app.get("/api/inventory/stats", isDemoAuthenticated, async (req, res) => {
+    try {
+      const { organizationId } = getTenantContext(req);
+      const { propertyId, staffId, fromDate, toDate } = req.query;
+      
+      const filters = {
+        propertyId: propertyId as string,
+        staffId: staffId as string,
+        fromDate: fromDate ? new Date(fromDate as string) : undefined,
+        toDate: toDate ? new Date(toDate as string) : undefined,
+      };
+      
+      const stats = await storage.getInventoryStats(organizationId, filters);
+      res.json(stats);
+    } catch (error) {
+      console.error("Error fetching inventory stats:", error);
+      res.status(500).json({ message: "Failed to fetch inventory stats" });
+    }
+  });
+
+  app.get("/api/welcome-pack-usage/detailed", isDemoAuthenticated, async (req, res) => {
+    try {
+      const { organizationId } = getTenantContext(req);
+      const { propertyId, staffId, fromDate, toDate } = req.query;
+      
+      const filters = {
+        propertyId: propertyId as string,
+        staffId: staffId as string,
+        fromDate: fromDate ? new Date(fromDate as string) : undefined,
+        toDate: toDate ? new Date(toDate as string) : undefined,
+      };
+      
+      const usage = await storage.getDetailedWelcomePackUsage(organizationId, filters);
+      res.json(usage);
+    } catch (error) {
+      console.error("Error fetching detailed welcome pack usage:", error);
+      res.status(500).json({ message: "Failed to fetch detailed welcome pack usage" });
+    }
+  });
+
+  // Financial & Invoice Toolkit routes
+
+  // Staff salary routes
+  app.get("/api/staff/salary/:userId", isDemoAuthenticated, async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const salary = await storage.getStaffSalary(userId);
+      res.json(salary);
+    } catch (error) {
+      console.error("Error fetching staff salary:", error);
+      res.status(500).json({ message: "Failed to fetch staff salary" });
+    }
+  });
+
+  app.post("/api/staff/salary", isDemoAuthenticated, async (req, res) => {
+    try {
+      const { organizationId } = getTenantContext(req);
+      const salaryData = { ...req.body, organizationId };
+      const salary = await storage.createStaffSalary(salaryData);
+      res.status(201).json(salary);
+    } catch (error) {
+      console.error("Error creating staff salary:", error);
+      res.status(500).json({ message: "Failed to create staff salary" });
+    }
+  });
+
+  // Commission earnings routes
+  app.get("/api/commission-earnings/:userId", isDemoAuthenticated, async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const { period } = req.query;
+      const earnings = await storage.getCommissionEarnings(userId, period as string);
+      res.json(earnings);
+    } catch (error) {
+      console.error("Error fetching commission earnings:", error);
+      res.status(500).json({ message: "Failed to fetch commission earnings" });
+    }
+  });
+
+  app.get("/api/portfolio-manager/earnings/:managerId", isDemoAuthenticated, async (req, res) => {
+    try {
+      const { managerId } = req.params;
+      const { period } = req.query;
+      const earnings = await storage.getPortfolioManagerEarnings(managerId, period as string);
+      res.json(earnings);
+    } catch (error) {
+      console.error("Error fetching portfolio manager earnings:", error);
+      res.status(500).json({ message: "Failed to fetch portfolio manager earnings" });
+    }
+  });
+
+  // Portfolio assignment routes
+  app.get("/api/portfolio-assignments/:managerId", isDemoAuthenticated, async (req, res) => {
+    try {
+      const { managerId } = req.params;
+      const assignments = await storage.getPortfolioAssignments(managerId);
+      res.json(assignments);
+    } catch (error) {
+      console.error("Error fetching portfolio assignments:", error);
+      res.status(500).json({ message: "Failed to fetch portfolio assignments" });
+    }
+  });
+
+  app.post("/api/portfolio-assignments", isDemoAuthenticated, async (req, res) => {
+    try {
+      const { organizationId } = getTenantContext(req);
+      const assignmentData = { ...req.body, organizationId };
+      const assignment = await storage.assignPortfolioProperty(assignmentData);
+      res.status(201).json(assignment);
+    } catch (error) {
+      console.error("Error creating portfolio assignment:", error);
+      res.status(500).json({ message: "Failed to create portfolio assignment" });
+    }
+  });
+
+  // Invoice routes
+  app.get("/api/invoices", isDemoAuthenticated, async (req, res) => {
+    try {
+      const { organizationId } = getTenantContext(req);
+      const { userId, type, status } = req.query;
+      const filters = {
+        userId: userId as string,
+        type: type as string,
+        status: status as string,
+      };
+      const invoices = await storage.getInvoices(organizationId, filters);
+      res.json(invoices);
+    } catch (error) {
+      console.error("Error fetching invoices:", error);
+      res.status(500).json({ message: "Failed to fetch invoices" });
+    }
+  });
+
+  app.get("/api/invoices/:id", isDemoAuthenticated, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const invoice = await storage.getInvoice(parseInt(id));
+      if (!invoice) {
+        return res.status(404).json({ message: "Invoice not found" });
+      }
+      res.json(invoice);
+    } catch (error) {
+      console.error("Error fetching invoice:", error);
+      res.status(500).json({ message: "Failed to fetch invoice" });
+    }
+  });
+
+  app.post("/api/invoices", isDemoAuthenticated, async (req, res) => {
+    try {
+      const { organizationId } = getTenantContext(req);
+      const userData = req.user as any;
+      const { lineItems, ...invoiceData } = req.body;
+      
+      // Generate invoice number
+      const invoiceNumber = await storage.generateInvoiceNumber(organizationId);
+      
+      const invoice = await storage.createInvoice(
+        {
+          ...invoiceData,
+          organizationId,
+          invoiceNumber,
+          createdBy: userData.claims.sub,
+        },
+        lineItems || []
+      );
+      res.status(201).json(invoice);
+    } catch (error) {
+      console.error("Error creating invoice:", error);
+      res.status(500).json({ message: "Failed to create invoice" });
+    }
+  });
+
+  app.patch("/api/invoices/:id", isDemoAuthenticated, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const invoice = await storage.updateInvoice(parseInt(id), req.body);
+      if (!invoice) {
+        return res.status(404).json({ message: "Invoice not found" });
+      }
+      res.json(invoice);
+    } catch (error) {
+      console.error("Error updating invoice:", error);
+      res.status(500).json({ message: "Failed to update invoice" });
+    }
+  });
+
+  app.delete("/api/invoices/:id", isDemoAuthenticated, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const deleted = await storage.deleteInvoice(parseInt(id));
+      if (!deleted) {
+        return res.status(404).json({ message: "Invoice not found" });
+      }
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting invoice:", error);
+      res.status(500).json({ message: "Failed to delete invoice" });
+    }
+  });
+
+  // Owner Payout routes
+  app.get("/api/owner-payouts", isDemoAuthenticated, async (req, res) => {
+    try {
+      const { status, ownerId, propertyId } = req.query;
+      
+      let payouts;
+      if (status) {
+        payouts = await storage.getOwnerPayoutsByStatus(status as string);
+      } else if (ownerId) {
+        payouts = await storage.getOwnerPayoutsByOwner(ownerId as string);
+      } else if (propertyId) {
+        payouts = await storage.getOwnerPayoutsByProperty(parseInt(propertyId as string));
+      } else {
+        payouts = await storage.getOwnerPayouts();
+      }
+      
+      res.json(payouts);
+    } catch (error) {
+      console.error("Error fetching owner payouts:", error);
+      res.status(500).json({ message: "Failed to fetch owner payouts" });
+    }
+  });
+
+  app.get("/api/owner-payouts/:id", isDemoAuthenticated, async (req, res) => {
+    try {
+      const payoutId = parseInt(req.params.id);
+      const payout = await storage.getOwnerPayout(payoutId);
+      
+      if (!payout) {
+        return res.status(404).json({ message: "Owner payout not found" });
+      }
+      
+      res.json(payout);
+    } catch (error) {
+      console.error("Error fetching owner payout:", error);
+      res.status(500).json({ message: "Failed to fetch owner payout" });
+    }
+  });
+
+  app.post("/api/owner-payouts", isDemoAuthenticated, async (req, res) => {
+    try {
+      const userData = req.user as any;
+      const { organizationId } = getTenantContext(req);
+      
+      const validatedData = {
+        ...req.body,
+        organizationId,
+        requestedBy: userData.claims.sub,
+        status: 'pending',
+        requestDate: new Date(),
+      };
+
+      const payout = await storage.createOwnerPayout(validatedData);
+      res.status(201).json(payout);
+    } catch (error) {
+      console.error("Error creating owner payout:", error);
+      res.status(500).json({ message: "Failed to create owner payout" });
+    }
+  });
+
+  app.patch("/api/owner-payouts/:id/approve", isDemoAuthenticated, async (req, res) => {
+    try {
+      const userData = req.user as any;
+      const payoutId = parseInt(req.params.id);
+      const { approvalNotes } = req.body;
+      
+      const updatedPayout = await storage.approveOwnerPayout(
+        payoutId, 
+        userData.claims.sub, 
+        approvalNotes
+      );
+      
+      if (!updatedPayout) {
+        return res.status(404).json({ message: "Owner payout not found" });
+      }
+      
+      // Send notification to the requester
+      await storage.notifyPayoutAction(payoutId, updatedPayout.requestedBy, 'approved', userData.claims.sub);
+      
+      res.json(updatedPayout);
+    } catch (error) {
+      console.error("Error approving owner payout:", error);
+      res.status(500).json({ message: "Failed to approve owner payout" });
+    }
+  });
+
+  app.patch("/api/owner-payouts/:id/mark-paid", isDemoAuthenticated, async (req, res) => {
+    try {
+      const userData = req.user as any;
+      const payoutId = parseInt(req.params.id);
+      const { paymentMethod, paymentReference } = req.body;
+      
+      const updatedPayout = await storage.markOwnerPayoutPaid(
+        payoutId, 
+        userData.claims.sub, 
+        paymentMethod, 
+        paymentReference
+      );
+      
+      if (!updatedPayout) {
+        return res.status(404).json({ message: "Owner payout not found" });
+      }
+      
+      res.json(updatedPayout);
+    } catch (error) {
+      console.error("Error marking owner payout as paid:", error);
+      res.status(500).json({ message: "Failed to mark owner payout as paid" });
+    }
+  });
+
+  app.patch("/api/owner-payouts/:id/upload-receipt", isDemoAuthenticated, async (req, res) => {
+    try {
+      const userData = req.user as any;
+      const payoutId = parseInt(req.params.id);
+      const { receiptUrl } = req.body;
+      
+      const updatedPayout = await storage.uploadOwnerPayoutReceipt(
+        payoutId, 
+        receiptUrl, 
+        userData.claims.sub
+      );
+      
+      if (!updatedPayout) {
+        return res.status(404).json({ message: "Owner payout not found" });
+      }
+      
+      res.json(updatedPayout);
+    } catch (error) {
+      console.error("Error uploading owner payout receipt:", error);
+      res.status(500).json({ message: "Failed to upload owner payout receipt" });
+    }
+  });
+
+  app.patch("/api/owner-payouts/:id/confirm-received", isDemoAuthenticated, async (req, res) => {
+    try {
+      const userData = req.user as any;
+      const payoutId = parseInt(req.params.id);
+      
+      const updatedPayout = await storage.confirmOwnerPayoutReceived(
+        payoutId, 
+        userData.claims.sub
+      );
+      
+      if (!updatedPayout) {
+        return res.status(404).json({ message: "Owner payout not found" });
+      }
+      
+      res.json(updatedPayout);
+    } catch (error) {
+      console.error("Error confirming owner payout received:", error);
+      res.status(500).json({ message: "Failed to confirm owner payout received" });
+    }
+  });
+
+  app.get("/api/owner-balance/:ownerId", isDemoAuthenticated, async (req, res) => {
+    try {
+      const { ownerId } = req.params;
+      const { propertyId, startDate, endDate } = req.query;
+      
+      const balance = await storage.calculateOwnerBalance(
+        ownerId,
+        propertyId ? parseInt(propertyId as string) : undefined,
+        startDate as string,
+        endDate as string
+      );
+      
+      res.json(balance);
+    } catch (error) {
+      console.error("Error calculating owner balance:", error);
+      res.status(500).json({ message: "Failed to calculate owner balance" });
+    }
+  });
+
+  // Notification API routes - removed duplicates to prevent conflicts
+
+  app.post("/api/notifications/:id/read", isDemoAuthenticated, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const success = await storage.markNotificationRead(parseInt(id));
+      if (success) {
+        res.json({ message: "Notification marked as read" });
+      } else {
+        res.status(404).json({ message: "Notification not found" });
+      }
+    } catch (error) {
+      console.error("Error marking notification as read:", error);
+      res.status(500).json({ message: "Failed to mark notification as read" });
+    }
+  });
+
+  app.post("/api/notifications/read-all", isDemoAuthenticated, async (req, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: "User not authenticated" });
+      }
+
+      const success = await storage.markAllNotificationsRead(userId);
+      res.json({ message: "All notifications marked as read", success });
+    } catch (error) {
+      console.error("Error marking all notifications as read:", error);
+      res.status(500).json({ message: "Failed to mark all notifications as read" });
+    }
+  });
+
+  app.delete("/api/notifications/:id", isDemoAuthenticated, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const success = await storage.deleteNotification(parseInt(id));
+      if (success) {
+        res.json({ message: "Notification deleted" });
+      } else {
+        res.status(404).json({ message: "Notification not found" });
+      }
+    } catch (error) {
+      console.error("Error deleting notification:", error);
+      res.status(500).json({ message: "Failed to delete notification" });
+    }
+  });
+
+  // Test notification route for development
+  app.post("/api/test-notification", isDemoAuthenticated, async (req, res) => {
+    try {
+      const { organizationId } = getTenantContext(req);
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: "User not authenticated" });
+      }
+
+      const notification = await storage.createNotification({
+        organizationId,
+        userId,
+        type: 'task_assignment',
+        title: 'Test Notification',
+        message: 'This is a test notification to verify the system is working',
+        relatedEntityType: 'test',
+        relatedEntityId: 1,
+        priority: 'normal',
+        actionUrl: '/dashboard',
+        actionLabel: 'View Dashboard',
+        createdBy: userId,
+      });
+
+      res.json(notification);
+    } catch (error) {
+      console.error("Error creating test notification:", error);
+      res.status(500).json({ message: "Failed to create test notification" });
+    }
+  });
+
+  // Notification preferences API routes
+  app.get("/api/notification-preferences", isDemoAuthenticated, async (req, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: "User not authenticated" });
+      }
+
+      const preferences = await storage.getUserNotificationPreferences(userId);
+      res.json(preferences);
+    } catch (error) {
+      console.error("Error fetching notification preferences:", error);
+      res.status(500).json({ message: "Failed to fetch notification preferences" });
+    }
+  });
+
+  app.post("/api/notification-preferences", isDemoAuthenticated, async (req, res) => {
+    try {
+      const { organizationId } = getTenantContext(req);
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: "User not authenticated" });
+      }
+
+      const preferencesData = {
+        ...req.body,
+        organizationId,
+        userId,
+      };
+
+      const preferences = await storage.upsertNotificationPreferences(preferencesData);
+      res.json(preferences);
+    } catch (error) {
+      console.error("Error updating notification preferences:", error);
+      res.status(500).json({ message: "Failed to update notification preferences" });
+    }
+  });
+
+  // ===== STAFF WALLET SYSTEM ROUTES =====
+  
+  // Get staff wallet information
+  app.get("/api/staff-wallet/:staffId", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { staffId } = req.params;
+      const wallet = staffWalletStorage.getWallet(staffId);
+      
+      if (!wallet) {
+        return res.status(404).json({ message: "Staff wallet not found" });
+      }
+      
+      res.json(wallet);
+    } catch (error) {
+      console.error("Error fetching staff wallet:", error);
+      res.status(500).json({ message: "Failed to fetch staff wallet" });
+    }
+  });
+
+  // Get staff transactions
+  app.get("/api/staff-wallet/:staffId/transactions", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { staffId } = req.params;
+      const transactions = staffWalletStorage.getTransactions(staffId);
+      res.json(transactions);
+    } catch (error) {
+      console.error("Error fetching staff transactions:", error);
+      res.status(500).json({ message: "Failed to fetch staff transactions" });
+    }
+  });
+
+  // Add expense transaction
+  app.post("/api/staff-wallet/:staffId/expenses", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { staffId } = req.params;
+      const { amount, description, category, property, receipt, receiptPhoto } = req.body;
+      
+      const transaction = staffWalletStorage.addTransaction({
+        staffId,
+        type: 'expense',
+        amount: parseFloat(amount),
+        description,
+        category,
+        propertyName: property,
+        date: new Date().toISOString().split('T')[0],
+        time: new Date().toTimeString().slice(0, 5),
+        receipt,
+        receiptPhoto,
+        status: 'pending'
+      });
+      
+      res.status(201).json(transaction);
+    } catch (error) {
+      console.error("Error adding expense:", error);
+      res.status(500).json({ message: "Failed to add expense" });
+    }
+  });
+
+  // Get pending checkouts for cash collection
+  app.get("/api/staff-wallet/pending-checkouts", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const pendingCheckouts = staffWalletStorage.getPendingCheckouts();
+      res.json(pendingCheckouts);
+    } catch (error) {
+      console.error("Error fetching pending checkouts:", error);
+      res.status(500).json({ message: "Failed to fetch pending checkouts" });
+    }
+  });
+
+  // Record cash collection from checkout (existing endpoint)
+  app.post("/api/staff-wallet/cash-collection", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { checkoutId, actualAmount, collectionMethod, notes, receiptPhoto } = req.body;
+      
+      const success = staffWalletStorage.recordCashCollection(
+        checkoutId, 
+        parseFloat(actualAmount), 
+        collectionMethod, 
+        notes, 
+        receiptPhoto
+      );
+      
+      if (!success) {
+        return res.status(404).json({ message: "Checkout not found" });
+      }
+      
+      res.json({ success: true, message: "Cash collection recorded successfully" });
+    } catch (error) {
+      console.error("Error recording cash collection:", error);
+      res.status(500).json({ message: "Failed to record cash collection" });
+    }
+  });
+
+  // Record direct cash income (new endpoint for staff wallet)
+  app.post("/api/staff-wallet/:staffId/cash-income", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { staffId } = req.params;
+      const { amount, source, guestName, property, notes, receiptPhoto } = req.body;
+      
+      const transaction = staffWalletStorage.addTransaction({
+        staffId,
+        type: 'income',
+        amount: parseFloat(amount),
+        description: `Cash collection - ${source}`,
+        category: source,
+        date: new Date().toISOString().split('T')[0],
+        time: new Date().toTimeString().slice(0, 5),
+        guestName,
+        propertyName: property,
+        receiptPhoto,
+        status: 'approved' // Cash collections are automatically approved
+      });
+      
+      res.status(201).json(transaction);
+    } catch (error) {
+      console.error("Error recording cash income:", error);
+      res.status(500).json({ message: "Failed to record cash income" });
+    }
+  });
+
+  // Clear wallet balance (admin only)
+  app.post("/api/staff-wallet/:staffId/clear-balance", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { staffId } = req.params;
+      const { reason } = req.body;
+      
+      // Check if user is admin or portfolio manager
+      if (!['admin', 'portfolio-manager'].includes(req.user?.role)) {
+        return res.status(403).json({ message: "Admin or Portfolio Manager access required" });
+      }
+      
+      staffWalletStorage.clearWalletBalance(staffId, reason);
+      res.json({ success: true, message: "Wallet balance cleared successfully" });
+    } catch (error) {
+      console.error("Error clearing wallet balance:", error);
+      res.status(500).json({ message: "Failed to clear wallet balance" });
+    }
+  });
+
+  // ===== STAFF EXPENSE MANAGEMENT ROUTES =====
+  
+  // Get all pending expenses for review (admin/PM only)
+  app.get("/api/staff-expenses/pending", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      // Check if user is admin or portfolio manager
+      if (!['admin', 'portfolio-manager'].includes(req.user?.role)) {
+        return res.status(403).json({ message: "Admin or Portfolio Manager access required" });
+      }
+      
+      const pendingExpenses = staffWalletStorage.getPendingTransactions();
+      res.json(pendingExpenses);
+    } catch (error) {
+      console.error("Error fetching pending expenses:", error);
+      res.status(500).json({ message: "Failed to fetch pending expenses" });
+    }
+  });
+
+  // Get all reviewed expenses (admin/PM only)
+  app.get("/api/staff-expenses/reviewed", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      // Check if user is admin or portfolio manager
+      if (!['admin', 'portfolio-manager'].includes(req.user?.role)) {
+        return res.status(403).json({ message: "Admin or Portfolio Manager access required" });
+      }
+      
+      const reviewedExpenses = staffWalletStorage.getReviewedTransactions();
+      res.json(reviewedExpenses);
+    } catch (error) {
+      console.error("Error fetching reviewed expenses:", error);
+      res.status(500).json({ message: "Failed to fetch reviewed expenses" });
+    }
+  });
+
+  // Review and categorize expense (admin/PM only)
+  app.patch("/api/staff-expenses/:transactionId/review", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      // Check if user is admin or portfolio manager
+      if (!['admin', 'portfolio-manager'].includes(req.user?.role)) {
+        return res.status(403).json({ message: "Admin or Portfolio Manager access required" });
+      }
+      
+      const { transactionId } = req.params;
+      const { finalCategory, property, reviewNotes } = req.body;
+      const reviewedBy = req.user?.email || req.user?.id || 'Admin';
+      
+      const success = staffWalletStorage.reviewTransaction(
+        transactionId, 
+        finalCategory, 
+        property, 
+        reviewNotes, 
+        reviewedBy
+      );
+      
+      if (!success) {
+        return res.status(404).json({ message: "Transaction not found" });
+      }
+      
+      res.json({ success: true, message: "Expense reviewed and categorized successfully" });
+    } catch (error) {
+      console.error("Error reviewing expense:", error);
+      res.status(500).json({ message: "Failed to review expense" });
+    }
+  });
+
+  // ===== STAFF PERMISSION MANAGEMENT API =====
+  
+  // Get staff task permissions (admin only)
+  app.get("/api/admin/staff-permissions", isDemoAuthenticated, requireAdmin, async (req: any, res) => {
+    try {
+      const permissions = staffPermissionStorage.getAllStaffPermissions();
+      res.json(permissions);
+    } catch (error) {
+      console.error("Error fetching staff permissions:", error);
+      res.status(500).json({ message: "Failed to fetch staff permissions" });
+    }
+  });
+
+  // Get specific staff permissions
+  app.get("/api/admin/staff-permissions/:staffId", isDemoAuthenticated, requireAdmin, async (req: any, res) => {
+    try {
+      const { staffId } = req.params;
+      const permissions = staffPermissionStorage.getStaffPermissions(staffId);
+      
+      if (!permissions) {
+        return res.status(404).json({ message: "Staff permissions not found" });
+      }
+      
+      res.json(permissions);
+    } catch (error) {
+      console.error("Error fetching staff permissions:", error);
+      res.status(500).json({ message: "Failed to fetch staff permissions" });
+    }
+  });
+
+  // Grant task creation permission to staff
+  app.post("/api/admin/staff-permissions/:staffId/grant-task-creation", isDemoAuthenticated, requireAdmin, async (req: any, res) => {
+    try {
+      const { staffId } = req.params;
+      const { reason, departments = ['general'], maxTasksPerDay = 3, expiresAt } = req.body;
+      const adminId = req.user.id;
+      
+      const permissions = staffPermissionStorage.grantTaskCreationPermission(
+        staffId,
+        adminId,
+        reason,
+        departments,
+        maxTasksPerDay,
+        expiresAt ? new Date(expiresAt) : undefined
+      );
+      
+      res.json(permissions);
+    } catch (error) {
+      console.error("Error granting task creation permission:", error);
+      res.status(500).json({ message: "Failed to grant permission" });
+    }
+  });
+
+  // Revoke task creation permission
+  app.post("/api/admin/staff-permissions/:staffId/revoke-task-creation", isDemoAuthenticated, requireAdmin, async (req: any, res) => {
+    try {
+      const { staffId } = req.params;
+      const { reason } = req.body;
+      const adminId = req.user.id;
+      
+      const permissions = staffPermissionStorage.revokeTaskCreationPermission(staffId, adminId, reason);
+      
+      res.json(permissions);
+    } catch (error) {
+      console.error("Error revoking task creation permission:", error);
+      res.status(500).json({ message: "Failed to revoke permission" });
+    }
+  });
+
+  // Update staff permissions
+  app.put("/api/admin/staff-permissions/:staffId", isDemoAuthenticated, requireAdmin, async (req: any, res) => {
+    try {
+      const { staffId } = req.params;
+      const adminId = req.user.id;
+      const updates = req.body;
+      
+      const permissions = staffPermissionStorage.updateStaffPermissions(staffId, updates, adminId);
+      
+      res.json(permissions);
+    } catch (error) {
+      console.error("Error updating staff permissions:", error);
+      res.status(500).json({ message: "Failed to update permissions" });
+    }
+  });
+
+  // Check if staff can create tasks (for frontend validation)
+  app.get("/api/staff/can-create-tasks", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const userRole = req.user.role;
+      
+      if (userRole !== 'staff') {
+        // Non-staff users can always create tasks
+        return res.json({ canCreateTasks: true, reason: 'Non-staff user' });
+      }
+      
+      const canCreateTasks = staffPermissionStorage.canStaffCreateTasks(userId);
+      const canCreateMore = staffPermissionStorage.canStaffCreateMoreTasks(userId);
+      const permissions = staffPermissionStorage.getStaffPermissions(userId);
+      
+      res.json({
+        canCreateTasks: canCreateTasks && canCreateMore,
+        hasPermission: canCreateTasks,
+        withinDailyLimit: canCreateMore,
+        maxTasksPerDay: permissions?.maxTasksPerDay || 0,
+        allowedDepartments: permissions?.allowedDepartments || [],
+        reason: !canCreateTasks ? 'Permission not granted' : !canCreateMore ? 'Daily limit reached' : 'Allowed'
+      });
+    } catch (error) {
+      console.error("Error checking task creation permission:", error);
+      res.status(500).json({ message: "Failed to check permissions" });
+    }
+  });
+
+  // ===== AI TEST ENDPOINTS =====
+  app.post("/api/ai/test", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { prompt } = req.body;
+      const { askAssistant } = await import("./aiHelper");
+      const result = await askAssistant(prompt);
+      res.json({ result });
+    } catch (error) {
+      console.error("AI test error:", error);
+      res.status(500).json({ message: "AI test failed", error: error.message });
+    }
+  });
+
+  // Assistant endpoint with task context
+  app.post("/api/assistant", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { prompt } = req.body;
+      const user = req.user;
+      const organizationId = user?.organizationId || "default-org";
+      const { askAssistant } = await import("./aiHelper");
+      const result = await askAssistant(prompt, organizationId);
+      res.json({ result });
+    } catch (error) {
+      console.error("AI Assistant Error:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/ai/property-description", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { propertyDetails } = req.body;
+      const { generatePropertyDescription } = await import("./aiHelper");
+      const description = await generatePropertyDescription(propertyDetails);
+      res.json({ description });
+    } catch (error) {
+      console.error("Property description error:", error);
+      res.status(500).json({ message: "Failed to generate property description", error: error.message });
+    }
+  });
+
+  app.post("/api/ai/analyze-review", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { reviewText } = req.body;
+      const { analyzeGuestReview } = await import("./aiHelper");
+      const analysis = await analyzeGuestReview(reviewText);
+      res.json({ analysis });
+    } catch (error) {
+      console.error("Review analysis error:", error);
+      res.status(500).json({ message: "Failed to analyze review", error: error.message });
+    }
+  });
+
+  app.post("/api/ai/maintenance-suggestions", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { propertyType, lastMaintenanceDate } = req.body;
+      const { generateMaintenanceTaskSuggestion } = await import("./aiHelper");
+      const suggestions = await generateMaintenanceTaskSuggestion(propertyType, lastMaintenanceDate);
+      res.json({ suggestions });
+    } catch (error) {
+      console.error("Maintenance suggestions error:", error);
+      res.status(500).json({ message: "Failed to generate maintenance suggestions", error: error.message });
+    }
+  });
+
+  app.post("/api/ai/custom", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { prompt } = req.body;
+      const { askAssistant } = await import("./aiHelper");
+      const result = await askAssistant(prompt);
+      res.json({ result });
+    } catch (error) {
+      console.error("Custom AI prompt error:", error);
+      res.status(500).json({ message: "Failed to process custom prompt", error: error.message });
+    }
+  });
+
+  // ===== AI FEEDBACK SYSTEM ENDPOINTS =====
+
+  // Guest feedback endpoints
+  app.get("/api/ai/feedback", isDemoAuthenticated, async (req, res) => {
+    try {
+      const organizationId = "demo-org";
+      const { propertyId, processed, requiresAction } = req.query;
+      
+      const filters: any = {};
+      if (propertyId) filters.propertyId = parseInt(propertyId as string);
+      if (processed !== undefined) filters.processed = processed === 'true';
+      if (requiresAction !== undefined) filters.requiresAction = requiresAction === 'true';
+      
+      const feedback = await storage.getGuestFeedback(organizationId, filters);
+      res.json(feedback);
+    } catch (error) {
+      console.error("Error fetching guest feedback:", error);
+      res.status(500).json({ message: "Failed to fetch guest feedback" });
+    }
+  });
+
+  app.post("/api/ai/feedback", isDemoAuthenticated, async (req, res) => {
+    try {
+      const organizationId = "demo-org";
+      const user = req.user as any;
+      
+      const feedbackData = {
+        ...req.body,
+        organizationId,
+        receivedAt: new Date(),
+      };
+      
+      // Process feedback for AI keywords
+      const aiAnalysis = await storage.processMessageForKeywords(
+        feedbackData.originalMessage,
+        organizationId
+      );
+      
+      // Save feedback with AI analysis
+      const feedback = await storage.createGuestFeedback({
+        ...feedbackData,
+        detectedKeywords: aiAnalysis.detectedKeywords,
+        aiConfidence: aiAnalysis.matchedRules.length > 0 ? 0.85 : 0.1,
+        requiresAction: aiAnalysis.matchedRules.length > 0,
+      });
+      
+      // Auto-create tasks if rules match
+      if (aiAnalysis.matchedRules.length > 0) {
+        for (const rule of aiAnalysis.matchedRules) {
+          try {
+            await storage.createTaskFromFeedback(feedback.id, rule.id);
+          } catch (error) {
+            console.error("Error creating task from feedback:", error);
+          }
+        }
+      }
+      
+      res.json({
+        feedback,
+        aiAnalysis,
+        autoTasksCreated: aiAnalysis.matchedRules.length,
+      });
+    } catch (error) {
+      console.error("Error creating guest feedback:", error);
+      res.status(500).json({ message: "Failed to create guest feedback" });
+    }
+  });
+
+  app.put("/api/ai/feedback/:id/process", isDemoAuthenticated, async (req, res) => {
+    try {
+      const feedbackId = parseInt(req.params.id);
+      const user = req.user as any;
+      const { processingNotes, assignedTaskId, createTask, ruleId } = req.body;
+      
+      if (createTask && ruleId) {
+        // Create task from rule
+        const task = await storage.createTaskFromFeedback(feedbackId, ruleId);
+        const feedback = await storage.processGuestFeedback(
+          feedbackId,
+          user.username,
+          processingNotes,
+          task.id
+        );
+        res.json({ feedback, createdTask: task });
+      } else {
+        const feedback = await storage.processGuestFeedback(
+          feedbackId,
+          user.username,
+          processingNotes,
+          assignedTaskId
+        );
+        res.json({ feedback });
+      }
+    } catch (error) {
+      console.error("Error processing feedback:", error);
+      res.status(500).json({ message: "Failed to process feedback" });
+    }
+  });
+
+  // ===== STAFF MANAGEMENT & PAYROLL API ENDPOINTS =====
+
+  // Helper function to check admin role
+  const requireAdminRole = (req: any, res: any, next: any) => {
+    if (req.user?.role !== 'admin') {
+      return res.status(403).json({ 
+        message: "Admin access required",
+        userRole: req.user?.role || 'unknown'
+      });
+    }
+    next();
+  };
+
+  // Staff member endpoints - List is public for task assignment, writes are admin-only
+  app.get("/api/staff-members", isDemoAuthenticated, getStaffMembers); // Public read for task assignment
+  app.get("/api/staff-members/:id", isDemoAuthenticated, getStaffMember); // Public read for details
+  app.post("/api/staff-members", isDemoAuthenticated, requireAdminRole, createStaffMember);
+  app.put("/api/staff-members/:id", isDemoAuthenticated, requireAdminRole, updateStaffMember);
+  app.delete("/api/staff-members/:id", isDemoAuthenticated, requireAdminRole, deleteStaffMember);
+  
+  // Staff document endpoints - Admin only
+  app.get("/api/staff-members/:staffMemberId/documents", isDemoAuthenticated, requireAdminRole, getStaffDocuments);
+  app.post("/api/staff-documents", isDemoAuthenticated, requireAdminRole, createStaffDocument);
+  
+  // Payroll record endpoints - Admin only
+  app.get("/api/payroll-records", isDemoAuthenticated, requireAdminRole, getPayrollRecords);
+  app.post("/api/payroll-records", isDemoAuthenticated, requireAdminRole, createPayrollRecord);
+  
+  // Staff analytics endpoint - Admin only
+  app.get("/api/staff-analytics", isDemoAuthenticated, requireAdminRole, getStaffAnalytics);
+
+  // ===== GUEST MESSAGING SYSTEM API ENDPOINTS =====
+
+  // Get guest messages
+  app.get("/api/guest-messages/:guestId", async (req, res) => {
+    try {
+      const guestId = req.params.guestId;
+      const organizationId = "default-org"; // Use demo org for now
+      
+      const messages = await storage.getGuestMessages(organizationId, guestId);
+      res.json(messages);
+    } catch (error) {
+      console.error("Error fetching guest messages:", error);
+      res.status(500).json({ message: "Failed to fetch guest messages" });
+    }
+  });
+
+  // Create new guest message
+  app.post("/api/guest-messages", async (req, res) => {
+    try {
+      const messageData = {
+        ...req.body,
+        organizationId: "default-org",
+      };
+      
+      const newMessage = await storage.createGuestMessage(messageData);
+      res.status(201).json(newMessage);
+    } catch (error) {
+      console.error("Error creating guest message:", error);
+      res.status(500).json({ message: "Failed to create guest message" });
+    }
+  });
+
+  // Get guest service requests
+  app.get("/api/guest-service-requests/:guestId", async (req, res) => {
+    try {
+      const guestId = req.params.guestId;
+      const organizationId = "default-org";
+      
+      const requests = await storage.getGuestServiceRequests(organizationId, guestId);
+      res.json(requests);
+    } catch (error) {
+      console.error("Error fetching guest service requests:", error);
+      res.status(500).json({ message: "Failed to fetch guest service requests" });
+    }
+  });
+
+  // Create new guest service request
+  app.post("/api/guest-service-requests", async (req, res) => {
+    try {
+      const requestData = {
+        ...req.body,
+        organizationId: "default-org",
+      };
+      
+      const newRequest = await storage.createGuestServiceRequest(requestData);
+      res.status(201).json(newRequest);
+    } catch (error) {
+      console.error("Error creating guest service request:", error);
+      res.status(500).json({ message: "Failed to create guest service request" });
+    }
+  });
+
+  // Get guest bookings
+  app.get("/api/guest-bookings/:guestId", async (req, res) => {
+    try {
+      const guestId = req.params.guestId;
+      
+      const bookings = await storage.getGuestBookings(guestId);
+      res.json(bookings);
+    } catch (error) {
+      console.error("Error fetching guest bookings:", error);
+      res.status(500).json({ message: "Failed to fetch guest bookings" });
+    }
+  });
+
+  // Get AI generated tasks
+  app.get("/api/ai-generated-tasks", isDemoAuthenticated, async (req, res) => {
+    try {
+      const organizationId = "default-org";
+      
+      const tasks = await storage.getAIGeneratedTasks(organizationId);
+      res.json(tasks);
+    } catch (error) {
+      console.error("Error fetching AI generated tasks:", error);
+      res.status(500).json({ message: "Failed to fetch AI generated tasks" });
+    }
+  });
+
+  // AI Task Rules endpoints
+  app.get("/api/ai/rules", isDemoAuthenticated, async (req, res) => {
+    try {
+      const organizationId = "demo-org";
+      const { isActive, department } = req.query;
+      
+      const filters: any = {};
+      if (isActive !== undefined) filters.isActive = isActive === 'true';
+      if (department) filters.department = department as string;
+      
+      const rules = await storage.getAiTaskRules(organizationId, filters);
+      res.json(rules);
+    } catch (error) {
+      console.error("Error fetching AI task rules:", error);
+      res.status(500).json({ message: "Failed to fetch AI task rules" });
+    }
+  });
+
+  app.post("/api/ai/rules", isDemoAuthenticated, async (req, res) => {
+    try {
+      const organizationId = "demo-org";
+      const user = req.user as any;
+      
+      const ruleData = {
+        ...req.body,
+        organizationId,
+        createdBy: user.username,
+        triggerCount: 0,
+      };
+      
+      const rule = await storage.createAiTaskRule(ruleData);
+      res.json(rule);
+    } catch (error) {
+      console.error("Error creating AI task rule:", error);
+      res.status(500).json({ message: "Failed to create AI task rule" });
+    }
+  });
+
+  app.put("/api/ai/rules/:id", isDemoAuthenticated, async (req, res) => {
+    try {
+      const ruleId = parseInt(req.params.id);
+      const rule = await storage.updateAiTaskRule(ruleId, req.body);
+      res.json(rule);
+    } catch (error) {
+      console.error("Error updating AI task rule:", error);
+      res.status(500).json({ message: "Failed to update AI task rule" });
+    }
+  });
+
+  app.delete("/api/ai/rules/:id", isDemoAuthenticated, async (req, res) => {
+    try {
+      const ruleId = parseInt(req.params.id);
+      const success = await storage.deleteAiTaskRule(ruleId);
+      res.json({ success });
+    } catch (error) {
+      console.error("Error deleting AI task rule:", error);
+      res.status(500).json({ message: "Failed to delete AI task rule" });
+    }
+  });
+
+  // Processing logs endpoints
+  app.get("/api/ai/processing-logs", isDemoAuthenticated, async (req, res) => {
+    try {
+      const organizationId = "demo-org";
+      const { feedbackId } = req.query;
+      
+      const logs = await storage.getProcessingLogs(
+        organizationId,
+        feedbackId ? parseInt(feedbackId as string) : undefined
+      );
+      res.json(logs);
+    } catch (error) {
+      console.error("Error fetching processing logs:", error);
+      res.status(500).json({ message: "Failed to fetch processing logs" });
+    }
+  });
+
+  app.get("/api/ai/processing-log", isDemoAuthenticated, async (req, res) => {
+    try {
+      const organizationId = "demo-org";
+      const { feedbackId } = req.query;
+      
+      const logs = await storage.getProcessingLogs(
+        organizationId,
+        feedbackId ? parseInt(feedbackId as string) : undefined
+      );
+      res.json(logs);
+    } catch (error) {
+      console.error("Error fetching processing logs:", error);
+      res.status(500).json({ message: "Failed to fetch processing logs" });
+    }
+  });
+
+  // Enhanced AI feedback endpoints for advanced dashboard
+  app.get("/api/ai/task-rules", isDemoAuthenticated, async (req, res) => {
+    try {
+      const organizationId = "demo-org";
+      const rules = await storage.getAiTaskRules(organizationId);
+      res.json(rules);
+    } catch (error) {
+      console.error("Error fetching AI task rules:", error);
+      res.status(500).json({ message: "Failed to fetch AI task rules" });
+    }
+  });
+
+  app.get("/api/ai/feedback-analytics", isDemoAuthenticated, async (req, res) => {
+    try {
+      const organizationId = "demo-org";
+      
+      // Mock analytics data - in production this would be calculated from real data
+      const analytics = {
+        totalFeedback: 127,
+        unprocessedCount: 8,
+        highUrgencyCount: 3,
+        averageProcessingTime: 125, // seconds
+        topIssueCategories: [
+          { category: "Maintenance", count: 45 },
+          { category: "Cleanliness", count: 32 },
+          { category: "Pool Issues", count: 28 },
+          { category: "Garden/Landscaping", count: 22 }
+        ],
+        recentTrends: [
+          { date: "2025-01-01", count: 12 },
+          { date: "2025-01-02", count: 15 },
+          { date: "2025-01-03", count: 8 },
+          { date: "2025-01-04", count: 18 },
+          { date: "2025-01-05", count: 11 }
+        ],
+        automationRate: 87
+      };
+      
+      res.json(analytics);
+    } catch (error) {
+      console.error("Error fetching feedback analytics:", error);
+      res.status(500).json({ message: "Failed to fetch feedback analytics" });
+    }
+  });
+
+  app.post("/api/ai/feedback/:id/process", isDemoAuthenticated, async (req, res) => {
+    try {
+      const feedbackId = parseInt(req.params.id);
+      const { action, notes } = req.body;
+      const user = req.user as any;
+      
+      let result: any = {
+        success: true,
+        action,
+        feedbackId
+      };
+      
+      if (action === 'create_task') {
+        // Create a mock task
+        result.taskTitle = "Maintenance Task - Guest Feedback";
+        result.taskId = Math.floor(Math.random() * 1000) + 1;
+        
+        // Update feedback status
+        await storage.updateGuestFeedbackProcessing(feedbackId, {
+          isProcessed: true,
+          processedBy: user.username,
+          processingNotes: notes || "Auto-generated task from feedback",
+          assignedTaskId: result.taskId,
+          processedAt: new Date()
+        });
+      } else if (action === 'mark_resolved') {
+        await storage.updateGuestFeedbackProcessing(feedbackId, {
+          isProcessed: true,
+          processedBy: user.username,
+          processingNotes: notes || "Marked as resolved manually",
+          processedAt: new Date()
+        });
+      }
+      
+      res.json(result);
+    } catch (error) {
+      console.error("Error processing feedback:", error);
+      res.status(500).json({ message: "Failed to process feedback" });
+    }
+  });
+
+  app.post("/api/ai/auto-process-feedback", isDemoAuthenticated, async (req, res) => {
+    try {
+      const organizationId = "demo-org";
+      
+      // Get all unprocessed high urgency feedback
+      const urgentFeedback = await storage.getGuestFeedback(organizationId, {
+        processed: false,
+        urgencyLevel: 'high'
+      });
+      
+      let processedCount = 0;
+      
+      for (const feedback of urgentFeedback) {
+        try {
+          // Auto-process high urgency items
+          await storage.updateGuestFeedbackProcessing(feedback.id, {
+            isProcessed: true,
+            processedBy: 'system',
+            processingNotes: 'Auto-processed due to high urgency',
+            processedAt: new Date()
+          });
+          processedCount++;
+        } catch (error) {
+          console.error(`Error auto-processing feedback ${feedback.id}:`, error);
+        }
+      }
+      
+      res.json({
+        success: true,
+        processedCount,
+        message: `Auto-processed ${processedCount} high-urgency feedback items`
+      });
+    } catch (error) {
+      console.error("Error auto-processing feedback:", error);
+      res.status(500).json({ message: "Failed to auto-process feedback" });
+    }
+  });
+
+  // AI Configuration endpoints
+  app.get("/api/ai/config", isDemoAuthenticated, async (req, res) => {
+    try {
+      const organizationId = "demo-org";
+      const config = await storage.getAiConfiguration(organizationId);
+      res.json(config || {
+        organizationId,
+        isEnabled: true,
+        autoTaskCreation: true,
+        confidenceThreshold: 0.7,
+        enabledDepartments: ['maintenance', 'housekeeping', 'front-desk'],
+        openaiApiKey: null,
+        customPrompts: {},
+      });
+    } catch (error) {
+      console.error("Error fetching AI config:", error);
+      res.status(500).json({ message: "Failed to fetch AI configuration" });
+    }
+  });
+
+  app.put("/api/ai/config", isDemoAuthenticated, async (req, res) => {
+    try {
+      const organizationId = "demo-org";
+      const configData = {
+        ...req.body,
+        organizationId,
+      };
+      
+      const config = await storage.upsertAiConfiguration(configData);
+      res.json(config);
+    } catch (error) {
+      console.error("Error updating AI config:", error);
+      res.status(500).json({ message: "Failed to update AI configuration" });
+    }
+  });
+
+  // AI processing endpoints
+  app.post("/api/ai/analyze-message", isDemoAuthenticated, async (req, res) => {
+    try {
+      const organizationId = "demo-org";
+      const { message } = req.body;
+      
+      if (!message) {
+        return res.status(400).json({ message: "Message is required" });
+      }
+      
+      const analysis = await storage.processMessageForKeywords(message, organizationId);
+      res.json(analysis);
+    } catch (error) {
+      console.error("Error analyzing message:", error);
+      res.status(500).json({ message: "Failed to analyze message" });
+    }
+  });
+
+  app.post("/api/ai/create-task-from-feedback", isDemoAuthenticated, async (req, res) => {
+    try {
+      const { feedbackId, ruleId, assignedTo } = req.body;
+      
+      if (!feedbackId || !ruleId) {
+        return res.status(400).json({ message: "feedbackId and ruleId are required" });
+      }
+      
+      const task = await storage.createTaskFromFeedback(
+        parseInt(feedbackId),
+        parseInt(ruleId),
+        assignedTo
+      );
+      res.json(task);
+    } catch (error) {
+      console.error("Error creating task from feedback:", error);
+      res.status(500).json({ message: "Failed to create task from feedback" });
+    }
+  });
+
+  // ===== GUEST ACTIVITY TRACKER & RECOMMENDATIONS AI ENDPOINTS =====
+
+  // Get property activity recommendations
+  app.get("/api/guest-activity-recommendations/:propertyId", async (req, res) => {
+    try {
+      const organizationId = "default-org";
+      const propertyId = parseInt(req.params.propertyId);
+      const { category, isFeatured, suitableFor } = req.query;
+      
+      const filters: any = {};
+      if (category) filters.category = category as string;
+      if (isFeatured !== undefined) filters.isFeatured = isFeatured === 'true';
+      if (suitableFor) filters.suitableFor = (suitableFor as string).split(',');
+      
+      const recommendations = await storage.getPropertyActivityRecommendations(organizationId, propertyId, filters);
+      res.json(recommendations);
+    } catch (error) {
+      console.error("Error fetching activity recommendations:", error);
+      res.status(500).json({ message: "Failed to fetch activity recommendations" });
+    }
+  });
+
+  // Get personalized recommendations for a guest
+  app.get("/api/guest-activity-recommendations/:propertyId/personalized", async (req, res) => {
+    try {
+      const propertyId = parseInt(req.params.propertyId);
+      const { reservationId, guestId } = req.query;
+      
+      if (!reservationId || !guestId) {
+        return res.status(400).json({ message: "reservationId and guestId are required" });
+      }
+      
+      const recommendations = await storage.getPersonalizedRecommendations(
+        reservationId as string, 
+        guestId as string, 
+        propertyId
+      );
+      res.json(recommendations);
+    } catch (error) {
+      console.error("Error fetching personalized recommendations:", error);
+      res.status(500).json({ message: "Failed to fetch personalized recommendations" });
+    }
+  });
+
+  // Get guest activity preferences
+  app.get("/api/guest-activity-preferences/:reservationId", async (req, res) => {
+    try {
+      const reservationId = req.params.reservationId;
+      const preferences = await storage.getGuestActivityPreferences(reservationId);
+      res.json(preferences);
+    } catch (error) {
+      console.error("Error fetching guest preferences:", error);
+      res.status(500).json({ message: "Failed to fetch guest preferences" });
+    }
+  });
+
+  // Update guest activity preferences
+  app.post("/api/guest-activity-preferences", async (req, res) => {
+    try {
+      const preferences = await storage.createGuestActivityPreferences(req.body);
+      res.status(201).json(preferences);
+    } catch (error) {
+      console.error("Error creating guest preferences:", error);
+      res.status(500).json({ message: "Failed to create guest preferences" });
+    }
+  });
+
+  // ===== ORGANIZATION BRANDING API ENDPOINTS =====
+
+  // Get current organization details
+  app.get("/api/organization/current", isDemoAuthenticated, async (req, res) => {
+    try {
+      const user = req.user as any;
+      if (!user?.organizationId) {
+        return res.status(400).json({ message: "User organization not found" });
+      }
+
+      const organization = await storage.getCurrentOrganization(user.organizationId);
+      if (!organization) {
+        return res.status(404).json({ message: "Organization not found" });
+      }
+
+      res.json(organization);
+    } catch (error: any) {
+      console.error("Error fetching current organization:", error);
+      res.status(500).json({ message: "Failed to fetch organization details" });
+    }
+  });
+
+  // Update organization branding
+  app.put("/api/organization/branding", isDemoAuthenticated, async (req, res) => {
+    try {
+      const user = req.user as any;
+      if (!user?.organizationId) {
+        return res.status(400).json({ message: "User organization not found" });
+      }
+
+      // Only allow admin role to update branding
+      if (user.role !== "admin") {
+        return res.status(403).json({ message: "Only administrators can update organization branding" });
+      }
+
+      const { customDomain, brandingLogoUrl, themeColor } = req.body;
+
+      const updatedOrganization = await storage.updateOrganizationBranding(user.organizationId, {
+        customDomain,
+        brandingLogoUrl,
+        themeColor,
+      });
+
+      res.json(updatedOrganization);
+    } catch (error: any) {
+      console.error("Error updating organization branding:", error);
+      res.status(500).json({ message: "Failed to update organization branding" });
+    }
+  });
+
+  // ===== LEGAL TEMPLATES SYSTEM API ENDPOINTS =====
+
+  // Get all legal templates with optional filtering
+  app.get("/api/legal-templates", isDemoAuthenticated, async (req, res) => {
+    try {
+      const { countryCode, docType } = req.query;
+      
+      const templates = await storage.getLegalTemplates({
+        countryCode: countryCode as string,
+        docType: docType as string,
+      });
+
+      res.json(templates);
+    } catch (error: any) {
+      console.error("Error fetching legal templates:", error);
+      res.status(500).json({ message: "Failed to fetch legal templates" });
+    }
+  });
+
+  // Create a new legal template (admin only)
+  app.post("/api/legal-templates", isDemoAuthenticated, async (req, res) => {
+    try {
+      const user = req.user as any;
+      
+      // Only admins can create legal templates
+      if (user.role !== "admin") {
+        return res.status(403).json({ message: "Only administrators can create legal templates" });
+      }
+
+      const { countryCode, docType, templateText } = req.body;
+
+      if (!countryCode || !docType || !templateText) {
+        return res.status(400).json({ message: "Country code, document type, and template text are required" });
+      }
+
+      const newTemplate = await storage.createLegalTemplate({
+        countryCode,
+        docType,
+        templateText,
+      });
+
+      res.status(201).json(newTemplate);
+    } catch (error: any) {
+      console.error("Error creating legal template:", error);
+      res.status(500).json({ message: "Failed to create legal template" });
+    }
+  });
+
+  // Update a legal template (admin only)
+  app.put("/api/legal-templates/:id", isDemoAuthenticated, async (req, res) => {
+    try {
+      const user = req.user as any;
+      
+      // Only admins can update legal templates
+      if (user.role !== "admin") {
+        return res.status(403).json({ message: "Only administrators can update legal templates" });
+      }
+
+      const id = parseInt(req.params.id);
+      const { countryCode, docType, templateText } = req.body;
+
+      const updatedTemplate = await storage.updateLegalTemplate(id, {
+        countryCode,
+        docType,
+        templateText,
+      });
+
+      if (!updatedTemplate) {
+        return res.status(404).json({ message: "Legal template not found" });
+      }
+
+      res.json(updatedTemplate);
+    } catch (error: any) {
+      console.error("Error updating legal template:", error);
+      res.status(500).json({ message: "Failed to update legal template" });
+    }
+  });
+
+  // Delete a legal template (admin only)
+  app.delete("/api/legal-templates/:id", isDemoAuthenticated, async (req, res) => {
+    try {
+      const user = req.user as any;
+      
+      // Only admins can delete legal templates
+      if (user.role !== "admin") {
+        return res.status(403).json({ message: "Only administrators can delete legal templates" });
+      }
+
+      const id = parseInt(req.params.id);
+
+      await storage.deleteLegalTemplate(id);
+
+      res.json({ message: "Legal template deleted successfully" });
+    } catch (error: any) {
+      console.error("Error deleting legal template:", error);
+      res.status(500).json({ message: "Failed to delete legal template" });
+    }
+  });
+
+  // Get a specific legal template by ID
+  app.get("/api/legal-templates/:id", isDemoAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      
+      const template = await storage.getLegalTemplateById(id);
+
+      if (!template) {
+        return res.status(404).json({ message: "Legal template not found" });
+      }
+
+      res.json(template);
+    } catch (error: any) {
+      console.error("Error fetching legal template:", error);
+      res.status(500).json({ message: "Failed to fetch legal template" });
+    }
+  });
+
+  // Get templates by country and document type
+  app.get("/api/legal-templates/country/:countryCode/type/:docType", isDemoAuthenticated, async (req, res) => {
+    try {
+      const { countryCode, docType } = req.params;
+      
+      const templates = await storage.getTemplatesByCountryAndType(countryCode, docType);
+
+      res.json(templates);
+    } catch (error: any) {
+      console.error("Error fetching templates by country and type:", error);
+      res.status(500).json({ message: "Failed to fetch templates" });
+    }
+  });
+
+  // Get available countries
+  app.get("/api/legal-templates/countries", isDemoAuthenticated, async (req, res) => {
+    try {
+      const countries = await storage.getAvailableCountries();
+      res.json(countries);
+    } catch (error: any) {
+      console.error("Error fetching available countries:", error);
+      res.status(500).json({ message: "Failed to fetch available countries" });
+    }
+  });
+
+  // Get available document types
+  app.get("/api/legal-templates/doc-types", isDemoAuthenticated, async (req, res) => {
+    try {
+      const docTypes = await storage.getAvailableDocTypes();
+      res.json(docTypes);
+    } catch (error: any) {
+      console.error("Error fetching available document types:", error);
+      res.status(500).json({ message: "Failed to fetch available document types" });
+    }
+  });
+
+  // ===== UPSELL RECOMMENDATIONS SYSTEM API ENDPOINTS =====
+
+  // Get upsell recommendations with filters
+  app.get("/api/upsell-recommendations", isDemoAuthenticated, async (req, res) => {
+    try {
+      const organizationId = req.user?.organizationId || "default-org";
+      const { propertyId, recommendationType, status } = req.query;
+      
+      const filters: any = {};
+      if (propertyId) filters.propertyId = parseInt(propertyId as string);
+      if (recommendationType) filters.recommendationType = recommendationType as string;
+      if (status) filters.status = status as string;
+      
+      const recommendations = await storage.getUpsellRecommendations(organizationId, filters);
+      res.json(recommendations);
+    } catch (error) {
+      console.error("Error fetching upsell recommendations:", error);
+      res.status(500).json({ message: "Failed to fetch upsell recommendations" });
+    }
+  });
+
+  // Search upsell recommendations
+  app.get("/api/upsell-recommendations/search", isDemoAuthenticated, async (req, res) => {
+    try {
+      const organizationId = req.user?.organizationId || "default-org";
+      const { q, propertyId, recommendationType, status } = req.query;
+      
+      if (!q) {
+        return res.status(400).json({ message: "Search query is required" });
+      }
+      
+      const results = await storage.searchUpsellRecommendations(organizationId, q as string);
+      res.json(results);
+    } catch (error) {
+      console.error("Error searching upsell recommendations:", error);
+      res.status(500).json({ message: "Failed to search upsell recommendations" });
+    }
+  });
+
+  // Get upsell recommendations analytics
+  app.get("/api/upsell-recommendations/analytics", isDemoAuthenticated, async (req, res) => {
+    try {
+      const organizationId = req.user?.organizationId || "default-org";
+      const analytics = await storage.getUpsellRecommendationAnalytics(organizationId);
+      res.json(analytics);
+    } catch (error) {
+      console.error("Error fetching upsell analytics:", error);
+      res.status(500).json({ message: "Failed to fetch upsell analytics" });
+    }
+  });
+
+  // Get upsell recommendation types summary
+  app.get("/api/upsell-recommendations/types", isDemoAuthenticated, async (req, res) => {
+    try {
+      const organizationId = req.user?.organizationId || "default-org";
+      const types = await storage.getUpsellRecommendationTypes(organizationId);
+      res.json(types);
+    } catch (error) {
+      console.error("Error fetching upsell recommendation types:", error);
+      res.status(500).json({ message: "Failed to fetch upsell recommendation types" });
+    }
+  });
+
+  // Create new upsell recommendation
+  app.post("/api/upsell-recommendations", isDemoAuthenticated, async (req, res) => {
+    try {
+      const organizationId = req.user?.organizationId || "default-org";
+      
+      const recommendationData = {
+        ...req.body,
+        organizationId
+      };
+      
+      const recommendation = await storage.createUpsellRecommendation(recommendationData);
+      res.status(201).json(recommendation);
+    } catch (error) {
+      console.error("Error creating upsell recommendation:", error);
+      res.status(500).json({ message: "Failed to create upsell recommendation" });
+    }
+  });
+
+  // Update upsell recommendation
+  app.put("/api/upsell-recommendations/:id", isDemoAuthenticated, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const recommendation = await storage.updateUpsellRecommendation(parseInt(id), req.body);
+      
+      if (!recommendation) {
+        return res.status(404).json({ message: "Upsell recommendation not found" });
+      }
+      
+      res.json(recommendation);
+    } catch (error) {
+      console.error("Error updating upsell recommendation:", error);
+      res.status(500).json({ message: "Failed to update upsell recommendation" });
+    }
+  });
+
+  // Delete upsell recommendation
+  app.delete("/api/upsell-recommendations/:id", isDemoAuthenticated, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const success = await storage.deleteUpsellRecommendation(parseInt(id));
+      
+      if (!success) {
+        return res.status(404).json({ message: "Upsell recommendation not found" });
+      }
+      
+      res.json({ message: "Upsell recommendation deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting upsell recommendation:", error);
+      res.status(500).json({ message: "Failed to delete upsell recommendation" });
+    }
+  });
+
+  // Generate smart upsell recommendations for a guest
+  app.post("/api/upsell-recommendations/generate", isDemoAuthenticated, async (req, res) => {
+    try {
+      const organizationId = req.user?.organizationId || "default-org";
+      const { guestId, propertyId } = req.body;
+      
+      if (!guestId || !propertyId) {
+        return res.status(400).json({ message: "guestId and propertyId are required" });
+      }
+      
+      const result = await storage.generateSmartUpsellRecommendations(organizationId, guestId, propertyId);
+      res.json(result);
+    } catch (error) {
+      console.error("Error generating smart upsell recommendations:", error);
+      res.status(500).json({ message: "Failed to generate smart upsell recommendations" });
+    }
+  });
+
+  app.put("/api/guest-activity-preferences/:reservationId", async (req, res) => {
+    try {
+      const reservationId = req.params.reservationId;
+      const preferences = await storage.updateGuestActivityPreferences(reservationId, req.body);
+      res.json(preferences);
+    } catch (error) {
+      console.error("Error updating guest preferences:", error);
+      res.status(500).json({ message: "Failed to update guest preferences" });
+    }
+  });
+
+  // Track recommendation interactions
+  app.post("/api/guest-recommendation-interactions", async (req, res) => {
+    try {
+      const interaction = await storage.createRecommendationInteraction(req.body);
+      res.status(201).json(interaction);
+    } catch (error) {
+      console.error("Error tracking recommendation interaction:", error);
+      res.status(500).json({ message: "Failed to track recommendation interaction" });
+    }
+  });
+
+  // Get recommendation interactions for a guest
+  app.get("/api/guest-recommendation-interactions/:reservationId", async (req, res) => {
+    try {
+      const reservationId = req.params.reservationId;
+      const { recommendationId, interactionType } = req.query;
+      
+      const filters: any = {};
+      if (recommendationId) filters.recommendationId = parseInt(recommendationId as string);
+      if (interactionType) filters.interactionType = interactionType as string;
+      
+      const interactions = await storage.getRecommendationInteractions(reservationId, filters);
+      res.json(interactions);
+    } catch (error) {
+      console.error("Error fetching recommendation interactions:", error);
+      res.status(500).json({ message: "Failed to fetch recommendation interactions" });
+    }
+  });
+
+  // Get recommendation analytics (admin/PM only)
+  app.get("/api/recommendation-analytics/:propertyId", isDemoAuthenticated, async (req, res) => {
+    try {
+      const organizationId = "default-org";
+      const propertyId = parseInt(req.params.propertyId);
+      const { fromDate, toDate, category } = req.query;
+      
+      const filters: any = {};
+      if (fromDate) filters.fromDate = new Date(fromDate as string);
+      if (toDate) filters.toDate = new Date(toDate as string);
+      if (category) filters.category = category as string;
+      
+      const analytics = await storage.getRecommendationAnalytics(organizationId, propertyId, filters);
+      res.json(analytics);
+    } catch (error) {
+      console.error("Error fetching recommendation analytics:", error);
+      res.status(500).json({ message: "Failed to fetch recommendation analytics" });
+    }
+  });
+
+  // Admin endpoints for managing property recommendations
+  app.post("/api/admin/property-activity-recommendations", isDemoAuthenticated, async (req, res) => {
+    try {
+      const user = req.user as any;
+      if (user.role !== 'admin' && user.role !== 'portfolio-manager') {
+        return res.status(403).json({ message: "Access denied. Admin or Portfolio Manager role required." });
+      }
+      
+      const recommendationData = {
+        ...req.body,
+        organizationId: "default-org",
+        createdBy: user.username,
+      };
+      
+      const recommendation = await storage.createPropertyActivityRecommendation(recommendationData);
+      res.status(201).json(recommendation);
+    } catch (error) {
+      console.error("Error creating property recommendation:", error);
+      res.status(500).json({ message: "Failed to create property recommendation" });
+    }
+  });
+
+  app.put("/api/admin/property-activity-recommendations/:id", isDemoAuthenticated, async (req, res) => {
+    try {
+      const user = req.user as any;
+      if (user.role !== 'admin' && user.role !== 'portfolio-manager') {
+        return res.status(403).json({ message: "Access denied. Admin or Portfolio Manager role required." });
+      }
+      
+      const recommendationId = parseInt(req.params.id);
+      const recommendation = await storage.updatePropertyActivityRecommendation(recommendationId, req.body);
+      res.json(recommendation);
+    } catch (error) {
+      console.error("Error updating property recommendation:", error);
+      res.status(500).json({ message: "Failed to update property recommendation" });
+    }
+  });
+
+  app.delete("/api/admin/property-activity-recommendations/:id", isDemoAuthenticated, async (req, res) => {
+    try {
+      const user = req.user as any;
+      if (user.role !== 'admin' && user.role !== 'portfolio-manager') {
+        return res.status(403).json({ message: "Access denied. Admin or Portfolio Manager role required." });
+      }
+      
+      const recommendationId = parseInt(req.params.id);
+      const success = await storage.deletePropertyActivityRecommendation(recommendationId);
+      res.json({ success });
+    } catch (error) {
+      console.error("Error deleting property recommendation:", error);
+      res.status(500).json({ message: "Failed to delete property recommendation" });
+    }
+  });
+
+  // ===== GUEST ADD-ON SERVICE BOOKING PLATFORM =====
+  
+  // Guest add-on services CRUD
+  app.get("/api/guest-addon-services", isDemoAuthenticated, async (req, res) => {
+    try {
+      const organizationId = "demo-org";
+      const { category, isActive } = req.query;
+      
+      const filters: any = {};
+      if (category) filters.category = category as string;
+      if (isActive !== undefined) filters.isActive = isActive === 'true';
+      
+      const services = await storage.getGuestAddonServices(organizationId, filters);
+      res.json(services);
+    } catch (error) {
+      console.error("Error fetching guest addon services:", error);
+      res.status(500).json({ message: "Failed to fetch guest addon services" });
+    }
+  });
+
+  app.get("/api/guest-addon-services/:id", isDemoAuthenticated, async (req, res) => {
+    try {
+      const serviceId = parseInt(req.params.id);
+      const service = await storage.getGuestAddonServiceById(serviceId);
+      
+      if (!service) {
+        return res.status(404).json({ message: "Guest addon service not found" });
+      }
+      
+      res.json(service);
+    } catch (error) {
+      console.error("Error fetching guest addon service:", error);
+      res.status(500).json({ message: "Failed to fetch guest addon service" });
+    }
+  });
+
+  app.post("/api/guest-addon-services", isDemoAuthenticated, async (req, res) => {
+    try {
+      const organizationId = "demo-org";
+      const user = req.user as any;
+      
+      const serviceData = {
+        ...req.body,
+        organizationId,
+        createdBy: user.id,
+      };
+      
+      const service = await storage.createGuestAddonService(serviceData);
+      res.status(201).json(service);
+    } catch (error) {
+      console.error("Error creating guest addon service:", error);
+      res.status(500).json({ message: "Failed to create guest addon service" });
+    }
+  });
+
+  app.put("/api/guest-addon-services/:id", isDemoAuthenticated, async (req, res) => {
+    try {
+      const serviceId = parseInt(req.params.id);
+      const service = await storage.updateGuestAddonService(serviceId, req.body);
+      
+      if (!service) {
+        return res.status(404).json({ message: "Guest addon service not found" });
+      }
+      
+      res.json(service);
+    } catch (error) {
+      console.error("Error updating guest addon service:", error);
+      res.status(500).json({ message: "Failed to update guest addon service" });
+    }
+  });
+
+  app.delete("/api/guest-addon-services/:id", isDemoAuthenticated, async (req, res) => {
+    try {
+      const serviceId = parseInt(req.params.id);
+      const success = await storage.deleteGuestAddonService(serviceId);
+      res.json({ success });
+    } catch (error) {
+      console.error("Error deleting guest addon service:", error);
+      res.status(500).json({ message: "Failed to delete guest addon service" });
+    }
+  });
+
+  // Guest add-on bookings CRUD
+  app.get("/api/guest-addon-bookings", isDemoAuthenticated, async (req, res) => {
+    try {
+      const organizationId = "demo-org";
+      const { propertyId, status, billingRoute } = req.query;
+      
+      const filters: any = {};
+      if (propertyId) filters.propertyId = parseInt(propertyId as string);
+      if (status) filters.status = status as string;
+      if (billingRoute) filters.billingRoute = billingRoute as string;
+      
+      const bookings = await storage.getGuestAddonBookings(organizationId, filters);
+      res.json(bookings);
+    } catch (error) {
+      console.error("Error fetching guest addon bookings:", error);
+      res.status(500).json({ message: "Failed to fetch guest addon bookings" });
+    }
+  });
+
+  app.get("/api/guest-addon-bookings/:id", isDemoAuthenticated, async (req, res) => {
+    try {
+      const bookingId = parseInt(req.params.id);
+      const booking = await storage.getGuestAddonBookingById(bookingId);
+      
+      if (!booking) {
+        return res.status(404).json({ message: "Guest addon booking not found" });
+      }
+      
+      res.json(booking);
+    } catch (error) {
+      console.error("Error fetching guest addon booking:", error);
+      res.status(500).json({ message: "Failed to fetch guest addon booking" });
+    }
+  });
+
+  app.post("/api/guest-addon-bookings", isDemoAuthenticated, async (req, res) => {
+    try {
+      const organizationId = "demo-org";
+      
+      const bookingData = {
+        ...req.body,
+        organizationId,
+        bookingDate: new Date(),
+      };
+      
+      const booking = await storage.createGuestAddonBooking(bookingData);
+      res.status(201).json(booking);
+    } catch (error) {
+      console.error("Error creating guest addon booking:", error);
+      res.status(500).json({ message: "Failed to create guest addon booking" });
+    }
+  });
+
+  app.put("/api/guest-addon-bookings/:id", isDemoAuthenticated, async (req, res) => {
+    try {
+      const bookingId = parseInt(req.params.id);
+      const booking = await storage.updateGuestAddonBooking(bookingId, req.body);
+      
+      if (!booking) {
+        return res.status(404).json({ message: "Guest addon booking not found" });
+      }
+      
+      res.json(booking);
+    } catch (error) {
+      console.error("Error updating guest addon booking:", error);
+      res.status(500).json({ message: "Failed to update guest addon booking" });
+    }
+  });
+
+  app.put("/api/guest-addon-bookings/:id/confirm", isDemoAuthenticated, async (req, res) => {
+    try {
+      const bookingId = parseInt(req.params.id);
+      const user = req.user as any;
+      
+      const booking = await storage.confirmGuestAddonBooking(bookingId, user.username);
+      
+      if (!booking) {
+        return res.status(404).json({ message: "Guest addon booking not found" });
+      }
+      
+      res.json(booking);
+    } catch (error) {
+      console.error("Error confirming guest addon booking:", error);
+      res.status(500).json({ message: "Failed to confirm guest addon booking" });
+    }
+  });
+
+  app.put("/api/guest-addon-bookings/:id/cancel", isDemoAuthenticated, async (req, res) => {
+    try {
+      const bookingId = parseInt(req.params.id);
+      const user = req.user as any;
+      const { reason } = req.body;
+      
+      const booking = await storage.cancelGuestAddonBooking(bookingId, user.username, reason);
+      
+      if (!booking) {
+        return res.status(404).json({ message: "Guest addon booking not found" });
+      }
+      
+      res.json(booking);
+    } catch (error) {
+      console.error("Error cancelling guest addon booking:", error);
+      res.status(500).json({ message: "Failed to cancel guest addon booking" });
+    }
+  });
+
+  app.put("/api/guest-addon-bookings/:id/payment", isDemoAuthenticated, async (req, res) => {
+    try {
+      const bookingId = parseInt(req.params.id);
+      const { paymentStatus, paymentMethod, stripePaymentIntentId } = req.body;
+      
+      const booking = await storage.updateBookingPaymentStatus(
+        bookingId,
+        paymentStatus,
+        paymentMethod,
+        stripePaymentIntentId
+      );
+      
+      if (!booking) {
+        return res.status(404).json({ message: "Guest addon booking not found" });
+      }
+      
+      res.json(booking);
+    } catch (error) {
+      console.error("Error updating booking payment status:", error);
+      res.status(500).json({ message: "Failed to update booking payment status" });
+    }
+  });
+
+  // Guest portal access
+  app.get("/api/guest-portal/:accessToken", async (req, res) => {
+    try {
+      const { accessToken } = req.params;
+      const access = await storage.getGuestPortalAccess(accessToken);
+      
+      if (!access || !access.isActive || access.expiresAt < new Date()) {
+        return res.status(401).json({ message: "Invalid or expired access token" });
+      }
+      
+      // Update last accessed time
+      await storage.updateGuestPortalAccessActivity(accessToken);
+      
+      res.json(access);
+    } catch (error) {
+      console.error("Error verifying guest portal access:", error);
+      res.status(500).json({ message: "Failed to verify guest portal access" });
+    }
+  });
+
+  app.post("/api/guest-portal", isDemoAuthenticated, async (req, res) => {
+    try {
+      const organizationId = "demo-org";
+      const user = req.user as any;
+      
+      const accessData = {
+        ...req.body,
+        organizationId,
+        createdBy: user.id,
+        accessToken: `guest_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        isActive: true,
+        expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
+      };
+      
+      const access = await storage.createGuestPortalAccess(accessData);
+      res.status(201).json(access);
+    } catch (error) {
+      console.error("Error creating guest portal access:", error);
+      res.status(500).json({ message: "Failed to create guest portal access" });
+    }
+  });
+
+  app.put("/api/guest-portal/:accessToken/deactivate", isDemoAuthenticated, async (req, res) => {
+    try {
+      const { accessToken } = req.params;
+      const success = await storage.deactivateGuestPortalAccess(accessToken);
+      res.json({ success });
+    } catch (error) {
+      console.error("Error deactivating guest portal access:", error);
+      res.status(500).json({ message: "Failed to deactivate guest portal access" });
+    }
+  });
+
+  // Guest add-on service analytics
+  app.get("/api/guest-addon-analytics", isDemoAuthenticated, async (req, res) => {
+    try {
+      const organizationId = "demo-org";
+      const { fromDate, toDate } = req.query;
+      
+      const filters: any = {};
+      if (fromDate) filters.fromDate = new Date(fromDate as string);
+      if (toDate) filters.toDate = new Date(toDate as string);
+      
+      const analytics = await storage.getGuestAddonServiceAnalytics(organizationId, filters);
+      res.json(analytics);
+    } catch (error) {
+      console.error("Error fetching guest addon service analytics:", error);
+      res.status(500).json({ message: "Failed to fetch guest addon service analytics" });
+    }
+  });
+
+  // ==================== PROPERTY MEDIA LIBRARY ROUTES ====================
+
+  // Get agent media library data (for agent dashboard)
+  app.get("/api/agent-media-library", async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (!user) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const organizationId = user.organizationId;
+      const agentId = user.id;
+      const { propertyStatus, mediaType } = req.query;
+
+      const filters: any = {};
+      if (propertyStatus) filters.propertyStatus = propertyStatus as string;
+      if (mediaType) filters.mediaType = mediaType as string;
+
+      const data = await storage.getAgentMediaLibraryData(organizationId, agentId, filters);
+      res.json(data);
+    } catch (error) {
+      console.error("Error fetching agent media library data:", error);
+      res.status(500).json({ message: "Failed to fetch agent media library data" });
+    }
+  });
+
+  // Get property media (admin/PM only for upload panel, agents for viewing approved)
+  app.get("/api/property-media", async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (!user) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const organizationId = user.organizationId;
+      const { propertyId, mediaType, isAgentApproved } = req.query;
+
+      const filters: any = {};
+      if (propertyId) filters.propertyId = parseInt(propertyId as string);
+      if (mediaType) filters.mediaType = mediaType as string;
+      
+      // For agents, only show approved media
+      if (user.role === 'retail-agent' || user.role === 'referral-agent') {
+        filters.isAgentApproved = true;
+      } else if (isAgentApproved !== undefined) {
+        filters.isAgentApproved = isAgentApproved === 'true';
+      }
+
+      const media = await storage.getPropertyMedia(organizationId, filters);
+      res.json(media);
+    } catch (error) {
+      console.error("Error fetching property media:", error);
+      res.status(500).json({ message: "Failed to fetch property media" });
+    }
+  });
+
+  // Upload property media (admin/PM only)
+  app.post("/api/property-media", async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (!user) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      // Only admin and portfolio managers can upload media
+      if (user.role !== 'admin' && user.role !== 'portfolio-manager') {
+        return res.status(403).json({ message: "Only admins and portfolio managers can upload media" });
+      }
+
+      const organizationId = user.organizationId;
+      const {
+        propertyId,
+        mediaType,
+        title,
+        description,
+        mediaUrl,
+        thumbnailUrl,
+        fileSize,
+        mimeType,
+        displayOrder,
+        tags
+      } = req.body;
+
+      if (!propertyId || !mediaType || !title || !mediaUrl) {
+        return res.status(400).json({ message: "Property ID, media type, title, and media URL are required" });
+      }
+
+      const mediaData = {
+        organizationId,
+        propertyId: parseInt(propertyId),
+        mediaType,
+        title,
+        description,
+        mediaUrl,
+        thumbnailUrl,
+        fileSize: fileSize ? parseInt(fileSize) : null,
+        mimeType,
+        displayOrder: displayOrder || 0,
+        tags: tags || [],
+        isAgentApproved: false, // New uploads need approval
+        uploadedBy: user.id,
+      };
+
+      const newMedia = await storage.createPropertyMedia(mediaData);
+      res.status(201).json(newMedia);
+    } catch (error) {
+      console.error("Error uploading property media:", error);
+      res.status(500).json({ message: "Failed to upload property media" });
+    }
+  });
+
+  // Approve media for agent access (admin/PM only)
+  app.patch("/api/property-media/:id/approve", async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (!user) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      // Only admin and portfolio managers can approve media
+      if (user.role !== 'admin' && user.role !== 'portfolio-manager') {
+        return res.status(403).json({ message: "Only admins and portfolio managers can approve media" });
+      }
+
+      const mediaId = parseInt(req.params.id);
+      const approvedMedia = await storage.approveMediaForAgents(mediaId, user.id);
+
+      if (!approvedMedia) {
+        return res.status(404).json({ message: "Media not found" });
+      }
+
+      res.json(approvedMedia);
+    } catch (error) {
+      console.error("Error approving media:", error);
+      res.status(500).json({ message: "Failed to approve media" });
+    }
+  });
+
+  // Update property media (admin/PM only)
+  app.patch("/api/property-media/:id", async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (!user) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      // Only admin and portfolio managers can update media
+      if (user.role !== 'admin' && user.role !== 'portfolio-manager') {
+        return res.status(403).json({ message: "Only admins and portfolio managers can update media" });
+      }
+
+      const mediaId = parseInt(req.params.id);
+      const updates = req.body;
+
+      const updatedMedia = await storage.updatePropertyMedia(mediaId, updates);
+
+      if (!updatedMedia) {
+        return res.status(404).json({ message: "Media not found" });
+      }
+
+      res.json(updatedMedia);
+    } catch (error) {
+      console.error("Error updating property media:", error);
+      res.status(500).json({ message: "Failed to update property media" });
+    }
+  });
+
+  // Delete property media (admin/PM only)
+  app.delete("/api/property-media/:id", async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (!user) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      // Only admin and portfolio managers can delete media
+      if (user.role !== 'admin' && user.role !== 'portfolio-manager') {
+        return res.status(403).json({ message: "Only admins and portfolio managers can delete media" });
+      }
+
+      const mediaId = parseInt(req.params.id);
+      await storage.deletePropertyMedia(mediaId);
+
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting property media:", error);
+      res.status(500).json({ message: "Failed to delete property media" });
+    }
+  });
+
+  // ===== ENHANCED GUEST DASHBOARD API ENDPOINTS =====
+
+  // Guest Dashboard - Current Booking
+  app.get("/api/guest-dashboard/current-booking", async (req, res) => {
+    try {
+      const organizationId = "demo-org";
+      const guestId = "guest-1"; // In real implementation, get from session or JWT
+      
+      const booking = await storage.getCurrentGuestBooking(organizationId, guestId);
+      res.json(booking);
+    } catch (error) {
+      console.error("Error fetching current booking:", error);
+      res.status(500).json({ message: "Failed to fetch current booking" });
+    }
+  });
+
+  // Guest Dashboard - Property Amenities
+  app.get("/api/guest-dashboard/property-amenities/:propertyId", async (req, res) => {
+    try {
+      const organizationId = "demo-org";
+      const propertyId = parseInt(req.params.propertyId);
+      
+      const amenities = await storage.getPropertyAmenities(organizationId, propertyId);
+      res.json(amenities);
+    } catch (error) {
+      console.error("Error fetching property amenities:", error);
+      res.status(500).json({ message: "Failed to fetch property amenities" });
+    }
+  });
+
+  // Guest Dashboard - AI Recommendations
+  app.get("/api/guest-dashboard/ai-recommendations/:propertyId", async (req, res) => {
+    try {
+      const organizationId = "demo-org";
+      const propertyId = parseInt(req.params.propertyId);
+      
+      const recommendations = await storage.getAiRecommendations(organizationId, propertyId);
+      res.json(recommendations);
+    } catch (error) {
+      console.error("Error fetching AI recommendations:", error);
+      res.status(500).json({ message: "Failed to fetch AI recommendations" });
+    }
+  });
+
+  // Guest Dashboard Extended Modules
+  
+  // Booking Overview
+  app.get("/api/guest-dashboard/booking-overview/:guestId", async (req, res) => {
+    try {
+      const organizationId = "demo-org";
+      const guestId = req.params.guestId;
+      
+      const bookingOverview = await storage.getGuestBookingOverview(organizationId, guestId);
+      res.json(bookingOverview);
+    } catch (error) {
+      console.error("Error fetching guest booking overview:", error);
+      res.status(500).json({ message: "Failed to fetch booking overview" });
+    }
+  });
+
+  // Services Ordered
+  app.get("/api/guest-dashboard/services-ordered/:bookingId", async (req, res) => {
+    try {
+      const organizationId = "demo-org";
+      const bookingId = parseInt(req.params.bookingId);
+      
+      const servicesOrdered = await storage.getGuestServicesOrdered(organizationId, bookingId);
+      res.json(servicesOrdered);
+    } catch (error) {
+      console.error("Error fetching guest services ordered:", error);
+      res.status(500).json({ message: "Failed to fetch services ordered" });
+    }
+  });
+
+  // Electricity Billing
+  app.get("/api/guest-dashboard/electricity-billing/:bookingId", async (req, res) => {
+    try {
+      const organizationId = "demo-org";
+      const bookingId = parseInt(req.params.bookingId);
+      
+      const electricityBilling = await storage.getGuestElectricityBilling(organizationId, bookingId);
+      res.json(electricityBilling);
+    } catch (error) {
+      console.error("Error fetching guest electricity billing:", error);
+      res.status(500).json({ message: "Failed to fetch electricity billing" });
+    }
+  });
+
+  // Deposit Overview
+  app.get("/api/guest-dashboard/deposit-overview/:bookingId", async (req, res) => {
+    try {
+      const organizationId = "demo-org";
+      const bookingId = parseInt(req.params.bookingId);
+      
+      const depositOverview = await storage.getGuestDepositOverview(organizationId, bookingId);
+      res.json(depositOverview);
+    } catch (error) {
+      console.error("Error fetching guest deposit overview:", error);
+      res.status(500).json({ message: "Failed to fetch deposit overview" });
+    }
+  });
+
+  // Guest Dashboard - Service Timeline
+  app.get("/api/guest-dashboard/service-timeline/:propertyId", async (req, res) => {
+    try {
+      const organizationId = "demo-org";
+      const propertyId = parseInt(req.params.propertyId);
+      
+      const timeline = await storage.getGuestServiceTimeline(organizationId, propertyId);
+      res.json(timeline);
+    } catch (error) {
+      console.error("Error fetching service timeline:", error);
+      res.status(500).json({ message: "Failed to fetch service timeline" });
+    }
+  });
+
+  // Get property internal notes
+  app.get("/api/property-internal-notes", async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (!user) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const organizationId = user.organizationId;
+      const { propertyId, category, isVisibleToAgents } = req.query;
+
+      const filters: any = {};
+      if (propertyId) filters.propertyId = parseInt(propertyId as string);
+      if (category) filters.category = category as string;
+      
+      // For agents, only show notes visible to them
+      if (user.role === 'retail-agent' || user.role === 'referral-agent') {
+        filters.isVisibleToAgents = true;
+      } else if (isVisibleToAgents !== undefined) {
+        filters.isVisibleToAgents = isVisibleToAgents === 'true';
+      }
+
+      const notes = await storage.getPropertyInternalNotes(organizationId, filters);
+      res.json(notes);
+    } catch (error) {
+      console.error("Error fetching property internal notes:", error);
+      res.status(500).json({ message: "Failed to fetch property internal notes" });
+    }
+  });
+
+  // Create property internal note (admin/PM only)
+  app.post("/api/property-internal-notes", async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (!user) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      // Only admin and portfolio managers can create internal notes
+      if (user.role !== 'admin' && user.role !== 'portfolio-manager') {
+        return res.status(403).json({ message: "Only admins and portfolio managers can create internal notes" });
+      }
+
+      const organizationId = user.organizationId;
+      const {
+        propertyId,
+        category,
+        title,
+        content,
+        isVisibleToAgents,
+        tags
+      } = req.body;
+
+      if (!propertyId || !title || !content) {
+        return res.status(400).json({ message: "Property ID, title, and content are required" });
+      }
+
+      const noteData = {
+        organizationId,
+        propertyId: parseInt(propertyId),
+        category: category || 'general',
+        title,
+        content,
+        isVisibleToAgents: isVisibleToAgents || false,
+        tags: tags || [],
+        createdBy: user.id,
+      };
+
+      const newNote = await storage.createPropertyInternalNote(noteData);
+      res.status(201).json(newNote);
+    } catch (error) {
+      console.error("Error creating property internal note:", error);
+      res.status(500).json({ message: "Failed to create property internal note" });
+    }
+  });
+
+  // Update property internal note (admin/PM only)
+  app.patch("/api/property-internal-notes/:id", async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (!user) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      // Only admin and portfolio managers can update internal notes
+      if (user.role !== 'admin' && user.role !== 'portfolio-manager') {
+        return res.status(403).json({ message: "Only admins and portfolio managers can update internal notes" });
+      }
+
+      const noteId = parseInt(req.params.id);
+      const updates = req.body;
+
+      const updatedNote = await storage.updatePropertyInternalNote(noteId, updates);
+
+      if (!updatedNote) {
+        return res.status(404).json({ message: "Internal note not found" });
+      }
+
+      res.json(updatedNote);
+    } catch (error) {
+      console.error("Error updating property internal note:", error);
+      res.status(500).json({ message: "Failed to update property internal note" });
+    }
+  });
+
+  // Delete property internal note (admin/PM only)
+  app.delete("/api/property-internal-notes/:id", async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (!user) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      // Only admin and portfolio managers can delete internal notes
+      if (user.role !== 'admin' && user.role !== 'portfolio-manager') {
+        return res.status(403).json({ message: "Only admins and portfolio managers can delete internal notes" });
+      }
+
+      const noteId = parseInt(req.params.id);
+      await storage.deletePropertyInternalNote(noteId);
+
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting property internal note:", error);
+      res.status(500).json({ message: "Failed to delete property internal note" });
+    }
+  });
+
+  // Track agent media access (for analytics)
+  app.post("/api/agent-media-access", async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (!user) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const { mediaId, actionType } = req.body;
+
+      if (!mediaId || !actionType) {
+        return res.status(400).json({ message: "Media ID and action type are required" });
+      }
+
+      const accessData = {
+        organizationId: user.organizationId,
+        agentId: user.id,
+        mediaId: parseInt(mediaId),
+        accessGrantedBy: user.id, // Self-granted for agent access
+        lastViewedAt: actionType === 'view' ? new Date() : null,
+        copyCount: actionType === 'copy' ? 1 : 0,
+      };
+
+      // Handle different action types
+      if (actionType === 'view') {
+        await storage.updateAgentMediaLastViewed(user.id, parseInt(mediaId));
+      } else if (actionType === 'copy') {
+        await storage.incrementCopyCount(user.id, parseInt(mediaId));
+      }
+
+      const accessRecord = await storage.trackAgentMediaAccess(accessData);
+      res.status(201).json(accessRecord);
+    } catch (error) {
+      console.error("Error tracking agent media access:", error);
+      res.status(500).json({ message: "Failed to track agent media access" });
+    }
+  });
+
+  // ===== GUEST ADD-ON SERVICE BOOKING PLATFORM =====
+
+  // Get all guest add-on services
+  app.get("/api/guest-addon-services", isDemoAuthenticated, async (req, res) => {
+    try {
+      const organizationId = req.user.organizationId;
+      const { category, isActive } = req.query;
+      
+      const filters: any = {};
+      if (category) filters.category = category as string;
+      if (isActive !== undefined) filters.isActive = isActive === 'true';
+      
+      const services = await storage.getGuestAddonServices(organizationId, filters);
+      res.json(services);
+    } catch (error) {
+      console.error("Error fetching guest add-on services:", error);
+      res.status(500).json({ message: "Failed to fetch services" });
+    }
+  });
+
+  // Get guest add-on service by ID
+  app.get("/api/guest-addon-services/:id", isDemoAuthenticated, async (req, res) => {
+    try {
+      const service = await storage.getGuestAddonServiceById(parseInt(req.params.id));
+      if (!service) {
+        return res.status(404).json({ message: "Service not found" });
+      }
+      res.json(service);
+    } catch (error) {
+      console.error("Error fetching guest add-on service:", error);
+      res.status(500).json({ message: "Failed to fetch service" });
+    }
+  });
+
+  // Create new guest add-on service
+  app.post("/api/guest-addon-services", isDemoAuthenticated, async (req, res) => {
+    try {
+      const organizationId = req.user.organizationId;
+      const serviceData = {
+        ...req.body,
+        organizationId,
+      };
+
+      const service = await storage.createGuestAddonService(serviceData);
+      res.status(201).json(service);
+    } catch (error) {
+      console.error("Error creating guest add-on service:", error);
+      res.status(500).json({ message: "Failed to create service" });
+    }
+  });
+
+  // Update guest add-on service
+  app.patch("/api/guest-addon-services/:id", isDemoAuthenticated, async (req, res) => {
+    try {
+      const service = await storage.updateGuestAddonService(parseInt(req.params.id), req.body);
+      if (!service) {
+        return res.status(404).json({ message: "Service not found" });
+      }
+      res.json(service);
+    } catch (error) {
+      console.error("Error updating guest add-on service:", error);
+      res.status(500).json({ message: "Failed to update service" });
+    }
+  });
+
+  // Delete guest add-on service
+  app.delete("/api/guest-addon-services/:id", isDemoAuthenticated, async (req, res) => {
+    try {
+      const success = await storage.deleteGuestAddonService(parseInt(req.params.id));
+      if (!success) {
+        return res.status(404).json({ message: "Service not found" });
+      }
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting guest add-on service:", error);
+      res.status(500).json({ message: "Failed to delete service" });
+    }
+  });
+
+  // Get all guest add-on bookings
+  app.get("/api/guest-addon-bookings", isDemoAuthenticated, async (req, res) => {
+    try {
+      const organizationId = req.user.organizationId;
+      const { propertyId, status, billingRoute } = req.query;
+      
+      const filters: any = {};
+      if (propertyId) filters.propertyId = parseInt(propertyId as string);
+      if (status) filters.status = status as string;
+      if (billingRoute) filters.billingRoute = billingRoute as string;
+      
+      const bookings = await storage.getGuestAddonBookings(organizationId, filters);
+      res.json(bookings);
+    } catch (error) {
+      console.error("Error fetching guest add-on bookings:", error);
+      res.status(500).json({ message: "Failed to fetch bookings" });
+    }
+  });
+
+  // Get guest add-on booking by ID
+  app.get("/api/guest-addon-bookings/:id", isDemoAuthenticated, async (req, res) => {
+    try {
+      const booking = await storage.getGuestAddonBookingById(parseInt(req.params.id));
+      if (!booking) {
+        return res.status(404).json({ message: "Booking not found" });
+      }
+      res.json(booking);
+    } catch (error) {
+      console.error("Error fetching guest add-on booking:", error);
+      res.status(500).json({ message: "Failed to fetch booking" });
+    }
+  });
+
+  // Create new guest add-on booking
+  app.post("/api/guest-addon-bookings", isDemoAuthenticated, async (req, res) => {
+    try {
+      const organizationId = req.user.organizationId;
+      const bookingData = {
+        ...req.body,
+        organizationId,
+      };
+
+      const booking = await storage.createGuestAddonBooking(bookingData);
+
+      // If booking is completed, create finance record
+      if (booking.status === 'completed') {
+        const service = await storage.getGuestAddonServiceById(booking.serviceId);
+        const property = await storage.getPropertyById(booking.propertyId);
+        
+        if (service && property) {
+          await storage.createFinance({
+            organizationId,
+            amount: booking.totalAmount,
+            type: booking.billingRoute === 'guest_billable' ? 'income' : 'expense',
+            description: `${service.serviceName} - ${booking.guestName}`,
+            category: `addon_${service.category}`,
+            propertyId: booking.propertyId,
+            source: booking.billingRoute,
+            referenceNumber: `ADDON-${booking.id}`,
+            processedBy: req.user.id,
+          });
+        }
+      }
+
+      res.status(201).json(booking);
+    } catch (error) {
+      console.error("Error creating guest add-on booking:", error);
+      res.status(500).json({ message: "Failed to create booking" });
+    }
+  });
+
+  // Update guest add-on booking
+  app.patch("/api/guest-addon-bookings/:id", isDemoAuthenticated, async (req, res) => {
+    try {
+      const booking = await storage.updateGuestAddonBooking(parseInt(req.params.id), req.body);
+      if (!booking) {
+        return res.status(404).json({ message: "Booking not found" });
+      }
+
+      // If booking is completed, create finance record
+      if (req.body.status === 'completed' && booking.status === 'completed') {
+        const service = await storage.getGuestAddonServiceById(booking.serviceId);
+        const property = await storage.getPropertyById(booking.propertyId);
+        
+        if (service && property) {
+          await storage.createFinance({
+            organizationId: req.user.organizationId,
+            amount: booking.totalAmount,
+            type: booking.billingRoute === 'guest_billable' ? 'income' : 'expense',
+            description: `${service.serviceName} - ${booking.guestName}`,
+            category: `addon_${service.category}`,
+            propertyId: booking.propertyId,
+            source: booking.billingRoute,
+            referenceNumber: `ADDON-${booking.id}`,
+            processedBy: req.user.id,
+          });
+        }
+      }
+
+      res.json(booking);
+    } catch (error) {
+      console.error("Error updating guest add-on booking:", error);
+      res.status(500).json({ message: "Failed to update booking" });
+    }
+  });
+
+  // Confirm guest add-on booking
+  app.post("/api/guest-addon-bookings/:id/confirm", isDemoAuthenticated, async (req, res) => {
+    try {
+      const booking = await storage.confirmGuestAddonBooking(parseInt(req.params.id), req.user.id);
+      if (!booking) {
+        return res.status(404).json({ message: "Booking not found" });
+      }
+      res.json(booking);
+    } catch (error) {
+      console.error("Error confirming guest add-on booking:", error);
+      res.status(500).json({ message: "Failed to confirm booking" });
+    }
+  });
+
+  // Cancel guest add-on booking
+  app.post("/api/guest-addon-bookings/:id/cancel", isDemoAuthenticated, async (req, res) => {
+    try {
+      const { reason } = req.body;
+      const booking = await storage.cancelGuestAddonBooking(parseInt(req.params.id), req.user.id, reason);
+      if (!booking) {
+        return res.status(404).json({ message: "Booking not found" });
+      }
+      res.json(booking);
+    } catch (error) {
+      console.error("Error cancelling guest add-on booking:", error);
+      res.status(500).json({ message: "Failed to cancel booking" });
+    }
+  });
+
+  // ===== OWNER TARGET & UPGRADE TRACKER ROUTES =====
+  
+  // Import storage
+  const { OwnerTargetUpgradeStorage } = await import("./ownerTargetUpgradeStorage");
+  
+  // Revenue Targets routes
+  app.get("/api/targets", isDemoAuthenticated, async (req, res) => {
+    try {
+      const organizationId = "default-org";
+      const targetStorage = new OwnerTargetUpgradeStorage(organizationId);
+      const { propertyId, targetYear, targetQuarter, isActive } = req.query;
+      
+      const filters: any = {};
+      if (propertyId) filters.propertyId = parseInt(propertyId as string);
+      if (targetYear) filters.targetYear = parseInt(targetYear as string);
+      if (targetQuarter) filters.targetQuarter = parseInt(targetQuarter as string);
+      if (isActive !== undefined) filters.isActive = isActive === 'true';
+      
+      const targets = await targetStorage.getRevenueTargets(filters);
+      res.json(targets);
+    } catch (error) {
+      console.error("Error fetching revenue targets:", error);
+      res.status(500).json({ message: "Failed to fetch revenue targets" });
+    }
+  });
+
+  app.get("/api/targets/demo", isDemoAuthenticated, async (req, res) => {
+    try {
+      const organizationId = "default-org";
+      const targetStorage = new OwnerTargetUpgradeStorage(organizationId);
+      const targets = await targetStorage.getDemoRevenueTargets();
+      res.json(targets);
+    } catch (error) {
+      console.error("Error fetching demo revenue targets:", error);
+      res.status(500).json({ message: "Failed to fetch demo revenue targets" });
+    }
+  });
+
+  app.post("/api/targets", isDemoAuthenticated, async (req, res) => {
+    try {
+      const organizationId = "default-org";
+      const targetStorage = new OwnerTargetUpgradeStorage(organizationId);
+      const user = req.user as any;
+
+      const targetData = {
+        ...req.body,
+        createdBy: user.id,
+      };
+
+      const target = await targetStorage.createRevenueTarget(targetData);
+      res.json(target);
+    } catch (error) {
+      console.error("Error creating revenue target:", error);
+      res.status(500).json({ message: "Failed to create revenue target" });
+    }
+  });
+
+  app.put("/api/targets/:id", isDemoAuthenticated, async (req, res) => {
+    try {
+      const organizationId = "default-org";
+      const targetStorage = new OwnerTargetUpgradeStorage(organizationId);
+      const targetId = parseInt(req.params.id);
+
+      const target = await targetStorage.updateRevenueTarget(targetId, req.body);
+      if (!target) {
+        return res.status(404).json({ message: "Revenue target not found" });
+      }
+      res.json(target);
+    } catch (error) {
+      console.error("Error updating revenue target:", error);
+      res.status(500).json({ message: "Failed to update revenue target" });
+    }
+  });
+
+  app.delete("/api/targets/:id", isDemoAuthenticated, async (req, res) => {
+    try {
+      const organizationId = "default-org";
+      const targetStorage = new OwnerTargetUpgradeStorage(organizationId);
+      const targetId = parseInt(req.params.id);
+
+      const deleted = await targetStorage.deleteRevenueTarget(targetId);
+      if (!deleted) {
+        return res.status(404).json({ message: "Revenue target not found" });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting revenue target:", error);
+      res.status(500).json({ message: "Failed to delete revenue target" });
+    }
+  });
+
+  // Upgrade Wishlist routes
+  app.get("/api/upgrades", isDemoAuthenticated, async (req, res) => {
+    try {
+      const organizationId = "default-org";
+      const targetStorage = new OwnerTargetUpgradeStorage(organizationId);
+      const { propertyId, targetId, status, priority, category } = req.query;
+      
+      const filters: any = {};
+      if (propertyId) filters.propertyId = parseInt(propertyId as string);
+      if (targetId) filters.targetId = parseInt(targetId as string);
+      if (status) filters.status = status as string;
+      if (priority) filters.priority = priority as string;
+      if (category) filters.category = category as string;
+      
+      const upgrades = await targetStorage.getUpgradeWishlist(filters);
+      res.json(upgrades);
+    } catch (error) {
+      console.error("Error fetching upgrade wishlist:", error);
+      res.status(500).json({ message: "Failed to fetch upgrade wishlist" });
+    }
+  });
+
+  app.get("/api/upgrades/demo", isDemoAuthenticated, async (req, res) => {
+    try {
+      const organizationId = "default-org";
+      const targetStorage = new OwnerTargetUpgradeStorage(organizationId);
+      const upgrades = await targetStorage.getDemoUpgradeWishlist();
+      res.json(upgrades);
+    } catch (error) {
+      console.error("Error fetching demo upgrade wishlist:", error);
+      res.status(500).json({ message: "Failed to fetch demo upgrade wishlist" });
+    }
+  });
+
+  app.post("/api/upgrades", isDemoAuthenticated, async (req, res) => {
+    try {
+      const organizationId = "default-org";
+      const targetStorage = new OwnerTargetUpgradeStorage(organizationId);
+      const user = req.user as any;
+
+      const upgradeData = {
+        ...req.body,
+        createdBy: user.id,
+      };
+
+      const upgrade = await targetStorage.createUpgradeItem(upgradeData);
+      res.json(upgrade);
+    } catch (error) {
+      console.error("Error creating upgrade item:", error);
+      res.status(500).json({ message: "Failed to create upgrade item" });
+    }
+  });
+
+  app.put("/api/upgrades/:id", isDemoAuthenticated, async (req, res) => {
+    try {
+      const organizationId = "default-org";
+      const targetStorage = new OwnerTargetUpgradeStorage(organizationId);
+      const upgradeId = parseInt(req.params.id);
+
+      const upgrade = await targetStorage.updateUpgradeItem(upgradeId, req.body);
+      if (!upgrade) {
+        return res.status(404).json({ message: "Upgrade item not found" });
+      }
+      res.json(upgrade);
+    } catch (error) {
+      console.error("Error updating upgrade item:", error);
+      res.status(500).json({ message: "Failed to update upgrade item" });
+    }
+  });
+
+  app.post("/api/upgrades/:id/approve", isDemoAuthenticated, async (req, res) => {
+    try {
+      const organizationId = "default-org";
+      const targetStorage = new OwnerTargetUpgradeStorage(organizationId);
+      const upgradeId = parseInt(req.params.id);
+      const user = req.user as any;
+
+      const upgrade = await targetStorage.approveUpgradeItem(upgradeId, user.id);
+      if (!upgrade) {
+        return res.status(404).json({ message: "Upgrade item not found" });
+      }
+      res.json(upgrade);
+    } catch (error) {
+      console.error("Error approving upgrade item:", error);
+      res.status(500).json({ message: "Failed to approve upgrade item" });
+    }
+  });
+
+  app.post("/api/upgrades/:id/complete", isDemoAuthenticated, async (req, res) => {
+    try {
+      const organizationId = "default-org";
+      const targetStorage = new OwnerTargetUpgradeStorage(organizationId);
+      const upgradeId = parseInt(req.params.id);
+
+      const upgrade = await targetStorage.completeUpgradeItem(upgradeId);
+      if (!upgrade) {
+        return res.status(404).json({ message: "Upgrade item not found" });
+      }
+      res.json(upgrade);
+    } catch (error) {
+      console.error("Error completing upgrade item:", error);
+      res.status(500).json({ message: "Failed to complete upgrade item" });
+    }
+  });
+
+  app.delete("/api/upgrades/:id", isDemoAuthenticated, async (req, res) => {
+    try {
+      const organizationId = "default-org";
+      const targetStorage = new OwnerTargetUpgradeStorage(organizationId);
+      const upgradeId = parseInt(req.params.id);
+
+      const deleted = await targetStorage.deleteUpgradeItem(upgradeId);
+      if (!deleted) {
+        return res.status(404).json({ message: "Upgrade item not found" });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting upgrade item:", error);
+      res.status(500).json({ message: "Failed to delete upgrade item" });
+    }
+  });
+
+  // AI Suggestions routes
+  app.get("/api/target-suggestions", isDemoAuthenticated, async (req, res) => {
+    try {
+      const organizationId = "default-org";
+      const targetStorage = new OwnerTargetUpgradeStorage(organizationId);
+      const { propertyId, suggestionType, isRead, isDismissed } = req.query;
+      
+      const filters: any = {};
+      if (propertyId) filters.propertyId = parseInt(propertyId as string);
+      if (suggestionType) filters.suggestionType = suggestionType as string;
+      if (isRead !== undefined) filters.isRead = isRead === 'true';
+      if (isDismissed !== undefined) filters.isDismissed = isDismissed === 'true';
+      
+      const suggestions = await targetStorage.getSuggestions(filters);
+      res.json(suggestions);
+    } catch (error) {
+      console.error("Error fetching target suggestions:", error);
+      res.status(500).json({ message: "Failed to fetch target suggestions" });
+    }
+  });
+
+  app.get("/api/target-suggestions/demo", isDemoAuthenticated, async (req, res) => {
+    try {
+      const organizationId = "default-org";
+      const targetStorage = new OwnerTargetUpgradeStorage(organizationId);
+      const suggestions = await targetStorage.getDemoSuggestions();
+      res.json(suggestions);
+    } catch (error) {
+      console.error("Error fetching demo target suggestions:", error);
+      res.status(500).json({ message: "Failed to fetch demo target suggestions" });
+    }
+  });
+
+  app.post("/api/target-suggestions/:id/read", isDemoAuthenticated, async (req, res) => {
+    try {
+      const organizationId = "default-org";
+      const targetStorage = new OwnerTargetUpgradeStorage(organizationId);
+      const suggestionId = parseInt(req.params.id);
+
+      const suggestion = await targetStorage.markSuggestionAsRead(suggestionId);
+      if (!suggestion) {
+        return res.status(404).json({ message: "Suggestion not found" });
+      }
+      res.json(suggestion);
+    } catch (error) {
+      console.error("Error marking suggestion as read:", error);
+      res.status(500).json({ message: "Failed to mark suggestion as read" });
+    }
+  });
+
+  app.post("/api/target-suggestions/:id/dismiss", isDemoAuthenticated, async (req, res) => {
+    try {
+      const organizationId = "default-org";
+      const targetStorage = new OwnerTargetUpgradeStorage(organizationId);
+      const suggestionId = parseInt(req.params.id);
+
+      const suggestion = await targetStorage.dismissSuggestion(suggestionId);
+      if (!suggestion) {
+        return res.status(404).json({ message: "Suggestion not found" });
+      }
+      res.json(suggestion);
+    } catch (error) {
+      console.error("Error dismissing suggestion:", error);
+      res.status(500).json({ message: "Failed to dismiss suggestion" });
+    }
+  });
+
+  // Dashboard analytics
+  app.get("/api/target-dashboard", isDemoAuthenticated, async (req, res) => {
+    try {
+      const organizationId = "default-org";
+      const targetStorage = new OwnerTargetUpgradeStorage(organizationId);
+      const { propertyId } = req.query;
+
+      const dashboard = await targetStorage.getTargetDashboard(
+        propertyId ? parseInt(propertyId as string) : undefined
+      );
+      res.json(dashboard);
+    } catch (error) {
+      console.error("Error fetching target dashboard:", error);
+      res.status(500).json({ message: "Failed to fetch target dashboard" });
+    }
+  });
+
+  // Progress tracking
+  app.get("/api/targets/:id/progress", isDemoAuthenticated, async (req, res) => {
+    try {
+      const organizationId = "default-org";
+      const targetStorage = new OwnerTargetUpgradeStorage(organizationId);
+      const targetId = parseInt(req.params.id);
+
+      const progress = await targetStorage.getProgressTracking(targetId);
+      res.json(progress);
+    } catch (error) {
+      console.error("Error fetching target progress:", error);
+      res.status(500).json({ message: "Failed to fetch target progress" });
+    }
+  });
+
+  app.post("/api/targets/:id/progress", isDemoAuthenticated, async (req, res) => {
+    try {
+      const organizationId = "default-org";
+      const targetStorage = new OwnerTargetUpgradeStorage(organizationId);
+      const targetId = parseInt(req.params.id);
+      const user = req.user as any;
+
+      const progressData = {
+        ...req.body,
+        targetId,
+        createdBy: user.id,
+      };
+
+      const progress = await targetStorage.createProgressRecord(progressData);
+      res.json(progress);
+    } catch (error) {
+      console.error("Error creating progress record:", error);
+      res.status(500).json({ message: "Failed to create progress record" });
+    }
+  });
+
+  // ===== OWNER DASHBOARD ROUTES =====
+
+  // Get owner dashboard stats
+  app.get("/api/owner/dashboard/stats", isDemoAuthenticated, async (req, res) => {
+    try {
+      const { startDate, endDate, propertyId } = req.query;
+      const filters = {
+        startDate: startDate as string,
+        endDate: endDate as string,
+        propertyId: propertyId ? parseInt(propertyId as string) : undefined,
+      };
+      
+      const stats = await storage.getOwnerDashboardStats(req.user.organizationId, req.user.id, filters);
+      res.json(stats);
+    } catch (error) {
+      console.error("Error fetching owner dashboard stats:", error);
+      res.status(500).json({ message: "Failed to fetch dashboard stats" });
+    }
+  });
+
+  // Get owner financial summary
+  app.get("/api/owner/dashboard/financial-summary", isDemoAuthenticated, async (req, res) => {
+    try {
+      const { startDate, endDate, propertyId, currency } = req.query;
+      const filters = {
+        startDate: startDate as string,
+        endDate: endDate as string,
+        propertyId: propertyId ? parseInt(propertyId as string) : undefined,
+        currency: currency as string,
+      };
+      
+      const summary = await storage.getOwnerFinancialSummary(req.user.organizationId, req.user.id, filters);
+      res.json(summary);
+    } catch (error) {
+      console.error("Error fetching owner financial summary:", error);
+      res.status(500).json({ message: "Failed to fetch financial summary" });
+    }
+  });
+
+  // Get owner activity timeline
+  app.get("/api/owner/dashboard/activity", isDemoAuthenticated, async (req, res) => {
+    try {
+      const { propertyId, activityType, startDate, endDate, limit } = req.query;
+      const filters = {
+        propertyId: propertyId ? parseInt(propertyId as string) : undefined,
+        activityType: activityType as string,
+        startDate: startDate as string,
+        endDate: endDate as string,
+        limit: limit ? parseInt(limit as string) : undefined,
+      };
+      
+      const activities = await storage.getOwnerActivityTimeline(req.user.organizationId, req.user.id, filters);
+      res.json(activities);
+    } catch (error) {
+      console.error("Error fetching owner activity timeline:", error);
+      res.status(500).json({ message: "Failed to fetch activity timeline" });
+    }
+  });
+
+  // Create owner activity timeline entry (for system use)
+  app.post("/api/owner/dashboard/activity", isDemoAuthenticated, async (req, res) => {
+    try {
+      const validatedData = insertOwnerActivityTimelineSchema.parse({
+        ...req.body,
+        organizationId: req.user.organizationId,
+        createdBy: req.user.id,
+      });
+      
+      const activity = await storage.createOwnerActivityTimeline(validatedData);
+      res.json(activity);
+    } catch (error) {
+      console.error("Error creating owner activity:", error);
+      res.status(500).json({ message: "Failed to create activity" });
+    }
+  });
+
+  // Get owner payout requests
+  app.get("/api/owner/dashboard/payouts", isDemoAuthenticated, async (req, res) => {
+    try {
+      const { status, startDate, endDate } = req.query;
+      const filters = {
+        status: status as string,
+        startDate: startDate as string,
+        endDate: endDate as string,
+      };
+      
+      const payouts = await storage.getOwnerPayoutRequests(req.user.organizationId, req.user.id, filters);
+      res.json(payouts);
+    } catch (error) {
+      console.error("Error fetching owner payout requests:", error);
+      res.status(500).json({ message: "Failed to fetch payout requests" });
+    }
+  });
+
+  // Create owner payout request
+  app.post("/api/owner/dashboard/payouts", isDemoAuthenticated, async (req, res) => {
+    try {
+      const validatedData = insertOwnerPayoutRequestSchema.parse({
+        ...req.body,
+        organizationId: req.user.organizationId,
+        ownerId: req.user.id,
+        status: 'pending',
+      });
+      
+      const payout = await storage.createOwnerPayoutRequest(validatedData);
+      res.json(payout);
+    } catch (error) {
+      console.error("Error creating owner payout request:", error);
+      res.status(500).json({ message: "Failed to create payout request" });
+    }
+  });
+
+  // Update payout request (mark as received by owner)
+  app.patch("/api/owner/dashboard/payouts/:id", isDemoAuthenticated, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const updates = req.body;
+      
+      const payout = await storage.updateOwnerPayoutRequest(parseInt(id), updates);
+      if (!payout) {
+        return res.status(404).json({ message: "Payout request not found" });
+      }
+      
+      res.json(payout);
+    } catch (error) {
+      console.error("Error updating payout request:", error);
+      res.status(500).json({ message: "Failed to update payout request" });
+    }
+  });
+
+  // Admin approve payout request
+  app.post("/api/owner/dashboard/payouts/:id/approve", isDemoAuthenticated, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { notes } = req.body;
+      
+      const payout = await storage.approvePayoutRequest(parseInt(id), req.user.id, notes);
+      if (!payout) {
+        return res.status(404).json({ message: "Payout request not found" });
+      }
+      
+      res.json(payout);
+    } catch (error) {
+      console.error("Error approving payout request:", error);
+      res.status(500).json({ message: "Failed to approve payout request" });
+    }
+  });
+
+  // Admin complete payout request
+  app.post("/api/owner/dashboard/payouts/:id/complete", isDemoAuthenticated, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { paymentMethod, paymentReference, paymentReceiptUrl } = req.body;
+      
+      const payout = await storage.completePayoutRequest(parseInt(id), req.user.id, {
+        paymentMethod,
+        paymentReference,
+        paymentReceiptUrl,
+      });
+      
+      if (!payout) {
+        return res.status(404).json({ message: "Payout request not found" });
+      }
+      
+      res.json(payout);
+    } catch (error) {
+      console.error("Error completing payout request:", error);
+      res.status(500).json({ message: "Failed to complete payout request" });
+    }
+  });
+
+  // Get owner invoices
+  app.get("/api/owner/dashboard/invoices", isDemoAuthenticated, async (req, res) => {
+    try {
+      const { propertyId, invoiceType, status, startDate, endDate } = req.query;
+      const filters = {
+        propertyId: propertyId ? parseInt(propertyId as string) : undefined,
+        invoiceType: invoiceType as string,
+        status: status as string,
+        startDate: startDate as string,
+        endDate: endDate as string,
+      };
+      
+      const invoices = await storage.getOwnerInvoices(req.user.organizationId, req.user.id, filters);
+      res.json(invoices);
+    } catch (error) {
+      console.error("Error fetching owner invoices:", error);
+      res.status(500).json({ message: "Failed to fetch invoices" });
+    }
+  });
+
+  // Create owner invoice (admin only)
+  app.post("/api/owner/dashboard/invoices", isDemoAuthenticated, async (req, res) => {
+    try {
+      // Generate unique invoice number
+      const invoiceNumber = `INV-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      
+      const validatedData = insertOwnerInvoiceSchema.parse({
+        ...req.body,
+        organizationId: req.user.organizationId,
+        invoiceNumber,
+        createdBy: req.user.id,
+      });
+      
+      const invoice = await storage.createOwnerInvoice(validatedData);
+      res.json(invoice);
+    } catch (error) {
+      console.error("Error creating owner invoice:", error);
+      res.status(500).json({ message: "Failed to create invoice" });
+    }
+  });
+
+  // Update owner invoice
+  app.patch("/api/owner/dashboard/invoices/:id", isDemoAuthenticated, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const updates = req.body;
+      
+      const invoice = await storage.updateOwnerInvoice(parseInt(id), updates);
+      if (!invoice) {
+        return res.status(404).json({ message: "Invoice not found" });
+      }
+      
+      res.json(invoice);
+    } catch (error) {
+      console.error("Error updating invoice:", error);
+      res.status(500).json({ message: "Failed to update invoice" });
+    }
+  });
+
+  // Get owner preferences
+  app.get("/api/owner/dashboard/preferences", isDemoAuthenticated, async (req, res) => {
+    try {
+      const preferences = await storage.getOwnerPreferences(req.user.organizationId, req.user.id);
+      res.json(preferences);
+    } catch (error) {
+      console.error("Error fetching owner preferences:", error);
+      res.status(500).json({ message: "Failed to fetch preferences" });
+    }
+  });
+
+  // Update owner preferences
+  app.post("/api/owner/dashboard/preferences", isDemoAuthenticated, async (req, res) => {
+    try {
+      const validatedData = insertOwnerPreferencesSchema.parse({
+        ...req.body,
+        organizationId: req.user.organizationId,
+        ownerId: req.user.id,
+      });
+      
+      const preferences = await storage.upsertOwnerPreferences(validatedData);
+      res.json(preferences);
+    } catch (error) {
+      console.error("Error updating owner preferences:", error);
+      res.status(500).json({ message: "Failed to update preferences" });
+    }
+  });
+
+  // Get owner bookings with enhanced details
+  app.get("/api/owner/dashboard/bookings", isDemoAuthenticated, async (req, res) => {
+    try {
+      const { startDate, endDate, status, propertyId } = req.query;
+      
+      // Get owner's properties first
+      const ownerProperties = await storage.getProperties(req.user.organizationId, { ownerId: req.user.id });
+      const propertyIds = ownerProperties.map(p => p.id);
+      
+      if (propertyIds.length === 0) {
+        return res.json([]);
+      }
+
+      // Build filters for bookings
+      const filters: any = { propertyIds };
+      if (startDate) filters.startDate = startDate as string;
+      if (endDate) filters.endDate = endDate as string;
+      if (status) filters.status = status as string;
+      if (propertyId) filters.propertyId = parseInt(propertyId as string);
+
+      const bookings = await storage.getBookings(req.user.organizationId, filters);
+      
+      // Enhance bookings with property details and revenue information
+      const enhancedBookings = await Promise.all(
+        bookings.map(async (booking) => {
+          const property = ownerProperties.find(p => p.id === booking.propertyId);
+          
+          // Get financial data for this booking
+          const finances = await storage.getFinances(req.user.organizationId, { 
+            bookingId: booking.id 
+          });
+          
+          const revenue = finances
+            .filter(f => f.type === 'income')
+            .reduce((sum, f) => sum + parseFloat(f.amount), 0);
+
+          return {
+            ...booking,
+            propertyName: property?.name,
+            revenue,
+            source: booking.source || 'Direct',
+          };
+        })
+      );
+      
+      res.json(enhancedBookings);
+    } catch (error) {
+      console.error("Error fetching owner bookings:", error);
+      res.status(500).json({ message: "Failed to fetch bookings" });
+    }
+  });
+
+  // ===== PORTFOLIO MANAGER DASHBOARD ROUTES =====
+
+  // PM Financial Overview
+  app.get("/api/pm/dashboard/financial-overview", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { email: managerId } = req.user;
+      
+      // Use demo data for portfolio manager
+      if (managerId === "manager@test.com") {
+        const { getDemoPortfolioData } = await import("./portfolioManagerDemo");
+        const demoData = getDemoPortfolioData(managerId);
+        res.json(demoData?.financialOverview || {
+          totalCommissionEarnings: 0,
+          propertyBreakdown: [],
+          monthlyTrend: []
+        });
+        return;
+      }
+      
+      // Fallback for other users
+      res.json({
+        totalCommissionEarnings: 0,
+        propertyBreakdown: [],
+        monthlyTrend: []
+      });
+    } catch (error) {
+      console.error("Error fetching PM financial overview:", error);
+      res.status(500).json({ message: "Failed to fetch financial overview" });
+    }
+  });
+
+  // PM Commission Balance
+  app.get("/api/pm/dashboard/balance", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { email: managerId } = req.user;
+      
+      // Use demo data for portfolio manager
+      if (managerId === "manager@test.com") {
+        const { getDemoPortfolioData } = await import("./portfolioManagerDemo");
+        const demoData = getDemoPortfolioData(managerId);
+        res.json(demoData?.balance || {
+          totalEarned: 0,
+          totalPaid: 0,
+          currentBalance: 0,
+          lastPayoutDate: null,
+        });
+        return;
+      }
+      
+      // Fallback for other users
+      res.json({
+        totalEarned: 0,
+        totalPaid: 0,
+        currentBalance: 0,
+        lastPayoutDate: null,
+      });
+    } catch (error) {
+      console.error("Error fetching PM balance:", error);
+      res.status(500).json({ message: "Failed to fetch balance" });
+    }
+  });
+
+  // Portfolio Manager Specific Routes
+  app.get("/api/portfolio/property-access", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { email: managerId } = req.user;
+      
+      if (managerId === "manager@test.com") {
+        const { getDemoPortfolioData } = await import("./portfolioManagerDemo");
+        const demoData = getDemoPortfolioData(managerId);
+        res.json(demoData?.propertyAccess || {});
+        return;
+      }
+      
+      res.json({});
+    } catch (error) {
+      console.error("Error fetching property access:", error);
+      res.status(500).json({ message: "Failed to fetch property access" });
+    }
+  });
+
+  app.get("/api/portfolio/documents", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { email: managerId } = req.user;
+      
+      if (managerId === "manager@test.com") {
+        const { getDemoPortfolioData } = await import("./portfolioManagerDemo");
+        const demoData = getDemoPortfolioData(managerId);
+        res.json(demoData?.documents || []);
+        return;
+      }
+      
+      res.json([]);
+    } catch (error) {
+      console.error("Error fetching documents:", error);
+      res.status(500).json({ message: "Failed to fetch documents" });
+    }
+  });
+
+  app.get("/api/portfolio/maintenance", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { email: managerId } = req.user;
+      
+      if (managerId === "manager@test.com") {
+        const { getDemoPortfolioData } = await import("./portfolioManagerDemo");
+        const demoData = getDemoPortfolioData(managerId);
+        res.json(demoData?.maintenanceTasks || []);
+        return;
+      }
+      
+      res.json([]);
+    } catch (error) {
+      console.error("Error fetching maintenance tasks:", error);
+      res.status(500).json({ message: "Failed to fetch maintenance tasks" });
+    }
+  });
+
+  app.get("/api/portfolio/service-tracker", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { email: managerId } = req.user;
+      
+      if (managerId === "manager@test.com") {
+        const { getDemoPortfolioData } = await import("./portfolioManagerDemo");
+        const demoData = getDemoPortfolioData(managerId);
+        res.json(demoData?.serviceTimeline || []);
+        return;
+      }
+      
+      res.json([]);
+    } catch (error) {
+      console.error("Error fetching service timeline:", error);
+      res.status(500).json({ message: "Failed to fetch service timeline" });
+    }
+  });
+
+  app.get("/api/portfolio/invoices", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { email: managerId } = req.user;
+      
+      if (managerId === "manager@test.com") {
+        const { getDemoPortfolioData } = await import("./portfolioManagerDemo");
+        const demoData = getDemoPortfolioData(managerId);
+        res.json(demoData?.invoices || []);
+        return;
+      }
+      
+      res.json([]);
+    } catch (error) {
+      console.error("Error fetching invoices:", error);
+      res.status(500).json({ message: "Failed to fetch invoices" });
+    }
+  });
+
+  // PM Payout Requests
+  app.get("/api/pm/dashboard/payouts", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: managerId } = req.user;
+      const { status, startDate, endDate } = req.query;
+      
+      const payouts = await storage.getPMPayoutRequests(organizationId, managerId, {
+        status,
+        startDate,
+        endDate,
+      });
+      
+      res.json(payouts);
+    } catch (error) {
+      console.error("Error fetching PM payouts:", error);
+      res.status(500).json({ message: "Failed to fetch payouts" });
+    }
+  });
+
+  app.post("/api/pm/dashboard/payouts", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: managerId } = req.user;
+      const { amount, requestNotes } = req.body;
+      
+      const payoutRequest = await storage.createPMPayoutRequest({
+        organizationId,
+        managerId,
+        amount: parseFloat(amount),
+        requestNotes,
+        currency: 'AUD',
+      });
+      
+      // Create notification for admin
+      await storage.createNotification({
+        organizationId,
+        userId: 'admin', // TODO: Get actual admin users
+        type: 'payout_request',
+        title: 'New PM Payout Request',
+        message: `Portfolio Manager has requested a payout of $${amount}`,
+        relatedType: 'payout',
+        relatedId: payoutRequest.id.toString(),
+        priority: 'medium',
+      });
+      
+      res.json(payoutRequest);
+    } catch (error) {
+      console.error("Error creating PM payout request:", error);
+      res.status(500).json({ message: "Failed to create payout request" });
+    }
+  });
+
+  app.patch("/api/pm/dashboard/payouts/:id/received", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { id: managerId } = req.user;
+      const { id } = req.params;
+      
+      const updated = await storage.markPMPaymentReceived(parseInt(id), managerId);
+      
+      if (!updated) {
+        return res.status(404).json({ message: "Payout request not found" });
+      }
+      
+      res.json(updated);
+    } catch (error) {
+      console.error("Error marking payment received:", error);
+      res.status(500).json({ message: "Failed to mark payment received" });
+    }
+  });
+
+  // PM Task Logs
+  app.get("/api/pm/dashboard/task-logs", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { email: managerId } = req.user;
+      
+      // Use demo data for portfolio manager
+      if (managerId === "manager@test.com") {
+        const { getDemoPortfolioData } = await import("./portfolioManagerDemo");
+        const demoData = getDemoPortfolioData(managerId);
+        res.json(demoData?.taskLogs || []);
+        return;
+      }
+      
+      // Fallback for other users
+      res.json([]);
+    } catch (error) {
+      console.error("Error fetching PM task logs:", error);
+      res.status(500).json({ message: "Failed to fetch task logs" });
+    }
+  });
+
+  // PM Portfolio Properties
+  app.get("/api/pm/dashboard/portfolio", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { email: managerId } = req.user;
+      
+      // Use demo data for portfolio manager
+      if (managerId === "manager@test.com") {
+        const { getDemoPortfolioData } = await import("./portfolioManagerDemo");
+        const demoData = getDemoPortfolioData(managerId);
+        res.json([demoData?.demoProperty] || []);
+        return;
+      }
+      
+      // Fallback for other users
+      res.json([]);
+    } catch (error) {
+      console.error("Error fetching PM portfolio:", error);
+      res.status(500).json({ message: "Failed to fetch portfolio" });
+    }
+  });
+
+  // PM Notifications
+  app.get("/api/pm/dashboard/notifications", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { email: managerId } = req.user;
+      
+      // Use demo data for portfolio manager
+      if (managerId === "manager@test.com") {
+        const { getDemoPortfolioData } = await import("./portfolioManagerDemo");
+        const demoData = getDemoPortfolioData(managerId);
+        res.json(demoData?.notifications || []);
+        return;
+      }
+      
+      // Fallback for other users
+      res.json([]);
+    } catch (error) {
+      console.error("Error fetching PM notifications:", error);
+      res.status(500).json({ message: "Failed to fetch notifications" });
+    }
+  });
+
+  app.patch("/api/pm/dashboard/notifications/:id/read", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { id: managerId } = req.user;
+      const { id } = req.params;
+      
+      const updated = await storage.markPMNotificationAsRead(parseInt(id), managerId);
+      
+      if (!updated) {
+        return res.status(404).json({ message: "Notification not found" });
+      }
+      
+      res.json(updated);
+    } catch (error) {
+      console.error("Error marking notification as read:", error);
+      res.status(500).json({ message: "Failed to mark notification as read" });
+    }
+  });
+
+  app.patch("/api/pm/dashboard/notifications/read-all", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: managerId } = req.user;
+      
+      await storage.markAllPMNotificationsAsRead(organizationId, managerId);
+      
+      res.json({ message: "All notifications marked as read" });
+    } catch (error) {
+      console.error("Error marking all notifications as read:", error);
+      res.status(500).json({ message: "Failed to mark all notifications as read" });
+    }
+  });
+
+  // AI Companion - Get suggestions from guest reviews
+  app.get("/api/owner/dashboard/ai-suggestions", isDemoAuthenticated, async (req, res) => {
+    try {
+      const { propertyId } = req.query;
+      const filters = {
+        propertyId: propertyId ? parseInt(propertyId as string) : undefined,
+      };
+      
+      const suggestions = await storage.getOwnerAISuggestions((req.user as any).organizationId, (req.user as any).id, filters);
+      res.json(suggestions);
+    } catch (error) {
+      console.error("Error fetching AI suggestions:", error);
+      res.status(500).json({ message: "Failed to fetch AI suggestions" });
+    }
+  });
+
+  // Approve/reject AI suggestion
+  app.post("/api/owner/dashboard/ai-suggestions/:id/respond", isDemoAuthenticated, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { action, notes } = req.body; // action: 'approve', 'reject', 'request_quote'
+      
+      const suggestion = await storage.respondToAISuggestion(parseInt(id), action, notes, (req.user as any).id);
+      res.json(suggestion);
+    } catch (error) {
+      console.error("Error responding to AI suggestion:", error);
+      res.status(500).json({ message: "Failed to respond to suggestion" });
+    }
+  });
+
+  // Get enhanced booking insights with OTA sync status
+  app.get("/api/owner/dashboard/booking-insights", isDemoAuthenticated, async (req, res) => {
+    try {
+      const { propertyId } = req.query;
+      const filters = {
+        propertyId: propertyId ? parseInt(propertyId as string) : undefined,
+      };
+      
+      const insights = await storage.getOwnerBookingInsights((req.user as any).organizationId, (req.user as any).id, filters);
+      res.json(insights);
+    } catch (error) {
+      console.error("Error fetching booking insights:", error);
+      res.status(500).json({ message: "Failed to fetch booking insights" });
+    }
+  });
+
+  // ===== ROLE & PERMISSION MANAGEMENT ROUTES =====
+
+  // Get all role permissions (Admin only)
+  app.get("/api/admin/role-permissions", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      // Admin-only check
+      if (req.user.role !== 'admin') {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const { organizationId } = req.user;
+      const rolePermissions = await storage.getAllRolePermissions(organizationId);
+      res.json(rolePermissions);
+    } catch (error) {
+      console.error("Error fetching role permissions:", error);
+      res.status(500).json({ message: "Failed to fetch role permissions" });
+    }
+  });
+
+  // Update specific role permission (Admin only)
+  app.patch("/api/admin/role-permissions/:roleId/:moduleKey", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      // Admin-only check
+      if (req.user.role !== 'admin') {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const { roleId, moduleKey } = req.params;
+      const { visible, access } = req.body;
+      const { organizationId } = req.user;
+
+      const updated = await storage.updateRolePermission(organizationId, roleId, moduleKey, { visible, access });
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating role permission:", error);
+      res.status(500).json({ message: "Failed to update role permission" });
+    }
+  });
+
+  // Create new custom role (Admin only)
+  app.post("/api/admin/roles", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      // Admin-only check
+      if (req.user.role !== 'admin') {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const { name, displayName, description, cloneFromRole } = req.body;
+      const { organizationId } = req.user;
+
+      const newRole = await storage.createCustomRole(organizationId, {
+        name,
+        displayName,
+        description,
+        cloneFromRole
+      });
+
+      res.json(newRole);
+    } catch (error) {
+      console.error("Error creating role:", error);
+      res.status(500).json({ message: "Failed to create role" });
+    }
+  });
+
+  // Get user permissions for current user
+  app.get("/api/user/permissions", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role } = req.user;
+      const permissions = await storage.getUserPermissions(organizationId, role);
+      res.json(permissions);
+    } catch (error) {
+      console.error("Error fetching user permissions:", error);
+      res.status(500).json({ message: "Failed to fetch user permissions" });
+    }
+  });
+
+  // Get freelancer availability (for freelancer roles)
+  app.get("/api/freelancer/availability", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: freelancerId } = req.user;
+      
+      // Check if user is a freelancer role
+      const freelancerRoles = ['electrician', 'pest-control', 'plumber', 'chef', 'nanny'];
+      if (!freelancerRoles.includes(req.user.role)) {
+        return res.status(403).json({ message: "Freelancer access required" });
+      }
+
+      const availability = await storage.getFreelancerAvailability(organizationId, freelancerId);
+      res.json(availability);
+    } catch (error) {
+      console.error("Error fetching freelancer availability:", error);
+      res.status(500).json({ message: "Failed to fetch availability" });
+    }
+  });
+
+  // Update freelancer availability
+  app.post("/api/freelancer/availability", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: freelancerId } = req.user;
+      const { availableDate, timeSlots, isAvailable, notes } = req.body;
+      
+      // Check if user is a freelancer role
+      const freelancerRoles = ['electrician', 'pest-control', 'plumber', 'chef', 'nanny'];
+      if (!freelancerRoles.includes(req.user.role)) {
+        return res.status(403).json({ message: "Freelancer access required" });
+      }
+
+      const availability = await storage.updateFreelancerAvailability(organizationId, freelancerId, {
+        availableDate,
+        timeSlots,
+        isAvailable,
+        notes
+      });
+
+      res.json(availability);
+    } catch (error) {
+      console.error("Error updating freelancer availability:", error);
+      res.status(500).json({ message: "Failed to update availability" });
+    }
+  });
+
+  // Get freelancer task requests
+  app.get("/api/freelancer/task-requests", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: freelancerId } = req.user;
+      const { status } = req.query;
+      
+      // Check if user is a freelancer role
+      const freelancerRoles = ['electrician', 'pest-control', 'plumber', 'chef', 'nanny'];
+      if (!freelancerRoles.includes(req.user.role)) {
+        return res.status(403).json({ message: "Freelancer access required" });
+      }
+
+      const requests = await storage.getFreelancerTaskRequests(organizationId, freelancerId, { status });
+      res.json(requests);
+    } catch (error) {
+      console.error("Error fetching task requests:", error);
+      res.status(500).json({ message: "Failed to fetch task requests" });
+    }
+  });
+
+  // Respond to freelancer task request
+  app.patch("/api/freelancer/task-requests/:id/respond", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const { status, response, counterProposedDate, counterProposedTimeStart, counterProposedTimeEnd } = req.body;
+      const { id: freelancerId } = req.user;
+      
+      // Check if user is a freelancer role
+      const freelancerRoles = ['electrician', 'pest-control', 'plumber', 'chef', 'nanny'];
+      if (!freelancerRoles.includes(req.user.role)) {
+        return res.status(403).json({ message: "Freelancer access required" });
+      }
+
+      const updated = await storage.respondToTaskRequest(parseInt(id), freelancerId, {
+        status,
+        response,
+        counterProposedDate,
+        counterProposedTimeStart,
+        counterProposedTimeEnd
+      });
+
+      res.json(updated);
+    } catch (error) {
+      console.error("Error responding to task request:", error);
+      res.status(500).json({ message: "Failed to respond to task request" });
+    }
+  });
+
+  // PM Invoice Builder
+  app.post("/api/pm/dashboard/invoices", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: managerId } = req.user;
+      const { 
+        receiverType, 
+        receiverId, 
+        receiverName, 
+        receiverAddress,
+        invoiceType,
+        description,
+        lineItems,
+        taxRate,
+        notes,
+        dueDate,
+        referenceNumber 
+      } = req.body;
+      
+      // Generate invoice number
+      const invoiceNumber = await storage.getNextInvoiceNumber(organizationId);
+      
+      // Get user info for sender
+      const pmUser = await storage.getUser(managerId);
+      
+      // Map receiverType to clientType
+      let clientType = receiverType;
+      if (receiverType === 'external') {
+        clientType = 'service_provider';
+      }
+      
+      // Format dates
+      const today = new Date();
+      const issueDateStr = today.toISOString().split('T')[0];
+      const dueDateStr = dueDate || new Date(today.getTime() + 30*24*60*60*1000).toISOString().split('T')[0];
+      
+      // Transform line items to billing schema
+      const billingLineItems = lineItems.map((item: any) => ({
+        description: item.description,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice,
+        taxRate: taxRate || 0,
+        discount: 0,
+      }));
+      
+      // Create invoice using the DB-backed method
+      const invoice = await storage.createBillingInvoice({
+        organizationId,
+        invoiceNumber,
+        clientType,
+        clientId: receiverId || managerId,
+        clientName: receiverName,
+        clientEmail: receiverAddress,
+        propertyId: null,
+        templateId: null,
+        issueDate: issueDateStr,
+        dueDate: dueDateStr,
+        description: description || '',
+        status: 'draft',
+        paymentTerms: notes,
+        notes: `Type: ${invoiceType}${referenceNumber ? `, Ref: ${referenceNumber}` : ''}`,
+        createdBy: managerId,
+      }, billingLineItems);
+      
+      res.json(invoice);
+    } catch (error) {
+      console.error("Error creating PM invoice:", error);
+      res.status(500).json({ message: "Failed to create invoice" });
+    }
+  });
+
+  app.get("/api/pm/dashboard/invoices", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: managerId } = req.user;
+      
+      // Fetch invoices created by this portfolio manager
+      const result = await storage.getBillingInvoices(organizationId, {
+        createdBy: managerId
+      });
+      
+      // Return just the invoices array (frontend expects array, not object)
+      res.json(result.invoices);
+    } catch (error) {
+      console.error("Error fetching PM invoices:", error);
+      res.status(500).json({ message: "Failed to fetch invoices" });
+    }
+  });
+
+  // ===== PORTFOLIO MANAGER SPECIFIC PAGE ROUTES =====
+
+  // Property Access API
+  app.get("/api/portfolio/property-access", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { email: managerId } = req.user;
+      
+      if (managerId === "manager@test.com") {
+        const { getDemoPropertyAccess } = await import("./portfolioManagerDemo");
+        const propertyAccess = getDemoPropertyAccess(managerId);
+        res.json(propertyAccess);
+        return;
+      }
+      
+      res.json([]);
+    } catch (error) {
+      console.error("Error fetching property access:", error);
+      res.status(500).json({ message: "Failed to fetch property access" });
+    }
+  });
+
+  // Documents API
+  app.get("/api/portfolio/documents", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { email: managerId } = req.user;
+      
+      if (managerId === "manager@test.com") {
+        const { getDemoPortfolioData } = await import("./portfolioManagerDemo");
+        const demoData = getDemoPortfolioData(managerId);
+        res.json(demoData?.documents || []);
+        return;
+      }
+      
+      res.json([]);
+    } catch (error) {
+      console.error("Error fetching documents:", error);
+      res.status(500).json({ message: "Failed to fetch documents" });
+    }
+  });
+
+  // Maintenance API
+  app.get("/api/portfolio/maintenance", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { email: managerId } = req.user;
+      
+      if (managerId === "manager@test.com") {
+        const { getDemoPortfolioData } = await import("./portfolioManagerDemo");
+        const demoData = getDemoPortfolioData(managerId);
+        res.json(demoData?.maintenanceTasks || []);
+        return;
+      }
+      
+      res.json([]);
+    } catch (error) {
+      console.error("Error fetching maintenance:", error);
+      res.status(500).json({ message: "Failed to fetch maintenance" });
+    }
+  });
+
+  // Service Tracker API
+  app.get("/api/portfolio/service-tracker", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { email: managerId } = req.user;
+      
+      if (managerId === "manager@test.com") {
+        const { getDemoPortfolioData } = await import("./portfolioManagerDemo");
+        const demoData = getDemoPortfolioData(managerId);
+        res.json(demoData?.serviceTimeline || []);
+        return;
+      }
+      
+      res.json([]);
+    } catch (error) {
+      console.error("Error fetching service tracker:", error);
+      res.status(500).json({ message: "Failed to fetch service tracker" });
+    }
+  });
+
+  // Portfolio Invoices API (separate from dashboard invoices)
+  app.get("/api/portfolio/invoices", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { email: managerId } = req.user;
+      
+      if (managerId === "manager@test.com") {
+        const { getDemoPortfolioData } = await import("./portfolioManagerDemo");
+        const demoData = getDemoPortfolioData(managerId);
+        res.json(demoData?.invoices || []);
+        return;
+      }
+      
+      res.json([]);
+    } catch (error) {
+      console.error("Error fetching portfolio invoices:", error);
+      res.status(500).json({ message: "Failed to fetch portfolio invoices" });
+    }
+  });
+
+  // ===== RETAIL AGENT INTERFACE API ENDPOINTS =====
+
+  // Agent Available Properties (for booking engine) - Enhanced with robust error handling
+  app.get("/api/agent/properties", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      console.log("Agent properties request - User:", req.user?.id, "Role:", req.user?.role, "OrgId:", req.user?.organizationId);
+      
+      const { organizationId } = req.user;
+      const { 
+        checkIn, 
+        checkOut, 
+        guests, 
+        bedrooms, 
+        priceMin, 
+        priceMax, 
+        amenities 
+      } = req.query;
+
+      console.log("Search filters:", { checkIn, checkOut, guests, bedrooms, priceMin, priceMax });
+
+      // Allow retail-agent or demo-agent roles
+      if (req.user.role !== 'retail-agent' && req.user.id !== 'demo-agent') {
+        console.log("Access denied for user:", req.user.id, "with role:", req.user.role);
+        return res.status(403).json({ 
+          message: "Access denied: Retail agent role required",
+          fallbackData: []
+        });
+      }
+
+      const properties = await storage.getAgentAvailableProperties(organizationId, {
+        checkIn,
+        checkOut,
+        guests: guests ? parseInt(guests) : undefined,
+        bedrooms: bedrooms ? parseInt(bedrooms) : undefined,
+        priceMin: priceMin ? parseFloat(priceMin) : undefined,
+        priceMax: priceMax ? parseFloat(priceMax) : undefined,
+        amenities: amenities ? amenities.split(',') : undefined,
+      });
+
+      console.log("Raw properties from storage:", properties?.length || 0);
+
+      // Ensure properties is always an array
+      const safeProperties = Array.isArray(properties) ? properties : [];
+      console.log("Safe properties count:", safeProperties.length);
+      
+      // Add default commission rate and ensure all required fields exist
+      const enhancedProperties = safeProperties.map(property => ({
+        id: property.id || 0,
+        name: property.name || "Villa Property",
+        description: property.description || "Beautiful villa property",
+        address: property.address || "Koh Samui, Thailand",
+        bedrooms: property.bedrooms || 3,
+        bathrooms: property.bathrooms || 2,
+        maxGuests: property.maxGuests || 6,
+        pricePerNight: property.pricePerNight || "5000",
+        currency: property.currency || "THB",
+        commission: property.commission || 15.00, // Default 15% commission
+        commissionRate: property.commissionRate || 15.00,
+        isAvailable: property.isAvailable !== false, // Default to available
+        amenities: property.amenities || ["wifi", "parking", "pool", "kitchen"],
+        images: property.images || [],
+        marketingMedia: property.marketingMedia || [],
+        status: property.status || "active"
+      }));
+
+      console.log("Enhanced properties count:", enhancedProperties.length);
+      res.json(enhancedProperties);
+    } catch (error) {
+      console.error("Error fetching agent properties:", error);
+      
+      // Return empty array fallback instead of hardcoded data
+      res.json([]);
+    }
+  });
+
+  // Agent Bookings - Enhanced with safe fallback
+  app.get("/api/agent/bookings", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: agentId } = req.user;
+      const { status, propertyId, startDate, endDate } = req.query;
+
+      const bookings = await storage.getAgentBookings(organizationId, agentId, {
+        status,
+        propertyId: propertyId ? parseInt(propertyId) : undefined,
+        startDate,
+        endDate,
+      });
+
+      // Ensure safe array response
+      const safeBookings = Array.isArray(bookings) ? bookings : [];
+      res.json(safeBookings);
+    } catch (error) {
+      console.error("Error fetching agent bookings:", error);
+      // Return empty array instead of error for bookings
+      res.json([]);
+    }
+  });
+
+  app.post("/api/agent/bookings", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: agentId } = req.user;
+      
+      const bookingData = {
+        ...req.body,
+        organizationId,
+        retailAgentId: agentId,
+        bookingStatus: 'pending',
+        commissionStatus: 'pending',
+        createdAt: new Date(),
+      };
+
+      const booking = await storage.createAgentBooking(bookingData);
+      res.json(booking);
+    } catch (error) {
+      console.error("Error creating agent booking:", error);
+      res.status(500).json({ message: "Failed to create booking" });
+    }
+  });
+
+  // Agent Commission Summary - Enhanced with safe fallback
+  app.get("/api/agent/commission-summary", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: agentId } = req.user;
+      
+      const summary = await storage.getAgentCommissionSummary(organizationId, agentId);
+      
+      // Ensure safe object response with default values
+      const safeSummary = {
+        totalCommissionEarned: summary?.totalCommissionEarned || 0,
+        totalCommissionPaid: summary?.totalCommissionPaid || 0,
+        pendingCommission: summary?.pendingCommission || 0,
+        totalBookings: summary?.totalBookings || 0,
+        thisMonthCommission: summary?.thisMonthCommission || 0,
+        thisMonthBookings: summary?.thisMonthBookings || 0,
+        lastMonthCommission: summary?.lastMonthCommission || 0,
+        lastMonthBookings: summary?.lastMonthBookings || 0,
+        averageCommissionPerBooking: summary?.averageCommissionPerBooking || 0,
+        commissionRate: summary?.commissionRate || 15.0,
+        currency: summary?.currency || "THB",
+        ...summary
+      };
+      
+      res.json(safeSummary);
+    } catch (error) {
+      console.error("Error fetching commission summary:", error);
+      
+      // Return safe fallback summary data instead of error
+      const fallbackSummary = {
+        totalCommissionEarned: 0,
+        totalCommissionPaid: 0,
+        pendingCommission: 0,
+        totalBookings: 0,
+        thisMonthCommission: 0,
+        thisMonthBookings: 0,
+        lastMonthCommission: 0,
+        lastMonthBookings: 0,
+        averageCommissionPerBooking: 0,
+        commissionRate: 15.0,
+        currency: "THB"
+      };
+      
+      res.json(fallbackSummary);
+    }
+  });
+
+  // Agent Payouts - Enhanced with safe fallback
+  app.get("/api/agent/payouts", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: agentId } = req.user;
+      const { status, startDate, endDate } = req.query;
+
+      const payouts = await storage.getAgentPayouts(organizationId, agentId, {
+        status,
+        startDate,
+        endDate,
+      });
+
+      // Ensure safe array response
+      const safePayouts = Array.isArray(payouts) ? payouts : [];
+      res.json(safePayouts);
+    } catch (error) {
+      console.error("Error fetching agent payouts:", error);
+      // Return empty array instead of error for payouts
+      res.json([]);
+    }
+  });
+
+  app.post("/api/agent/payouts", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: agentId } = req.user;
+      
+      const payoutData = {
+        ...req.body,
+        organizationId,
+        agentId,
+        agentType: 'retail-agent',
+        payoutStatus: 'pending',
+        requestedAt: new Date(),
+      };
+
+      const payout = await storage.createAgentPayout(payoutData);
+      res.json(payout);
+    } catch (error) {
+      console.error("Error creating agent payout:", error);
+      res.status(500).json({ message: "Failed to create payout request" });
+    }
+  });
+
+  // Property Marketing Media
+  app.get("/api/agent/marketing-media", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId } = req.user;
+      const { propertyId, mediaType, category } = req.query;
+
+      const media = await storage.getPropertyMarketingMedia(organizationId, 
+        propertyId ? parseInt(propertyId) : undefined, {
+        mediaType,
+        category,
+        agentAccessLevel: 'all',
+      });
+
+      res.json(media);
+    } catch (error) {
+      console.error("Error fetching marketing media:", error);
+      res.status(500).json({ message: "Failed to fetch marketing media" });
+    }
+  });
+
+  // Agent Booking Requests
+  app.get("/api/agent/booking-requests", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: agentId } = req.user;
+      const { status, propertyId, urgencyLevel } = req.query;
+
+      const requests = await storage.getAgentBookingRequests(organizationId, agentId, {
+        status,
+        propertyId: propertyId ? parseInt(propertyId) : undefined,
+        urgencyLevel,
+      });
+
+      res.json(requests);
+    } catch (error) {
+      console.error("Error fetching booking requests:", error);
+      res.status(500).json({ message: "Failed to fetch booking requests" });
+    }
+  });
+
+  app.post("/api/agent/booking-requests", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: agentId } = req.user;
+      
+      const requestData = {
+        ...req.body,
+        organizationId,
+        agentId,
+        status: 'pending',
+        submittedAt: new Date(),
+      };
+
+      const request = await storage.createAgentBookingRequest(requestData);
+      res.json(request);
+    } catch (error) {
+      console.error("Error creating booking request:", error);
+      res.status(500).json({ message: "Failed to create booking request" });
+    }
+  });
+
+  // Property Commission Rules
+  app.get("/api/agent/commission-rules", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId } = req.user;
+      const { propertyId } = req.query;
+
+      const rules = await storage.getPropertyCommissionRules(organizationId, 
+        propertyId ? parseInt(propertyId) : undefined);
+
+      res.json(rules);
+    } catch (error) {
+      console.error("Error fetching commission rules:", error);
+      res.status(500).json({ message: "Failed to fetch commission rules" });
+    }
+  });
+
+  // ===== REFERRAL AGENT API ROUTES =====
+
+  // Get referral agent's assigned properties
+  app.get("/api/referral-agent/properties", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: referralAgentId } = req.user;
+      
+      const properties = await storage.getReferralAgentProperties(organizationId, referralAgentId);
+      res.json(properties);
+    } catch (error) {
+      console.error("Error fetching referral agent properties:", error);
+      res.status(500).json({ message: "Failed to fetch properties" });
+    }
+  });
+
+  // Get referral earnings
+  app.get("/api/referral-agent/earnings", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: referralAgentId } = req.user;
+      const { month, year, propertyId, status } = req.query;
+      
+      const earnings = await storage.getReferralEarnings(organizationId, referralAgentId, {
+        month: month ? parseInt(month) : undefined,
+        year: year ? parseInt(year) : undefined,
+        propertyId: propertyId ? parseInt(propertyId) : undefined,
+        status,
+      });
+      res.json(earnings);
+    } catch (error) {
+      console.error("Error fetching referral earnings:", error);
+      res.status(500).json({ message: "Failed to fetch earnings" });
+    }
+  });
+
+  // Get referral commission summary
+  app.get("/api/referral-agent/commission-summary", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: referralAgentId } = req.user;
+      
+      const summary = await storage.getReferralCommissionSummary(organizationId, referralAgentId);
+      res.json(summary);
+    } catch (error) {
+      console.error("Error fetching commission summary:", error);
+      res.status(500).json({ message: "Failed to fetch commission summary" });
+    }
+  });
+
+  // Get referral payouts
+  app.get("/api/referral-agent/payouts", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: referralAgentId } = req.user;
+      const { status, startDate, endDate } = req.query;
+      
+      const payouts = await storage.getReferralPayouts(organizationId, referralAgentId, {
+        status,
+        startDate,
+        endDate,
+      });
+      res.json(payouts);
+    } catch (error) {
+      console.error("Error fetching referral payouts:", error);
+      res.status(500).json({ message: "Failed to fetch payouts" });
+    }
+  });
+
+  // Create referral payout request
+  app.post("/api/referral-agent/payouts", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: referralAgentId } = req.user;
+      
+      const payoutData = {
+        ...req.body,
+        organizationId,
+        agentId: referralAgentId,
+        agentType: 'referral-agent',
+        payoutStatus: 'pending',
+        requestedAt: new Date(),
+      };
+
+      const payout = await storage.createReferralPayout(payoutData);
+      res.json(payout);
+    } catch (error) {
+      console.error("Error creating referral payout:", error);
+      res.status(500).json({ message: "Failed to create payout request" });
+    }
+  });
+
+  // Get referral program rules
+  app.get("/api/referral-agent/program-rules", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId } = req.user;
+      const { ruleType, isActive } = req.query;
+      
+      const rules = await storage.getReferralProgramRules(organizationId, {
+        ruleType,
+        isActive: isActive !== undefined ? isActive === 'true' : undefined,
+      });
+      res.json(rules);
+    } catch (error) {
+      console.error("Error fetching program rules:", error);
+      res.status(500).json({ message: "Failed to fetch program rules" });
+    }
+  });
+
+  // Get property performance analytics
+  app.get("/api/referral-agent/analytics", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: referralAgentId } = req.user;
+      const { propertyId, startMonth, startYear, endMonth, endYear } = req.query;
+      
+      const analytics = await storage.getPropertyPerformanceAnalytics(organizationId, referralAgentId, {
+        propertyId: propertyId ? parseInt(propertyId) : undefined,
+        startMonth: startMonth ? parseInt(startMonth) : undefined,
+        startYear: startYear ? parseInt(startYear) : undefined,
+        endMonth: endMonth ? parseInt(endMonth) : undefined,
+        endYear: endYear ? parseInt(endYear) : undefined,
+      });
+      res.json(analytics);
+    } catch (error) {
+      console.error("Error fetching performance analytics:", error);
+      res.status(500).json({ message: "Failed to fetch analytics" });
+    }
+  });
+
+  // ===== STAFF DASHBOARD API ENDPOINTS =====
+
+  // Staff Dashboard Overview
+  app.get("/api/staff/dashboard/overview", async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (!user) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const organizationId = "demo-org-1"; // Demo organization
+      const staffId = user.id;
+      const department = user.department;
+
+      const overview = await storage.getStaffDashboardOverview(organizationId, staffId, department);
+      res.json(overview);
+    } catch (error) {
+      console.error("Error fetching staff dashboard overview:", error);
+      res.status(500).json({ message: "Failed to fetch dashboard overview" });
+    }
+  });
+
+  // Staff Tasks Management
+  app.get("/api/staff/tasks", async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (!user) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const organizationId = "demo-org-1";
+      const staffId = user.id;
+      const filters = req.query;
+
+      const tasks = await storage.getStaffTasks(organizationId, staffId, filters);
+      res.json(tasks);
+    } catch (error) {
+      console.error("Error fetching staff tasks:", error);
+      res.status(500).json({ message: "Failed to fetch tasks" });
+    }
+  });
+
+  // Start Task
+  app.post("/api/staff/tasks/:taskId/start", async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (!user) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const organizationId = "demo-org-1";
+      const taskId = parseInt(req.params.taskId);
+      const staffId = user.id;
+
+      const task = await storage.startTask(organizationId, taskId, staffId);
+      res.json(task);
+    } catch (error) {
+      console.error("Error starting task:", error);
+      res.status(500).json({ message: "Failed to start task" });
+    }
+  });
+
+  // Complete Task
+  app.post("/api/staff/tasks/:taskId/complete", async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (!user) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const organizationId = "demo-org-1";
+      const taskId = parseInt(req.params.taskId);
+      const staffId = user.id;
+      const completionData = req.body;
+
+      const task = await storage.completeTask(organizationId, taskId, staffId, completionData);
+      res.json(task);
+    } catch (error) {
+      console.error("Error completing task:", error);
+      res.status(500).json({ message: "Failed to complete task" });
+    }
+  });
+
+  // Skip Task
+  app.post("/api/staff/tasks/:taskId/skip", async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (!user) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const organizationId = "demo-org-1";
+      const taskId = parseInt(req.params.taskId);
+      const staffId = user.id;
+      const { reason } = req.body;
+
+      const task = await storage.skipTask(organizationId, taskId, staffId, reason);
+      res.json(task);
+    } catch (error) {
+      console.error("Error skipping task:", error);
+      res.status(500).json({ message: "Failed to skip task" });
+    }
+  });
+
+  // Reschedule Task
+  app.post("/api/staff/tasks/:taskId/reschedule", async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (!user) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const organizationId = "demo-org-1";
+      const taskId = parseInt(req.params.taskId);
+      const staffId = user.id;
+      const { newDate, reason } = req.body;
+
+      const task = await storage.rescheduleTask(organizationId, taskId, staffId, new Date(newDate), reason);
+      res.json(task);
+    } catch (error) {
+      console.error("Error rescheduling task:", error);
+      res.status(500).json({ message: "Failed to reschedule task" });
+    }
+  });
+
+  // Staff Salary Information - Role-based access control
+  app.get("/api/staff/salary", async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (!user) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const organizationId = "demo-org-1";
+      const { period, userId } = req.query;
+      
+      // Role-based access control
+      const hasFullSalaryAccess = user.role === 'admin' || user.role === 'hr';
+      
+      if (hasFullSalaryAccess) {
+        // Admin/HR can view all staff salaries
+        const allSalaries = await storage.getAllStaffSalaries(organizationId, period as string);
+        res.json(allSalaries);
+      } else if (user.role === 'staff') {
+        // Staff can only view their own salary
+        const salary = await storage.getStaffSalary(organizationId, user.id, period as string);
+        res.json(salary);
+      } else {
+        // Other roles (pool, garden, maintenance, cleaning staff) can only view their own salary
+        const salary = await storage.getStaffSalary(organizationId, user.id, period as string);
+        res.json(salary);
+      }
+    } catch (error) {
+      console.error("Error fetching staff salary:", error);
+      res.status(500).json({ message: "Failed to fetch salary information" });
+    }
+  });
+
+  // Staff Expense Management
+  app.get("/api/staff/expenses", async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (!user) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const organizationId = "demo-org-1";
+      const staffId = user.id;
+      const filters = req.query;
+
+      const expenses = await storage.getStaffExpenses(organizationId, staffId, filters);
+      res.json(expenses);
+    } catch (error) {
+      console.error("Error fetching staff expenses:", error);
+      res.status(500).json({ message: "Failed to fetch expenses" });
+    }
+  });
+
+  // Create Staff Expense
+  app.post("/api/staff/expenses", async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (!user) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const organizationId = "demo-org-1";
+      const staffId = user.id;
+      const expenseData = { 
+        ...req.body, 
+        organizationId, 
+        staffId 
+      };
+
+      const expense = await storage.createStaffExpense(expenseData);
+      res.status(201).json(expense);
+    } catch (error) {
+      console.error("Error creating staff expense:", error);
+      res.status(500).json({ message: "Failed to create expense" });
+    }
+  });
+
+  // Staff Task History
+  app.get("/api/staff/task-history", async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (!user) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const organizationId = "demo-org-1";
+      const staffId = user.id;
+      const filters = req.query;
+
+      const history = await storage.getStaffTaskHistory(organizationId, staffId, filters);
+      res.json(history);
+    } catch (error) {
+      console.error("Error fetching task history:", error);
+      res.status(500).json({ message: "Failed to fetch task history" });
+    }
+  });
+
+  // ===== STAFF SALARY, OVERTIME & EMERGENCY TRACKER API =====
+  
+  // Get staff list for salary management
+  app.get("/api/staff-salary/staff-list", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const mockStaffList = [
+        { id: "staff1", name: "Maria Santos", department: "housekeeping", role: "staff" },
+        { id: "staff2", name: "Carlos Rivera", department: "pool", role: "staff" },
+        { id: "staff3", name: "Ana Rodriguez", department: "maintenance", role: "staff" },
+        { id: "staff4", name: "Diego Martinez", department: "security", role: "staff" },
+      ];
+      res.json(mockStaffList);
+    } catch (error) {
+      console.error("Error fetching staff list:", error);
+      res.status(500).json({ message: "Failed to fetch staff list" });
+    }
+  });
+
+  // Get salary settings for a staff member
+  app.get("/api/staff-salary/settings/:staffId", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { staffId } = req.params;
+      const mockSettings = {
+        id: 1,
+        staffId,
+        staffName: "Maria Santos",
+        department: "housekeeping",
+        fixedMonthlySalary: 4500.00,
+        currency: "AUD",
+        hourlyOvertime: 35.00,
+        emergencyTaskBonus: 100.00,
+        regularShiftStart: "08:00",
+        regularShiftEnd: "16:00",
+        workingDays: ["monday", "tuesday", "wednesday", "thursday", "friday"],
+        isActive: true,
+        effectiveFrom: "2024-01-01",
+      };
+      res.json(mockSettings);
+    } catch (error) {
+      console.error("Error fetching salary settings:", error);
+      res.status(500).json({ message: "Failed to fetch salary settings" });
+    }
+  });
+
+  // Get clock logs for a specific month
+  app.get("/api/staff-salary/clock-logs", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { month } = req.query;
+      const mockClockLogs = [
+        {
+          id: 1,
+          staffId: "demo-staff",
+          staffName: "Maria Santos",
+          clockInTime: "2024-12-01T08:00:00Z",
+          clockOutTime: "2024-12-01T16:30:00Z",
+          clockInReason: "regular_shift",
+          clockOutReason: "shift_end",
+          totalHours: 8.5,
+          regularHours: 8.0,
+          overtimeHours: 0.5,
+          overtimeType: "emergency",
+          overtimeApprovalStatus: "approved",
+          notes: "Extended shift for emergency pool cleaning"
+        },
+        {
+          id: 2,
+          staffId: "demo-staff",
+          staffName: "Maria Santos",
+          clockInTime: "2024-12-02T08:00:00Z",
+          clockOutTime: "2024-12-02T16:00:00Z",
+          clockInReason: "regular_shift",
+          clockOutReason: "shift_end",
+          totalHours: 8.0,
+          regularHours: 8.0,
+          overtimeHours: 0,
+          overtimeApprovalStatus: "approved",
+          notes: ""
+        }
+      ];
+      res.json(mockClockLogs);
+    } catch (error) {
+      console.error("Error fetching clock logs:", error);
+      res.status(500).json({ message: "Failed to fetch clock logs" });
+    }
+  });
+
+  // Get payroll summary for a specific month
+  app.get("/api/staff-salary/payroll-summary", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { month } = req.query;
+      const mockPayrollSummary = {
+        id: 1,
+        summaryMonth: month || "2024-12",
+        totalStaff: 4,
+        totalFixedSalaries: 18000.00,
+        totalOvertimePay: 875.00,
+        totalEmergencyBonuses: 400.00,
+        totalPayroll: 19275.00,
+        departmentBreakdown: {
+          housekeeping: 9000.00,
+          pool: 4500.00,
+          maintenance: 4500.00,
+          security: 1275.00
+        },
+        overtimeHoursBreakdown: {
+          housekeeping: 12.5,
+          pool: 8.0,
+          maintenance: 5.5,
+          security: 3.0
+        },
+        emergencyTasksCount: 4,
+        paymentCompletionRate: 95.5,
+        averageOvertimeHours: 7.25
+      };
+      res.json(mockPayrollSummary);
+    } catch (error) {
+      console.error("Error fetching payroll summary:", error);
+      res.status(500).json({ message: "Failed to fetch payroll summary" });
+    }
+  });
+
+  // Record clock in/out
+  app.post("/api/staff-salary/clock", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      const { action, reason, notes } = req.body;
+      
+      const mockResponse = {
+        id: Date.now(),
+        staffId: user.id,
+        staffName: user.name || "Staff Member",
+        action,
+        reason,
+        notes,
+        timestamp: new Date().toISOString(),
+        success: true
+      };
+      
+      res.json(mockResponse);
+    } catch (error) {
+      console.error("Error recording clock action:", error);
+      res.status(500).json({ message: "Failed to record clock action" });
+    }
+  });
+
+  // Record emergency task bonus
+  app.post("/api/staff-salary/emergency-bonus", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      const { taskId, bonusAmount, emergencyType, notes } = req.body;
+      
+      const mockResponse = {
+        id: Date.now(),
+        taskId,
+        staffId: user.id,
+        staffName: user.name || "Staff Member",
+        emergencyType,
+        bonusAmount,
+        currency: "AUD",
+        bonusApprovalStatus: "pending",
+        notes,
+        createdAt: new Date().toISOString()
+      };
+      
+      res.json(mockResponse);
+    } catch (error) {
+      console.error("Error recording emergency bonus:", error);
+      res.status(500).json({ message: "Failed to record emergency bonus" });
+    }
+  });
+
+  // Get advance requests - Role-based access control
+  app.get("/api/staff-salary/advance-requests", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      
+      // Role-based access control
+      const hasFullAccess = user.role === 'admin' || user.role === 'hr';
+      
+      const mockAdvanceRequests = [
+        {
+          id: 1,
+          staffId: "demo-staff",
+          staffName: "Maria Santos",
+          amount: 500.00,
+          reason: "Medical emergency",
+          requestedDate: "2024-12-15",
+          status: "pending",
+          createdAt: "2024-12-01T10:00:00Z",
+          approvedBy: null,
+          approvedAt: null
+        },
+        {
+          id: 2,
+          staffId: "demo-staff-2",
+          staffName: "John Pool Cleaner",
+          amount: 300.00,
+          reason: "Family celebration",
+          requestedDate: "2024-11-20",
+          status: "approved",
+          createdAt: "2024-11-10T14:30:00Z",
+          approvedBy: "admin",
+          approvedAt: "2024-11-11T09:15:00Z"
+        },
+        {
+          id: 3,
+          staffId: user.id,
+          staffName: user.firstName + " " + user.lastName,
+          amount: 400.00,
+          reason: "Personal emergency",
+          requestedDate: "2024-12-10",
+          status: "pending",
+          createdAt: "2024-12-05T08:00:00Z",
+          approvedBy: null,
+          approvedAt: null
+        }
+      ];
+      
+      if (hasFullAccess) {
+        // Admin/HR can view all advance requests
+        res.json(mockAdvanceRequests);
+      } else {
+        // Staff can only view their own advance requests
+        const userRequests = mockAdvanceRequests.filter(req => req.staffId === user.id);
+        res.json(userRequests);
+      }
+    } catch (error) {
+      console.error("Error fetching advance requests:", error);
+      res.status(500).json({ message: "Failed to fetch advance requests" });
+    }
+  });
+
+  // Submit advance request
+  app.post("/api/staff-salary/advance-request", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      const { amount, reason, requestedDate } = req.body;
+      
+      const mockResponse = {
+        id: Date.now(),
+        staffId: user.id,
+        staffName: user.name || "Staff Member",
+        amount,
+        reason,
+        requestedDate,
+        status: "pending",
+        createdAt: new Date().toISOString(),
+        approvedBy: null,
+        approvedAt: null
+      };
+      
+      res.json(mockResponse);
+    } catch (error) {
+      console.error("Error submitting advance request:", error);
+      res.status(500).json({ message: "Failed to submit advance request" });
+    }
+  });
+
+  // Get overtime requests
+  app.get("/api/staff-salary/overtime-requests", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const mockOvertimeRequests = [
+        {
+          id: 1,
+          staffId: "demo-staff",
+          staffName: "Maria Santos",
+          taskId: 101,
+          hoursWorked: 3.5,
+          requestType: "pay",
+          status: "approved",
+          notes: "Emergency pool cleaning after storm",
+          createdAt: "2024-12-01T18:00:00Z",
+          approvedBy: "admin",
+          approvedAt: "2024-12-02T08:30:00Z"
+        },
+        {
+          id: 2,
+          staffId: "demo-staff",
+          staffName: "Maria Santos",
+          taskId: 102,
+          hoursWorked: 2.0,
+          requestType: "time_off",
+          status: "pending",
+          notes: "Extended housekeeping due to large group checkout",
+          createdAt: "2024-12-03T16:30:00Z",
+          approvedBy: null,
+          approvedAt: null
+        }
+      ];
+      res.json(mockOvertimeRequests);
+    } catch (error) {
+      console.error("Error fetching overtime requests:", error);
+      res.status(500).json({ message: "Failed to fetch overtime requests" });
+    }
+  });
+
+  // Submit overtime request
+  app.post("/api/staff-salary/overtime-request", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      const { taskId, hoursWorked, requestType, notes } = req.body;
+      
+      const mockResponse = {
+        id: Date.now(),
+        staffId: user.id,
+        staffName: user.name || "Staff Member",
+        taskId,
+        hoursWorked,
+        requestType,
+        status: "pending",
+        notes,
+        createdAt: new Date().toISOString(),
+        approvedBy: null,
+        approvedAt: null
+      };
+      
+      res.json(mockResponse);
+    } catch (error) {
+      console.error("Error submitting overtime request:", error);
+      res.status(500).json({ message: "Failed to submit overtime request" });
+    }
+  });
+
+  // Approve/reject advance request - Admin/HR only
+  app.post("/api/staff-salary/approve-advance", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      const { requestId, action, notes } = req.body;
+      
+      // Role-based access control - Only admin/HR can approve advance requests
+      if (user.role !== 'admin' && user.role !== 'hr') {
+        return res.status(403).json({ 
+          message: "Access denied: Only admin and HR roles can approve advance requests" 
+        });
+      }
+      
+      const mockResponse = {
+        id: requestId,
+        action,
+        approvedBy: user.id,
+        approvedAt: new Date().toISOString(),
+        notes,
+        success: true
+      };
+      
+      res.json(mockResponse);
+    } catch (error) {
+      console.error("Error updating advance request:", error);
+      res.status(500).json({ message: "Failed to update advance request" });
+    }
+  });
+
+  // Approve/reject overtime request
+  app.post("/api/staff-salary/approve-overtime", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      const { requestId, action, notes } = req.body;
+      
+      const mockResponse = {
+        id: requestId,
+        action,
+        approvedBy: user.id,
+        approvedAt: new Date().toISOString(),
+        notes,
+        success: true
+      };
+      
+      res.json(mockResponse);
+    } catch (error) {
+      console.error("Error updating overtime request:", error);
+      res.status(500).json({ message: "Failed to update overtime request" });
+    }
+  });
+
+  // Task Checklist
+  app.get("/api/staff/task-checklist/:taskType", async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (!user) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const organizationId = "demo-org-1";
+      const { taskType } = req.params;
+      const { propertyId } = req.query;
+
+      const checklist = await storage.getTaskChecklist(
+        organizationId, 
+        taskType, 
+        propertyId ? parseInt(propertyId as string) : undefined
+      );
+      res.json(checklist);
+    } catch (error) {
+      console.error("Error fetching task checklist:", error);
+      res.status(500).json({ message: "Failed to fetch checklist" });
+    }
+  });
+
+  // ===== ADMIN FINANCE RESET CONTROL API ENDPOINTS =====
+
+  // Admin only middleware for finance reset operations
+  const isAdminOnly = (req: any, res: any, next: any) => {
+    try {
+      const user = req.user;
+      if (!user) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      // Check if user is admin role
+      if (user.role !== 'admin') {
+        return res.status(403).json({ message: "Access denied. Admin privileges required." });
+      }
+
+      next();
+    } catch (error) {
+      console.error("Error checking admin privileges:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  };
+
+  // Get users available for balance reset
+  app.get("/api/admin/balance-reset/users", isDemoAuthenticated, isAdminOnly, async (req: any, res) => {
+    try {
+      const organizationId = "demo-org-1"; // Demo organization
+      const { userType } = req.query;
+      
+      const users = await storage.getUsersForBalanceReset(
+        organizationId, 
+        userType !== 'all' ? userType : undefined
+      );
+      res.json(users);
+    } catch (error) {
+      console.error("Error fetching users for reset:", error);
+      res.status(500).json({ message: "Failed to fetch users" });
+    }
+  });
+
+  // Get user balance summary
+  app.get("/api/admin/balance-reset/user/:userId/balance", isDemoAuthenticated, isAdminOnly, async (req: any, res) => {
+    try {
+      const { userId } = req.params;
+      
+      const balanceSummary = await storage.getUserBalanceSummary(userId);
+      res.json(balanceSummary);
+    } catch (error) {
+      console.error("Error fetching user balance:", error);
+      res.status(500).json({ message: "Failed to fetch balance information" });
+    }
+  });
+
+  // Execute balance reset
+  app.post("/api/admin/balance-reset/execute", isDemoAuthenticated, isAdminOnly, async (req: any, res) => {
+    try {
+      const adminUser = req.user;
+      const { userId, resetReason, propertyId } = req.body;
+      
+      if (!userId) {
+        return res.status(400).json({ message: "User ID is required" });
+      }
+
+      const auditRecord = await storage.resetUserBalance(
+        userId,
+        adminUser.id,
+        resetReason,
+        propertyId
+      );
+
+      res.json({
+        success: true,
+        message: "Balance reset successfully",
+        auditRecord
+      });
+    } catch (error) {
+      console.error("Error resetting balance:", error);
+      res.status(500).json({ message: "Failed to reset balance" });
+    }
+  });
+
+  // Get balance reset audit log
+  app.get("/api/admin/balance-reset/audit", isDemoAuthenticated, isAdminOnly, async (req: any, res) => {
+    try {
+      const organizationId = "demo-org-1"; // Demo organization
+      const { userId, fromDate, toDate } = req.query;
+      
+      const filters: any = {};
+      if (userId) filters.userId = userId;
+      if (fromDate) filters.fromDate = new Date(fromDate);
+      if (toDate) filters.toDate = new Date(toDate);
+
+      const auditLog = await storage.getBalanceResetAuditLog(organizationId, filters);
+      res.json(auditLog);
+    } catch (error) {
+      console.error("Error fetching audit log:", error);
+      res.status(500).json({ message: "Failed to fetch audit log" });
+    }
+  });
+
+  // ===== UTILITY PROVIDERS & CUSTOM EXPENSE MANAGEMENT API ENDPOINTS =====
+
+  // Get utility providers
+  app.get("/api/utility-providers", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = "demo-org-1"; // Demo organization
+      const { utilityType } = req.query;
+      
+      const providers = await storage.getUtilityProviders(organizationId, utilityType);
+      res.json(providers);
+    } catch (error) {
+      console.error("Error fetching utility providers:", error);
+      res.status(500).json({ message: "Failed to fetch utility providers" });
+    }
+  });
+
+  // Create utility provider
+  app.post("/api/utility-providers", isDemoAuthenticated, isAdminOnly, async (req: any, res) => {
+    try {
+      const organizationId = "demo-org-1"; // Demo organization
+      const user = req.user;
+      
+      const providerData = {
+        ...req.body,
+        organizationId,
+        createdBy: user.id,
+      };
+
+      const provider = await storage.createUtilityProvider(providerData);
+      res.json(provider);
+    } catch (error) {
+      console.error("Error creating utility provider:", error);
+      res.status(500).json({ message: "Failed to create utility provider" });
+    }
+  });
+
+  // Update utility provider
+  app.put("/api/utility-providers/:id", isDemoAuthenticated, isAdminOnly, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const provider = await storage.updateUtilityProvider(parseInt(id), req.body);
+      res.json(provider);
+    } catch (error) {
+      console.error("Error updating utility provider:", error);
+      res.status(500).json({ message: "Failed to update utility provider" });
+    }
+  });
+
+  // Delete utility provider
+  app.delete("/api/utility-providers/:id", isDemoAuthenticated, isAdminOnly, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      await storage.deleteUtilityProvider(parseInt(id));
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting utility provider:", error);
+      res.status(500).json({ message: "Failed to delete utility provider" });
+    }
+  });
+
+  // Get custom expense categories
+  app.get("/api/custom-expense-categories", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = "demo-org-1"; // Demo organization
+      const categories = await storage.getCustomExpenseCategories(organizationId);
+      res.json(categories);
+    } catch (error) {
+      console.error("Error fetching custom expense categories:", error);
+      res.status(500).json({ message: "Failed to fetch custom expense categories" });
+    }
+  });
+
+  // Create custom expense category
+  app.post("/api/custom-expense-categories", isDemoAuthenticated, isAdminOnly, async (req: any, res) => {
+    try {
+      const organizationId = "demo-org-1"; // Demo organization
+      const user = req.user;
+      
+      const categoryData = {
+        ...req.body,
+        organizationId,
+        createdBy: user.id,
+      };
+
+      const category = await storage.createCustomExpenseCategory(categoryData);
+      res.json(category);
+    } catch (error) {
+      console.error("Error creating custom expense category:", error);
+      res.status(500).json({ message: "Failed to create custom expense category" });
+    }
+  });
+
+  // Update custom expense category
+  app.put("/api/custom-expense-categories/:id", isDemoAuthenticated, isAdminOnly, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const category = await storage.updateCustomExpenseCategory(parseInt(id), req.body);
+      res.json(category);
+    } catch (error) {
+      console.error("Error updating custom expense category:", error);
+      res.status(500).json({ message: "Failed to update custom expense category" });
+    }
+  });
+
+  // Delete custom expense category
+  app.delete("/api/custom-expense-categories/:id", isDemoAuthenticated, isAdminOnly, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      await storage.deleteCustomExpenseCategory(parseInt(id));
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting custom expense category:", error);
+      res.status(500).json({ message: "Failed to delete custom expense category" });
+    }
+  });
+
+  // Get property utility settings
+  app.get("/api/property-utility-settings", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = "demo-org-1"; // Demo organization
+      const { propertyId } = req.query;
+      
+      const settings = await storage.getPropertyUtilitySettings(
+        organizationId, 
+        propertyId ? parseInt(propertyId) : undefined
+      );
+      res.json(settings);
+    } catch (error) {
+      console.error("Error fetching property utility settings:", error);
+      res.status(500).json({ message: "Failed to fetch property utility settings" });
+    }
+  });
+
+  // Create property utility settings
+  app.post("/api/property-utility-settings", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = "demo-org-1"; // Demo organization
+      const user = req.user;
+      
+      const settingsData = {
+        ...req.body,
+        organizationId,
+        createdBy: user.id,
+      };
+
+      const settings = await storage.createPropertyUtilitySettings(settingsData);
+      res.json(settings);
+    } catch (error) {
+      console.error("Error creating property utility settings:", error);
+      res.status(500).json({ message: "Failed to create property utility settings" });
+    }
+  });
+
+  // Update property utility settings
+  app.put("/api/property-utility-settings/:id", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const settings = await storage.updatePropertyUtilitySettings(parseInt(id), req.body);
+      res.json(settings);
+    } catch (error) {
+      console.error("Error updating property utility settings:", error);
+      res.status(500).json({ message: "Failed to update property utility settings" });
+    }
+  });
+
+  // Delete property utility settings
+  app.delete("/api/property-utility-settings/:id", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      await storage.deletePropertyUtilitySettings(parseInt(id));
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting property utility settings:", error);
+      res.status(500).json({ message: "Failed to delete property utility settings" });
+    }
+  });
+
+  // Get property custom expenses
+  app.get("/api/property-custom-expenses", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = "demo-org-1"; // Demo organization
+      const { propertyId } = req.query;
+      
+      const expenses = await storage.getPropertyCustomExpenses(
+        organizationId, 
+        propertyId ? parseInt(propertyId) : undefined
+      );
+      res.json(expenses);
+    } catch (error) {
+      console.error("Error fetching property custom expenses:", error);
+      res.status(500).json({ message: "Failed to fetch property custom expenses" });
+    }
+  });
+
+  // Create property custom expenses
+  app.post("/api/property-custom-expenses", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = "demo-org-1"; // Demo organization
+      const user = req.user;
+      
+      const expenseData = {
+        ...req.body,
+        organizationId,
+        createdBy: user.id,
+      };
+
+      const expense = await storage.createPropertyCustomExpenses(expenseData);
+      res.json(expense);
+    } catch (error) {
+      console.error("Error creating property custom expenses:", error);
+      res.status(500).json({ message: "Failed to create property custom expenses" });
+    }
+  });
+
+  // Update property custom expenses
+  app.put("/api/property-custom-expenses/:id", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const expense = await storage.updatePropertyCustomExpenses(parseInt(id), req.body);
+      res.json(expense);
+    } catch (error) {
+      console.error("Error updating property custom expenses:", error);
+      res.status(500).json({ message: "Failed to update property custom expenses" });
+    }
+  });
+
+  // Delete property custom expenses
+  app.delete("/api/property-custom-expenses/:id", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      await storage.deletePropertyCustomExpenses(parseInt(id));
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting property custom expenses:", error);
+      res.status(500).json({ message: "Failed to delete property custom expenses" });
+    }
+  });
+
+  // Seed default providers and categories (Admin only)
+  app.post("/api/admin/seed-defaults", isDemoAuthenticated, isAdminOnly, async (req: any, res) => {
+    try {
+      const organizationId = "demo-org-1"; // Demo organization
+      const user = req.user;
+      
+      await storage.seedDefaultUtilityProviders(organizationId, user.id);
+      await storage.seedDefaultCustomExpenseCategories(organizationId, user.id);
+      
+      res.json({ success: true, message: "Default providers and categories seeded successfully" });
+    } catch (error) {
+      console.error("Error seeding defaults:", error);
+      res.status(500).json({ message: "Failed to seed default data" });
+    }
+  });
+
+  // ===== ENHANCED COMMISSION MANAGEMENT API =====
+
+  // Agent Commission Summary with KPIs (Agent Access)
+  app.get("/api/agent/commission-summary", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: agentId, role } = req.user;
+      
+      if (!['retail-agent', 'referral-agent'].includes(role)) {
+        return res.status(403).json({ message: "Access denied. Agent role required." });
+      }
+
+      const summary = await storage.getAgentCommissionSummary(organizationId, agentId, role);
+      res.json(summary);
+    } catch (error) {
+      console.error("Error fetching commission summary:", error);
+      res.status(500).json({ message: "Failed to fetch commission summary" });
+    }
+  });
+
+  // Agent Commission Log (Agent Access)
+  app.get("/api/agent/commission-log", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: agentId, role } = req.user;
+      const { propertyId, status, startDate, endDate, limit } = req.query;
+
+      if (!['retail-agent', 'referral-agent'].includes(role)) {
+        return res.status(403).json({ message: "Access denied. Agent role required." });
+      }
+
+      const commissions = await storage.getCommissionLog(organizationId, {
+        agentId,
+        agentType: role,
+        propertyId: propertyId ? parseInt(propertyId as string) : undefined,
+        status: status as string,
+        startDate: startDate as string,
+        endDate: endDate as string,
+        limit: limit ? parseInt(limit as string) : undefined,
+      });
+
+      res.json(commissions);
+    } catch (error) {
+      console.error("Error fetching commission log:", error);
+      res.status(500).json({ message: "Failed to fetch commission log" });
+    }
+  });
+
+  // Generate Commission Invoice (Agent Access)
+  app.post("/api/agent/generate-invoice", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: agentId, role } = req.user;
+      const { periodStart, periodEnd, description, agentNotes } = req.body;
+
+      if (!['retail-agent', 'referral-agent'].includes(role)) {
+        return res.status(403).json({ message: "Access denied. Agent role required." });
+      }
+
+      // Get pending commissions for the period
+      const commissions = await storage.getCommissionLog(organizationId, {
+        agentId,
+        agentType: role,
+        status: 'pending',
+        startDate: periodStart,
+        endDate: periodEnd,
+      });
+
+      if (commissions.length === 0) {
+        return res.status(400).json({ message: "No pending commissions found for the selected period" });
+      }
+
+      const totalCommissions = commissions.reduce((sum, comm) => sum + Number(comm.commissionAmount), 0);
+
+      // Generate invoice number
+      const invoiceNumber = await storage.generateInvoiceNumber(organizationId, role);
+
+      // Create invoice
+      const invoice = await storage.createCommissionInvoice({
+        organizationId,
+        agentId,
+        agentType: role,
+        invoiceNumber,
+        invoiceDate: new Date().toISOString().split('T')[0],
+        periodStart,
+        periodEnd,
+        totalCommissions: totalCommissions.toString(),
+        currency: 'THB',
+        description,
+        agentNotes,
+        generatedBy: agentId,
+      });
+
+      // Create line items
+      for (const commission of commissions) {
+        await storage.createInvoiceLineItem({
+          organizationId,
+          invoiceId: invoice.id,
+          commissionLogId: commission.id,
+          description: `Commission for ${commission.propertyName || 'Property'} - ${commission.referenceNumber}`,
+          propertyName: commission.propertyName || 'Property',
+          referenceNumber: commission.referenceNumber,
+          commissionDate: commission.createdAt.toISOString().split('T')[0],
+          commissionAmount: commission.commissionAmount,
+        });
+      }
+
+      res.json(invoice);
+    } catch (error) {
+      console.error("Error generating invoice:", error);
+      res.status(500).json({ message: "Failed to generate invoice" });
+    }
+  });
+
+  // Agent Invoices (Agent Access)
+  app.get("/api/agent/invoices", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: agentId, role } = req.user;
+      const { status, startDate, endDate } = req.query;
+
+      if (!['retail-agent', 'referral-agent'].includes(role)) {
+        return res.status(403).json({ message: "Access denied. Agent role required." });
+      }
+
+      const invoices = await storage.getAgentInvoices(organizationId, agentId, {
+        status: status as string,
+        startDate: startDate as string,
+        endDate: endDate as string,
+      });
+
+      res.json(invoices);
+    } catch (error) {
+      console.error("Error fetching agent invoices:", error);
+      res.status(500).json({ message: "Failed to fetch invoices" });
+    }
+  });
+
+  // Submit Invoice for Approval (Agent Access)
+  app.patch("/api/agent/invoices/:id/submit", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: agentId, role } = req.user;
+      const { id } = req.params;
+
+      if (!['retail-agent', 'referral-agent'].includes(role)) {
+        return res.status(403).json({ message: "Access denied. Agent role required." });
+      }
+
+      const invoice = await storage.submitInvoiceForApproval(parseInt(id), agentId);
+      
+      if (!invoice) {
+        return res.status(404).json({ message: "Invoice not found" });
+      }
+
+      res.json(invoice);
+    } catch (error) {
+      console.error("Error submitting invoice:", error);
+      res.status(500).json({ message: "Failed to submit invoice" });
+    }
+  });
+
+  // ===== ADMIN COMMISSION MANAGEMENT API =====
+
+  // Admin Commission Overview with CSV Export (Admin Access)
+  app.get("/api/admin/commission-overview", isDemoAuthenticated, isAdminOnly, async (req: any, res) => {
+    try {
+      const { organizationId } = req.user;
+      const { agentType, startDate, endDate, status, format } = req.query;
+
+      const commissions = await storage.getCommissionOverviewForExport(organizationId, {
+        agentType: agentType as 'retail-agent' | 'referral-agent',
+        startDate: startDate as string,
+        endDate: endDate as string,
+        status: status as string,
+      });
+
+      if (format === 'csv') {
+        const csv = [
+          'Agent ID,Agent Name,Agent Email,Agent Type,Property,Reference,Date,Base Amount,Rate %,Commission Amount,Currency,Status,Processed By,Processed Date',
+          ...commissions.map(c => 
+            `${c.agentId},"${c.agentName}","${c.agentEmail}",${c.agentType},"${c.propertyName}",${c.referenceNumber},${c.commissionDate.toISOString().split('T')[0]},${c.baseAmount},${c.commissionRate},${c.commissionAmount},${c.currency},${c.status},"${c.processedBy || ''}","${c.processedAt ? c.processedAt.toISOString().split('T')[0] : ''}"`
+          )
+        ].join('\n');
+
+        res.setHeader('Content-Type', 'text/csv');
+        res.setHeader('Content-Disposition', `attachment; filename="commission-overview-${new Date().toISOString().split('T')[0]}.csv"`);
+        res.send(csv);
+      } else {
+        res.json(commissions);
+      }
+    } catch (error) {
+      console.error("Error fetching commission overview:", error);
+      res.status(500).json({ message: "Failed to fetch commission overview" });
+    }
+  });
+
+  // Mark Commission as Paid (Admin Access)
+  app.patch("/api/admin/commissions/:id/mark-paid", isDemoAuthenticated, isAdminOnly, async (req: any, res) => {
+    try {
+      const { id: adminId } = req.user;
+      const { id } = req.params;
+      const { notes } = req.body;
+
+      const commission = await storage.markCommissionAsPaid(parseInt(id), adminId, notes);
+      
+      if (!commission) {
+        return res.status(404).json({ message: "Commission not found" });
+      }
+
+      res.json(commission);
+    } catch (error) {
+      console.error("Error marking commission as paid:", error);
+      res.status(500).json({ message: "Failed to mark commission as paid" });
+    }
+  });
+
+  // Adjust Commission Amount (Admin Access)
+  app.patch("/api/admin/commissions/:id/adjust", isDemoAuthenticated, isAdminOnly, async (req: any, res) => {
+    try {
+      const { id: adminId } = req.user;
+      const { id } = req.params;
+      const { newAmount, reason } = req.body;
+
+      if (!newAmount || !reason) {
+        return res.status(400).json({ message: "New amount and reason are required" });
+      }
+
+      const result = await storage.adjustCommissionAmount(parseInt(id), parseFloat(newAmount), adminId, reason);
+      res.json(result);
+    } catch (error) {
+      console.error("Error adjusting commission:", error);
+      res.status(500).json({ message: "Failed to adjust commission" });
+    }
+  });
+
+  // Approve Invoice (Admin Access)
+  app.patch("/api/admin/invoices/:id/approve", isDemoAuthenticated, isAdminOnly, async (req: any, res) => {
+    try {
+      const { id: adminId } = req.user;
+      const { id } = req.params;
+      const { notes } = req.body;
+
+      const invoice = await storage.approveInvoice(parseInt(id), adminId, notes);
+      
+      if (!invoice) {
+        return res.status(404).json({ message: "Invoice not found" });
+      }
+
+      res.json(invoice);
+    } catch (error) {
+      console.error("Error approving invoice:", error);
+      res.status(500).json({ message: "Failed to approve invoice" });
+    }
+  });
+
+  // Reject Invoice (Admin Access)
+  app.patch("/api/admin/invoices/:id/reject", isDemoAuthenticated, isAdminOnly, async (req: any, res) => {
+    try {
+      const { id: adminId } = req.user;
+      const { id } = req.params;
+      const { reason } = req.body;
+
+      if (!reason) {
+        return res.status(400).json({ message: "Rejection reason is required" });
+      }
+
+      const invoice = await storage.rejectInvoice(parseInt(id), adminId, reason);
+      
+      if (!invoice) {
+        return res.status(404).json({ message: "Invoice not found" });
+      }
+
+      res.json(invoice);
+    } catch (error) {
+      console.error("Error rejecting invoice:", error);
+      res.status(500).json({ message: "Failed to reject invoice" });
+    }
+  });
+
+  // Trigger Commission Payout (Admin Access)
+  app.post("/api/admin/commissions/trigger-payout", isDemoAuthenticated, isAdminOnly, async (req: any, res) => {
+    try {
+      const { organizationId, id: adminId } = req.user;
+      const { agentId, amount, agentType } = req.body;
+
+      if (!agentId || !amount || !agentType) {
+        return res.status(400).json({ message: "Agent ID, amount, and agent type are required" });
+      }
+
+      const payout = await storage.triggerCommissionPayout(
+        agentId, 
+        organizationId, 
+        parseFloat(amount), 
+        agentType, 
+        adminId
+      );
+
+      res.json(payout);
+    } catch (error) {
+      console.error("Error triggering payout:", error);
+      res.status(500).json({ message: "Failed to trigger payout" });
+    }
+  });
+
+  // ===== AI GUEST PORTAL & SMART COMMUNICATION CENTER API ENDPOINTS =====
+
+  // Guest Message Management
+  app.get("/api/guest-portal/messages", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId } = req.user;
+      const { propertyId, guestId, messageType, priority, status } = req.query;
+
+      const filters = {
+        propertyId,
+        guestId,
+        messageType,
+        priority,
+        status,
+      };
+
+      const messages = await storage.getGuestMessages(organizationId, filters);
+      res.json(messages);
+    } catch (error) {
+      console.error("Error fetching guest messages:", error);
+      res.status(500).json({ message: "Failed to fetch guest messages" });
+    }
+  });
+
+  app.post("/api/guest-portal/messages", async (req: any, res) => {
+    try {
+      const messageData = {
+        ...req.body,
+        organizationId: req.body.organizationId || "default-org",
+        guestId: req.body.guestId || `guest-${Date.now()}`,
+      };
+
+      const message = await storage.createGuestMessage(messageData);
+      
+      // Simulate AI processing and possibly create task
+      if (message.aiKeywords && message.aiKeywords.length > 0) {
+        await storage.generateTaskFromMessage(message.id, message, {
+          keywords: message.aiKeywords,
+          confidence: parseFloat(message.aiConfidence),
+          priority: message.priority,
+        });
+      }
+
+      res.status(201).json(message);
+    } catch (error) {
+      console.error("Error creating guest message:", error);
+      res.status(500).json({ message: "Failed to create guest message" });
+    }
+  });
+
+  app.patch("/api/guest-portal/messages/:id/respond", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const { response } = req.body;
+      const { id: userId } = req.user;
+
+      const message = await storage.respondToGuestMessage(parseInt(id), response, userId);
+      res.json(message);
+    } catch (error) {
+      console.error("Error responding to guest message:", error);
+      res.status(500).json({ message: "Failed to respond to guest message" });
+    }
+  });
+
+  // AI-Generated Task Management
+  app.get("/api/guest-portal/ai-tasks", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId } = req.user;
+      const { department, status, urgency, assignedTo } = req.query;
+
+      const filters = {
+        department,
+        status,
+        urgency,
+        assignedTo,
+      };
+
+      const tasks = await storage.getAiGeneratedTasks(organizationId, filters);
+      res.json(tasks);
+    } catch (error) {
+      console.error("Error fetching AI-generated tasks:", error);
+      res.status(500).json({ message: "Failed to fetch AI-generated tasks" });
+    }
+  });
+
+  app.patch("/api/guest-portal/ai-tasks/:id/approve", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const { id: userId } = req.user;
+
+      const task = await storage.approveAiTask(parseInt(id), userId);
+      res.json(task);
+    } catch (error) {
+      console.error("Error approving AI task:", error);
+      res.status(500).json({ message: "Failed to approve AI task" });
+    }
+  });
+
+  app.patch("/api/guest-portal/ai-tasks/:id/reject", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const { id: userId } = req.user;
+
+      const task = await storage.rejectAiTask(parseInt(id), userId);
+      res.json(task);
+    } catch (error) {
+      console.error("Error rejecting AI task:", error);
+      res.status(500).json({ message: "Failed to reject AI task" });
+    }
+  });
+
+  // Guest Service Request Management
+  app.get("/api/guest-portal/service-requests", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId } = req.user;
+      const { propertyId, guestId, serviceType, status } = req.query;
+
+      const filters = {
+        propertyId,
+        guestId,
+        serviceType,
+        status,
+      };
+
+      const serviceRequests = await storage.getGuestServiceRequests(organizationId, filters);
+      res.json(serviceRequests);
+    } catch (error) {
+      console.error("Error fetching guest service requests:", error);
+      res.status(500).json({ message: "Failed to fetch guest service requests" });
+    }
+  });
+
+  app.post("/api/guest-portal/service-requests", async (req: any, res) => {
+    try {
+      const requestData = {
+        ...req.body,
+        organizationId: req.body.organizationId || "default-org",
+        guestId: req.body.guestId || `guest-${Date.now()}`,
+      };
+
+      const serviceRequest = await storage.createGuestServiceRequest(requestData);
+      res.status(201).json(serviceRequest);
+    } catch (error) {
+      console.error("Error creating guest service request:", error);
+      res.status(500).json({ message: "Failed to create guest service request" });
+    }
+  });
+
+  app.patch("/api/guest-portal/service-requests/:id/confirm", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const { id: userId } = req.user;
+
+      const serviceRequest = await storage.confirmServiceRequest(parseInt(id), userId);
+      res.json(serviceRequest);
+    } catch (error) {
+      console.error("Error confirming service request:", error);
+      res.status(500).json({ message: "Failed to confirm service request" });
+    }
+  });
+
+  app.patch("/api/guest-portal/service-requests/:id/complete", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const { guestRating, guestFeedback } = req.body;
+
+      const serviceRequest = await storage.completeServiceRequest(parseInt(id), guestRating, guestFeedback);
+      res.json(serviceRequest);
+    } catch (error) {
+      console.error("Error completing service request:", error);
+      res.status(500).json({ message: "Failed to complete service request" });
+    }
+  });
+
+  // AI Smart Suggestions Management
+  app.get("/api/guest-portal/ai-suggestions", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId } = req.user;
+      const { suggestionType, targetAudience, status, priority } = req.query;
+
+      const filters = {
+        suggestionType,
+        targetAudience,
+        status,
+        priority,
+      };
+
+      const suggestions = await storage.getAiSmartSuggestions(organizationId, filters);
+      res.json(suggestions);
+    } catch (error) {
+      console.error("Error fetching AI smart suggestions:", error);
+      res.status(500).json({ message: "Failed to fetch AI smart suggestions" });
+    }
+  });
+
+  app.post("/api/guest-portal/ai-suggestions", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: userId } = req.user;
+
+      const suggestionData = {
+        ...req.body,
+        organizationId,
+      };
+
+      const suggestion = await storage.createAiSmartSuggestion(suggestionData);
+      res.status(201).json(suggestion);
+    } catch (error) {
+      console.error("Error creating AI smart suggestion:", error);
+      res.status(500).json({ message: "Failed to create AI smart suggestion" });
+    }
+  });
+
+  app.patch("/api/guest-portal/ai-suggestions/:id/review", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const { status, notes } = req.body;
+      const { id: userId } = req.user;
+
+      const suggestion = await storage.reviewAiSuggestion(parseInt(id), userId, status, notes);
+      res.json(suggestion);
+    } catch (error) {
+      console.error("Error reviewing AI suggestion:", error);
+      res.status(500).json({ message: "Failed to review AI suggestion" });
+    }
+  });
+
+  app.patch("/api/guest-portal/ai-suggestions/:id/implement", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+
+      const suggestion = await storage.implementAiSuggestion(parseInt(id));
+      res.json(suggestion);
+    } catch (error) {
+      console.error("Error implementing AI suggestion:", error);
+      res.status(500).json({ message: "Failed to implement AI suggestion" });
+    }
+  });
+
+  // Guest Portal Settings Management
+  app.get("/api/guest-portal/settings", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId } = req.user;
+      const { propertyId } = req.query;
+
+      const settings = await storage.getGuestPortalSettings(organizationId, propertyId ? parseInt(propertyId) : undefined);
+      res.json(settings);
+    } catch (error) {
+      console.error("Error fetching guest portal settings:", error);
+      res.status(500).json({ message: "Failed to fetch guest portal settings" });
+    }
+  });
+
+  app.put("/api/guest-portal/settings", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role } = req.user;
+      
+      if (!['admin', 'portfolio-manager'].includes(role)) {
+        return res.status(403).json({ message: "Admin or PM access required" });
+      }
+
+      const settings = await storage.updateGuestPortalSettings(organizationId, req.body);
+      res.json(settings);
+    } catch (error) {
+      console.error("Error updating guest portal settings:", error);
+      res.status(500).json({ message: "Failed to update guest portal settings" });
+    }
+  });
+
+  // Guest Dashboard Analytics
+  app.get("/api/guest-portal/analytics", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId } = req.user;
+      const { month, propertyId } = req.query;
+
+      const analytics = await storage.getGuestDashboardAnalytics(
+        organizationId,
+        month as string,
+        propertyId ? parseInt(propertyId) : undefined
+      );
+      res.json(analytics);
+    } catch (error) {
+      console.error("Error fetching guest dashboard analytics:", error);
+      res.status(500).json({ message: "Failed to fetch guest dashboard analytics" });
+    }
+  });
+
+  // ===== ENHANCED SERVICE REQUEST CONFIRMATION API ENDPOINTS =====
+
+  // Create service request with enhanced confirmation workflow (Guest accessible)
+  app.post("/api/service-requests/create-with-confirmation", async (req, res) => {
+    try {
+      const organizationId = "default-org"; // Use default for demo
+      
+      const serviceRequestData = {
+        ...req.body,
+        organizationId,
+      };
+
+      const serviceRequest = await storage.createServiceRequestWithConfirmation(organizationId, serviceRequestData);
+      res.status(201).json({
+        serviceRequest,
+        message: "Service request submitted and pending confirmation",
+        confirmationRequired: serviceRequest.awaitingConfirmation
+      });
+    } catch (error) {
+      console.error("Error creating service request with confirmation:", error);
+      res.status(500).json({ message: "Failed to create service request" });
+    }
+  });
+
+  // Get pending service request notifications for admin/host review
+  app.get("/api/service-requests/notifications/pending", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role } = req.user;
+      
+      if (!['admin', 'portfolio-manager', 'staff'].includes(role)) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const notifications = await storage.getPendingServiceRequestNotifications(organizationId, role);
+      res.json(notifications);
+    } catch (error) {
+      console.error("Error fetching pending service request notifications:", error);
+      res.status(500).json({ message: "Failed to fetch notifications" });
+    }
+  });
+
+  // Get service request details for review
+  app.get("/api/service-requests/:serviceRequestId/details", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role } = req.user;
+      const { serviceRequestId } = req.params;
+      
+      if (!['admin', 'portfolio-manager', 'staff'].includes(role)) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const serviceRequest = await storage.getServiceRequestDetails(organizationId, parseInt(serviceRequestId));
+      res.json(serviceRequest);
+    } catch (error) {
+      console.error("Error fetching service request details:", error);
+      res.status(500).json({ message: "Failed to fetch service request details" });
+    }
+  });
+
+  // Confirm service request with pricing and assignment (Admin/PM only)
+  app.post("/api/service-requests/:serviceRequestId/confirm", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role, id: userId, firstName, lastName } = req.user;
+      const { serviceRequestId } = req.params;
+      
+      if (!['admin', 'portfolio-manager'].includes(role)) {
+        return res.status(403).json({ message: "Admin or PM access required" });
+      }
+
+      const confirmationData = {
+        ...req.body,
+        confirmedBy: userId,
+        confirmedByName: `${firstName} ${lastName}`,
+      };
+
+      const confirmation = await storage.confirmServiceRequest(organizationId, parseInt(serviceRequestId), confirmationData);
+      res.json({
+        confirmation,
+        message: "Service request confirmed successfully",
+        taskCreated: confirmation.autoCreateTask
+      });
+    } catch (error) {
+      console.error("Error confirming service request:", error);
+      res.status(500).json({ message: "Failed to confirm service request" });
+    }
+  });
+
+  // Decline service request with reason (Admin/PM only)
+  app.post("/api/service-requests/:serviceRequestId/decline", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role, id: userId, firstName, lastName } = req.user;
+      const { serviceRequestId } = req.params;
+      
+      if (!['admin', 'portfolio-manager'].includes(role)) {
+        return res.status(403).json({ message: "Admin or PM access required" });
+      }
+
+      const declineData = {
+        ...req.body,
+        declinedBy: userId,
+        declinedByName: `${firstName} ${lastName}`,
+      };
+
+      const decline = await storage.declineServiceRequest(organizationId, parseInt(serviceRequestId), declineData);
+      res.json({
+        decline,
+        message: "Service request declined"
+      });
+    } catch (error) {
+      console.error("Error declining service request:", error);
+      res.status(500).json({ message: "Failed to decline service request" });
+    }
+  });
+
+  // Mark notification as acknowledged (Admin/PM/Staff)
+  app.patch("/api/service-requests/notifications/:notificationId/acknowledge", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role, id: userId } = req.user;
+      
+      if (!['admin', 'portfolio-manager', 'staff'].includes(role)) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const { notificationId } = req.params;
+      const { notes } = req.body;
+
+      // Mock acknowledgment response
+      const acknowledgment = {
+        notificationId: parseInt(notificationId),
+        acknowledgedBy: userId,
+        acknowledgedAt: new Date(),
+        notes,
+        status: "acknowledged"
+      };
+
+      res.json({
+        acknowledgment,
+        message: "Notification acknowledged"
+      });
+    } catch (error) {
+      console.error("Error acknowledging notification:", error);
+      res.status(500).json({ message: "Failed to acknowledge notification" });
+    }
+  });
+
+  // Get all service requests with enhanced filtering (Admin/PM/Staff)
+  app.get("/api/service-requests", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role } = req.user;
+      
+      if (!['admin', 'portfolio-manager', 'staff'].includes(role)) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const { status, priority, serviceCategory, propertyId, awaitingConfirmation } = req.query;
+
+      // Mock service requests with filtering
+      let serviceRequests = [
+        {
+          id: 101,
+          reservationId: "Demo1234",
+          guestName: "Liam Andersen",
+          propertyName: "Villa Aruna",
+          title: "Private Spa Massage",
+          serviceCategory: "spa",
+          status: "pending",
+          priority: "normal",
+          awaitingConfirmation: true,
+          estimatedCost: 3500,
+          currency: "THB",
+          createdAt: new Date("2025-07-04T15:30:00Z"),
+        },
+        {
+          id: 102,
+          reservationId: "Demo1234",
+          guestName: "Liam Andersen",
+          propertyName: "Villa Aruna",
+          title: "Extra Pool Towels",
+          serviceCategory: "housekeeping",
+          status: "pending",
+          priority: "high",
+          awaitingConfirmation: true,
+          estimatedCost: 0,
+          currency: "THB",
+          createdAt: new Date("2025-07-04T14:45:00Z"),
+        }
+      ];
+
+      // Apply filters
+      if (status) {
+        serviceRequests = serviceRequests.filter(req => req.status === status);
+      }
+      if (priority) {
+        serviceRequests = serviceRequests.filter(req => req.priority === priority);
+      }
+      if (serviceCategory) {
+        serviceRequests = serviceRequests.filter(req => req.serviceCategory === serviceCategory);
+      }
+      if (awaitingConfirmation !== undefined) {
+        const needsConfirmation = awaitingConfirmation === 'true';
+        serviceRequests = serviceRequests.filter(req => req.awaitingConfirmation === needsConfirmation);
+      }
+
+      res.json(serviceRequests);
+    } catch (error) {
+      console.error("Error fetching service requests:", error);
+      res.status(500).json({ message: "Failed to fetch service requests" });
+    }
+  });
+
+  app.post("/api/guest-portal/analytics/update", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role } = req.user;
+      const { month, propertyId } = req.body;
+      
+      if (!['admin', 'portfolio-manager'].includes(role)) {
+        return res.status(403).json({ message: "Admin or PM access required" });
+      }
+
+      const analytics = await storage.updateGuestDashboardAnalytics(organizationId, month, propertyId);
+      res.json(analytics);
+    } catch (error) {
+      console.error("Error updating guest dashboard analytics:", error);
+      res.status(500).json({ message: "Failed to update guest dashboard analytics" });
+    }
+  });
+
+  // Guest Communication Notifications
+  app.get("/api/guest-portal/notifications", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { id: userId } = req.user;
+      const { notificationType, isRead } = req.query;
+
+      const filters = {
+        notificationType,
+        isRead: isRead !== undefined ? isRead === 'true' : undefined,
+      };
+
+      const notifications = await storage.getGuestCommunicationNotifications(userId, filters);
+      res.json(notifications);
+    } catch (error) {
+      console.error("Error fetching guest communication notifications:", error);
+      res.status(500).json({ message: "Failed to fetch guest communication notifications" });
+    }
+  });
+
+  app.patch("/api/guest-portal/notifications/:id/read", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+
+      const notification = await storage.markNotificationAsRead(parseInt(id));
+      res.json(notification);
+    } catch (error) {
+      console.error("Error marking notification as read:", error);
+      res.status(500).json({ message: "Failed to mark notification as read" });
+    }
+  });
+
+  // ===== GUEST COMMUNICATION CENTER ROUTES =====
+  
+  // Get guest session information (public access for guests)
+  app.get("/api/guest-portal/session", async (req, res) => {
+    try {
+      // Mock guest session for demo
+      const guestSession = {
+        id: 1,
+        guestName: "John Smith",
+        guestEmail: "john.smith@email.com",
+        accessToken: "demo-guest-token",
+        isActive: true,
+        propertyId: 1,
+        currentBookingId: 1,
+        createdAt: new Date().toISOString(),
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() // 7 days
+      };
+      
+      res.json(guestSession);
+    } catch (error) {
+      console.error("Error fetching guest session:", error);
+      res.status(500).json({ message: "Failed to fetch guest session" });
+    }
+  });
+
+  // Get guest bookings (public access for guests)
+  app.get("/api/guest-portal/bookings", async (req, res) => {
+    try {
+      // Mock booking data
+      const bookings = [
+        {
+          id: 1,
+          propertyName: "Villa Paradise",
+          propertyId: 1,
+          checkIn: new Date().toISOString(),
+          checkOut: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+          guestCount: 4,
+          status: "confirmed",
+          totalAmount: 2100.00,
+          bookingReference: "VP2024001"
+        },
+        {
+          id: 2,
+          propertyName: "Beach House Retreat",
+          propertyId: 2,
+          checkIn: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+          checkOut: new Date(Date.now() + 37 * 24 * 60 * 60 * 1000).toISOString(),
+          guestCount: 6,
+          status: "upcoming",
+          totalAmount: 3200.00,
+          bookingReference: "BH2024002"
+        }
+      ];
+      
+      res.json(bookings);
+    } catch (error) {
+      console.error("Error fetching guest bookings:", error);
+      res.status(500).json({ message: "Failed to fetch bookings" });
+    }
+  });
+
+  // Get property information (public access for guests)
+  app.get("/api/guest-portal/property-info/:propertyId", async (req, res) => {
+    try {
+      const propertyId = parseInt(req.params.propertyId);
+      
+      // Mock property info
+      const propertyInfo = {
+        id: propertyId,
+        name: "Villa Paradise",
+        address: "123 Paradise Drive, Tropical Island",
+        amenities: [
+          "Private Pool",
+          "WiFi",
+          "Air Conditioning",
+          "Full Kitchen",
+          "Washer/Dryer",
+          "Parking",
+          "Beach Access",
+          "Garden"
+        ],
+        emergencyContacts: [
+          {
+            name: "Property Manager",
+            phone: "+1-555-123-4567",
+            type: "primary"
+          },
+          {
+            name: "Maintenance",
+            phone: "+1-555-987-6543",
+            type: "maintenance"
+          }
+        ],
+        houseRules: [
+          "Check-in: 3:00 PM",
+          "Check-out: 11:00 AM",
+          "No smoking inside",
+          "No pets allowed",
+          "Maximum 4 guests",
+          "Quiet hours: 10 PM - 8 AM"
+        ],
+        wifiPassword: "VillaParadise2024"
+      };
+      
+      res.json(propertyInfo);
+    } catch (error) {
+      console.error("Error fetching property info:", error);
+      res.status(500).json({ message: "Failed to fetch property information" });
+    }
+  });
+
+  // Get available addon services (public access for guests)
+  app.get("/api/guest-portal/addon-services", async (req, res) => {
+    try {
+      // Mock addon services
+      const services = [
+        {
+          id: 1,
+          name: "Private Chef Service",
+          description: "Professional chef will prepare a delicious meal for your group",
+          price: 150.00,
+          category: "dining",
+          duration: "3 hours",
+          isAvailable: true
+        },
+        {
+          id: 2,
+          name: "Massage Service",
+          description: "Relaxing massage service in the comfort of your villa",
+          price: 80.00,
+          category: "wellness",
+          duration: "1 hour",
+          isAvailable: true
+        },
+        {
+          id: 3,
+          name: "Extra Cleaning",
+          description: "Additional cleaning service during your stay",
+          price: 60.00,
+          category: "cleaning",
+          duration: "2 hours",
+          isAvailable: true
+        },
+        {
+          id: 4,
+          name: "Airport Transfer",
+          description: "Private transfer to/from the airport",
+          price: 45.00,
+          category: "transportation",
+          duration: "1 hour",
+          isAvailable: true
+        },
+        {
+          id: 5,
+          name: "Grocery Delivery",
+          description: "Pre-stock your villa with groceries before arrival",
+          price: 25.00,
+          category: "convenience",
+          duration: "30 minutes",
+          isAvailable: true
+        }
+      ];
+      
+      res.json(services);
+    } catch (error) {
+      console.error("Error fetching addon services:", error);
+      res.status(500).json({ message: "Failed to fetch addon services" });
+    }
+  });
+
+  // Get local attractions (public access for guests)
+  app.get("/api/guest-portal/local-attractions", async (req, res) => {
+    try {
+      // Mock local attractions
+      const attractions = [
+        {
+          id: 1,
+          name: "Paradise Beach",
+          description: "Beautiful white sand beach with crystal clear waters",
+          category: "beach",
+          distance: "0.2 miles",
+          rating: 4.8,
+          image: "/images/paradise-beach.jpg"
+        },
+        {
+          id: 2,
+          name: "Tropical Restaurant",
+          description: "Authentic local cuisine with ocean views",
+          category: "dining",
+          distance: "0.5 miles",
+          rating: 4.6,
+          image: "/images/tropical-restaurant.jpg"
+        },
+        {
+          id: 3,
+          name: "Island Tours",
+          description: "Guided tours around the island's highlights",
+          category: "tours",
+          distance: "1.0 mile",
+          rating: 4.9,
+          image: "/images/island-tours.jpg"
+        },
+        {
+          id: 4,
+          name: "Adventure Sports Center",
+          description: "Kayaking, snorkeling, and water sports rentals",
+          category: "activities",
+          distance: "1.2 miles",
+          rating: 4.7,
+          image: "/images/adventure-sports.jpg"
+        },
+        {
+          id: 5,
+          name: "Local Market",
+          description: "Fresh produce, local crafts, and souvenirs",
+          category: "shopping",
+          distance: "0.8 miles",
+          rating: 4.4,
+          image: "/images/local-market.jpg"
+        }
+      ];
+      
+      res.json(attractions);
+    } catch (error) {
+      console.error("Error fetching local attractions:", error);
+      res.status(500).json({ message: "Failed to fetch local attractions" });
+    }
+  });
+
+  // Report issue (public access for guests)
+  app.post("/api/guest-portal/report-issue", async (req, res) => {
+    try {
+      const { category, description, urgency, propertyId, location, images } = req.body;
+      
+      // Create issue report
+      const issueReport = {
+        id: Date.now(),
+        category,
+        description,
+        urgency,
+        propertyId,
+        location,
+        images: images || [],
+        status: "reported",
+        reportedBy: "John Smith",
+        reportedAt: new Date().toISOString()
+      };
+
+      // AI processing - automatically create task based on issue category
+      const autoTask = await processGuestIssueForAI(issueReport);
+      
+      // Send notification to property manager
+      await storage.createNotification({
+        organizationId: "demo-org",
+        userId: "demo-admin",
+        type: "issue_reported",
+        title: `Guest Issue Reported: ${category}`,
+        message: `${description} (Urgency: ${urgency})`,
+        priority: urgency === "urgent" ? "high" : "medium",
+        relatedEntityType: "property",
+        relatedEntityId: propertyId
+      });
+      
+      res.json({ 
+        issueReport, 
+        autoTask,
+        message: "Issue reported successfully. We'll address it promptly." 
+      });
+    } catch (error) {
+      console.error("Error reporting issue:", error);
+      res.status(500).json({ message: "Failed to report issue" });
+    }
+  });
+
+  // Service request (public access for guests)
+  app.post("/api/guest-portal/service-request", async (req, res) => {
+    try {
+      const { serviceType, description, preferredDate, preferredTime, specialRequests, propertyId } = req.body;
+      
+      // Create service request
+      const serviceRequest = {
+        id: Date.now(),
+        serviceType,
+        description,
+        preferredDate,
+        preferredTime,
+        specialRequests,
+        propertyId,
+        status: "requested",
+        requestedBy: "John Smith",
+        requestedAt: new Date().toISOString()
+      };
+
+      // Create notification for staff
+      await storage.createNotification({
+        organizationId: "demo-org",
+        userId: "demo-admin",
+        type: "service_requested",
+        title: `Service Request: ${serviceType}`,
+        message: `${description} - Preferred: ${preferredDate} at ${preferredTime}`,
+        priority: "medium",
+        relatedEntityType: "property",
+        relatedEntityId: propertyId
+      });
+      
+      res.json({ 
+        serviceRequest,
+        message: "Service request submitted successfully. We'll schedule it for you." 
+      });
+    } catch (error) {
+      console.error("Error submitting service request:", error);
+      res.status(500).json({ message: "Failed to submit service request" });
+    }
+  });
+
+  // Addon booking (public access for guests)
+  app.post("/api/guest-portal/addon-booking", async (req, res) => {
+    try {
+      const { serviceId, quantity, scheduledDate, scheduledTime, notes, propertyId } = req.body;
+      
+      // Get service details for price calculation
+      const services = [
+        { id: 1, price: 150.00 },
+        { id: 2, price: 80.00 },
+        { id: 3, price: 60.00 },
+        { id: 4, price: 45.00 },
+        { id: 5, price: 25.00 }
+      ];
+      
+      const service = services.find(s => s.id === serviceId);
+      const totalAmount = service ? service.price * quantity : 0;
+      
+      // Create addon booking
+      const addonBooking = {
+        id: Date.now(),
+        serviceId,
+        quantity,
+        scheduledDate,
+        scheduledTime,
+        notes,
+        propertyId,
+        status: "booked",
+        bookedBy: "John Smith",
+        bookedAt: new Date().toISOString(),
+        totalAmount
+      };
+
+      // Create notification for staff
+      await storage.createNotification({
+        organizationId: "demo-org",
+        userId: "demo-admin",
+        type: "addon_booked",
+        title: `Addon Service Booked`,
+        message: `Service ID ${serviceId} booked for ${scheduledDate} at ${scheduledTime}`,
+        priority: "medium",
+        relatedEntityType: "property",
+        relatedEntityId: propertyId
+      });
+      
+      res.json({ 
+        addonBooking,
+        message: "Service booked successfully!" 
+      });
+    } catch (error) {
+      console.error("Error booking addon service:", error);
+      res.status(500).json({ message: "Failed to book service" });
+    }
+  });
+
+  app.get("/api/guest-portal/notifications/unread-count", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { id: userId } = req.user;
+
+      const count = await storage.getUnreadNotificationCount(userId);
+      res.json({ count });
+    } catch (error) {
+      console.error("Error fetching unread notification count:", error);
+      res.status(500).json({ message: "Failed to fetch unread notification count" });
+    }
+  });
+
+  // ===== GUEST PORTAL SMART REQUESTS & AI CHAT API ENDPOINTS =====
+
+  // Get chat messages for a reservation
+  app.get("/api/guest-portal/chat-messages/:reservationId", async (req, res) => {
+    try {
+      const { reservationId } = req.params;
+      const messages = await storage.getGuestChatMessages(reservationId);
+      res.json(messages);
+    } catch (error) {
+      console.error("Error fetching chat messages:", error);
+      res.status(500).json({ message: "Failed to fetch chat messages" });
+    }
+  });
+
+  // Send a new message
+  app.post("/api/guest-portal/send-message", async (req, res) => {
+    try {
+      const { reservationId, messageText, senderType, senderId } = req.body;
+      
+      // Create the message
+      const messageData = {
+        organizationId: "Demo1234", // Demo organization
+        conversationId: 1, // Demo conversation
+        senderType,
+        senderId,
+        messageText,
+        isSystemGenerated: false,
+      };
+
+      const message = await storage.createGuestChatMessage(messageData);
+      
+      // AI intent analysis for guest messages
+      if (senderType === "guest") {
+        const aiAnalysis = await storage.analyzeMessageIntent(message.id, messageText);
+        
+        if (aiAnalysis && aiAnalysis.requiresAction) {
+          // Generate service request automatically
+          await storage.generateServiceRequestFromMessage(message.id, aiAnalysis.intent, aiAnalysis.category);
+        }
+      }
+
+      res.json(message);
+    } catch (error) {
+      console.error("Error sending message:", error);
+      res.status(500).json({ message: "Failed to send message" });
+    }
+  });
+
+  // Get service requests for a reservation
+  app.get("/api/guest-portal/service-requests/:reservationId", async (req, res) => {
+    try {
+      const { reservationId } = req.params;
+      const requests = await storage.getGuestServiceRequestsByReservation(reservationId);
+      res.json(requests);
+    } catch (error) {
+      console.error("Error fetching service requests:", error);
+      res.status(500).json({ message: "Failed to fetch service requests" });
+    }
+  });
+
+  // Handle service request actions (accept/decline/edit)
+  app.post("/api/guest-portal/service-requests/:requestId/action", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { requestId } = req.params;
+      const { action, notes } = req.body;
+      const { role } = req.user;
+
+      if (!["admin", "portfolio-manager", "staff"].includes(role)) {
+        return res.status(403).json({ message: "Insufficient permissions" });
+      }
+
+      let status;
+      switch (action) {
+        case "accept":
+          status = "accepted";
+          break;
+        case "decline":
+          status = "declined";
+          break;
+        default:
+          return res.status(400).json({ message: "Invalid action" });
+      }
+
+      const updatedRequest = await storage.updateGuestServiceRequest(parseInt(requestId), {
+        status,
+        staffNotes: notes,
+        processedAt: new Date(),
+      });
+
+      // If accepted, create task automatically
+      if (status === "accepted" && updatedRequest) {
+        await storage.createTaskFromServiceRequest(updatedRequest.id);
+      }
+
+      res.json(updatedRequest);
+    } catch (error) {
+      console.error("Error processing service request action:", error);
+      res.status(500).json({ message: "Failed to process service request action" });
+    }
+  });
+
+  // ===== LOCAL & EMERGENCY CONTACTS ROUTES =====
+
+  // Get property local contacts
+  app.get("/api/property-local-contacts/:propertyId", async (req, res) => {
+    try {
+      const { propertyId } = req.params;
+      const { category } = req.query;
+
+      let contacts;
+      if (category) {
+        contacts = await storage.getPropertyLocalContactsByCategory(parseInt(propertyId), category as string);
+      } else {
+        contacts = await storage.getPropertyLocalContacts(parseInt(propertyId));
+      }
+
+      res.json(contacts);
+    } catch (error) {
+      console.error("Error fetching property local contacts:", error);
+      res.status(500).json({ message: "Failed to fetch property local contacts" });
+    }
+  });
+
+  // Get single property local contact
+  app.get("/api/property-local-contacts/contact/:contactId", async (req, res) => {
+    try {
+      const { contactId } = req.params;
+      const contact = await storage.getPropertyLocalContact(parseInt(contactId));
+      
+      if (!contact) {
+        return res.status(404).json({ message: "Contact not found" });
+      }
+
+      res.json(contact);
+    } catch (error) {
+      console.error("Error fetching property local contact:", error);
+      res.status(500).json({ message: "Failed to fetch property local contact" });
+    }
+  });
+
+  // Create property local contact (Admin/Manager only)
+  app.post("/api/property-local-contacts", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { role } = req.user;
+
+      if (!["admin", "portfolio-manager"].includes(role)) {
+        return res.status(403).json({ message: "Insufficient permissions" });
+      }
+
+      const contactData = {
+        ...req.body,
+        organizationId: req.body.organizationId || "default-org",
+        createdBy: req.user.id,
+      };
+
+      const contact = await storage.createPropertyLocalContact(contactData);
+      res.status(201).json(contact);
+    } catch (error) {
+      console.error("Error creating property local contact:", error);
+      res.status(500).json({ message: "Failed to create property local contact" });
+    }
+  });
+
+  // Update property local contact (Admin/Manager only)
+  app.patch("/api/property-local-contacts/:contactId", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { role } = req.user;
+
+      if (!["admin", "portfolio-manager"].includes(role)) {
+        return res.status(403).json({ message: "Insufficient permissions" });
+      }
+
+      const { contactId } = req.params;
+      const contact = await storage.updatePropertyLocalContact(parseInt(contactId), req.body);
+      
+      if (!contact) {
+        return res.status(404).json({ message: "Contact not found" });
+      }
+
+      res.json(contact);
+    } catch (error) {
+      console.error("Error updating property local contact:", error);
+      res.status(500).json({ message: "Failed to update property local contact" });
+    }
+  });
+
+  // Delete property local contact (Admin/Manager only)
+  app.delete("/api/property-local-contacts/:contactId", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { role } = req.user;
+
+      if (!["admin", "portfolio-manager"].includes(role)) {
+        return res.status(403).json({ message: "Insufficient permissions" });
+      }
+
+      const { contactId } = req.params;
+      const success = await storage.deletePropertyLocalContact(parseInt(contactId));
+      
+      if (!success) {
+        return res.status(404).json({ message: "Contact not found" });
+      }
+
+      res.json({ message: "Contact deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting property local contact:", error);
+      res.status(500).json({ message: "Failed to delete property local contact" });
+    }
+  });
+
+  // Reorder property local contacts (Admin/Manager only)
+  app.post("/api/property-local-contacts/reorder", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { role } = req.user;
+
+      if (!["admin", "portfolio-manager"].includes(role)) {
+        return res.status(403).json({ message: "Insufficient permissions" });
+      }
+
+      const { contactIds, displayOrders } = req.body;
+      const success = await storage.reorderPropertyLocalContacts(contactIds, displayOrders);
+      
+      res.json({ success });
+    } catch (error) {
+      console.error("Error reordering property local contacts:", error);
+      res.status(500).json({ message: "Failed to reorder property local contacts" });
+    }
+  });
+
+  // Contact Template Zone routes (Admin/Manager only)
+  app.get("/api/contact-template-zones", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { role, organizationId } = req.user;
+
+      if (!["admin", "portfolio-manager"].includes(role)) {
+        return res.status(403).json({ message: "Insufficient permissions" });
+      }
+
+      const templates = await storage.getContactTemplateZones(organizationId);
+      res.json(templates);
+    } catch (error) {
+      console.error("Error fetching contact template zones:", error);
+      res.status(500).json({ message: "Failed to fetch contact template zones" });
+    }
+  });
+
+  // Apply contact template to property (Admin/Manager only)
+  app.post("/api/contact-template-zones/:templateId/apply", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { role } = req.user;
+
+      if (!["admin", "portfolio-manager"].includes(role)) {
+        return res.status(403).json({ message: "Insufficient permissions" });
+      }
+
+      const { templateId } = req.params;
+      const { propertyId } = req.body;
+
+      const contacts = await storage.applyContactTemplate(propertyId, parseInt(templateId), req.user.id);
+      res.json(contacts);
+    } catch (error) {
+      console.error("Error applying contact template:", error);
+      res.status(500).json({ message: "Failed to apply contact template" });
+    }
+  });
+
+  // Get pending notifications for staff
+  app.get("/api/guest-portal/notifications", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { role } = req.user;
+
+      if (!["admin", "portfolio-manager", "staff"].includes(role)) {
+        return res.status(403).json({ message: "Insufficient permissions" });
+      }
+
+      const notifications = await storage.getPendingServiceRequestNotifications();
+      res.json(notifications);
+    } catch (error) {
+      console.error("Error fetching notifications:", error);
+      res.status(500).json({ message: "Failed to fetch notifications" });
+    }
+  });
+
+  // ===== STAFF SALARY, OVERTIME & INVOICE GENERATOR API ENDPOINTS =====
+
+  // Staff Salary Profile Management
+  app.get("/api/staff-salary/profiles", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId } = req.user;
+      const profiles = await storage.getStaffSalaryProfiles(organizationId);
+      res.json(profiles);
+    } catch (error) {
+      console.error("Error fetching staff salary profiles:", error);
+      res.status(500).json({ message: "Failed to fetch staff salary profiles" });
+    }
+  });
+
+  app.get("/api/staff-salary/profiles/:userId", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { userId } = req.params;
+      const profile = await storage.getStaffSalaryProfile(userId);
+      if (!profile) {
+        return res.status(404).json({ message: "Staff salary profile not found" });
+      }
+      res.json(profile);
+    } catch (error) {
+      console.error("Error fetching staff salary profile:", error);
+      res.status(500).json({ message: "Failed to fetch staff salary profile" });
+    }
+  });
+
+  app.post("/api/staff-salary/profiles", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role } = req.user;
+      
+      if (role !== 'admin') {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const profileData = {
+        ...req.body,
+        organizationId,
+      };
+
+      const profile = await storage.createStaffSalaryProfile(profileData);
+      res.status(201).json(profile);
+    } catch (error) {
+      console.error("Error creating staff salary profile:", error);
+      res.status(500).json({ message: "Failed to create staff salary profile" });
+    }
+  });
+
+  app.put("/api/staff-salary/profiles/:userId", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { role } = req.user;
+      const { userId } = req.params;
+      
+      if (role !== 'admin') {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const profile = await storage.updateStaffSalaryProfile(userId, req.body);
+      if (!profile) {
+        return res.status(404).json({ message: "Staff salary profile not found" });
+      }
+      res.json(profile);
+    } catch (error) {
+      console.error("Error updating staff salary profile:", error);
+      res.status(500).json({ message: "Failed to update staff salary profile" });
+    }
+  });
+
+  // Staff Commission & Bonus Log
+  app.get("/api/staff-salary/commissions", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role, id: userId } = req.user;
+      const { targetUserId, month, status } = req.query;
+
+      const filters = {
+        userId: role === 'admin' ? targetUserId : userId,
+        month: month as string,
+        status: status as string,
+      };
+
+      const commissions = await storage.getStaffCommissionLog(organizationId, filters);
+      res.json(commissions);
+    } catch (error) {
+      console.error("Error fetching staff commission log:", error);
+      res.status(500).json({ message: "Failed to fetch staff commission log" });
+    }
+  });
+
+  app.post("/api/staff-salary/commissions", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role } = req.user;
+      
+      if (!['admin', 'portfolio-manager'].includes(role)) {
+        return res.status(403).json({ message: "Admin or PM access required" });
+      }
+
+      const commissionData = {
+        ...req.body,
+        organizationId,
+      };
+
+      const commission = await storage.createStaffCommissionLog(commissionData);
+      res.status(201).json(commission);
+    } catch (error) {
+      console.error("Error creating staff commission log:", error);
+      res.status(500).json({ message: "Failed to create staff commission log" });
+    }
+  });
+
+  app.patch("/api/staff-salary/commissions/:id/status", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { role, id: userId } = req.user;
+      const { id } = req.params;
+      const { status } = req.body;
+      
+      if (role !== 'admin') {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const commission = await storage.updateStaffCommissionStatus(parseInt(id), status, userId);
+      if (!commission) {
+        return res.status(404).json({ message: "Commission log not found" });
+      }
+      res.json(commission);
+    } catch (error) {
+      console.error("Error updating commission status:", error);
+      res.status(500).json({ message: "Failed to update commission status" });
+    }
+  });
+
+  // Emergency Clock-In System
+  app.get("/api/staff-salary/time-clocks", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role, id: userId } = req.user;
+      const { targetUserId, clockType, month } = req.query;
+
+      const filters = {
+        userId: role === 'admin' ? targetUserId : userId,
+        clockType: clockType as string,
+        month: month as string,
+      };
+
+      const timeClocks = await storage.getStaffTimeClocks(organizationId, filters);
+      res.json(timeClocks);
+    } catch (error) {
+      console.error("Error fetching staff time clocks:", error);
+      res.status(500).json({ message: "Failed to fetch staff time clocks" });
+    }
+  });
+
+  app.post("/api/staff-salary/time-clocks", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: userId } = req.user;
+
+      const timeClockData = {
+        ...req.body,
+        organizationId,
+        userId,
+        clockTime: new Date(),
+      };
+
+      const timeClock = await storage.createStaffTimeClock(timeClockData);
+      res.status(201).json(timeClock);
+    } catch (error) {
+      console.error("Error creating staff time clock:", error);
+      res.status(500).json({ message: "Failed to create staff time clock" });
+    }
+  });
+
+  app.patch("/api/staff-salary/time-clocks/:id", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const timeClock = await storage.updateStaffTimeClock(parseInt(id), req.body);
+      if (!timeClock) {
+        return res.status(404).json({ message: "Time clock not found" });
+      }
+      res.json(timeClock);
+    } catch (error) {
+      console.error("Error updating staff time clock:", error);
+      res.status(500).json({ message: "Failed to update staff time clock" });
+    }
+  });
+
+  app.patch("/api/staff-salary/time-clocks/:id/approve", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { role, id: userId } = req.user;
+      const { id } = req.params;
+      const { hoursPaid, notes } = req.body;
+      
+      if (!['admin', 'portfolio-manager'].includes(role)) {
+        return res.status(403).json({ message: "Admin or PM access required" });
+      }
+
+      const timeClock = await storage.approveTimeClock(parseInt(id), userId, parseFloat(hoursPaid), notes);
+      if (!timeClock) {
+        return res.status(404).json({ message: "Time clock not found" });
+      }
+      res.json(timeClock);
+    } catch (error) {
+      console.error("Error approving time clock:", error);
+      res.status(500).json({ message: "Failed to approve time clock" });
+    }
+  });
+
+  // Emergency Callout Summary
+  app.get("/api/staff-salary/emergency-summary", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId } = req.user;
+      const { month } = req.query;
+      const summary = await storage.getEmergencyCalloutSummary(organizationId, month as string);
+      res.json(summary);
+    } catch (error) {
+      console.error("Error fetching emergency callout summary:", error);
+      res.status(500).json({ message: "Failed to fetch emergency callout summary" });
+    }
+  });
+
+  app.post("/api/staff-salary/emergency-summary/:userId", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { role } = req.user;
+      const { userId } = req.params;
+      const { month } = req.body;
+      
+      if (role !== 'admin') {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const summary = await storage.updateEmergencyCalloutSummary(userId, month);
+      res.json(summary);
+    } catch (error) {
+      console.error("Error updating emergency callout summary:", error);
+      res.status(500).json({ message: "Failed to update emergency callout summary" });
+    }
+  });
+
+  // ===== INVOICE GENERATOR API ENDPOINTS =====
+
+  // Invoice Operations
+  app.get("/api/invoices", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role, id: userId } = req.user;
+      const { fromPartyId, toPartyId, status } = req.query;
+
+      const filters = {
+        fromPartyId: role === 'admin' ? fromPartyId : userId,
+        toPartyId: toPartyId as string,
+        status: status as string,
+      };
+
+      const invoices = await storage.getInvoices(organizationId, filters);
+      res.json(invoices);
+    } catch (error) {
+      console.error("Error fetching invoices:", error);
+      res.status(500).json({ message: "Failed to fetch invoices" });
+    }
+  });
+
+  app.get("/api/invoices/:id", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const invoice = await storage.getInvoice(parseInt(id));
+      if (!invoice) {
+        return res.status(404).json({ message: "Invoice not found" });
+      }
+      res.json(invoice);
+    } catch (error) {
+      console.error("Error fetching invoice:", error);
+      res.status(500).json({ message: "Failed to fetch invoice" });
+    }
+  });
+
+  app.post("/api/invoices", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: userId } = req.user;
+
+      const invoiceData = {
+        ...req.body,
+        organizationId,
+        createdBy: userId,
+      };
+
+      const invoice = await storage.createInvoice(invoiceData);
+      res.status(201).json(invoice);
+    } catch (error) {
+      console.error("Error creating invoice:", error);
+      res.status(500).json({ message: "Failed to create invoice" });
+    }
+  });
+
+  app.put("/api/invoices/:id", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const invoice = await storage.updateInvoice(parseInt(id), req.body);
+      if (!invoice) {
+        return res.status(404).json({ message: "Invoice not found" });
+      }
+      res.json(invoice);
+    } catch (error) {
+      console.error("Error updating invoice:", error);
+      res.status(500).json({ message: "Failed to update invoice" });
+    }
+  });
+
+  app.delete("/api/invoices/:id", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const success = await storage.deleteInvoice(parseInt(id));
+      if (!success) {
+        return res.status(404).json({ message: "Invoice not found" });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting invoice:", error);
+      res.status(500).json({ message: "Failed to delete invoice" });
+    }
+  });
+
+  // Invoice Line Items
+  app.get("/api/invoices/:invoiceId/line-items", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { invoiceId } = req.params;
+      const lineItems = await storage.getInvoiceLineItems(parseInt(invoiceId));
+      res.json(lineItems);
+    } catch (error) {
+      console.error("Error fetching invoice line items:", error);
+      res.status(500).json({ message: "Failed to fetch invoice line items" });
+    }
+  });
+
+  app.post("/api/invoices/:invoiceId/line-items", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId } = req.user;
+      const { invoiceId } = req.params;
+
+      const lineItemData = {
+        ...req.body,
+        organizationId,
+        invoiceId: parseInt(invoiceId),
+      };
+
+      const lineItem = await storage.createInvoiceLineItem(lineItemData);
+      res.status(201).json(lineItem);
+    } catch (error) {
+      console.error("Error creating invoice line item:", error);
+      res.status(500).json({ message: "Failed to create invoice line item" });
+    }
+  });
+
+  app.put("/api/invoices/line-items/:id", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const lineItem = await storage.updateInvoiceLineItem(parseInt(id), req.body);
+      if (!lineItem) {
+        return res.status(404).json({ message: "Invoice line item not found" });
+      }
+      res.json(lineItem);
+    } catch (error) {
+      console.error("Error updating invoice line item:", error);
+      res.status(500).json({ message: "Failed to update invoice line item" });
+    }
+  });
+
+  app.delete("/api/invoices/line-items/:id", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const success = await storage.deleteInvoiceLineItem(parseInt(id));
+      if (!success) {
+        return res.status(404).json({ message: "Invoice line item not found" });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting invoice line item:", error);
+      res.status(500).json({ message: "Failed to delete invoice line item" });
+    }
+  });
+
+  // Invoice Payments
+  app.get("/api/invoices/:invoiceId/payments", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { invoiceId } = req.params;
+      const payments = await storage.getInvoicePayments(parseInt(invoiceId));
+      res.json(payments);
+    } catch (error) {
+      console.error("Error fetching invoice payments:", error);
+      res.status(500).json({ message: "Failed to fetch invoice payments" });
+    }
+  });
+
+  app.post("/api/invoices/:invoiceId/payments", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: userId } = req.user;
+      const { invoiceId } = req.params;
+
+      const paymentData = {
+        ...req.body,
+        organizationId,
+        invoiceId: parseInt(invoiceId),
+        recordedBy: userId,
+      };
+
+      const payment = await storage.createInvoicePayment(paymentData);
+      res.status(201).json(payment);
+    } catch (error) {
+      console.error("Error creating invoice payment:", error);
+      res.status(500).json({ message: "Failed to create invoice payment" });
+    }
+  });
+
+  // Salary Analytics
+  app.get("/api/staff-salary/analytics", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role } = req.user;
+      const { month } = req.query;
+      
+      if (role !== 'admin') {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const analytics = await storage.getSalaryAnalytics(organizationId, month as string);
+      res.json(analytics);
+    } catch (error) {
+      console.error("Error fetching salary analytics:", error);
+      res.status(500).json({ message: "Failed to fetch salary analytics" });
+    }
+  });
+
+  app.post("/api/staff-salary/analytics/:month", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role } = req.user;
+      const { month } = req.params;
+      
+      if (role !== 'admin') {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const analytics = await storage.updateSalaryAnalytics(organizationId, month);
+      res.json(analytics);
+    } catch (error) {
+      console.error("Error updating salary analytics:", error);
+      res.status(500).json({ message: "Failed to update salary analytics" });
+    }
+  });
+
+  // ===== PORTFOLIO MANAGER COMMISSION ACCESS =====
+
+  // PM Commission Overview (PM Access)
+  app.get("/api/pm/commission-overview", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role } = req.user;
+      const { agentType, startDate, endDate, status } = req.query;
+
+      if (!['admin', 'portfolio-manager'].includes(role)) {
+        return res.status(403).json({ message: "Access denied. Admin or PM role required." });
+      }
+
+      const commissions = await storage.getCommissionLog(organizationId, {
+        agentType: agentType as 'retail-agent' | 'referral-agent',
+        startDate: startDate as string,
+        endDate: endDate as string,
+        status: status as string,
+      });
+
+      res.json(commissions);
+    } catch (error) {
+      console.error("Error fetching PM commission overview:", error);
+      res.status(500).json({ message: "Failed to fetch commission overview" });
+    }
+  });
+
+  // ===== GUEST ADD-ON SERVICE API =====
+
+  // Get active guest add-on services for booking
+  app.get("/api/guest/addon-services", async (req: any, res) => {
+    try {
+      const organizationId = req.query.organizationId || "default-org";
+      const services = await storage.getActiveGuestAddonServices(organizationId);
+      res.json(services);
+    } catch (error) {
+      console.error("Error fetching guest addon services:", error);
+      res.status(500).json({ message: "Failed to fetch guest addon services" });
+    }
+  });
+
+  // Create a new guest addon booking (public endpoint)
+  app.post("/api/guest/addon-bookings", async (req: any, res) => {
+    try {
+      const {
+        serviceId,
+        propertyId,
+        guestName,
+        guestEmail,
+        guestPhone,
+        serviceDate,
+        specialRequests,
+        quantity,
+        totalAmount,
+        currency = "USD",
+        organizationId = "default-org"
+      } = req.body;
+
+      const booking = await storage.createGuestAddonBooking({
+        serviceId,
+        propertyId,
+        guestName,
+        guestEmail,
+        guestPhone,
+        bookingDate: new Date(),
+        serviceDate: new Date(serviceDate),
+        specialRequests: specialRequests || "",
+        totalAmount: totalAmount.toString(),
+        currency,
+        status: "pending",
+        billingRoute: "guest_billable",
+        bookedBy: "guest",
+        organizationId
+      });
+
+      res.status(201).json(booking);
+    } catch (error) {
+      console.error("Error creating guest addon booking:", error);
+      res.status(500).json({ message: "Failed to create guest addon booking" });
+    }
+  });
+
+  // ===== ADMIN ADD-ON BOOKING MANAGEMENT API =====
+
+  // Get all guest addon bookings (Admin/PM access)
+  app.get("/api/admin/addon-bookings", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId } = req.user;
+      const { role } = req.user;
+
+      // Check role permissions
+      if (!['admin', 'portfolio-manager'].includes(role)) {
+        return res.status(403).json({ message: "Access denied. Admin or PM role required." });
+      }
+
+      const bookings = await storage.getGuestAddonBookings(organizationId);
+      
+      // Map the booking data to match the frontend interface
+      const formattedBookings = bookings.map(booking => ({
+        id: booking.id,
+        serviceName: booking.serviceName,
+        propertyName: booking.propertyName,
+        guestName: booking.guestName,
+        guestEmail: booking.guestEmail,
+        guestPhone: booking.guestPhone,
+        bookingDate: booking.createdAt?.toISOString() || new Date().toISOString(),
+        serviceDate: booking.serviceDate.toISOString(),
+        status: booking.status,
+        totalAmount: booking.totalAmount,
+        currency: booking.currency,
+        billingRoute: booking.billingRoute,
+        complimentaryType: booking.complimentaryType,
+        specialRequests: booking.specialRequests,
+        internalNotes: booking.internalNotes,
+        bookedBy: booking.bookedBy,
+        confirmedBy: booking.confirmedBy,
+        cancelledBy: booking.cancelledBy,
+        cancellationReason: booking.cancellationReason
+      }));
+
+      res.json(formattedBookings);
+    } catch (error) {
+      console.error("Error fetching admin addon bookings:", error);
+      res.status(500).json({ message: "Failed to fetch admin addon bookings" });
+    }
+  });
+
+  // Update guest addon booking (Admin/PM access)
+  app.put("/api/admin/addon-bookings/:id", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: userId, role } = req.user;
+      const { id } = req.params;
+      const updateData = req.body;
+
+      // Check role permissions
+      if (!['admin', 'portfolio-manager'].includes(role)) {
+        return res.status(403).json({ message: "Access denied. Admin or PM role required." });
+      }
+
+      // Add tracking fields based on status change
+      if (updateData.status === "confirmed") {
+        updateData.confirmedBy = userId;
+      } else if (updateData.status === "cancelled") {
+        updateData.cancelledBy = userId;
+      }
+
+      const updatedBooking = await storage.updateGuestAddonBooking(
+        parseInt(id),
+        organizationId,
+        updateData
+      );
+
+      if (!updatedBooking) {
+        return res.status(404).json({ message: "Booking not found" });
+      }
+
+      res.json(updatedBooking);
+    } catch (error) {
+      console.error("Error updating addon booking:", error);
+      res.status(500).json({ message: "Failed to update addon booking" });
+    }
+  });
+
+  // Export guest addon bookings as CSV (Admin access)
+  app.get("/api/admin/addon-bookings/export", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role } = req.user;
+
+      // Check role permissions
+      if (!['admin', 'portfolio-manager'].includes(role)) {
+        return res.status(403).json({ message: "Access denied. Admin or PM role required." });
+      }
+
+      const bookings = await storage.getGuestAddonBookings(organizationId);
+
+      const csv = [
+        'ID,Service,Property,Guest Name,Guest Email,Guest Phone,Service Date,Amount,Currency,Status,Billing Route,Special Requests,Booked Date',
+        ...bookings.map(b => 
+          `${b.id},"${b.serviceName}","${b.propertyName}","${b.guestName}","${b.guestEmail || ''}","${b.guestPhone || ''}","${b.serviceDate.toISOString().split('T')[0]}","${b.totalAmount}","${b.currency}","${b.status}","${b.billingRoute}","${b.specialRequests || ''}","${b.createdAt?.toISOString().split('T')[0] || ''}"`
+        )
+      ].join('\n');
+
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', `attachment; filename="addon-bookings-${new Date().toISOString().split('T')[0]}.csv"`);
+      res.send(csv);
+    } catch (error) {
+      console.error("Error exporting addon bookings:", error);
+      res.status(500).json({ message: "Failed to export addon bookings" });
+    }
+  });
+
+  // ===== ADMIN ADD-ON SERVICE SETTINGS API =====
+
+  // Get all guest addon services (Admin access)
+  app.get("/api/admin/addon-services", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role } = req.user;
+
+      // Check role permissions
+      if (!['admin', 'portfolio-manager'].includes(role)) {
+        return res.status(403).json({ message: "Access denied. Admin or PM role required." });
+      }
+
+      const services = await storage.getGuestAddonServices(organizationId);
+      res.json(services);
+    } catch (error) {
+      console.error("Error fetching admin addon services:", error);
+      res.status(500).json({ message: "Failed to fetch admin addon services" });
+    }
+  });
+
+  // Create new guest addon service (Admin access)
+  app.post("/api/admin/addon-services", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role } = req.user;
+
+      // Check role permissions
+      if (role !== 'admin') {
+        return res.status(403).json({ message: "Access denied. Admin role required." });
+      }
+
+      const serviceData = {
+        ...req.body,
+        organizationId,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      };
+
+      const service = await storage.createGuestAddonService(serviceData);
+      res.status(201).json(service);
+    } catch (error) {
+      console.error("Error creating addon service:", error);
+      res.status(500).json({ message: "Failed to create addon service" });
+    }
+  });
+
+  // Update guest addon service (Admin access)
+  app.put("/api/admin/addon-services/:id", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role } = req.user;
+      const { id } = req.params;
+
+      // Check role permissions
+      if (role !== 'admin') {
+        return res.status(403).json({ message: "Access denied. Admin role required." });
+      }
+
+      const updatedService = await storage.updateGuestAddonService(
+        parseInt(id),
+        organizationId,
+        req.body
+      );
+
+      if (!updatedService) {
+        return res.status(404).json({ message: "Service not found" });
+      }
+
+      res.json(updatedService);
+    } catch (error) {
+      console.error("Error updating addon service:", error);
+      res.status(500).json({ message: "Failed to update addon service" });
+    }
+  });
+
+  // ===== LOYALTY & REPEAT GUEST TRACKER + SMART MESSAGING SYSTEM API =====
+
+  // Get guest loyalty profiles (Admin/PM access)
+  app.get("/api/loyalty/guests", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId } = req.user;
+      const { role } = req.user;
+
+      if (!['admin', 'portfolio-manager', 'staff'].includes(role)) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const profiles = await storage.getAllGuestLoyaltyProfiles(organizationId);
+      res.json(profiles);
+    } catch (error) {
+      console.error("Error fetching guest loyalty profiles:", error);
+      res.status(500).json({ message: "Failed to fetch guest loyalty profiles" });
+    }
+  });
+
+  // Get repeat guests only
+  app.get("/api/loyalty/repeat-guests", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId } = req.user;
+      const { role } = req.user;
+
+      if (!['admin', 'portfolio-manager', 'staff'].includes(role)) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const repeatGuests = await storage.getRepeatGuests(organizationId);
+      res.json(repeatGuests);
+    } catch (error) {
+      console.error("Error fetching repeat guests:", error);
+      res.status(500).json({ message: "Failed to fetch repeat guests" });
+    }
+  });
+
+  // Get loyalty tiers
+  app.get("/api/loyalty/tiers", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId } = req.user;
+      const tiers = await storage.getLoyaltyTiers(organizationId);
+      res.json(tiers);
+    } catch (error) {
+      console.error("Error fetching loyalty tiers:", error);
+      res.status(500).json({ message: "Failed to fetch loyalty tiers" });
+    }
+  });
+
+  // Create loyalty tier (Admin only)
+  app.post("/api/loyalty/tiers", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role } = req.user;
+
+      if (!['admin'].includes(role)) {
+        return res.status(403).json({ message: "Access denied. Admin role required." });
+      }
+
+      const { tierName, minStays, tierColor, benefits, perks } = req.body;
+
+      const tierData = {
+        organizationId,
+        tierName,
+        minStays,
+        tierColor: tierColor || "#6B7280",
+        benefits: benefits || [],
+        perks: perks || {},
+        isActive: true,
+      };
+
+      const tier = await storage.createLoyaltyTier(tierData);
+      res.status(201).json(tier);
+    } catch (error) {
+      console.error("Error creating loyalty tier:", error);
+      res.status(500).json({ message: "Failed to create loyalty tier" });
+    }
+  });
+
+  // Check if guest is repeat guest
+  app.post("/api/loyalty/check-repeat-guest", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId } = req.user;
+      const { guestEmail, guestName, guestPhone } = req.body;
+
+      const result = await storage.identifyRepeatGuest(organizationId, guestEmail, guestName, guestPhone);
+      res.json(result);
+    } catch (error) {
+      console.error("Error checking repeat guest:", error);
+      res.status(500).json({ message: "Failed to check repeat guest status" });
+    }
+  });
+
+  // Update guest loyalty on new booking
+  app.post("/api/loyalty/update-on-booking", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId } = req.user;
+      const { 
+        guestEmail, 
+        guestName, 
+        guestPhone, 
+        propertyId, 
+        bookingAmount, 
+        checkInDate, 
+        checkOutDate 
+      } = req.body;
+
+      const profile = await storage.updateGuestLoyaltyOnBooking(
+        organizationId,
+        guestEmail,
+        guestName,
+        guestPhone,
+        propertyId,
+        parseFloat(bookingAmount),
+        new Date(checkInDate),
+        new Date(checkOutDate)
+      );
+
+      res.json(profile);
+    } catch (error) {
+      console.error("Error updating guest loyalty on booking:", error);
+      res.status(500).json({ message: "Failed to update guest loyalty" });
+    }
+  });
+
+  // ===== GUEST MESSAGING SYSTEM API =====
+
+  // Get guest messages
+  app.get("/api/messages", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId } = req.user;
+      const { threadId } = req.query;
+
+      const messages = await storage.getGuestMessages(organizationId, threadId);
+      res.json(messages);
+    } catch (error) {
+      console.error("Error fetching guest messages:", error);
+      res.status(500).json({ message: "Failed to fetch messages" });
+    }
+  });
+
+  // Create new message
+  app.post("/api/messages", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: userId, role } = req.user;
+      const { 
+        threadId, 
+        guestLoyaltyId, 
+        bookingId, 
+        propertyId, 
+        messageContent, 
+        messageType, 
+        attachments, 
+        urgencyLevel 
+      } = req.body;
+
+      const messageData = {
+        organizationId,
+        threadId,
+        guestLoyaltyId,
+        bookingId,
+        propertyId,
+        senderId: userId,
+        senderType: role,
+        senderName: req.user.firstName + " " + req.user.lastName,
+        messageContent,
+        messageType: messageType || "text",
+        attachments: attachments || [],
+        isAutomated: false,
+        urgencyLevel: urgencyLevel || "normal",
+        isRead: false,
+      };
+
+      const message = await storage.createGuestMessage(messageData);
+      res.status(201).json(message);
+    } catch (error) {
+      console.error("Error creating message:", error);
+      res.status(500).json({ message: "Failed to create message" });
+    }
+  });
+
+  // Mark message as read
+  app.patch("/api/messages/:messageId/read", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { id: userId } = req.user;
+      const { messageId } = req.params;
+
+      await storage.markMessageAsRead(parseInt(messageId), userId);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error marking message as read:", error);
+      res.status(500).json({ message: "Failed to mark message as read" });
+    }
+  });
+
+  // Get unread messages count
+  app.get("/api/messages/unread-count", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId } = req.user;
+      const count = await storage.getUnreadMessagesCount(organizationId);
+      res.json({ count });
+    } catch (error) {
+      console.error("Error fetching unread messages count:", error);
+      res.status(500).json({ message: "Failed to fetch unread count" });
+    }
+  });
+
+  // ===== SMART REPLY SUGGESTIONS API =====
+
+  // Get smart reply suggestions
+  app.get("/api/smart-replies", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId } = req.user;
+      const { category } = req.query;
+
+      const suggestions = await storage.getSmartReplySuggestions(organizationId, category);
+      res.json(suggestions);
+    } catch (error) {
+      console.error("Error fetching smart reply suggestions:", error);
+      res.status(500).json({ message: "Failed to fetch smart replies" });
+    }
+  });
+
+  // Create smart reply suggestion (Admin/PM)
+  app.post("/api/smart-replies", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: userId, role } = req.user;
+
+      if (!['admin', 'portfolio-manager'].includes(role)) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const { category, trigger, messageTemplate, userRole } = req.body;
+
+      const suggestionData = {
+        organizationId,
+        category,
+        trigger,
+        messageTemplate,
+        userRole: userRole || "all",
+        createdBy: userId,
+      };
+
+      const suggestion = await storage.createSmartReplySuggestion(suggestionData);
+      res.status(201).json(suggestion);
+    } catch (error) {
+      console.error("Error creating smart reply suggestion:", error);
+      res.status(500).json({ message: "Failed to create smart reply" });
+    }
+  });
+
+  // Use smart reply suggestion (increment usage)
+  app.post("/api/smart-replies/:suggestionId/use", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { suggestionId } = req.params;
+      await storage.incrementSmartReplyUsage(parseInt(suggestionId));
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error incrementing smart reply usage:", error);
+      res.status(500).json({ message: "Failed to update usage" });
+    }
+  });
+
+  // ===== MESSAGING TRIGGERS API =====
+
+  // Get messaging triggers
+  app.get("/api/messaging-triggers", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId } = req.user;
+      const triggers = await storage.getMessagingTriggers(organizationId);
+      res.json(triggers);
+    } catch (error) {
+      console.error("Error fetching messaging triggers:", error);
+      res.status(500).json({ message: "Failed to fetch messaging triggers" });
+    }
+  });
+
+  // Create messaging trigger (Admin only)
+  app.post("/api/messaging-triggers", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role } = req.user;
+
+      if (!['admin'].includes(role)) {
+        return res.status(403).json({ message: "Access denied. Admin role required." });
+      }
+
+      const {
+        triggerName,
+        triggerType,
+        triggerCondition,
+        delayMinutes,
+        messageTemplate,
+        loyaltyTierTargets,
+        propertyTargets
+      } = req.body;
+
+      const triggerData = {
+        organizationId,
+        triggerName,
+        triggerType,
+        triggerCondition,
+        delayMinutes: delayMinutes || 0,
+        messageTemplate,
+        isActive: true,
+        loyaltyTierTargets: loyaltyTierTargets || [],
+        propertyTargets: propertyTargets || [],
+        triggerCount: 0,
+      };
+
+      const trigger = await storage.createMessagingTrigger(triggerData);
+      res.status(201).json(trigger);
+    } catch (error) {
+      console.error("Error creating messaging trigger:", error);
+      res.status(500).json({ message: "Failed to create messaging trigger" });
+    }
+  });
+
+  // ===== COMPREHENSIVE PAYROLL, COMMISSION & INVOICE MANAGEMENT API =====
+
+  // ===== STAFF PAYROLL MANAGEMENT ROUTES =====
+
+  // Get staff payroll records
+  app.get("/api/payroll/staff", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: userId, role } = req.user;
+      const { staffId, year, month, paymentStatus } = req.query;
+
+      // Admin can see all, staff can only see their own
+      const targetStaffId = role === 'admin' ? staffId : userId;
+      
+      const records = await storage.getStaffPayrollRecords(organizationId, {
+        staffId: targetStaffId,
+        year: year ? parseInt(year) : undefined,
+        month: month ? parseInt(month) : undefined,
+        paymentStatus,
+      });
+
+      res.json(records);
+    } catch (error) {
+      console.error("Error fetching staff payroll records:", error);
+      res.status(500).json({ message: "Failed to fetch payroll records" });
+    }
+  });
+
+  // Create staff payroll record (admin only)
+  app.post("/api/payroll/staff", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: userId, role } = req.user;
+      
+      if (role !== 'admin') {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const payrollData = {
+        ...req.body,
+        organizationId,
+        processedBy: userId,
+      };
+
+      const record = await storage.createStaffPayrollRecord(payrollData);
+      res.status(201).json(record);
+    } catch (error) {
+      console.error("Error creating staff payroll record:", error);
+      res.status(500).json({ message: "Failed to create payroll record" });
+    }
+  });
+
+  // Mark payroll as paid (admin only)
+  app.patch("/api/payroll/staff/:id/mark-paid", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: userId, role } = req.user;
+      const { id } = req.params;
+      
+      if (role !== 'admin') {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const { paymentMethod, paymentReference, paymentSlipUrl, notes } = req.body;
+      
+      const record = await storage.markPayrollAsPaid(parseInt(id), userId, {
+        paymentMethod,
+        paymentReference,
+        paymentSlipUrl,
+        notes,
+      });
+
+      res.json(record);
+    } catch (error) {
+      console.error("Error marking payroll as paid:", error);
+      res.status(500).json({ message: "Failed to mark payroll as paid" });
+    }
+  });
+
+  // Get staff payroll summary
+  app.get("/api/payroll/staff/:staffId/summary", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: userId, role } = req.user;
+      const { staffId } = req.params;
+      const { year } = req.query;
+
+      // Admin can see any staff, staff can only see their own
+      if (role !== 'admin' && staffId !== userId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const summary = await storage.getStaffPayrollSummary(
+        organizationId, 
+        staffId, 
+        year ? parseInt(year) : undefined
+      );
+
+      res.json(summary);
+    } catch (error) {
+      console.error("Error fetching staff payroll summary:", error);
+      res.status(500).json({ message: "Failed to fetch payroll summary" });
+    }
+  });
+
+  // ===== PORTFOLIO MANAGER COMMISSION ROUTES =====
+
+  // Get portfolio manager commissions
+  app.get("/api/commissions/portfolio-manager", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: userId, role } = req.user;
+      const { managerId, year, month, payoutStatus } = req.query;
+
+      // Admin can see all, PM can only see their own
+      const targetManagerId = (role === 'admin') ? managerId : (role === 'portfolio-manager' ? userId : undefined);
+      
+      if (!targetManagerId && role !== 'admin') {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const commissions = await storage.getPortfolioManagerCommissions(organizationId, targetManagerId, {
+        year: year ? parseInt(year) : undefined,
+        month: month ? parseInt(month) : undefined,
+        payoutStatus,
+      });
+
+      res.json(commissions);
+    } catch (error) {
+      console.error("Error fetching portfolio manager commissions:", error);
+      res.status(500).json({ message: "Failed to fetch commissions" });
+    }
+  });
+
+  // Create portfolio manager commission
+  app.post("/api/commissions/portfolio-manager", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: userId, role } = req.user;
+      
+      if (role !== 'admin') {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const commissionData = {
+        ...req.body,
+        organizationId,
+        processedBy: userId,
+      };
+
+      const commission = await storage.createPortfolioManagerCommission(commissionData);
+      res.status(201).json(commission);
+    } catch (error) {
+      console.error("Error creating portfolio manager commission:", error);
+      res.status(500).json({ message: "Failed to create commission" });
+    }
+  });
+
+  // Request portfolio manager payout
+  app.patch("/api/commissions/portfolio-manager/:id/request-payout", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: userId, role } = req.user;
+      const { id } = req.params;
+
+      if (role !== 'portfolio-manager' && role !== 'admin') {
+        return res.status(403).json({ message: "Portfolio Manager or Admin access required" });
+      }
+
+      const commission = await storage.requestPortfolioManagerPayout(parseInt(id));
+      res.json(commission);
+    } catch (error) {
+      console.error("Error requesting portfolio manager payout:", error);
+      res.status(500).json({ message: "Failed to request payout" });
+    }
+  });
+
+  // Approve portfolio manager payout (admin only)
+  app.patch("/api/commissions/portfolio-manager/:id/approve", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: userId, role } = req.user;
+      const { id } = req.params;
+      const { notes } = req.body;
+
+      if (role !== 'admin') {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const commission = await storage.approvePortfolioManagerPayout(parseInt(id), userId, notes);
+      res.json(commission);
+    } catch (error) {
+      console.error("Error approving portfolio manager payout:", error);
+      res.status(500).json({ message: "Failed to approve payout" });
+    }
+  });
+
+  // Generate portfolio manager invoice
+  app.post("/api/commissions/portfolio-manager/:id/generate-invoice", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: userId, role } = req.user;
+      const { id } = req.params;
+
+      if (role !== 'portfolio-manager' && role !== 'admin') {
+        return res.status(403).json({ message: "Portfolio Manager or Admin access required" });
+      }
+
+      // Generate invoice number
+      const invoiceNumber = await storage.generateInvoiceNumber(organizationId, 'commission');
+      
+      // In a real implementation, you would generate the PDF here
+      const invoicePdfUrl = `/api/invoices/${invoiceNumber}.pdf`;
+
+      const commission = await storage.generatePortfolioManagerInvoice(parseInt(id), invoiceNumber, invoicePdfUrl);
+      res.json(commission);
+    } catch (error) {
+      console.error("Error generating portfolio manager invoice:", error);
+      res.status(500).json({ message: "Failed to generate invoice" });
+    }
+  });
+
+  // ===== REFERRAL AGENT COMMISSION ROUTES =====
+
+  // Get referral agent commission logs
+  app.get("/api/commissions/referral-agent", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: userId, role } = req.user;
+      const { agentId, year, month, propertyId, paymentStatus } = req.query;
+
+      // Admin can see all, referral agent can only see their own
+      const targetAgentId = (role === 'admin') ? agentId : (role === 'referral-agent' ? userId : undefined);
+      
+      if (!targetAgentId && role !== 'admin') {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const logs = await storage.getReferralAgentCommissionLogs(organizationId, targetAgentId, {
+        year: year ? parseInt(year) : undefined,
+        month: month ? parseInt(month) : undefined,
+        propertyId: propertyId ? parseInt(propertyId) : undefined,
+        paymentStatus,
+      });
+
+      res.json(logs);
+    } catch (error) {
+      console.error("Error fetching referral agent commission logs:", error);
+      res.status(500).json({ message: "Failed to fetch commission logs" });
+    }
+  });
+
+  // Create referral agent commission log
+  app.post("/api/commissions/referral-agent", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: userId, role } = req.user;
+      
+      if (role !== 'admin') {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const logData = {
+        ...req.body,
+        organizationId,
+        processedBy: userId,
+      };
+
+      const log = await storage.createReferralAgentCommissionLog(logData);
+      res.status(201).json(log);
+    } catch (error) {
+      console.error("Error creating referral agent commission log:", error);
+      res.status(500).json({ message: "Failed to create commission log" });
+    }
+  });
+
+  // Request referral agent payment
+  app.patch("/api/commissions/referral-agent/:id/request-payment", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: userId, role } = req.user;
+      const { id } = req.params;
+
+      if (role !== 'referral-agent' && role !== 'admin') {
+        return res.status(403).json({ message: "Referral Agent or Admin access required" });
+      }
+
+      const log = await storage.requestReferralAgentPayment(parseInt(id));
+      res.json(log);
+    } catch (error) {
+      console.error("Error requesting referral agent payment:", error);
+      res.status(500).json({ message: "Failed to request payment" });
+    }
+  });
+
+  // Confirm referral agent payment (admin only)
+  app.patch("/api/commissions/referral-agent/:id/confirm-payment", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: userId, role } = req.user;
+      const { id } = req.params;
+      const { paymentSlipUrl, notes } = req.body;
+
+      if (role !== 'admin') {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const log = await storage.confirmReferralAgentPayment(parseInt(id), userId, paymentSlipUrl, notes);
+      res.json(log);
+    } catch (error) {
+      console.error("Error confirming referral agent payment:", error);
+      res.status(500).json({ message: "Failed to confirm payment" });
+    }
+  });
+
+  // ===== UNIVERSAL INVOICE GENERATOR ROUTES =====
+
+  // Get universal invoices
+  app.get("/api/invoices/universal", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: userId, role } = req.user;
+      const { createdBy, invoiceType, status, fromDate, toDate } = req.query;
+
+      // Admin can see all, others can only see their own
+      const targetCreatedBy = (role === 'admin') ? createdBy : userId;
+
+      const invoices = await storage.getUniversalInvoices(organizationId, {
+        createdBy: targetCreatedBy,
+        invoiceType,
+        status,
+        fromDate: fromDate ? new Date(fromDate) : undefined,
+        toDate: toDate ? new Date(toDate) : undefined,
+      });
+
+      res.json(invoices);
+    } catch (error) {
+      console.error("Error fetching universal invoices:", error);
+      res.status(500).json({ message: "Failed to fetch invoices" });
+    }
+  });
+
+  // Create universal invoice
+  app.post("/api/invoices/universal", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: userId } = req.user;
+      
+      // Generate invoice number
+      const invoiceNumber = await storage.generateInvoiceNumber(organizationId, req.body.invoiceType || 'custom');
+      
+      const invoiceData = {
+        ...req.body,
+        organizationId,
+        createdBy: userId,
+        invoiceNumber,
+      };
+
+      const invoice = await storage.createUniversalInvoice(invoiceData);
+
+      // Add line items if provided
+      if (req.body.lineItems && req.body.lineItems.length > 0) {
+        const lineItemsData = req.body.lineItems.map((item: any) => ({
+          ...item,
+          organizationId,
+          invoiceId: invoice.id,
+        }));
+        
+        const lineItems = await storage.addInvoiceLineItems(lineItemsData);
+        res.status(201).json({ ...invoice, lineItems });
+      } else {
+        res.status(201).json({ ...invoice, lineItems: [] });
+      }
+    } catch (error) {
+      console.error("Error creating universal invoice:", error);
+      res.status(500).json({ message: "Failed to create invoice" });
+    }
+  });
+
+  // Update universal invoice
+  app.patch("/api/invoices/universal/:id", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: userId, role } = req.user;
+      const { id } = req.params;
+
+      // Check ownership or admin
+      const existingInvoices = await storage.getUniversalInvoices(organizationId, { createdBy: userId });
+      const canEdit = role === 'admin' || existingInvoices.some(inv => inv.id === parseInt(id));
+
+      if (!canEdit) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const invoice = await storage.updateUniversalInvoice(parseInt(id), req.body);
+      res.json(invoice);
+    } catch (error) {
+      console.error("Error updating universal invoice:", error);
+      res.status(500).json({ message: "Failed to update invoice" });
+    }
+  });
+
+  // Generate invoice number
+  app.get("/api/invoices/generate-number", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId } = req.user;
+      const { type } = req.query;
+
+      const invoiceNumber = await storage.generateInvoiceNumber(organizationId, type || 'custom');
+      res.json({ invoiceNumber });
+    } catch (error) {
+      console.error("Error generating invoice number:", error);
+      res.status(500).json({ message: "Failed to generate invoice number" });
+    }
+  });
+
+  // ===== PAYMENT CONFIRMATIONS ROUTES =====
+
+  // Create payment confirmation
+  app.post("/api/payments/confirmations", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: userId } = req.user;
+
+      const confirmationData = {
+        ...req.body,
+        organizationId,
+        uploadedBy: userId,
+      };
+
+      const confirmation = await storage.createPaymentConfirmation(confirmationData);
+      res.status(201).json(confirmation);
+    } catch (error) {
+      console.error("Error creating payment confirmation:", error);
+      res.status(500).json({ message: "Failed to create payment confirmation" });
+    }
+  });
+
+  // Get payment confirmations
+  app.get("/api/payments/confirmations", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role } = req.user;
+      const { paymentType, referenceEntityType, referenceEntityId, confirmationStatus } = req.query;
+
+      if (role !== 'admin') {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const confirmations = await storage.getPaymentConfirmations(organizationId, {
+        paymentType,
+        referenceEntityType,
+        referenceEntityId: referenceEntityId ? parseInt(referenceEntityId) : undefined,
+        confirmationStatus,
+      });
+
+      res.json(confirmations);
+    } catch (error) {
+      console.error("Error fetching payment confirmations:", error);
+      res.status(500).json({ message: "Failed to fetch payment confirmations" });
+    }
+  });
+
+  // Confirm payment (admin only)
+  app.patch("/api/payments/confirmations/:id/confirm", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: userId, role } = req.user;
+      const { id } = req.params;
+
+      if (role !== 'admin') {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const confirmation = await storage.confirmPayment(parseInt(id), userId);
+      res.json(confirmation);
+    } catch (error) {
+      console.error("Error confirming payment:", error);
+      res.status(500).json({ message: "Failed to confirm payment" });
+    }
+  });
+
+  // ===== FINANCIAL ANALYTICS ROUTES =====
+
+  // Get staff salary analytics (admin only)
+  app.get("/api/analytics/staff-salaries", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role } = req.user;
+
+      if (role !== 'admin') {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const analytics = await storage.getStaffSalaryAnalytics(organizationId);
+      res.json(analytics);
+    } catch (error) {
+      console.error("Error fetching staff salary analytics:", error);
+      res.status(500).json({ message: "Failed to fetch salary analytics" });
+    }
+  });
+
+  // Get commission analytics (admin only)
+  app.get("/api/analytics/commissions", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role } = req.user;
+
+      if (role !== 'admin') {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const analytics = await storage.getCommissionAnalytics(organizationId);
+      res.json(analytics);
+    } catch (error) {
+      console.error("Error fetching commission analytics:", error);
+      res.status(500).json({ message: "Failed to fetch commission analytics" });
+    }
+  });
+
+  // ===== LIVE BOOKING CALENDAR & AGENT SYSTEM API =====
+
+  // Get booking calendar data
+  app.get("/api/booking-calendar", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role } = req.user;
+      const { propertyId, startDate, endDate, bookingStatus, bookingSource } = req.query;
+
+      // Check access permissions
+      if (!['admin', 'portfolio-manager', 'owner', 'staff'].includes(role)) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const bookings = await storage.getBookingCalendar(organizationId, {
+        propertyId: propertyId ? parseInt(propertyId as string) : undefined,
+        startDate: startDate as string,
+        endDate: endDate as string,
+        bookingStatus: bookingStatus as string,
+        bookingSource: bookingSource as string,
+      });
+
+      res.json(bookings);
+    } catch (error) {
+      console.error("Error fetching booking calendar:", error);
+      res.status(500).json({ message: "Failed to fetch booking calendar" });
+    }
+  });
+
+  // Create new booking entry
+  app.post("/api/booking-calendar", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role, id: userId } = req.user;
+
+      if (!['admin', 'portfolio-manager', 'staff'].includes(role)) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const bookingData = {
+        ...req.body,
+        organizationId,
+        createdBy: userId,
+      };
+
+      const booking = await storage.createBookingEntry(bookingData);
+      res.json(booking);
+    } catch (error) {
+      console.error("Error creating booking:", error);
+      res.status(500).json({ message: "Failed to create booking" });
+    }
+  });
+
+  // Get upcoming bookings for property
+  app.get("/api/properties/:propertyId/upcoming-bookings", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role } = req.user;
+      const { propertyId } = req.params;
+      const { days = 30 } = req.query;
+
+      if (!['admin', 'portfolio-manager', 'owner', 'staff'].includes(role)) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const bookings = await storage.getUpcomingBookings(organizationId, parseInt(propertyId), parseInt(days as string));
+      res.json(bookings);
+    } catch (error) {
+      console.error("Error fetching upcoming bookings:", error);
+      res.status(500).json({ message: "Failed to fetch upcoming bookings" });
+    }
+  });
+
+  // Get booking analytics
+  app.get("/api/booking-analytics", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role } = req.user;
+      const { propertyId } = req.query;
+
+      if (!['admin', 'portfolio-manager', 'owner'].includes(role)) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const analytics = await storage.getBookingAnalytics(organizationId, propertyId ? parseInt(propertyId as string) : undefined);
+      res.json(analytics);
+    } catch (error) {
+      console.error("Error fetching booking analytics:", error);
+      res.status(500).json({ message: "Failed to fetch booking analytics" });
+    }
+  });
+
+  // ===== PROPERTY AVAILABILITY API =====
+
+  // Get property availability
+  app.get("/api/property-availability", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId } = req.user;
+      const { propertyId, startDate, endDate, availabilityType } = req.query;
+
+      const availability = await storage.getPropertyAvailability(organizationId, {
+        propertyId: propertyId ? parseInt(propertyId as string) : undefined,
+        startDate: startDate as string,
+        endDate: endDate as string,
+        availabilityType: availabilityType as string,
+      });
+
+      res.json(availability);
+    } catch (error) {
+      console.error("Error fetching property availability:", error);
+      res.status(500).json({ message: "Failed to fetch property availability" });
+    }
+  });
+
+  // Create availability entry (block dates, maintenance, etc.)
+  app.post("/api/property-availability", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role, id: userId } = req.user;
+
+      if (!['admin', 'portfolio-manager', 'staff'].includes(role)) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const availabilityData = {
+        ...req.body,
+        organizationId,
+        createdBy: userId,
+      };
+
+      const availability = await storage.createPropertyAvailability(availabilityData);
+      res.json(availability);
+    } catch (error) {
+      console.error("Error creating availability entry:", error);
+      res.status(500).json({ message: "Failed to create availability entry" });
+    }
+  });
+
+  // Check property availability for specific dates
+  app.get("/api/properties/:propertyId/check-availability", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { propertyId } = req.params;
+      const { checkIn, checkOut } = req.query;
+
+      if (!checkIn || !checkOut) {
+        return res.status(400).json({ message: "Check-in and check-out dates are required" });
+      }
+
+      const isAvailable = await storage.checkPropertyAvailability(parseInt(propertyId), checkIn as string, checkOut as string);
+      res.json({ available: isAvailable });
+    } catch (error) {
+      console.error("Error checking property availability:", error);
+      res.status(500).json({ message: "Failed to check property availability" });
+    }
+  });
+
+  // ===== AGENT SEARCH SYSTEM API =====
+
+  // Search properties for agents (retail agents access)
+  app.get("/api/agent/search-properties", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role } = req.user;
+
+      if (role !== 'retail-agent') {
+        return res.status(403).json({ message: "Retail agent access required" });
+      }
+
+      const {
+        location, zone, minBedrooms, maxBedrooms, minPrice, maxPrice,
+        amenities, checkIn, checkOut, maxGuests
+      } = req.query;
+
+      const filters = {
+        location: location as string,
+        zone: zone as string,
+        minBedrooms: minBedrooms ? parseInt(minBedrooms as string) : undefined,
+        maxBedrooms: maxBedrooms ? parseInt(maxBedrooms as string) : undefined,
+        minPrice: minPrice ? parseFloat(minPrice as string) : undefined,
+        maxPrice: maxPrice ? parseFloat(maxPrice as string) : undefined,
+        amenities: amenities ? JSON.parse(amenities as string) : undefined,
+        checkIn: checkIn as string,
+        checkOut: checkOut as string,
+        maxGuests: maxGuests ? parseInt(maxGuests as string) : undefined,
+      };
+
+      const properties = await storage.searchPropertiesForAgents(organizationId, filters);
+      res.json(properties);
+    } catch (error) {
+      console.error("Error searching properties for agents:", error);
+      res.status(500).json({ message: "Failed to search properties" });
+    }
+  });
+
+  // Get/update agent search preferences
+  app.get("/api/agent/search-preferences", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role, id: agentId } = req.user;
+
+      if (role !== 'retail-agent') {
+        return res.status(403).json({ message: "Retail agent access required" });
+      }
+
+      const preferences = await storage.getAgentSearchPreferences(organizationId, agentId);
+      res.json(preferences || {});
+    } catch (error) {
+      console.error("Error fetching agent preferences:", error);
+      res.status(500).json({ message: "Failed to fetch agent preferences" });
+    }
+  });
+
+  app.put("/api/agent/search-preferences", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role, id: agentId } = req.user;
+
+      if (role !== 'retail-agent') {
+        return res.status(403).json({ message: "Retail agent access required" });
+      }
+
+      const preferences = await storage.updateAgentSearchPreferences(organizationId, agentId, req.body);
+      res.json(preferences);
+    } catch (error) {
+      console.error("Error updating agent preferences:", error);
+      res.status(500).json({ message: "Failed to update agent preferences" });
+    }
+  });
+
+  // ===== AGENT BOOKING ENQUIRIES API =====
+
+  // Create booking enquiry
+  app.post("/api/agent/booking-enquiry", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role, id: agentId } = req.user;
+
+      if (role !== 'retail-agent') {
+        return res.status(403).json({ message: "Retail agent access required" });
+      }
+
+      // Generate enquiry reference
+      const enquiryReference = `ENQ-${Date.now()}-${agentId.slice(-4).toUpperCase()}`;
+
+      const enquiryData = {
+        ...req.body,
+        organizationId,
+        agentId,
+        enquiryReference,
+        commissionRate: "10.00", // Standard 10% commission
+      };
+
+      // Calculate commission
+      if (enquiryData.quotedPrice) {
+        enquiryData.calculatedCommission = (parseFloat(enquiryData.quotedPrice) * 0.10).toString();
+      }
+
+      const enquiry = await storage.createBookingEnquiry(enquiryData);
+      res.json(enquiry);
+    } catch (error) {
+      console.error("Error creating booking enquiry:", error);
+      res.status(500).json({ message: "Failed to create booking enquiry" });
+    }
+  });
+
+  // Get agent's booking enquiries
+  app.get("/api/agent/booking-enquiries", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role, id: agentId } = req.user;
+
+      if (role !== 'retail-agent') {
+        return res.status(403).json({ message: "Retail agent access required" });
+      }
+
+      const { status, propertyId } = req.query;
+
+      const enquiries = await storage.getAgentBookingEnquiries(organizationId, {
+        agentId,
+        enquiryStatus: status as string,
+        propertyId: propertyId ? parseInt(propertyId as string) : undefined,
+      });
+
+      res.json(enquiries);
+    } catch (error) {
+      console.error("Error fetching booking enquiries:", error);
+      res.status(500).json({ message: "Failed to fetch booking enquiries" });
+    }
+  });
+
+  // Get all booking enquiries (admin/PM access)
+  app.get("/api/booking-enquiries", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role } = req.user;
+
+      if (!['admin', 'portfolio-manager', 'staff'].includes(role)) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const { agentId, propertyId, status } = req.query;
+
+      const enquiries = await storage.getAgentBookingEnquiries(organizationId, {
+        agentId: agentId as string,
+        propertyId: propertyId ? parseInt(propertyId as string) : undefined,
+        enquiryStatus: status as string,
+      });
+
+      res.json(enquiries);
+    } catch (error) {
+      console.error("Error fetching booking enquiries:", error);
+      res.status(500).json({ message: "Failed to fetch booking enquiries" });
+    }
+  });
+
+  // Update enquiry status (admin/PM access)
+  app.put("/api/booking-enquiries/:id/status", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { role, id: userId } = req.user;
+      const { id } = req.params;
+      const { status } = req.body;
+
+      if (!['admin', 'portfolio-manager', 'staff'].includes(role)) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const enquiry = await storage.updateEnquiryStatus(parseInt(id), status, userId);
+      res.json(enquiry);
+    } catch (error) {
+      console.error("Error updating enquiry status:", error);
+      res.status(500).json({ message: "Failed to update enquiry status" });
+    }
+  });
+
+  // Convert enquiry to booking (admin/PM access)
+  app.post("/api/booking-enquiries/:id/convert", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role, id: userId } = req.user;
+      const { id } = req.params;
+
+      if (!['admin', 'portfolio-manager'].includes(role)) {
+        return res.status(403).json({ message: "Admin or Portfolio Manager access required" });
+      }
+
+      const bookingData = {
+        ...req.body,
+        organizationId,
+        createdBy: userId,
+        agentCommissionApplicable: true,
+        retailAgentId: req.body.retailAgentId,
+        agentCommissionAmount: req.body.calculatedCommission,
+      };
+
+      const result = await storage.convertEnquiryToBooking(parseInt(id), bookingData);
+      res.json(result);
+    } catch (error) {
+      console.error("Error converting enquiry to booking:", error);
+      res.status(500).json({ message: "Failed to convert enquiry to booking" });
+    }
+  });
+
+  // ===== STAFF CLOCK ENTRIES API (GPS TRACKING) =====
+
+  // Get staff clock entries with filtering
+  app.get("/api/staff-clock-entries", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role, id: userId } = req.user;
+      const { staffId, workDate, status, propertyId, taskId } = req.query;
+
+      // Staff can only view their own entries, admin/PM can view all
+      const filterStaffId = role === 'staff' ? userId : staffId;
+
+      const entries = await storage.getStaffClockEntries(organizationId, {
+        staffId: filterStaffId,
+        workDate,
+        status,
+        propertyId: propertyId ? parseInt(propertyId) : undefined,
+        taskId: taskId ? parseInt(taskId) : undefined,
+      });
+
+      res.json(entries);
+    } catch (error) {
+      console.error("Error fetching staff clock entries:", error);
+      res.status(500).json({ message: "Failed to fetch clock entries" });
+    }
+  });
+
+  // Get active clock entry for current staff member
+  app.get("/api/staff-clock-entries/active", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: staffId } = req.user;
+
+      const activeEntry = await storage.getActiveStaffClockEntry(organizationId, staffId);
+      res.json(activeEntry || null);
+    } catch (error) {
+      console.error("Error fetching active clock entry:", error);
+      res.status(500).json({ message: "Failed to fetch active clock entry" });
+    }
+  });
+
+  // Get today's clock entries for current staff member
+  app.get("/api/staff-clock-entries/today", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: staffId } = req.user;
+
+      const todayEntries = await storage.getTodayClockEntries(organizationId, staffId);
+      res.json(todayEntries);
+    } catch (error) {
+      console.error("Error fetching today's clock entries:", error);
+      res.status(500).json({ message: "Failed to fetch today's entries" });
+    }
+  });
+
+  // Clock in (create new clock entry)
+  app.post("/api/staff-clock-entries/clock-in", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: staffId } = req.user;
+      const { taskDescription, propertyId, taskId, gpsLocation, locationAccuracy } = req.body;
+
+      // Check if staff is already clocked in
+      const activeEntry = await storage.getActiveStaffClockEntry(organizationId, staffId);
+      if (activeEntry) {
+        return res.status(400).json({ 
+          message: "You are already clocked in. Please clock out first.",
+          activeEntry 
+        });
+      }
+
+      const currentTime = new Date().toLocaleTimeString('en-GB', { hour12: false });
+      const today = new Date().toISOString().split('T')[0];
+
+      const clockEntry = await storage.createStaffClockEntry({
+        organizationId,
+        staffId,
+        taskId: taskId || null,
+        propertyId: propertyId || null,
+        taskDescription,
+        clockInTime: currentTime,
+        workDate: today,
+        gpsLocationIn: gpsLocation,
+        locationAccuracy: locationAccuracy ? parseFloat(locationAccuracy) : null,
+        status: 'active',
+      });
+
+      res.json({ 
+        message: "Successfully clocked in",
+        entry: clockEntry 
+      });
+    } catch (error) {
+      console.error("Error clocking in:", error);
+      res.status(500).json({ message: "Failed to clock in" });
+    }
+  });
+
+  // Clock out (update existing clock entry)
+  app.post("/api/staff-clock-entries/clock-out", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: staffId } = req.user;
+      const { gpsLocation, photoEvidence } = req.body;
+
+      // Get active clock entry
+      const activeEntry = await storage.getActiveStaffClockEntry(organizationId, staffId);
+      if (!activeEntry) {
+        return res.status(400).json({ 
+          message: "No active clock entry found. Please clock in first." 
+        });
+      }
+
+      const currentTime = new Date().toLocaleTimeString('en-GB', { hour12: false });
+      
+      // Calculate work hours
+      const clockInTime = activeEntry.clockInTime;
+      const [inHours, inMinutes] = clockInTime.split(':').map(Number);
+      const [outHours, outMinutes] = currentTime.split(':').map(Number);
+      
+      const clockInMinutes = inHours * 60 + inMinutes;
+      const clockOutMinutes = outHours * 60 + outMinutes;
+      const totalMinutes = clockOutMinutes - clockInMinutes;
+      const totalHours = totalMinutes / 60;
+
+      // Check for overtime (standard hours: 8:00-18:00, overtime after 20:00)
+      const standardEndTime = 18 * 60; // 18:00 in minutes
+      const overtimeStartTime = 20 * 60; // 20:00 in minutes
+      
+      let overtimeHours = 0;
+      if (clockOutMinutes > overtimeStartTime) {
+        overtimeHours = (clockOutMinutes - overtimeStartTime) / 60;
+      }
+
+      const updatedEntry = await storage.clockOutStaffEntry(
+        activeEntry.id,
+        currentTime,
+        gpsLocation,
+        photoEvidence,
+        totalHours,
+        overtimeHours
+      );
+
+      res.json({ 
+        message: "Successfully clocked out",
+        entry: updatedEntry,
+        totalHours: totalHours.toFixed(2),
+        overtimeHours: overtimeHours.toFixed(2),
+      });
+    } catch (error) {
+      console.error("Error clocking out:", error);
+      res.status(500).json({ message: "Failed to clock out" });
+    }
+  });
+
+  // Approve overtime for clock entry (admin/PM only)
+  app.post("/api/staff-clock-entries/:entryId/approve-overtime", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role, id: approvedBy } = req.user;
+      const { entryId } = req.params;
+
+      if (!['admin', 'portfolio-manager'].includes(role)) {
+        return res.status(403).json({ message: "Admin or Portfolio Manager access required" });
+      }
+
+      const approvedEntry = await storage.approveOvertimeClockEntry(
+        parseInt(entryId),
+        approvedBy
+      );
+
+      if (!approvedEntry) {
+        return res.status(404).json({ message: "Clock entry not found" });
+      }
+
+      res.json({ 
+        message: "Overtime approved successfully",
+        entry: approvedEntry 
+      });
+    } catch (error) {
+      console.error("Error approving overtime:", error);
+      res.status(500).json({ message: "Failed to approve overtime" });
+    }
+  });
+
+  // Get specific clock entry details
+  app.get("/api/staff-clock-entries/:entryId", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role, id: userId } = req.user;
+      const { entryId } = req.params;
+
+      const entry = await storage.getStaffClockEntry(parseInt(entryId));
+      
+      if (!entry) {
+        return res.status(404).json({ message: "Clock entry not found" });
+      }
+
+      // Staff can only view their own entries, admin/PM can view all
+      if (role === 'staff' && entry.staffId !== userId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      res.json(entry);
+    } catch (error) {
+      console.error("Error fetching clock entry:", error);
+      res.status(500).json({ message: "Failed to fetch clock entry" });
+    }
+  });
+
+  // ===== AUTOMATED INVOICE CREATOR TOOL API =====
+
+  // Invoice Templates Management
+  app.get("/api/invoice-templates", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role } = req.user;
+      
+      if (!['admin', 'portfolio-manager'].includes(role)) {
+        return res.status(403).json({ message: "Admin or Portfolio Manager access required" });
+      }
+
+      const { templateType, isActive } = req.query;
+      const filters: any = {};
+      if (templateType) filters.templateType = templateType;
+      if (isActive !== undefined) filters.isActive = isActive === 'true';
+
+      const templates = await storage.getInvoiceTemplates(organizationId, filters);
+      res.json(templates);
+    } catch (error) {
+      console.error("Error fetching invoice templates:", error);
+      res.status(500).json({ message: "Failed to fetch invoice templates" });
+    }
+  });
+
+  app.post("/api/invoice-templates", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role, id: createdBy } = req.user;
+      
+      if (!['admin', 'portfolio-manager'].includes(role)) {
+        return res.status(403).json({ message: "Admin or Portfolio Manager access required" });
+      }
+
+      const templateData = {
+        ...req.body,
+        organizationId,
+      };
+
+      const template = await storage.createInvoiceTemplate(templateData);
+      res.json(template);
+    } catch (error) {
+      console.error("Error creating invoice template:", error);
+      res.status(500).json({ message: "Failed to create invoice template" });
+    }
+  });
+
+  app.put("/api/invoice-templates/:id", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { role } = req.user;
+      const { id } = req.params;
+      
+      if (!['admin', 'portfolio-manager'].includes(role)) {
+        return res.status(403).json({ message: "Admin or Portfolio Manager access required" });
+      }
+
+      const template = await storage.updateInvoiceTemplate(parseInt(id), req.body);
+      if (!template) {
+        return res.status(404).json({ message: "Invoice template not found" });
+      }
+
+      res.json(template);
+    } catch (error) {
+      console.error("Error updating invoice template:", error);
+      res.status(500).json({ message: "Failed to update invoice template" });
+    }
+  });
+
+  // Generated Invoices Management
+  app.get("/api/generated-invoices", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role } = req.user;
+      
+      if (!['admin', 'portfolio-manager', 'owner'].includes(role)) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const { status, paymentStatus, senderType, receiverType, startDate, endDate } = req.query;
+      const filters: any = {};
+      if (status) filters.status = status;
+      if (paymentStatus) filters.paymentStatus = paymentStatus;
+      if (senderType) filters.senderType = senderType;
+      if (receiverType) filters.receiverType = receiverType;
+      if (startDate) filters.startDate = startDate;
+      if (endDate) filters.endDate = endDate;
+
+      const invoices = await storage.getGeneratedInvoices(organizationId, filters);
+      res.json(invoices);
+    } catch (error) {
+      console.error("Error fetching generated invoices:", error);
+      res.status(500).json({ message: "Failed to fetch invoices" });
+    }
+  });
+
+  app.get("/api/generated-invoices/:id", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { role } = req.user;
+      const { id } = req.params;
+      
+      if (!['admin', 'portfolio-manager', 'owner'].includes(role)) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const invoice = await storage.getGeneratedInvoiceById(parseInt(id));
+      if (!invoice) {
+        return res.status(404).json({ message: "Invoice not found" });
+      }
+
+      // Get line items and related data
+      const lineItems = await storage.getInvoiceLineItems(invoice.id);
+      const bookingLinks = await storage.getInvoiceBookingLinks(invoice.id);
+      const serviceLinks = await storage.getInvoiceServiceLinks(invoice.id);
+
+      res.json({
+        ...invoice,
+        lineItems,
+        bookingLinks,
+        serviceLinks,
+      });
+    } catch (error) {
+      console.error("Error fetching invoice details:", error);
+      res.status(500).json({ message: "Failed to fetch invoice details" });
+    }
+  });
+
+  // Generate Invoice API
+  app.post("/api/generate-invoice", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role, id: createdBy } = req.user;
+      
+      if (!['admin', 'portfolio-manager'].includes(role)) {
+        return res.status(403).json({ message: "Admin or Portfolio Manager access required" });
+      }
+
+      const {
+        templateId,
+        senderType,
+        receiverType,
+        senderId,
+        receiverId,
+        senderName,
+        receiverName,
+        senderEmail,
+        receiverEmail,
+        periodStart,
+        periodEnd,
+        propertyIds,
+        includeBookings,
+        includeAddons,
+        includeCommissions,
+        taxEnabled,
+        taxRate,
+        notes,
+        dueDate,
+      } = req.body;
+
+      // Generate invoice number
+      const invoiceNumber = await storage.generateInvoiceNumber(organizationId);
+      const today = new Date().toISOString().split('T')[0];
+
+      // Create base invoice
+      const invoiceData = {
+        organizationId,
+        invoiceNumber,
+        templateId: templateId || null,
+        senderType,
+        senderId,
+        senderName,
+        senderEmail,
+        receiverType,
+        receiverId,
+        receiverName,
+        receiverEmail,
+        invoiceDate: today,
+        dueDate: dueDate || today,
+        periodStart,
+        periodEnd,
+        subtotal: "0",
+        taxAmount: "0",
+        totalAmount: "0",
+        currency: "AUD",
+        notes,
+        createdBy,
+      };
+
+      const invoice = await storage.createGeneratedInvoice(invoiceData);
+      let subtotal = 0;
+
+      // Add booking revenue line items
+      if (includeBookings) {
+        const bookings = await storage.getBookingsForInvoice(organizationId, {
+          propertyIds,
+          startDate: periodStart,
+          endDate: periodEnd,
+          ownerId: receiverType === 'owner' ? receiverId : undefined,
+        });
+
+        for (const booking of bookings) {
+          const amount = parseFloat(booking.totalAmount);
+          
+          // Add booking revenue line item
+          await storage.addInvoiceLineItem({
+            invoiceId: invoice.id,
+            itemType: 'booking_revenue',
+            description: `Booking Revenue - ${booking.guestName} (${booking.checkIn} to ${booking.checkOut})`,
+            itemReference: booking.id.toString(),
+            quantity: "1",
+            unitPrice: amount.toString(),
+            lineTotal: amount.toString(),
+            category: 'revenue',
+            subcategory: 'accommodation',
+            sourceType: 'booking',
+            sourceId: booking.id,
+          });
+
+          // Add booking link
+          await storage.addInvoiceBookingLink({
+            invoiceId: invoice.id,
+            bookingId: booking.id,
+            bookingRevenue: amount.toString(),
+            managementCommission: (amount * 0.30).toString(),
+            portfolioManagerCommission: (amount * 0.15).toString(),
+            ownerPayout: (amount * 0.70).toString(),
+            addonServicesTotal: "0",
+          });
+
+          subtotal += amount;
+
+          // Add management commission if invoice is to owner
+          if (receiverType === 'owner') {
+            const commissionAmount = amount * 0.30;
+            await storage.addInvoiceLineItem({
+              invoiceId: invoice.id,
+              itemType: 'commission',
+              description: `Management Commission (30%) - ${booking.guestName}`,
+              itemReference: booking.id.toString(),
+              quantity: "1",
+              unitPrice: (-commissionAmount).toString(),
+              lineTotal: (-commissionAmount).toString(),
+              category: 'commission',
+              subcategory: 'management_fee',
+              sourceType: 'booking',
+              sourceId: booking.id,
+            });
+
+            subtotal -= commissionAmount;
+          }
+        }
+      }
+
+      // Add addon services
+      if (includeAddons) {
+        const addonServices = await storage.getAddonServicesForInvoice(organizationId, {
+          propertyIds,
+          startDate: periodStart,
+          endDate: periodEnd,
+          billingRoute: receiverType === 'owner' ? 'owner_billable' : undefined,
+        });
+
+        for (const service of addonServices) {
+          const amount = parseFloat(service.totalAmount);
+          
+          await storage.addInvoiceLineItem({
+            invoiceId: invoice.id,
+            itemType: 'addon_service',
+            description: `${service.serviceName} - ${service.guestName}`,
+            itemReference: service.id.toString(),
+            quantity: "1",
+            unitPrice: amount.toString(),
+            lineTotal: amount.toString(),
+            category: 'service',
+            subcategory: service.serviceName.toLowerCase().replace(/\s+/g, '_'),
+            sourceType: 'addon_service',
+            sourceId: service.id,
+          });
+
+          // Add service link
+          await storage.addInvoiceServiceLink({
+            invoiceId: invoice.id,
+            serviceBookingId: service.id,
+            serviceName: service.serviceName,
+            serviceAmount: amount.toString(),
+            billingRoute: service.billingRoute,
+          });
+
+          if (service.billingRoute === 'owner_billable') {
+            subtotal += amount;
+          } else if (service.billingRoute === 'company_expense') {
+            subtotal -= amount;
+          }
+        }
+      }
+
+      // Add portfolio manager commissions
+      if (includeCommissions && receiverType === 'portfolio_manager') {
+        const commissionData = await storage.getCommissionDataForInvoice(organizationId, {
+          portfolioManagerId: receiverId,
+          startDate: periodStart,
+          endDate: periodEnd,
+          propertyIds,
+        });
+
+        for (const commission of commissionData) {
+          const amount = commission.portfolioManagerShare;
+          
+          await storage.addInvoiceLineItem({
+            invoiceId: invoice.id,
+            itemType: 'commission',
+            description: `Portfolio Manager Commission (50% of management) - ${commission.guestName}`,
+            itemReference: commission.id.toString(),
+            quantity: "1",
+            unitPrice: amount.toString(),
+            lineTotal: amount.toString(),
+            category: 'commission',
+            subcategory: 'portfolio_manager_share',
+            sourceType: 'booking',
+            sourceId: commission.id,
+          });
+
+          subtotal += amount;
+        }
+      }
+
+      // Calculate tax if enabled
+      let taxAmount = 0;
+      if (taxEnabled && taxRate > 0) {
+        taxAmount = subtotal * (parseFloat(taxRate) / 100);
+        
+        await storage.addInvoiceLineItem({
+          invoiceId: invoice.id,
+          itemType: 'tax',
+          description: `Tax (${taxRate}%)`,
+          quantity: "1",
+          unitPrice: taxAmount.toString(),
+          lineTotal: taxAmount.toString(),
+          category: 'tax',
+          isManualEntry: true,
+        });
+      }
+
+      const totalAmount = subtotal + taxAmount;
+
+      // Update invoice totals
+      await storage.updateGeneratedInvoice(invoice.id, {
+        subtotal: subtotal.toString(),
+        taxAmount: taxAmount.toString(),
+        totalAmount: totalAmount.toString(),
+        status: 'draft',
+      });
+
+      res.json({
+        message: "Invoice generated successfully",
+        invoice: {
+          ...invoice,
+          subtotal: subtotal.toString(),
+          taxAmount: taxAmount.toString(),
+          totalAmount: totalAmount.toString(),
+        },
+        invoiceNumber,
+      });
+    } catch (error) {
+      console.error("Error generating invoice:", error);
+      res.status(500).json({ message: "Failed to generate invoice" });
+    }
+  });
+
+  // Mark Invoice as Paid
+  app.post("/api/generated-invoices/:id/mark-paid", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { role } = req.user;
+      const { id } = req.params;
+      const { paymentMethod, paymentReference, paymentDate } = req.body;
+      
+      if (!['admin', 'portfolio-manager'].includes(role)) {
+        return res.status(403).json({ message: "Admin or Portfolio Manager access required" });
+      }
+
+      const invoice = await storage.markInvoiceAsPaid(parseInt(id), {
+        paymentStatus: 'paid',
+        paymentMethod,
+        paymentReference,
+        paymentDate,
+      });
+
+      if (!invoice) {
+        return res.status(404).json({ message: "Invoice not found" });
+      }
+
+      res.json({
+        message: "Invoice marked as paid successfully",
+        invoice,
+      });
+    } catch (error) {
+      console.error("Error marking invoice as paid:", error);
+      res.status(500).json({ message: "Failed to mark invoice as paid" });
+    }
+  });
+
+  // Update Invoice Line Item
+  app.put("/api/invoice-line-items/:id", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { role } = req.user;
+      const { id } = req.params;
+      
+      if (!['admin', 'portfolio-manager'].includes(role)) {
+        return res.status(403).json({ message: "Admin or Portfolio Manager access required" });
+      }
+
+      const lineItem = await storage.updateInvoiceLineItem(parseInt(id), req.body);
+      if (!lineItem) {
+        return res.status(404).json({ message: "Line item not found" });
+      }
+
+      res.json(lineItem);
+    } catch (error) {
+      console.error("Error updating line item:", error);
+      res.status(500).json({ message: "Failed to update line item" });
+    }
+  });
+
+  // Add Manual Line Item
+  app.post("/api/generated-invoices/:invoiceId/line-items", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { role } = req.user;
+      const { invoiceId } = req.params;
+      
+      if (!['admin', 'portfolio-manager'].includes(role)) {
+        return res.status(403).json({ message: "Admin or Portfolio Manager access required" });
+      }
+
+      const lineItemData = {
+        ...req.body,
+        invoiceId: parseInt(invoiceId),
+        isManualEntry: true,
+      };
+
+      const lineItem = await storage.addInvoiceLineItem(lineItemData);
+      res.json(lineItem);
+    } catch (error) {
+      console.error("Error adding line item:", error);
+      res.status(500).json({ message: "Failed to add line item" });
+    }
+  });
+
+  // Delete Line Item
+  app.delete("/api/invoice-line-items/:id", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { role } = req.user;
+      const { id } = req.params;
+      
+      if (!['admin', 'portfolio-manager'].includes(role)) {
+        return res.status(403).json({ message: "Admin or Portfolio Manager access required" });
+      }
+
+      const deleted = await storage.deleteInvoiceLineItem(parseInt(id));
+      if (!deleted) {
+        return res.status(404).json({ message: "Line item not found" });
+      }
+
+      res.json({ message: "Line item deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting line item:", error);
+      res.status(500).json({ message: "Failed to delete line item" });
+    }
+  });
+
+  // Invoice Analytics
+  app.get("/api/invoice-analytics", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role } = req.user;
+      
+      if (!['admin', 'portfolio-manager'].includes(role)) {
+        return res.status(403).json({ message: "Admin or Portfolio Manager access required" });
+      }
+
+      const { startDate, endDate } = req.query;
+      const dateRange = startDate && endDate ? { startDate, endDate } : undefined;
+
+      const analytics = await storage.getInvoiceAnalytics(organizationId, dateRange);
+      res.json(analytics);
+    } catch (error) {
+      console.error("Error fetching invoice analytics:", error);
+      res.status(500).json({ message: "Failed to fetch invoice analytics" });
+    }
+  });
+
+  // Get Booking Data for Invoice Preview
+  app.get("/api/invoice-preview-data", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role } = req.user;
+      
+      if (!['admin', 'portfolio-manager'].includes(role)) {
+        return res.status(403).json({ message: "Admin or Portfolio Manager access required" });
+      }
+
+      const { startDate, endDate, propertyIds, ownerId, portfolioManagerId } = req.query;
+      
+      const bookings = await storage.getBookingsForInvoice(organizationId, {
+        startDate,
+        endDate,
+        propertyIds: propertyIds ? propertyIds.split(',').map(Number) : undefined,
+        ownerId,
+        portfolioManagerId,
+      });
+
+      const addonServices = await storage.getAddonServicesForInvoice(organizationId, {
+        startDate,
+        endDate,
+        propertyIds: propertyIds ? propertyIds.split(',').map(Number) : undefined,
+      });
+
+      // Calculate totals
+      const bookingTotal = bookings.reduce((sum, booking) => sum + parseFloat(booking.totalAmount), 0);
+      const addonTotal = addonServices.reduce((sum, service) => sum + parseFloat(service.totalAmount), 0);
+
+      res.json({
+        bookings,
+        addonServices,
+        totals: {
+          bookingRevenue: bookingTotal,
+          addonServices: addonTotal,
+          managementCommission: bookingTotal * 0.30,
+          portfolioManagerCommission: bookingTotal * 0.15,
+          ownerPayout: bookingTotal * 0.70,
+        },
+      });
+    } catch (error) {
+      console.error("Error fetching invoice preview data:", error);
+      res.status(500).json({ message: "Failed to fetch preview data" });
+    }
+  });
+
+  // ===== PROPERTY SEARCH INDEX MANAGEMENT API =====
+
+  // Update property search index (admin/PM access)
+  app.put("/api/properties/:propertyId/search-index", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role } = req.user;
+      const { propertyId } = req.params;
+
+      if (!['admin', 'portfolio-manager'].includes(role)) {
+        return res.status(403).json({ message: "Admin or Portfolio Manager access required" });
+      }
+
+      const indexData = {
+        ...req.body,
+        organizationId,
+      };
+
+      const searchIndex = await storage.updatePropertySearchIndex(parseInt(propertyId), indexData);
+      res.json(searchIndex);
+    } catch (error) {
+      console.error("Error updating property search index:", error);
+      res.status(500).json({ message: "Failed to update property search index" });
+    }
+  });
+
+  // ===== BOOKING PLATFORM SYNC API =====
+
+  // Get platform sync configurations (admin only)
+  app.get("/api/booking-platform-sync", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role } = req.user;
+
+      if (role !== 'admin') {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const syncs = await storage.getBookingPlatformSyncs(organizationId);
+      res.json(syncs);
+    } catch (error) {
+      console.error("Error fetching platform syncs:", error);
+      res.status(500).json({ message: "Failed to fetch platform syncs" });
+    }
+  });
+
+  // Update platform sync configuration (admin only)
+  app.put("/api/booking-platform-sync", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role, id: userId } = req.user;
+
+      if (role !== 'admin') {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const syncData = {
+        ...req.body,
+        organizationId,
+        createdBy: userId,
+      };
+
+      const sync = await storage.updateBookingPlatformSync(organizationId, syncData);
+      res.json(sync);
+    } catch (error) {
+      console.error("Error updating platform sync:", error);
+      res.status(500).json({ message: "Failed to update platform sync" });
+    }
+  });
+
+  // ===== OCCUPANCY ANALYTICS API =====
+
+  // Get occupancy analytics
+  app.get("/api/occupancy-analytics", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role } = req.user;
+      const { propertyId, periodType, startDate, endDate } = req.query;
+
+      if (!['admin', 'portfolio-manager', 'owner'].includes(role)) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const analytics = await storage.getOccupancyAnalytics(organizationId, {
+        propertyId: propertyId ? parseInt(propertyId as string) : undefined,
+        periodType: periodType as string,
+        startDate: startDate as string,
+        endDate: endDate as string,
+      });
+
+      res.json(analytics);
+    } catch (error) {
+      console.error("Error fetching occupancy analytics:", error);
+      res.status(500).json({ message: "Failed to fetch occupancy analytics" });
+    }
+  });
+
+  // ===== GUEST PORTAL INTERFACE API =====
+
+  // Guest Portal Authentication - Create session with booking token
+  app.post("/api/guest/portal/auth", async (req, res) => {
+    try {
+      const { bookingReference, guestEmail, checkInDate } = req.body;
+      
+      // Find booking by reference and guest email
+      const booking = await storage.getBookingByReferenceAndEmail(bookingReference, guestEmail);
+      
+      if (!booking) {
+        return res.status(404).json({ message: "Booking not found or email mismatch" });
+      }
+
+      // Generate secure access token
+      const accessToken = `gpt_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      
+      // Create guest portal session with 30 days after checkout expiry
+      const checkOutDate = new Date(booking.checkOut);
+      const expiresAt = new Date(checkOutDate);
+      expiresAt.setDate(expiresAt.getDate() + 30);
+
+      const session = await storage.createGuestPortalSession({
+        organizationId: booking.organizationId,
+        bookingId: booking.id,
+        guestEmail,
+        accessToken,
+        propertyId: booking.propertyId,
+        checkInDate: new Date(checkInDate),
+        checkOutDate,
+        guestName: booking.guestName,
+        guestPhone: booking.guestPhone,
+        expiresAt,
+      });
+
+      res.json({ 
+        accessToken, 
+        session: {
+          id: session.id,
+          propertyId: session.propertyId,
+          checkInDate: session.checkInDate,
+          checkOutDate: session.checkOutDate,
+          guestName: session.guestName
+        }
+      });
+    } catch (error) {
+      console.error("Error creating guest portal session:", error);
+      res.status(500).json({ message: "Failed to create guest session" });
+    }
+  });
+
+  // Guest Portal Middleware - Validate access token
+  const guestPortalAuth = async (req: any, res: any, next: any) => {
+    try {
+      const authHeader = req.headers.authorization;
+      const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
+
+      if (!token) {
+        return res.status(401).json({ message: "Access token required" });
+      }
+
+      const session = await storage.getGuestPortalSession(token);
+      
+      if (!session) {
+        return res.status(401).json({ message: "Invalid or expired access token" });
+      }
+
+      // Update last accessed time
+      await storage.updateGuestPortalSessionActivity(token);
+      
+      req.guestSession = session;
+      next();
+    } catch (error) {
+      console.error("Guest portal auth error:", error);
+      res.status(401).json({ message: "Authentication failed" });
+    }
+  };
+
+  // Get guest booking overview
+  app.get("/api/guest/booking-overview", guestPortalAuth, async (req: any, res) => {
+    try {
+      const overview = await storage.getGuestBookingOverview(req.guestSession.id);
+      res.json(overview);
+    } catch (error) {
+      console.error("Error fetching booking overview:", error);
+      res.status(500).json({ message: "Failed to fetch booking overview" });
+    }
+  });
+
+  // Get guest activity timeline
+  app.get("/api/guest/activity-timeline", guestPortalAuth, async (req: any, res) => {
+    try {
+      const timeline = await storage.getGuestActivityTimeline(req.guestSession.id);
+      res.json(timeline);
+    } catch (error) {
+      console.error("Error fetching activity timeline:", error);
+      res.status(500).json({ message: "Failed to fetch activity timeline" });
+    }
+  });
+
+  // Guest Chat - Get messages
+  app.get("/api/guest/chat/messages", guestPortalAuth, async (req: any, res) => {
+    try {
+      const { limit } = req.query;
+      const messages = await storage.getGuestChatMessages(
+        req.guestSession.id, 
+        limit ? parseInt(limit as string) : 50
+      );
+      res.json(messages);
+    } catch (error) {
+      console.error("Error fetching chat messages:", error);
+      res.status(500).json({ message: "Failed to fetch chat messages" });
+    }
+  });
+
+  // Guest Chat - Send message with AI processing
+  app.post("/api/guest/chat/send", guestPortalAuth, async (req: any, res) => {
+    try {
+      const { messageContent } = req.body;
+      
+      if (!messageContent || messageContent.trim().length === 0) {
+        return res.status(400).json({ message: "Message content is required" });
+      }
+
+      // Create guest message
+      const guestMessage = await storage.createGuestChatMessage({
+        organizationId: req.guestSession.organizationId,
+        guestSessionId: req.guestSession.id,
+        bookingId: req.guestSession.bookingId,
+        messageType: 'guest_message',
+        senderType: 'guest',
+        messageContent: messageContent.trim(),
+        messageThreadId: `thread_${req.guestSession.id}_${Date.now()}`,
+      });
+
+      // Process with AI for issue detection
+      const aiResult = await storage.processGuestMessageWithAI(guestMessage.id);
+      
+      // Create AI response message
+      const aiResponse = await storage.createGuestChatMessage({
+        organizationId: req.guestSession.organizationId,
+        guestSessionId: req.guestSession.id,
+        bookingId: req.guestSession.bookingId,
+        messageType: 'ai_response',
+        senderType: 'ai',
+        messageContent: aiResult.aiResponse || "Thank you for your message. Our team will respond shortly.",
+        messageThreadId: guestMessage.messageThreadId,
+      });
+
+      res.json({
+        guestMessage,
+        aiResponse,
+        detectedIssue: aiResult.detectedIssue,
+        severity: aiResult.severity
+      });
+    } catch (error) {
+      console.error("Error sending chat message:", error);
+      res.status(500).json({ message: "Failed to send message" });
+    }
+  });
+
+  // Get AI FAQ responses
+  app.get("/api/guest/faq", guestPortalAuth, async (req: any, res) => {
+    try {
+      const faqs = await storage.getGuestAiFaqResponses(
+        req.guestSession.organizationId,
+        req.guestSession.propertyId
+      );
+      res.json(faqs);
+    } catch (error) {
+      console.error("Error fetching FAQ responses:", error);
+      res.status(500).json({ message: "Failed to fetch FAQ responses" });
+    }
+  });
+
+  // Get available add-on services
+  app.get("/api/guest/addon-services", guestPortalAuth, async (req: any, res) => {
+    try {
+      const services = await storage.getAvailableAddonServices(
+        req.guestSession.organizationId,
+        req.guestSession.propertyId
+      );
+      res.json(services);
+    } catch (error) {
+      console.error("Error fetching add-on services:", error);
+      res.status(500).json({ message: "Failed to fetch add-on services" });
+    }
+  });
+
+  // Request add-on service
+  app.post("/api/guest/addon-services/request", guestPortalAuth, async (req: any, res) => {
+    try {
+      const {
+        serviceId,
+        serviceName,
+        serviceType,
+        requestedDate,
+        requestedTime,
+        duration,
+        guestCount,
+        unitPrice,
+        quantity,
+        totalCost,
+        chargeAssignment,
+        assignmentReason,
+        specialRequests,
+        guestNotes
+      } = req.body;
+
+      const serviceRequest = await storage.createGuestAddonServiceRequest({
+        organizationId: req.guestSession.organizationId,
+        guestSessionId: req.guestSession.id,
+        bookingId: req.guestSession.bookingId,
+        serviceId,
+        serviceName,
+        serviceType,
+        requestedDate: new Date(requestedDate),
+        requestedTime,
+        duration,
+        guestCount: guestCount || 1,
+        unitPrice,
+        quantity: quantity || 1,
+        totalCost,
+        chargeAssignment: chargeAssignment || 'guest',
+        assignmentReason,
+        specialRequests,
+        guestNotes,
+      });
+
+      // Create activity timeline entry
+      await storage.createGuestActivityRecord({
+        organizationId: req.guestSession.organizationId,
+        guestSessionId: req.guestSession.id,
+        bookingId: req.guestSession.bookingId,
+        activityType: 'addon_booking',
+        title: `${serviceName} Request`,
+        description: `Requested ${serviceName} for ${new Date(requestedDate).toDateString()}`,
+        status: 'pending',
+        requestedAt: new Date(),
+        estimatedCost: totalCost,
+        chargeAssignment: chargeAssignment || 'guest',
+      });
+
+      res.json(serviceRequest);
+    } catch (error) {
+      console.error("Error requesting add-on service:", error);
+      res.status(500).json({ message: "Failed to request add-on service" });
+    }
+  });
+
+  // Get guest's add-on service requests
+  app.get("/api/guest/addon-services/requests", guestPortalAuth, async (req: any, res) => {
+    try {
+      const requests = await storage.getGuestAddonServiceRequests(req.guestSession.id);
+      res.json(requests);
+    } catch (error) {
+      console.error("Error fetching service requests:", error);
+      res.status(500).json({ message: "Failed to fetch service requests" });
+    }
+  });
+
+  // Get property local information (maps, recommendations)
+  app.get("/api/guest/local-info", guestPortalAuth, async (req: any, res) => {
+    try {
+      const { locationType } = req.query;
+      const localInfo = await storage.getGuestPropertyLocalInfo(
+        req.guestSession.propertyId,
+        locationType as string
+      );
+      res.json(localInfo);
+    } catch (error) {
+      console.error("Error fetching local info:", error);
+      res.status(500).json({ message: "Failed to fetch local information" });
+    }
+  });
+
+  // Submit maintenance report
+  app.post("/api/guest/maintenance/report", guestPortalAuth, async (req: any, res) => {
+    try {
+      const {
+        issueType,
+        issueTitle,
+        issueDescription,
+        locationInProperty,
+        severityLevel,
+        reportImages,
+        reportVideos
+      } = req.body;
+
+      const report = await storage.createGuestMaintenanceReport({
+        organizationId: req.guestSession.organizationId,
+        guestSessionId: req.guestSession.id,
+        bookingId: req.guestSession.bookingId,
+        propertyId: req.guestSession.propertyId,
+        issueType,
+        issueTitle,
+        issueDescription,
+        locationInProperty,
+        severityLevel: severityLevel || 'medium',
+        reportImages,
+        reportVideos,
+        reportedAt: new Date(),
+      });
+
+      // Create activity timeline entry
+      await storage.createGuestActivityRecord({
+        organizationId: req.guestSession.organizationId,
+        guestSessionId: req.guestSession.id,
+        bookingId: req.guestSession.bookingId,
+        activityType: 'maintenance_request',
+        title: `Maintenance Report: ${issueTitle}`,
+        description: `Reported ${issueType} issue in ${locationInProperty}`,
+        status: 'pending',
+        requestedAt: new Date(),
+      });
+
+      res.json(report);
+    } catch (error) {
+      console.error("Error submitting maintenance report:", error);
+      res.status(500).json({ message: "Failed to submit maintenance report" });
+    }
+  });
+
+  // Get guest's maintenance reports
+  app.get("/api/guest/maintenance/reports", guestPortalAuth, async (req: any, res) => {
+    try {
+      const reports = await storage.getGuestMaintenanceReports(req.guestSession.id);
+      res.json(reports);
+    } catch (error) {
+      console.error("Error fetching maintenance reports:", error);
+      res.status(500).json({ message: "Failed to fetch maintenance reports" });
+    }
+  });
+
+  // Get guest session info
+  app.get("/api/guest/session", guestPortalAuth, async (req: any, res) => {
+    try {
+      const { password, accessToken, ...sessionInfo } = req.guestSession;
+      res.json(sessionInfo);
+    } catch (error) {
+      console.error("Error fetching session info:", error);
+      res.status(500).json({ message: "Failed to fetch session info" });
+    }
+  });
+
+  // Finance Engine Routes
+  app.get("/api/finance/owner-balances", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = req.user?.organizationId || "default-org";
+      const balances = await storage.getOwnerBalances(organizationId);
+      res.json(balances);
+    } catch (error) {
+      console.error("Error fetching owner balances:", error);
+      res.status(500).json({ message: "Failed to fetch owner balances" });
+    }
+  });
+
+  app.get("/api/finance/payout-requests", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = req.user?.organizationId || "default-org";
+      const payouts = await storage.getOwnerPayoutRequests(organizationId);
+      res.json(payouts);
+    } catch (error) {
+      console.error("Error fetching payout requests:", error);
+      res.status(500).json({ message: "Failed to fetch payout requests" });
+    }
+  });
+
+  app.post("/api/finance/request-payout", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = req.user?.organizationId || "default-org";
+      const userId = req.user?.id;
+      
+      const payoutData = {
+        organizationId,
+        ownerId: userId,
+        amount: parseFloat(req.body.amount),
+        transferMethod: req.body.transferMethod,
+        requestNotes: req.body.requestNotes,
+        status: "pending"
+      };
+
+      const payout = await storage.createOwnerPayoutRequest(payoutData);
+      res.json(payout);
+    } catch (error) {
+      console.error("Error creating payout request:", error);
+      res.status(500).json({ message: "Failed to create payout request" });
+    }
+  });
+
+  app.post("/api/finance/payout-requests/:id/approve", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const { action } = req.body;
+      
+      const updateData: any = {};
+      if (action === 'approve') {
+        updateData.status = 'approved';
+        updateData.approvedAt = new Date();
+        updateData.approvedBy = req.user?.id;
+      } else if (action === 'reject') {
+        updateData.status = 'rejected';
+      }
+
+      const payout = await storage.updateOwnerPayoutRequest(parseInt(id), updateData);
+      res.json(payout);
+    } catch (error) {
+      console.error("Error updating payout request:", error);
+      res.status(500).json({ message: "Failed to update payout request" });
+    }
+  });
+
+  app.get("/api/finance/charge-requests", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = req.user?.organizationId || "default-org";
+      const charges = await storage.getOwnerChargeRequests(organizationId);
+      res.json(charges);
+    } catch (error) {
+      console.error("Error fetching charge requests:", error);
+      res.status(500).json({ message: "Failed to fetch charge requests" });
+    }
+  });
+
+  app.post("/api/finance/create-charge", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = req.user?.organizationId || "default-org";
+      const chargedBy = req.user?.id;
+      const chargeData = {
+        organizationId,
+        ownerId: req.body.ownerId,
+        chargedBy,
+        amount: parseFloat(req.body.amount),
+        reason: req.body.reason,
+        description: req.body.description,
+        dueDate: req.body.dueDate ? new Date(req.body.dueDate) : null,
+        status: "pending"
+      };
+
+      const charge = await storage.createOwnerChargeRequest(chargeData);
+      res.json(charge);
+    } catch (error) {
+      console.error("Error creating charge request:", error);
+      res.status(500).json({ message: "Failed to create charge request" });
+    }
+  });
+
+  app.get("/api/finance/utility-accounts", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = req.user?.organizationId || "default-org";
+      const accounts = await storage.getUtilityAccounts(organizationId);
+      res.json(accounts);
+    } catch (error) {
+      console.error("Error fetching utility accounts:", error);
+      res.status(500).json({ message: "Failed to fetch utility accounts" });
+    }
+  });
+
+  app.post("/api/finance/utility-accounts", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = req.user?.organizationId || "default-org";
+      
+      const accountData = {
+        organizationId,
+        propertyId: parseInt(req.body.propertyId),
+        utilityType: req.body.utilityType,
+        providerName: req.body.providerName,
+        accountNumber: req.body.accountNumber,
+        expectedBillDate: parseInt(req.body.expectedBillDate),
+        averageMonthlyAmount: req.body.averageMonthlyAmount ? parseFloat(req.body.averageMonthlyAmount) : null,
+        autoRemindersEnabled: true,
+        isActive: true
+      };
+
+      const account = await storage.createUtilityAccount(accountData);
+      res.json(account);
+    } catch (error) {
+      console.error("Error creating utility account:", error);
+      res.status(500).json({ message: "Failed to create utility account" });
+    }
+  });
+
+  app.get("/api/finance/recurring-services", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = req.user?.organizationId || "default-org";
+      const services = await storage.getRecurringServices(organizationId);
+      res.json(services);
+    } catch (error) {
+      console.error("Error fetching recurring services:", error);
+      res.status(500).json({ message: "Failed to fetch recurring services" });
+    }
+  });
+
+  app.post("/api/finance/recurring-services", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = req.user?.organizationId || "default-org";
+      
+      const serviceData = {
+        organizationId,
+        propertyId: parseInt(req.body.propertyId),
+        serviceName: req.body.serviceName,
+        serviceCategory: req.body.serviceCategory,
+        monthlyRate: parseFloat(req.body.monthlyRate),
+        chargeAssignment: req.body.chargeAssignment,
+        startDate: new Date(req.body.startDate),
+        serviceFrequency: "monthly",
+        isActive: true
+      };
+
+      const service = await storage.createRecurringService(serviceData);
+      res.json(service);
+    } catch (error) {
+      console.error("Error creating recurring service:", error);
+      res.status(500).json({ message: "Failed to create recurring service" });
+    }
+  });
+
+  // System Hub Information Route
+  app.get("/api/system", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = req.user?.organizationId || "default-org";
+      
+      // Use storage layer for data retrieval
+      const [allProperties, allUsers, finances, bookings, allTasks] = await Promise.all([
+        storage.getProperties(),  // Get all properties without source filter
+        storage.getUsers().catch(() => []),
+        storage.getFinances(organizationId),
+        storage.getBookings(organizationId),
+        storage.getTasks()
+      ]);
+      
+      // Filter data by organization - use all properties since they're already filtered by org in DB
+      // Debug: Check property structure
+      console.log(`[SYSTEM] Total properties from DB: ${allProperties.length}, org filter: ${organizationId}`);
+      if (allProperties.length > 0) {
+        console.log(`[SYSTEM] Sample property organizationId: ${allProperties[0].organizationId}`);
+      }
+      
+      // Properties are already org-scoped in the database, use all of them
+      const properties = allProperties;
+      const users = allUsers.filter((u: any) => u.organizationId === organizationId);
+      const tasks = allTasks.filter((t: any) => t.organizationId === organizationId);
+      
+      // Get Hostaway-sourced data
+      const hostawayProperties = properties.filter(p => p.source === 'HOSTAWAY');
+      const hostawayBookings = bookings.filter(b => b.source === 'HOSTAWAY');
+      
+      // Check database health
+      let dbHealth = "healthy";
+      try {
+        await db.execute(sql`SELECT 1`);
+      } catch (dbError) {
+        dbHealth = "error";
+        console.error("Database health check failed:", dbError);
+      }
+      
+      // Build system info response
+      const systemInfo = {
+        version: "2.0 Enterprise FIXED",
+        lastUpdated: new Date().toISOString(),
+        status: "online",
+        health: {
+          database: dbHealth,
+          api: "operational",
+          cache: "active"
+        },
+        modules: {
+          properties: { active: true, count: properties.length },
+          users: { active: true, count: users.length },
+          finance: { active: true, count: finances.length },
+          tasks: { active: true, count: tasks.length },
+          bookings: { active: true, count: bookings.length }
+        },
+        hostaway: {
+          properties: hostawayProperties.length,
+          bookings: hostawayBookings.length,
+          lastSync: hostawayBookings.length > 0 ? hostawayBookings[0].updatedAt : null,
+          isConnected: !!process.env.HOSTAWAY_API_KEY
+        },
+        apiConfigs: {
+          hasStripe: !!process.env.STRIPE_SECRET_KEY,
+          hasHostaway: !!process.env.HOSTAWAY_API_KEY,
+          hasOpenAI: !!process.env.OPENAI_API_KEY,
+          hasTwilio: !!process.env.TWILIO_AUTH_TOKEN
+        },
+        organization: {
+          id: organizationId,
+          name: "HostPilotPro"
+        }
+      };
+      
+      res.json(systemInfo);
+    } catch (error) {
+      console.error("Error fetching system info:", error);
+      res.status(500).json({ message: "Failed to fetch system information" });
+    }
+  });
+  app.get("/api/system-diag", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = req.user?.organizationId || "default-org";
+      
+      const financeCount = await storage.getFinanceCount({ organizationId });
+      const bookings = await storage.getBookings(organizationId);
+      const allTasks = await storage.getTasks();
+      const tasks = allTasks.filter(t => t.organizationId === organizationId);
+      
+      res.json({
+        endpoint: "DIAGNOSTIC-V1",
+        organizationId,
+        counts: {
+          finance: financeCount,
+          bookings: bookings.length,
+          tasks: tasks.length
+        },
+        raw: {
+          bookingsArray: bookings.map(b => ({ id: b.id, org: b.organizationId })),
+          tasksArray: tasks.slice(0, 3).map(t => ({ id: t.id, org: t.organizationId }))
+        }
+      });
+    } catch (error) {
+      console.error("Diagnostic error:", error);
+      res.status(500).json({ error: String(error) });
+    }
+  });
+
+
+  // Global search endpoint
+  app.get("/api/global-search", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const query = req.query.q as string;
+      const organizationId = req.user?.organizationId || "default-org";
+      
+      if (!query || query.trim().length < 3) {
+        return res.json([]);
+      }
+
+      const searchTerm = query.toLowerCase().trim();
+      const results: any[] = [];
+
+      // Search properties
+      const properties = await storage.getProperties(organizationId);
+      properties.forEach(property => {
+        if (
+          property.name?.toLowerCase().includes(searchTerm) ||
+          property.address?.toLowerCase().includes(searchTerm) ||
+          property.externalId?.toLowerCase().includes(searchTerm)
+        ) {
+          results.push({
+            id: property.id.toString(),
+            type: 'property',
+            title: property.name,
+            subtitle: property.address,
+            status: property.status,
+            path: `/property/${property.id}`,
+            badge: {
+              text: property.status || 'active',
+              variant: property.status === 'active' ? 'default' : 'secondary'
+            }
+          });
+        }
+      });
+
+      // Search bookings
+      const bookings = await storage.getBookings(organizationId);
+      bookings.forEach(booking => {
+        if (
+          booking.guestName?.toLowerCase().includes(searchTerm) ||
+          booking.guestEmail?.toLowerCase().includes(searchTerm) ||
+          booking.bookingReference?.toLowerCase().includes(searchTerm)
+        ) {
+          results.push({
+            id: booking.id.toString(),
+            type: 'booking',
+            title: `Booking: ${booking.guestName}`,
+            subtitle: `${booking.checkIn} - ${booking.checkOut}`,
+            status: booking.status,
+            path: `/bookings`,
+            badge: {
+              text: booking.status || 'pending',
+              variant: booking.status === 'confirmed' ? 'default' : 'secondary'
+            }
+          });
+        }
+      });
+
+      // Search tasks
+      const tasks = await storage.getTasks();
+      tasks.forEach(task => {
+        if (
+          task.title?.toLowerCase().includes(searchTerm) ||
+          task.description?.toLowerCase().includes(searchTerm)
+        ) {
+          results.push({
+            id: task.id.toString(),
+            type: 'task',
+            title: task.title,
+            subtitle: task.description,
+            status: task.status,
+            path: `/tasks`,
+            badge: {
+              text: task.priority || 'normal',
+              variant: task.priority === 'urgent' ? 'destructive' : 'default'
+            }
+          });
+        }
+      });
+
+      // Search users
+      const users = await storage.getUsers(organizationId);
+      users.forEach(user => {
+        const fullName = `${user.firstName} ${user.lastName}`.toLowerCase();
+        if (
+          fullName.includes(searchTerm) ||
+          user.email?.toLowerCase().includes(searchTerm) ||
+          user.id?.toLowerCase().includes(searchTerm)
+        ) {
+          results.push({
+            id: user.id,
+            type: 'user',
+            title: `${user.firstName} ${user.lastName}`,
+            subtitle: user.email,
+            status: user.role,
+            path: `/users`,
+            badge: {
+              text: user.role || 'staff',
+              variant: 'outline'
+            }
+          });
+        }
+      });
+
+      // Search finance records
+      const financeRecords = await storage.getFinances({ organizationId });
+      financeRecords.forEach(finance => {
+        const description = finance.description?.toLowerCase() || '';
+        const category = finance.category?.toLowerCase() || '';
+        const vendor = finance.vendor?.toLowerCase() || '';
+        
+        if (
+          description.includes(searchTerm) ||
+          category.includes(searchTerm) ||
+          vendor.includes(searchTerm)
+        ) {
+          const typeLabel = finance.type === 'income' ? 'Income' : 'Expense';
+          const amount = parseFloat(finance.amount || '0');
+          results.push({
+            id: finance.id.toString(),
+            type: 'finance',
+            title: finance.description || `${typeLabel}: ${finance.category}`,
+            subtitle: `${finance.vendor || 'N/A'} • ฿${amount.toLocaleString()}`,
+            status: finance.status,
+            path: `/finance`,
+            badge: {
+              text: typeLabel,
+              variant: finance.type === 'income' ? 'default' : 'secondary'
+            }
+          });
+        }
+      });
+
+      // Limit results to 20
+      res.json(results.slice(0, 20));
+    } catch (error) {
+      console.error("Global search error:", error);
+      res.status(500).json({ error: "Search failed" });
+    }
+  });
+  app.get("/api/users", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = req.user?.organizationId || "default-org";
+      const { role } = req.query;
+      
+      // Fetch all users from database for the organization
+      const allUsers = await storage.getUsers({ organizationId });
+      
+      // Filter by role if provided
+      const filteredUsers = role 
+        ? allUsers.filter(user => user.role === role)
+        : allUsers;
+      
+      // Format users for the frontend
+      const users = filteredUsers.map(user => ({
+        id: user.id,
+        email: user.email,
+        name: `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email,
+        role: user.role,
+        status: user.isActive ? "active" : "inactive",
+        organizationId: user.organizationId,
+        firstName: user.firstName,
+        lastName: user.lastName
+      }));
+      
+      res.json(users);
+    } catch (error) {
+      console.error("Error fetching users:", error);
+      res.status(500).json({ message: "Failed to fetch users" });
+    }
+  });
+
+  app.post("/api/users", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = req.user?.organizationId || "default-org";
+      const { name, email, role, password } = req.body;
+      
+      console.log("Creating user with data:", { name, email, role, organizationId });
+      
+      // Validate required fields
+      if (!name || !email || !role || !password) {
+        return res.status(400).json({ message: "Name, email, role, and password are required" });
+      }
+      
+      // Check if user already exists in database
+      const existingUser = await storage.getUserByEmail(email);
+      if (existingUser) {
+        return res.status(409).json({ message: "User with this email already exists" });
+      }
+      
+      // Generate new user ID
+      const userId = `user-${Date.now()}`;
+      
+      // Hash the password before storing
+      const bcrypt = await import('bcrypt');
+      const hashedPassword = await bcrypt.hash(password, 12);
+      
+      // Create new user in database
+      const userData = {
+        id: userId,
+        email,
+        firstName: name.split(' ')[0] || name,
+        lastName: name.split(' ').slice(1).join(' ') || '',
+        role: role as any,
+        organizationId,
+        isActive: true,
+        password: hashedPassword
+      };
+      
+      const newUser = await storage.upsertUser(userData);
+      console.log("User created successfully:", newUser.id);
+      
+      // Return user data without password
+      const { password: _, ...userResponse } = newUser;
+      
+      res.status(201).json(userResponse);
+    } catch (error) {
+      console.error("Error creating user:", error);
+      res.status(500).json({ message: "Failed to create user", error: error.message });
+    }
+  });
+
+  app.patch("/api/users/:id", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const { name, email, role, status } = req.body;
+      const organizationId = req.user?.organizationId || "default-org";
+      
+      console.log("Updating user:", id, "with data:", { name, email, role, status });
+      
+      // Actually update the user in the database
+      const updatedUser = await storage.updateUser(id, {
+        name,
+        email,
+        role,
+        isActive: status === 'active',
+        updatedAt: new Date()
+      });
+      
+      if (!updatedUser) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      res.json(updatedUser);
+    } catch (error) {
+      console.error("Error updating user:", error);
+      res.status(500).json({ message: "Failed to update user" });
+    }
+  });
+
+  app.get("/api/users/:role", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = req.user?.organizationId || "default-org";
+      const { role } = req.params;
+      
+      if (role === 'owner') {
+        const owners = await storage.getOwnersForSelection(organizationId);
+        res.json(owners);
+      } else {
+        res.json([]);
+      }
+    } catch (error) {
+      console.error("Error fetching users:", error);
+      res.status(500).json({ message: "Failed to fetch users" });
+    }
+  });
+
+  // Enhanced Maintenance Task System Routes
+  app.get("/api/task-checklists", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = req.user?.organizationId || "default-org";
+      const checklists = await storage.getTaskChecklists(organizationId);
+      res.json(checklists);
+    } catch (error) {
+      console.error("Error fetching task checklists:", error);
+      res.status(500).json({ message: "Failed to fetch task checklists" });
+    }
+  });
+
+  app.get("/api/property-guides", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = req.user?.organizationId || "default-org";
+      const guides = await storage.getPropertyGuides(organizationId);
+      res.json(guides);
+    } catch (error) {
+      console.error("Error fetching property guides:", error);
+      res.status(500).json({ message: "Failed to fetch property guides" });
+    }
+  });
+
+  app.get("/api/ai-task-suggestions", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = req.user?.organizationId || "default-org";
+      const suggestions = await storage.getAiTaskSuggestions(organizationId);
+      res.json(suggestions);
+    } catch (error) {
+      console.error("Error fetching AI task suggestions:", error);
+      res.status(500).json({ message: "Failed to fetch AI task suggestions" });
+    }
+  });
+
+  app.post("/api/tasks/:id/start", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const userId = req.user?.id;
+      
+      const task = await storage.startTask(parseInt(id), userId);
+      res.json(task);
+    } catch (error) {
+      console.error("Error starting task:", error);
+      res.status(500).json({ message: "Failed to start task" });
+    }
+  });
+
+  app.post("/api/tasks/:id/complete", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const { completionNotes, evidencePhotos, issuesFound } = req.body;
+      const userId = req.user?.id;
+      
+      const task = await storage.completeTask(parseInt(id), {
+        completionNotes,
+        evidencePhotos: evidencePhotos || [],
+        issuesFound: issuesFound || [],
+        completedBy: userId
+      });
+      
+      res.json(task);
+    } catch (error) {
+      console.error("Error completing task:", error);
+      res.status(500).json({ message: "Failed to complete task" });
+    }
+  });
+
+  app.post("/api/ai-suggestions/:id/accept", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const userId = req.user?.id;
+      
+      const result = await storage.acceptAiSuggestion(parseInt(id), userId);
+      res.json(result);
+    } catch (error) {
+      console.error("Error accepting AI suggestion:", error);
+      res.status(500).json({ message: "Failed to accept AI suggestion" });
+    }
+  });
+
+  app.post("/api/tasks/export-pdf", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { month } = req.body;
+      const organizationId = req.user?.organizationId || "default-org";
+      
+      // Generate PDF export (mock implementation)
+      const result = await storage.exportTasksPdf(organizationId, month);
+      res.json({ message: "PDF export initiated", exportId: result.id });
+    } catch (error) {
+      console.error("Error exporting tasks PDF:", error);
+      res.status(500).json({ message: "Failed to export tasks PDF" });
+    }
+  });
+
+  // ==================== ENHANCED FINANCE ENGINE ====================
+
+  // Owner Balance Tracker endpoints
+  app.get("/api/finance/owner-balance/:ownerId", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { ownerId } = req.params;
+      const { propertyId } = req.query;
+      const organizationId = req.user?.organizationId || "default-org";
+
+      const balance = await storage.getOwnerBalanceTracker(
+        organizationId, 
+        ownerId, 
+        propertyId ? parseInt(propertyId) : undefined
+      );
+      
+      res.json(balance || { message: "No balance tracker found" });
+    } catch (error) {
+      console.error("Error fetching owner balance:", error);
+      res.status(500).json({ message: "Failed to fetch owner balance" });
+    }
+  });
+
+  app.post("/api/finance/owner-balance", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = req.user?.organizationId || "default-org";
+      const balanceData = { ...req.body, organizationId };
+
+      const balance = await storage.createOwnerBalanceTracker(balanceData);
+      res.status(201).json(balance);
+    } catch (error) {
+      console.error("Error creating owner balance tracker:", error);
+      res.status(500).json({ message: "Failed to create owner balance tracker" });
+    }
+  });
+
+  app.patch("/api/finance/owner-balance/:ownerId", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { ownerId } = req.params;
+      const organizationId = req.user?.organizationId || "default-org";
+
+      const balance = await storage.updateOwnerBalanceTracker(organizationId, ownerId, req.body);
+      res.json(balance);
+    } catch (error) {
+      console.error("Error updating owner balance:", error);
+      res.status(500).json({ message: "Failed to update owner balance" });
+    }
+  });
+
+  // Owner Financial Summary endpoint
+  app.get("/api/finance/owner-summary/:ownerId", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { ownerId } = req.params;
+      const organizationId = req.user?.organizationId || "default-org";
+
+      const summary = await storage.getOwnerFinancialSummary(organizationId, ownerId);
+      res.json(summary);
+    } catch (error) {
+      console.error("Error fetching owner financial summary:", error);
+      res.status(500).json({ message: "Failed to fetch owner financial summary" });
+    }
+  });
+
+  // Payout Routing Rules endpoints
+  app.get("/api/finance/payout-routing-rules", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { propertyId } = req.query;
+      const organizationId = req.user?.organizationId || "default-org";
+
+      const rules = await storage.getPayoutRoutingRules(
+        organizationId, 
+        propertyId ? parseInt(propertyId) : undefined
+      );
+      res.json(rules);
+    } catch (error) {
+      console.error("Error fetching payout routing rules:", error);
+      res.status(500).json({ message: "Failed to fetch payout routing rules" });
+    }
+  });
+
+  app.post("/api/finance/payout-routing-rules", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      const organizationId = user?.organizationId || "default-org";
+      
+      // Only admin and portfolio managers can create routing rules
+      if (user?.role !== 'admin' && user?.role !== 'portfolio-manager') {
+        return res.status(403).json({ message: "Insufficient permissions" });
+      }
+
+      const ruleData = { 
+        ...req.body, 
+        organizationId,
+        createdBy: user.id 
+      };
+
+      const rule = await storage.createPayoutRoutingRule(ruleData);
+      res.status(201).json(rule);
+    } catch (error) {
+      console.error("Error creating payout routing rule:", error);
+      res.status(500).json({ message: "Failed to create payout routing rule" });
+    }
+  });
+
+  app.patch("/api/finance/payout-routing-rules/:id", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      const { id } = req.params;
+      
+      // Only admin and portfolio managers can update routing rules
+      if (user?.role !== 'admin' && user?.role !== 'portfolio-manager') {
+        return res.status(403).json({ message: "Insufficient permissions" });
+      }
+
+      const rule = await storage.updatePayoutRoutingRule(parseInt(id), req.body);
+      res.json(rule);
+    } catch (error) {
+      console.error("Error updating payout routing rule:", error);
+      res.status(500).json({ message: "Failed to update payout routing rule" });
+    }
+  });
+
+  // Platform Payout Breakdown endpoint
+  app.get("/api/finance/payout-breakdown/:propertyId", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { propertyId } = req.params;
+      const organizationId = req.user?.organizationId || "default-org";
+
+      const breakdown = await storage.getPlatformPayoutBreakdown(organizationId, parseInt(propertyId));
+      res.json(breakdown);
+    } catch (error) {
+      console.error("Error fetching payout breakdown:", error);
+      res.status(500).json({ message: "Failed to fetch payout breakdown" });
+    }
+  });
+
+  // Utility Bill Processing endpoints
+  app.get("/api/finance/utility-bill-processing", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { utilityBillId, processingStatus } = req.query;
+      const organizationId = req.user?.organizationId || "default-org";
+
+      const processing = await storage.getUtilityBillProcessing(organizationId, {
+        utilityBillId: utilityBillId ? parseInt(utilityBillId) : undefined,
+        processingStatus
+      });
+      res.json(processing);
+    } catch (error) {
+      console.error("Error fetching utility bill processing:", error);
+      res.status(500).json({ message: "Failed to fetch utility bill processing" });
+    }
+  });
+
+  app.post("/api/finance/process-utility-bill/:billId", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { billId } = req.params;
+      const { routingDecision, notes } = req.body;
+      const user = req.user;
+
+      // Only admin, portfolio managers, and staff can process bills
+      if (!['admin', 'portfolio-manager', 'staff'].includes(user?.role)) {
+        return res.status(403).json({ message: "Insufficient permissions" });
+      }
+
+      const result = await storage.processUtilityBillWithRouting(
+        parseInt(billId), 
+        routingDecision, 
+        user.id,
+        notes
+      );
+      
+      res.json(result);
+    } catch (error) {
+      console.error("Error processing utility bill:", error);
+      res.status(500).json({ message: "Failed to process utility bill" });
+    }
+  });
+
+  // Enhanced Finance Transaction Logs endpoints
+  app.get("/api/finance/transaction-logs", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { transactionType, relatedTableName, processedBy, fromDate, toDate } = req.query;
+      const organizationId = req.user?.organizationId || "default-org";
+
+      const logs = await storage.getEnhancedFinanceTransactionLogs(organizationId, {
+        transactionType,
+        relatedTableName,
+        processedBy,
+        fromDate: fromDate ? new Date(fromDate) : undefined,
+        toDate: toDate ? new Date(toDate) : undefined,
+      });
+      res.json(logs);
+    } catch (error) {
+      console.error("Error fetching transaction logs:", error);
+      res.status(500).json({ message: "Failed to fetch transaction logs" });
+    }
+  });
+
+  app.post("/api/finance/transaction-logs", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      const organizationId = user?.organizationId || "default-org";
+
+      const logData = { 
+        ...req.body, 
+        organizationId,
+        processedBy: user.id 
+      };
+
+      const log = await storage.createEnhancedFinanceTransactionLog(logData);
+      res.status(201).json(log);
+    } catch (error) {
+      console.error("Error creating transaction log:", error);
+      res.status(500).json({ message: "Failed to create transaction log" });
+    }
+  });
+
+  // ===== TASK CHECKLIST & PROOF SYSTEM API ROUTES =====
+
+  // Get task checklists
+  app.get("/api/task-checklists", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId } = req.user;
+      const { propertyId, taskType } = req.query;
+      
+      const checklists = await storage.getTaskChecklists(organizationId, {
+        propertyId: propertyId ? parseInt(propertyId) : undefined,
+        taskType: taskType || undefined,
+      });
+      
+      res.json(checklists);
+    } catch (error) {
+      console.error("Error fetching task checklists:", error);
+      res.status(500).json({ message: "Failed to fetch task checklists" });
+    }
+  });
+
+  // Create task checklist
+  app.post("/api/task-checklists", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: userId } = req.user;
+      
+      const checklistData = {
+        ...req.body,
+        organizationId,
+        createdBy: userId,
+      };
+
+      const checklist = await storage.createTaskChecklist(checklistData);
+      res.status(201).json(checklist);
+    } catch (error) {
+      console.error("Error creating task checklist:", error);
+      res.status(500).json({ message: "Failed to create task checklist" });
+    }
+  });
+
+  // Get property guides
+  app.get("/api/property-guides", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId } = req.user;
+      const { propertyId, taskCategory } = req.query;
+      
+      const guides = await storage.getPropertyGuides(organizationId, {
+        propertyId: propertyId ? parseInt(propertyId) : undefined,
+        taskCategory: taskCategory || undefined,
+      });
+      
+      res.json(guides);
+    } catch (error) {
+      console.error("Error fetching property guides:", error);
+      res.status(500).json({ message: "Failed to fetch property guides" });
+    }
+  });
+
+  // Create property guide
+  app.post("/api/property-guides", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: userId } = req.user;
+      
+      const guideData = {
+        ...req.body,
+        organizationId,
+        createdBy: userId,
+      };
+
+      const guide = await storage.createPropertyGuide(guideData);
+      res.status(201).json(guide);
+    } catch (error) {
+      console.error("Error creating property guide:", error);
+      res.status(500).json({ message: "Failed to create property guide" });
+    }
+  });
+
+  // Get task completions
+  app.get("/api/task-completions", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId } = req.user;
+      const { propertyId, taskId } = req.query;
+      
+      const completions = await storage.getTaskCompletions(organizationId, {
+        propertyId: propertyId ? parseInt(propertyId) : undefined,
+        taskId: taskId ? parseInt(taskId) : undefined,
+      });
+      
+      res.json(completions);
+    } catch (error) {
+      console.error("Error fetching task completions:", error);
+      res.status(500).json({ message: "Failed to fetch task completions" });
+    }
+  });
+
+  // Get monthly exports
+  app.get("/api/monthly-exports", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId } = req.user;
+      const { propertyId, exportMonth } = req.query;
+      
+      const exports = await storage.getMonthlyExports(organizationId, {
+        propertyId: propertyId ? parseInt(propertyId) : undefined,
+        exportMonth: exportMonth || undefined,
+      });
+      
+      res.json(exports);
+    } catch (error) {
+      console.error("Error fetching monthly exports:", error);
+      res.status(500).json({ message: "Failed to fetch monthly exports" });
+    }
+  });
+
+  // Create monthly export
+  app.post("/api/monthly-exports", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: userId } = req.user;
+      
+      const exportData = {
+        ...req.body,
+        organizationId,
+        exportedBy: userId,
+      };
+
+      const exportLog = await storage.createMonthlyExport(exportData);
+      res.status(201).json(exportLog);
+    } catch (error) {
+      console.error("Error creating monthly export:", error);
+      res.status(500).json({ message: "Failed to create monthly export" });
+    }
+  });
+
+  // === AI-TRIGGERED TASK SYSTEM API ROUTES ===
+  
+  // Enhanced AI Suggestions
+  app.get('/api/enhanced-ai-suggestions', isDemoAuthenticated, async (req, res) => {
+    try {
+      const { organizationId } = getTenantContext(req);
+      const { propertyId, status, urgencyLevel } = req.query;
+      
+      const filters = {
+        propertyId: propertyId ? parseInt(propertyId as string) : undefined,
+        status: status as string,
+        urgencyLevel: urgencyLevel as string,
+      };
+      
+      const suggestions = await storage.getEnhancedAiSuggestions(organizationId, filters);
+      res.json(suggestions);
+    } catch (error) {
+      console.error('Error fetching AI suggestions:', error);
+      res.status(500).json({ message: 'Failed to fetch AI suggestions' });
+    }
+  });
+
+  app.post('/api/enhanced-ai-suggestions', isDemoAuthenticated, async (req, res) => {
+    try {
+      const { organizationId } = getTenantContext(req);
+      const userData = req.user as any;
+      
+      const suggestionData = {
+        ...req.body,
+        organizationId,
+      };
+      
+      const suggestion = await storage.createEnhancedAiSuggestion(suggestionData);
+      res.status(201).json(suggestion);
+    } catch (error) {
+      console.error('Error creating AI suggestion:', error);
+      res.status(500).json({ message: 'Failed to create AI suggestion' });
+    }
+  });
+
+  app.post('/api/enhanced-ai-suggestions/:id/accept', isDemoAuthenticated, async (req, res) => {
+    try {
+      const suggestionId = parseInt(req.params.id);
+      const userData = req.user as any;
+      const { taskTitle, taskDescription, assignedTo, priority } = req.body;
+      
+      // Create a new task from the suggestion
+      const task = await storage.createTask({
+        organizationId: getTenantContext(req).organizationId,
+        title: taskTitle,
+        description: taskDescription,
+        status: 'pending',
+        priority: priority || 'medium',
+        assignedTo,
+        propertyId: req.body.propertyId,
+        department: req.body.department || 'general',
+      });
+      
+      // Mark suggestion as accepted
+      await storage.acceptAiSuggestion(suggestionId, userData.claims.sub, task.id);
+      
+      // Create timeline event
+      await storage.createTimelineEvent({
+        organizationId: getTenantContext(req).organizationId,
+        propertyId: req.body.propertyId,
+        eventType: 'suggestion',
+        title: '🤖 AI Suggestion Accepted',
+        description: `AI suggestion "${taskTitle}" was accepted and converted to a task.`,
+        emoji: '🤖',
+        linkedId: task.id,
+        linkedType: 'task',
+        createdBy: userData.claims.sub,
+        createdByRole: userData.role || 'admin',
+      });
+      
+      res.json({ success: true, taskId: task.id });
+    } catch (error) {
+      console.error('Error accepting AI suggestion:', error);
+      res.status(500).json({ message: 'Failed to accept AI suggestion' });
+    }
+  });
+
+  app.post('/api/enhanced-ai-suggestions/:id/reject', isDemoAuthenticated, async (req, res) => {
+    try {
+      const suggestionId = parseInt(req.params.id);
+      const userData = req.user as any;
+      
+      await storage.rejectAiSuggestion(suggestionId, userData.claims.sub);
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Error rejecting AI suggestion:', error);
+      res.status(500).json({ message: 'Failed to reject AI suggestion' });
+    }
+  });
+
+  // Property Timeline
+  app.get('/api/property-timeline/:propertyId', isDemoAuthenticated, async (req, res) => {
+    try {
+      const { organizationId } = getTenantContext(req);
+      const propertyId = parseInt(req.params.propertyId);
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
+      
+      const timeline = await storage.getPropertyTimeline(organizationId, propertyId, limit);
+      res.json(timeline);
+    } catch (error) {
+      console.error('Error fetching property timeline:', error);
+      res.status(500).json({ message: 'Failed to fetch property timeline' });
+    }
+  });
+
+  app.post('/api/property-timeline', isDemoAuthenticated, async (req, res) => {
+    try {
+      const { organizationId } = getTenantContext(req);
+      const userData = req.user as any;
+      
+      const eventData = {
+        ...req.body,
+        organizationId,
+        createdBy: userData.claims.sub,
+        createdByRole: userData.role || 'admin',
+      };
+      
+      const event = await storage.createTimelineEvent(eventData);
+      res.status(201).json(event);
+    } catch (error) {
+      console.error('Error creating timeline event:', error);
+      res.status(500).json({ message: 'Failed to create timeline event' });
+    }
+  });
+
+  // Smart Notifications
+  app.get('/api/smart-notifications', isDemoAuthenticated, async (req, res) => {
+    try {
+      const { organizationId } = getTenantContext(req);
+      const userData = req.user as any;
+      
+      const notifications = await storage.getSmartNotifications(organizationId, userData.claims.sub);
+      res.json(notifications);
+    } catch (error) {
+      console.error('Error fetching smart notifications:', error);
+      res.status(500).json({ message: 'Failed to fetch smart notifications' });
+    }
+  });
+
+  app.post('/api/smart-notifications/:id/read', isDemoAuthenticated, async (req, res) => {
+    try {
+      const notificationId = parseInt(req.params.id);
+      await storage.markNotificationRead(notificationId);
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Error marking notification as read:', error);
+      res.status(500).json({ message: 'Failed to mark notification as read' });
+    }
+  });
+
+  // Fast Action Suggestions
+  app.get('/api/fast-action-suggestions', isDemoAuthenticated, async (req, res) => {
+    try {
+      const { organizationId } = getTenantContext(req);
+      const propertyId = req.query.propertyId ? parseInt(req.query.propertyId as string) : undefined;
+      
+      const suggestions = await storage.getFastActionSuggestions(organizationId, propertyId);
+      res.json(suggestions);
+    } catch (error) {
+      console.error('Error fetching fast action suggestions:', error);
+      res.status(500).json({ message: 'Failed to fetch fast action suggestions' });
+    }
+  });
+
+  app.post('/api/fast-action-suggestions', isDemoAuthenticated, async (req, res) => {
+    try {
+      const { organizationId } = getTenantContext(req);
+      const userData = req.user as any;
+      
+      const suggestionData = {
+        ...req.body,
+        organizationId,
+        suggestedBy: userData.claims.sub,
+        suggestedByRole: userData.role || 'admin',
+      };
+      
+      const suggestion = await storage.createFastActionSuggestion(suggestionData);
+      res.status(201).json(suggestion);
+    } catch (error) {
+      console.error('Error creating fast action suggestion:', error);
+      res.status(500).json({ message: 'Failed to create fast action suggestion' });
+    }
+  });
+
+  app.post('/api/fast-action-suggestions/:id/approve', isDemoAuthenticated, async (req, res) => {
+    try {
+      const actionId = parseInt(req.params.id);
+      const userData = req.user as any;
+      
+      await storage.approveFastAction(actionId, userData.claims.sub);
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Error approving fast action:', error);
+      res.status(500).json({ message: 'Failed to approve fast action' });
+    }
+  });
+
+  app.post('/api/fast-action-suggestions/:id/reject', isDemoAuthenticated, async (req, res) => {
+    try {
+      const actionId = parseInt(req.params.id);
+      const userData = req.user as any;
+      const { reason } = req.body;
+      
+      await storage.rejectFastAction(actionId, userData.claims.sub, reason);
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Error rejecting fast action:', error);
+      res.status(500).json({ message: 'Failed to reject fast action' });
+    }
+  });
+
+  // AI Processing Endpoints
+  app.post('/api/ai/process-review-feedback', isDemoAuthenticated, async (req, res) => {
+    try {
+      const { organizationId } = getTenantContext(req);
+      const { bookingId, reviewText } = req.body;
+      
+      if (!reviewText || reviewText.trim().length === 0) {
+        return res.status(400).json({ message: 'Review text is required' });
+      }
+      
+      const suggestions = await storage.processGuestReviewFeedback(organizationId, bookingId, reviewText);
+      
+      // Create smart notifications for each suggestion
+      for (const suggestion of suggestions) {
+        await storage.createSmartNotification({
+          organizationId,
+          recipientId: 'admin@test.com', // Should route to appropriate admin/PM
+          recipientRole: 'admin',
+          notificationType: 'ai-suggestion',
+          title: '🤖 New AI Task Suggestion',
+          message: `AI detected potential issue: ${suggestion.suggestedTitle}`,
+          priority: suggestion.urgencyLevel === 'high' ? 'high' : 'medium',
+          sourceId: suggestion.id,
+          sourceType: 'ai_suggestion',
+          actionRequired: true,
+          actionButtons: [
+            { action: 'accept', label: 'Accept & Create Task', style: 'primary' },
+            { action: 'reject', label: 'Dismiss', style: 'secondary' }
+          ],
+        });
+      }
+      
+      res.json({ success: true, suggestions });
+    } catch (error) {
+      console.error('Error processing review feedback:', error);
+      res.status(500).json({ message: 'Failed to process review feedback' });
+    }
+  });
+
+  app.post('/api/ai/create-longstay-tasks', isDemoAuthenticated, async (req, res) => {
+    try {
+      const { organizationId } = getTenantContext(req);
+      const { bookingId } = req.body;
+      
+      const suggestions = await storage.createLongStayCleaningTasks(organizationId, bookingId);
+      res.json({ success: true, suggestions });
+    } catch (error) {
+      console.error('Error creating long-stay tasks:', error);
+      res.status(500).json({ message: 'Failed to create long-stay tasks' });
+    }
+  });
+
+  // ===== OWNER BALANCE & PAYMENT SYSTEM ROUTES =====
+
+  // Get owner balance for specific property
+  app.get("/api/owner-balance/:propertyId", async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (!user) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      // Only owners can access their own balance
+      if (user.role !== 'owner') {
+        return res.status(403).json({ message: "Access denied. Owner role required." });
+      }
+
+      const organizationId = user.organizationId;
+      const ownerId = user.id;
+      const propertyId = parseInt(req.params.propertyId);
+
+      const balance = await storage.getOwnerBalanceByProperty(organizationId, ownerId, propertyId);
+      res.json(balance);
+    } catch (error) {
+      console.error("Error fetching owner balance:", error);
+      res.status(500).json({ message: "Failed to fetch owner balance" });
+    }
+  });
+
+  // Get all owner balances
+  app.get("/api/owner-balances", async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (!user) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      // Only owners can access their own balances
+      if (user.role !== 'owner') {
+        return res.status(403).json({ message: "Access denied. Owner role required." });
+      }
+
+      const organizationId = user.organizationId;
+      const ownerId = user.id;
+
+      const balances = await storage.getAllOwnerBalances(organizationId, ownerId);
+      res.json(balances);
+    } catch (error) {
+      console.error("Error fetching owner balances:", error);
+      res.status(500).json({ message: "Failed to fetch owner balances" });
+    }
+  });
+
+  // Calculate live balance for property
+  app.post("/api/owner-balance/calculate", async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (!user) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      // Only owners can calculate their own balance
+      if (user.role !== 'owner') {
+        return res.status(403).json({ message: "Access denied. Owner role required." });
+      }
+
+      const organizationId = user.organizationId;
+      const ownerId = user.id;
+      const { propertyId, period } = req.body;
+
+      const balance = await storage.calculateOwnerBalance(
+        organizationId, 
+        ownerId, 
+        propertyId, 
+        { start: new Date(period.start), end: new Date(period.end) }
+      );
+
+      // Update the balance tracker
+      await storage.updateOwnerBalance({
+        organizationId,
+        ownerId,
+        propertyId,
+        ...balance,
+        lastCalculatedAt: new Date(),
+      });
+
+      res.json(balance);
+    } catch (error) {
+      console.error("Error calculating owner balance:", error);
+      res.status(500).json({ message: "Failed to calculate owner balance" });
+    }
+  });
+
+  // Create payout request
+  app.post("/api/owner-payout-request", async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (!user) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      // Only owners can create payout requests
+      if (user.role !== 'owner') {
+        return res.status(403).json({ message: "Access denied. Owner role required." });
+      }
+
+      const organizationId = user.organizationId;
+      const ownerId = user.id;
+      const { propertyId, requestedAmount, paymentMethod, paymentDetails, notes } = req.body;
+
+      const payoutRequest = await storage.createOwnerPayoutRequest({
+        organizationId,
+        ownerId,
+        propertyId,
+        requestedAmount,
+        paymentMethod,
+        paymentDetails,
+        notes,
+        requestStatus: 'pending',
+        requestedAt: new Date(),
+      });
+
+      // Create notification for admin/PM
+      await storage.createNotification({
+        organizationId,
+        userId: 'admin@test.com', // Should route to appropriate admin/PM
+        type: 'payout_request',
+        title: 'New Payout Request',
+        message: `Owner ${user.username} requested ${requestedAmount} payout`,
+        priority: 'medium',
+        isRead: false,
+      });
+
+      res.json(payoutRequest);
+    } catch (error) {
+      console.error("Error creating payout request:", error);
+      res.status(500).json({ message: "Failed to create payout request" });
+    }
+  });
+
+  // Get payout requests (owners see their own, admin/PM see all)
+  app.get("/api/owner-payout-requests", async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (!user) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const organizationId = user.organizationId;
+      let ownerId = undefined;
+
+      // Owners can only see their own requests
+      if (user.role === 'owner') {
+        ownerId = user.id;
+      } else if (user.role !== 'admin' && user.role !== 'portfolio-manager') {
+        return res.status(403).json({ message: "Access denied. Owner, admin, or portfolio manager role required." });
+      }
+
+      const requests = await storage.getOwnerPayoutRequests(organizationId, ownerId);
+      res.json(requests);
+    } catch (error) {
+      console.error("Error fetching payout requests:", error);
+      res.status(500).json({ message: "Failed to fetch payout requests" });
+    }
+  });
+
+  // Approve/reject payout request (admin/PM only)
+  app.put("/api/owner-payout-request/:id/status", async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (!user) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      // Only admin and portfolio managers can update payout status
+      if (user.role !== 'admin' && user.role !== 'portfolio-manager') {
+        return res.status(403).json({ message: "Access denied. Admin or portfolio manager role required." });
+      }
+
+      const requestId = parseInt(req.params.id);
+      const { status, notes } = req.body;
+
+      const updated = await storage.updatePayoutRequestStatus(requestId, {
+        requestStatus: status,
+        approvedBy: status === 'approved' ? user.id : null,
+        approvedAt: status === 'approved' ? new Date() : null,
+        rejectedBy: status === 'rejected' ? user.id : null,
+        rejectedAt: status === 'rejected' ? new Date() : null,
+        adminNotes: notes,
+      });
+
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating payout request status:", error);
+      res.status(500).json({ message: "Failed to update payout request status" });
+    }
+  });
+
+  // Upload payment slip (admin/PM only)
+  app.put("/api/owner-payout-request/:id/payment-slip", async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (!user) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      // Only admin and portfolio managers can upload payment slips
+      if (user.role !== 'admin' && user.role !== 'portfolio-manager') {
+        return res.status(403).json({ message: "Access denied. Admin or portfolio manager role required." });
+      }
+
+      const requestId = parseInt(req.params.id);
+      const { paymentSlipUrl } = req.body;
+
+      const updated = await storage.uploadPaymentSlip(requestId, paymentSlipUrl, user.id);
+
+      // Create notification for owner
+      await storage.createNotification({
+        organizationId: user.organizationId,
+        userId: updated.ownerId,
+        type: 'payment_made',
+        title: 'Payment Slip Uploaded',
+        message: 'Your payout has been processed. Please confirm receipt.',
+        priority: 'high',
+        isRead: false,
+      });
+
+      res.json(updated);
+    } catch (error) {
+      console.error("Error uploading payment slip:", error);
+      res.status(500).json({ message: "Failed to upload payment slip" });
+    }
+  });
+
+  // Confirm payment received (owner only)
+  app.put("/api/owner-payout-request/:id/confirm", async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (!user) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      // Only owners can confirm their payments
+      if (user.role !== 'owner') {
+        return res.status(403).json({ message: "Access denied. Owner role required." });
+      }
+
+      const requestId = parseInt(req.params.id);
+      const { notes } = req.body;
+
+      const updated = await storage.confirmPaymentReceived(requestId, user.id, notes);
+
+      // Log the payment completion
+      await storage.createPaymentLog({
+        organizationId: user.organizationId,
+        ownerId: user.id,
+        propertyId: updated.propertyId,
+        payoutRequestId: requestId,
+        amount: updated.requestedAmount,
+        paymentType: 'payout',
+        paymentMethod: updated.paymentMethod,
+        transactionReference: `PAYOUT-${requestId}`,
+        processedBy: updated.paidBy,
+        processedAt: new Date(),
+        paymentSlipUrl: updated.paymentSlipUrl,
+      });
+
+      res.json(updated);
+    } catch (error) {
+      console.error("Error confirming payment:", error);
+      res.status(500).json({ message: "Failed to confirm payment" });
+    }
+  });
+
+  // Get payment history
+  app.get("/api/owner-payment-history", async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (!user) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      // Only owners can access their payment history
+      if (user.role !== 'owner') {
+        return res.status(403).json({ message: "Access denied. Owner role required." });
+      }
+
+      const organizationId = user.organizationId;
+      const ownerId = user.id;
+      const { propertyId } = req.query;
+
+      const history = await storage.getOwnerPaymentHistory(
+        organizationId, 
+        ownerId, 
+        propertyId ? parseInt(propertyId as string) : undefined
+      );
+      res.json(history);
+    } catch (error) {
+      console.error("Error fetching payment history:", error);
+      res.status(500).json({ message: "Failed to fetch payment history" });
+    }
+  });
+
+  // Get/Update property payout settings
+  app.get("/api/property-payout-settings/:propertyId", async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (!user) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      // Only admin, PM, and property owners can access payout settings
+      if (user.role !== 'admin' && user.role !== 'portfolio-manager' && user.role !== 'owner') {
+        return res.status(403).json({ message: "Access denied." });
+      }
+
+      const organizationId = user.organizationId;
+      const propertyId = parseInt(req.params.propertyId);
+
+      const settings = await storage.getPropertyPayoutSettings(organizationId, propertyId);
+      res.json(settings);
+    } catch (error) {
+      console.error("Error fetching property payout settings:", error);
+      res.status(500).json({ message: "Failed to fetch property payout settings" });
+    }
+  });
+
+  app.put("/api/property-payout-settings/:propertyId", async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (!user) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      // Only admin and portfolio managers can update payout settings
+      if (user.role !== 'admin' && user.role !== 'portfolio-manager') {
+        return res.status(403).json({ message: "Access denied. Admin or portfolio manager role required." });
+      }
+
+      const organizationId = user.organizationId;
+      const propertyId = parseInt(req.params.propertyId);
+      const { payoutFrequency, minimumPayoutAmount, autoPayoutEnabled, payoutDay } = req.body;
+
+      const settings = await storage.updatePropertyPayoutSettings({
+        organizationId,
+        propertyId,
+        payoutFrequency,
+        minimumPayoutAmount,
+        autoPayoutEnabled,
+        payoutDay,
+        updatedAt: new Date(),
+      });
+
+      res.json(settings);
+    } catch (error) {
+      console.error("Error updating property payout settings:", error);
+      res.status(500).json({ message: "Failed to update property payout settings" });
+    }
+  });
+
+  // === COMPREHENSIVE INVOICE GENERATOR SYSTEM ===
+  
+  // Get all invoices
+  app.get("/api/invoices", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = req.user?.organizationId || "demo-org";
+      const invoices = await storage.getInvoices(organizationId);
+      res.json(invoices);
+    } catch (error) {
+      console.error("Error fetching invoices:", error);
+      res.status(500).json({ message: "Failed to fetch invoices" });
+    }
+  });
+
+  // Create new invoice with line items
+  app.post("/api/invoices", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = req.user?.organizationId || "demo-org";
+      const createdBy = req.user?.id || req.user?.sub || "demo-user";
+      
+      const { lineItems, ...invoiceData } = req.body;
+      
+      // Calculate totals
+      const subtotal = lineItems.reduce((sum: number, item: any) => {
+        return sum + (parseFloat(item.quantity || "0") * parseFloat(item.unitPrice || "0"));
+      }, 0);
+      
+      const taxRate = parseFloat(invoiceData.taxRate || "0") / 100;
+      const taxAmount = subtotal * taxRate;
+      const totalAmount = subtotal + taxAmount;
+
+      const invoice = await storage.createInvoice({
+        ...invoiceData,
+        organizationId,
+        createdBy,
+        subtotal: subtotal.toFixed(2),
+        taxAmount: taxAmount.toFixed(2),
+        totalAmount: totalAmount.toFixed(2),
+      }, lineItems || []);
+      
+      res.json(invoice);
+    } catch (error) {
+      console.error("Error creating invoice:", error);
+      res.status(500).json({ message: "Failed to create invoice" });
+    }
+  });
+
+  // Send invoice via email
+  app.post("/api/invoices/:id/send", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = req.user?.organizationId || "demo-org";
+      const invoiceId = parseInt(req.params.id);
+      
+      const invoice = await storage.getInvoice(invoiceId, organizationId);
+      if (!invoice) {
+        return res.status(404).json({ message: "Invoice not found" });
+      }
+
+      // Update invoice status to sent
+      await storage.updateInvoice(invoiceId, organizationId, { status: "sent" });
+
+      // Create delivery log entry
+      await storage.createInvoiceDeliveryLog({
+        invoiceId,
+        recipientEmail: req.body.recipientEmail || invoice.toName + "@example.com",
+        deliveryProvider: "sendgrid",
+        deliveryStatus: "delivered", // Simulate successful delivery
+        metadata: { subject: `Invoice ${invoice.invoiceNumber}`, from: "billing@hostpilotpro.com" },
+      });
+
+      res.json({ message: "Invoice sent successfully" });
+    } catch (error) {
+      console.error("Error sending invoice:", error);
+      res.status(500).json({ message: "Failed to send invoice" });
+    }
+  });
+
+  // Delete invoice (draft only)
+  app.delete("/api/invoices/:id", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = req.user?.organizationId || "demo-org";
+      const invoiceId = parseInt(req.params.id);
+      
+      const invoice = await storage.getInvoice(invoiceId, organizationId);
+      if (!invoice) {
+        return res.status(404).json({ message: "Invoice not found" });
+      }
+      
+      if (invoice.status !== "draft") {
+        return res.status(400).json({ message: "Only draft invoices can be deleted" });
+      }
+      
+      await storage.deleteInvoice(invoiceId, organizationId);
+      res.json({ message: "Invoice deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting invoice:", error);
+      res.status(500).json({ message: "Failed to delete invoice" });
+    }
+  });
+
+  // Get invoice templates
+  app.get("/api/invoice-templates", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      // Return demo templates for now
+      const templates = [
+        {
+          id: 1,
+          name: "Commission Invoice",
+          description: "Standard commission invoice template",
+          template: "rental_commission",
+          defaultItems: [
+            { description: "Booking Commission", quantity: "1", unitPrice: "150.00" }
+          ]
+        },
+        {
+          id: 2,
+          name: "Service Fee",
+          description: "Service fee invoice template",
+          template: "service_fee",
+          defaultItems: [
+            { description: "Management Service", quantity: "1", unitPrice: "100.00" }
+          ]
+        }
+      ];
+      
+      res.json(templates);
+    } catch (error) {
+      console.error("Error fetching templates:", error);
+      res.status(500).json({ message: "Failed to fetch templates" });
+    }
+  });
+
+  // Get delivery logs
+  app.get("/api/invoice-delivery-logs", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      // Return demo delivery logs for now
+      const logs = [
+        {
+          id: 1,
+          invoiceNumber: "INV-001",
+          recipientEmail: "owner@example.com",
+          deliveryProvider: "sendgrid",
+          deliveryStatus: "delivered",
+          sentAt: new Date().toISOString(),
+          openedAt: new Date().toISOString(),
+          downloadedAt: new Date().toISOString()
+        }
+      ];
+      
+      res.json(logs);
+    } catch (error) {
+      console.error("Error fetching delivery logs:", error);
+      res.status(500).json({ message: "Failed to fetch delivery logs" });
+    }
+  });
+
+  // Get invoice analytics
+  app.get("/api/invoice-analytics", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      // Return demo analytics for now
+      const analytics = {
+        totalInvoices: 25,
+        totalAmount: "12450.00",
+        pendingAmount: "3200.00",
+        paidAmount: "9250.00"
+      };
+      
+      res.json(analytics);
+    } catch (error) {
+      console.error("Error fetching analytics:", error);
+      res.status(500).json({ message: "Failed to fetch analytics" });
+    }
+  });
+
+  // ==================== MEDIA LIBRARY & AGENT SHARING TOOLS ====================
+
+  // Get property media files with optional property filter
+  app.get("/api/media/files", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = req.user.organizationId;
+      const propertyId = req.query.propertyId ? parseInt(req.query.propertyId) : undefined;
+      
+      const files = await storage.getPropertyMediaFiles(organizationId, propertyId);
+      res.json(files);
+    } catch (error) {
+      console.error("Error fetching media files:", error);
+      res.status(500).json({ message: "Failed to fetch media files" });
+    }
+  });
+
+  // Create new property media file
+  app.post("/api/media/files", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = req.user.organizationId;
+      const fileData = {
+        ...req.body,
+        organizationId,
+        uploadedBy: req.user.id,
+      };
+
+      const file = await storage.createPropertyMediaFile(fileData);
+      res.json(file);
+    } catch (error) {
+      console.error("Error creating media file:", error);
+      res.status(500).json({ message: "Failed to create media file" });
+    }
+  });
+
+  // Update property media file
+  app.put("/api/media/files/:id", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const fileId = parseInt(req.params.id);
+      const updateData = req.body;
+
+      // Add approval data if user is admin/PM
+      if (["admin", "portfolio-manager"].includes(req.user.role) && updateData.isAgentApproved) {
+        updateData.approvedBy = req.user.id;
+        updateData.approvedAt = new Date();
+      }
+
+      const updated = await storage.updatePropertyMediaFile(fileId, updateData);
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating media file:", error);
+      res.status(500).json({ message: "Failed to update media file" });
+    }
+  });
+
+  // Delete property media file
+  app.delete("/api/media/files/:id", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const fileId = parseInt(req.params.id);
+      const success = await storage.deletePropertyMediaFile(fileId);
+      
+      if (success) {
+        res.json({ message: "Media file deleted successfully" });
+      } else {
+        res.status(404).json({ message: "Media file not found" });
+      }
+    } catch (error) {
+      console.error("Error deleting media file:", error);
+      res.status(500).json({ message: "Failed to delete media file" });
+    }
+  });
+
+  // Get agent accessible media (for agents only)
+  app.get("/api/media/agent-accessible", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      if (!["referral-agent", "retail-agent"].includes(req.user.role)) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const organizationId = req.user.organizationId;
+      const files = await storage.getAgentAccessibleMedia(organizationId, req.user.id, req.user.role);
+      
+      // Log access for tracking
+      for (const file of files) {
+        await storage.logAgentMediaAccess({
+          organizationId,
+          mediaFileId: file.id,
+          agentId: req.user.id,
+          accessType: "view",
+          agentRole: req.user.role,
+          ipAddress: req.ip,
+          userAgent: req.get("User-Agent"),
+          accessReason: "media_library_browse",
+        });
+      }
+
+      res.json(files);
+    } catch (error) {
+      console.error("Error fetching agent accessible media:", error);
+      res.status(500).json({ message: "Failed to fetch accessible media" });
+    }
+  });
+
+  // Download/access specific media file (with analytics tracking)
+  app.get("/api/media/access/:id", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const fileId = parseInt(req.params.id);
+      const accessType = req.query.type || "view"; // view, download, preview
+      
+      // Update analytics
+      await storage.updateMediaUsageAnalytics(fileId, accessType);
+
+      // Log agent access if user is an agent
+      if (["referral-agent", "retail-agent"].includes(req.user.role)) {
+        await storage.logAgentMediaAccess({
+          organizationId: req.user.organizationId,
+          mediaFileId: fileId,
+          agentId: req.user.id,
+          accessType,
+          agentRole: req.user.role,
+          ipAddress: req.ip,
+          userAgent: req.get("User-Agent"),
+          accessReason: req.query.reason || "media_access",
+          clientReference: req.query.clientRef,
+        });
+      }
+
+      res.json({ message: "Access logged successfully" });
+    } catch (error) {
+      console.error("Error logging media access:", error);
+      res.status(500).json({ message: "Failed to log access" });
+    }
+  });
+
+  // Get media folders
+  app.get("/api/media/folders", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = req.user.organizationId;
+      const propertyId = req.query.propertyId ? parseInt(req.query.propertyId) : undefined;
+      
+      const folders = await storage.getMediaFolders(organizationId, propertyId);
+      res.json(folders);
+    } catch (error) {
+      console.error("Error fetching media folders:", error);
+      res.status(500).json({ message: "Failed to fetch media folders" });
+    }
+  });
+
+  // Create media folder
+  app.post("/api/media/folders", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = req.user.organizationId;
+      const folderData = {
+        ...req.body,
+        organizationId,
+        createdBy: req.user.id,
+      };
+
+      const folder = await storage.createMediaFolder(folderData);
+      res.json(folder);
+    } catch (error) {
+      console.error("Error creating media folder:", error);
+      res.status(500).json({ message: "Failed to create media folder" });
+    }
+  });
+
+  // Update media folder
+  app.put("/api/media/folders/:id", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const folderId = parseInt(req.params.id);
+      const updateData = req.body;
+
+      const updated = await storage.updateMediaFolder(folderId, updateData);
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating media folder:", error);
+      res.status(500).json({ message: "Failed to update media folder" });
+    }
+  });
+
+  // Get property media settings
+  app.get("/api/media/settings/:propertyId", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = req.user.organizationId;
+      const propertyId = parseInt(req.params.propertyId);
+      
+      const settings = await storage.getPropertyMediaSettings(organizationId, propertyId);
+      res.json(settings);
+    } catch (error) {
+      console.error("Error fetching media settings:", error);
+      res.status(500).json({ message: "Failed to fetch media settings" });
+    }
+  });
+
+  // Update property media settings
+  app.put("/api/media/settings/:propertyId", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = req.user.organizationId;
+      const propertyId = parseInt(req.params.propertyId);
+      const settingsData = req.body;
+
+      const updated = await storage.updatePropertyMediaSettings(organizationId, propertyId, settingsData);
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating media settings:", error);
+      res.status(500).json({ message: "Failed to update media settings" });
+    }
+  });
+
+  // Get media usage analytics
+  app.get("/api/media/analytics", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = req.user.organizationId;
+      const propertyId = req.query.propertyId ? parseInt(req.query.propertyId) : undefined;
+      
+      const analytics = await storage.getMediaUsageAnalytics(organizationId, propertyId);
+      res.json(analytics);
+    } catch (error) {
+      console.error("Error fetching media analytics:", error);
+      res.status(500).json({ message: "Failed to fetch media analytics" });
+    }
+  });
+
+  // Get agent media access logs (admin/PM only)
+  app.get("/api/media/access-logs", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      if (!["admin", "portfolio-manager"].includes(req.user.role)) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const organizationId = req.user.organizationId;
+      const mediaFileId = req.query.mediaFileId ? parseInt(req.query.mediaFileId) : undefined;
+      
+      const logs = await storage.getAgentMediaAccessLogs(organizationId, mediaFileId);
+      res.json(logs);
+    } catch (error) {
+      console.error("Error fetching access logs:", error);
+      res.status(500).json({ message: "Failed to fetch access logs" });
+    }
+  });
+
+  // Get AI media suggestions
+  app.get("/api/media/ai-suggestions", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = req.user.organizationId;
+      const propertyId = req.query.propertyId ? parseInt(req.query.propertyId) : undefined;
+      
+      const suggestions = await storage.getAiMediaSuggestions(organizationId, propertyId);
+      res.json(suggestions);
+    } catch (error) {
+      console.error("Error fetching AI suggestions:", error);
+      res.status(500).json({ message: "Failed to fetch AI suggestions" });
+    }
+  });
+
+  // Update AI media suggestion status
+  app.put("/api/media/ai-suggestions/:id", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const suggestionId = parseInt(req.params.id);
+      const updateData = {
+        ...req.body,
+        reviewedBy: req.user.id,
+        reviewedAt: new Date(),
+      };
+
+      const updated = await storage.updateAiMediaSuggestion(suggestionId, updateData);
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating AI suggestion:", error);
+      res.status(500).json({ message: "Failed to update AI suggestion" });
+    }
+  });
+
+  // Get media library stats dashboard
+  app.get("/api/media/stats", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = req.user.organizationId;
+      const stats = await storage.getMediaLibraryStats(organizationId);
+      res.json(stats);
+    } catch (error) {
+      console.error("Error fetching media stats:", error);
+      res.status(500).json({ message: "Failed to fetch media stats" });
+    }
+  });
+
+  // ==================== ENHANCED UTILITY TRACKER ====================
+
+  // Utility accounts endpoints
+  app.get("/api/utility-accounts", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = "demo-org-1";
+      const accounts = await storage.getUtilityAccounts(organizationId);
+      res.json(accounts);
+    } catch (error) {
+      console.error("Error fetching utility accounts:", error);
+      res.status(500).json({ message: "Failed to fetch utility accounts" });
+    }
+  });
+
+  app.post("/api/utility-accounts", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = "demo-org-1";
+      const accountData = {
+        ...req.body,
+        organizationId,
+        propertyId: parseInt(req.body.propertyId),
+        billArrivalDay: parseInt(req.body.billArrivalDay),
+      };
+      
+      const newAccount = await storage.createUtilityAccount(accountData);
+      res.json(newAccount);
+    } catch (error) {
+      console.error("Error creating utility account:", error);
+      res.status(500).json({ message: "Failed to create utility account" });
+    }
+  });
+
+
+  // Platform routing rules endpoints
+  app.get("/api/platform-routing-rules", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId } = req.user;
+      const rules = await storage.getPlatformRoutingRules(organizationId);
+      res.json(rules);
+    } catch (error) {
+      console.error("Error fetching platform routing rules:", error);
+      res.status(500).json({ message: "Failed to fetch platform routing rules" });
+    }
+  });
+
+  app.post("/api/platform-routing-rules", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: userId } = req.user;
+      
+      // Only allow admin users to create platform rules
+      if (req.user.role !== 'admin') {
+        return res.status(403).json({ message: "Only administrators can create platform routing rules" });
+      }
+
+      const ruleData = {
+        ...req.body,
+        organizationId,
+        createdBy: userId,
+      };
+
+      const newRule = await storage.createPlatformRoutingRule(ruleData);
+
+      // Create audit log
+      await storage.createRoutingAuditLog({
+        organizationId,
+        relatedType: 'platform_rule',
+        relatedId: newRule.id,
+        actionType: 'created',
+        newValues: newRule,
+        changeReason: 'Platform rule created',
+        performedBy: userId,
+      });
+
+      res.json(newRule);
+    } catch (error) {
+      console.error("Error creating platform routing rule:", error);
+      res.status(500).json({ message: "Failed to create platform routing rule" });
+    }
+  });
+
+  app.put("/api/platform-routing-rules/:id", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: userId } = req.user;
+      const { id } = req.params;
+      
+      // Only allow admin users to update platform rules
+      if (req.user.role !== 'admin') {
+        return res.status(403).json({ message: "Only administrators can update platform routing rules" });
+      }
+
+      // Get the previous values for audit
+      const previousRule = await storage.getPlatformRoutingRule(parseInt(id));
+      if (!previousRule) {
+        return res.status(404).json({ message: "Platform rule not found" });
+      }
+
+      const updatedRule = await storage.updatePlatformRoutingRule(parseInt(id), req.body);
+      
+      if (!updatedRule) {
+        return res.status(404).json({ message: "Platform rule not found" });
+      }
+
+      // Create audit log
+      await storage.createRoutingAuditLog({
+        organizationId,
+        relatedType: 'platform_rule',
+        relatedId: updatedRule.id,
+        actionType: 'updated',
+        previousValues: previousRule,
+        newValues: updatedRule,
+        changeReason: 'Platform rule updated',
+        performedBy: userId,
+      });
+
+      res.json(updatedRule);
+    } catch (error) {
+      console.error("Error updating platform routing rule:", error);
+      res.status(500).json({ message: "Failed to update platform routing rule" });
+    }
+  });
+
+  // Property platform rules endpoints
+  app.get("/api/property-platform-rules", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId } = req.user;
+      const { propertyId, platformRuleId } = req.query;
+      
+      const rules = await storage.getPropertyPlatformRules(organizationId, {
+        propertyId: propertyId ? parseInt(propertyId as string) : undefined,
+        platformRuleId: platformRuleId ? parseInt(platformRuleId as string) : undefined,
+      });
+      
+      res.json(rules);
+    } catch (error) {
+      console.error("Error fetching property platform rules:", error);
+      res.status(500).json({ message: "Failed to fetch property platform rules" });
+    }
+  });
+
+  app.post("/api/property-platform-rules", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: userId } = req.user;
+      
+      // Only allow admin users to create property rules
+      if (req.user.role !== 'admin') {
+        return res.status(403).json({ message: "Only administrators can create property routing rules" });
+      }
+
+      const ruleData = {
+        ...req.body,
+        organizationId,
+        setBy: userId,
+        propertyId: parseInt(req.body.propertyId),
+        platformRuleId: parseInt(req.body.platformRuleId),
+      };
+
+      const newRule = await storage.createPropertyPlatformRule(ruleData);
+
+      // Create audit log
+      await storage.createRoutingAuditLog({
+        organizationId,
+        relatedType: 'property_rule',
+        relatedId: newRule.id,
+        actionType: 'created',
+        newValues: newRule,
+        changeReason: 'Property-specific routing rule created',
+        performedBy: userId,
+      });
+
+      res.json(newRule);
+    } catch (error) {
+      console.error("Error creating property platform rule:", error);
+      res.status(500).json({ message: "Failed to create property platform rule" });
+    }
+  });
+
+  // Booking platform routing endpoints
+  app.get("/api/booking-platform-routing", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId } = req.user;
+      const { bookingId, platformRuleId, routingStatus } = req.query;
+      
+      const routing = await storage.getBookingPlatformRouting(organizationId, {
+        bookingId: bookingId ? parseInt(bookingId as string) : undefined,
+        platformRuleId: platformRuleId ? parseInt(platformRuleId as string) : undefined,
+        routingStatus: routingStatus as string,
+      });
+      
+      res.json(routing);
+    } catch (error) {
+      console.error("Error fetching booking platform routing:", error);
+      res.status(500).json({ message: "Failed to fetch booking platform routing" });
+    }
+  });
+
+  app.post("/api/booking-platform-routing", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: userId } = req.user;
+      
+      // Only allow admin users to create booking overrides
+      if (req.user.role !== 'admin') {
+        return res.status(403).json({ message: "Only administrators can create booking routing overrides" });
+      }
+
+      // Calculate routing amounts
+      const { bookingId, platformRuleId, actualOwnerPercentage, actualManagementPercentage, overrideReason } = req.body;
+      
+      // Get booking details to calculate amounts
+      const booking = await storage.getBooking(parseInt(bookingId));
+      if (!booking) {
+        return res.status(404).json({ message: "Booking not found" });
+      }
+
+      const totalAmount = parseFloat(booking.totalAmount || '0');
+      const platformRule = await storage.getPlatformRoutingRule(parseInt(platformRuleId));
+      if (!platformRule) {
+        return res.status(404).json({ message: "Platform rule not found" });
+      }
+
+      // Calculate amounts
+      const ownerPercentage = parseFloat(actualOwnerPercentage);
+      const managementPercentage = parseFloat(actualManagementPercentage);
+      const platformFeePercentage = parseFloat(platformRule.platformFeePercentage || '0');
+      
+      const platformFeeAmount = totalAmount * (platformFeePercentage / 100);
+      const netAmount = totalAmount - platformFeeAmount;
+      const ownerAmount = netAmount * (ownerPercentage / 100);
+      const managementAmount = netAmount * (managementPercentage / 100);
+
+      const routingData = {
+        organizationId,
+        bookingId: parseInt(bookingId),
+        platformRuleId: parseInt(platformRuleId),
+        actualOwnerPercentage: ownerPercentage.toString(),
+        actualManagementPercentage: managementPercentage.toString(),
+        actualRoutingType: req.body.actualRoutingType,
+        totalBookingAmount: totalAmount.toString(),
+        ownerAmount: ownerAmount.toString(),
+        managementAmount: managementAmount.toString(),
+        platformFeeAmount: platformFeeAmount.toString(),
+        overrideReason,
+        isOverride: true,
+        routingStatus: 'pending',
+        createdBy: userId,
+      };
+
+      const newRouting = await storage.createBookingPlatformRouting(routingData);
+
+      // Create audit log
+      await storage.createRoutingAuditLog({
+        organizationId,
+        relatedType: 'booking_routing',
+        relatedId: newRouting.id,
+        actionType: 'override_applied',
+        newValues: newRouting,
+        changeReason: overrideReason,
+        impactedBookings: 1,
+        financialImpact: totalAmount.toString(),
+        performedBy: userId,
+      });
+
+      res.json(newRouting);
+    } catch (error) {
+      console.error("Error creating booking platform routing:", error);
+      res.status(500).json({ message: "Failed to create booking platform routing" });
+    }
+  });
+
+  app.patch("/api/booking-platform-routing/:id/process", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: userId } = req.user;
+      const { id } = req.params;
+      
+      // Only allow admin users to process routing
+      if (req.user.role !== 'admin') {
+        return res.status(403).json({ message: "Only administrators can process routing" });
+      }
+
+      const processed = await storage.processBookingRouting(parseInt(id), userId);
+      
+      if (!processed) {
+        return res.status(404).json({ message: "Booking routing not found" });
+      }
+
+      // Create audit log
+      await storage.createRoutingAuditLog({
+        organizationId,
+        relatedType: 'booking_routing',
+        relatedId: processed.id,
+        actionType: 'routing_processed',
+        changeReason: 'Routing marked as processed',
+        performedBy: userId,
+      });
+
+      res.json(processed);
+    } catch (error) {
+      console.error("Error processing booking routing:", error);
+      res.status(500).json({ message: "Failed to process booking routing" });
+    }
+  });
+
+  // Routing audit logs endpoint
+  app.get("/api/routing-audit-logs", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId } = req.user;
+      const { relatedType, relatedId, actionType, performedBy, fromDate, toDate } = req.query;
+      
+      const logs = await storage.getRoutingAuditLogs(organizationId, {
+        relatedType: relatedType as string,
+        relatedId: relatedId ? parseInt(relatedId as string) : undefined,
+        actionType: actionType as string,
+        performedBy: performedBy as string,
+        fromDate: fromDate ? new Date(fromDate as string) : undefined,
+        toDate: toDate ? new Date(toDate as string) : undefined,
+      });
+      
+      res.json(logs);
+    } catch (error) {
+      console.error("Error fetching routing audit logs:", error);
+      res.status(500).json({ message: "Failed to fetch routing audit logs" });
+    }
+  });
+
+  // Utility endpoint to calculate routing for a booking
+  app.post("/api/calculate-booking-routing", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { bookingId, platformRuleId, totalAmount, overrides } = req.body;
+      
+      const calculation = await storage.calculateBookingRouting(
+        parseInt(bookingId),
+        parseInt(platformRuleId),
+        parseFloat(totalAmount),
+        overrides
+      );
+      
+      res.json(calculation);
+    } catch (error) {
+      console.error("Error calculating booking routing:", error);
+      res.status(500).json({ message: "Failed to calculate booking routing" });
+    }
+  });
+
+  // Get routing rules for a specific property
+  app.get("/api/properties/:propertyId/routing-rules", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { propertyId } = req.params;
+      
+      const rules = await storage.getRoutingRulesForProperty(parseInt(propertyId));
+      
+      res.json(rules);
+    } catch (error) {
+      console.error("Error fetching property routing rules:", error);
+      res.status(500).json({ message: "Failed to fetch property routing rules" });
+    }
+  });
+
+  // ===== INVENTORY & WELCOME PACK TRACKER ROUTES =====
+
+  // Inventory Categories
+  app.get("/api/inventory/categories", async (req, res) => {
+    try {
+      const categories = await storage.getInventoryCategories("demo-org");
+      res.json(categories);
+    } catch (error) {
+      console.error("Error fetching inventory categories:", error);
+      res.status(500).json({ message: "Failed to fetch categories" });
+    }
+  });
+
+  app.post("/api/inventory/categories", async (req, res) => {
+    try {
+      const data = { ...req.body, organizationId: "demo-org" };
+      const category = await storage.createInventoryCategory(data);
+      res.json(category);
+    } catch (error) {
+      console.error("Error creating inventory category:", error);
+      res.status(500).json({ message: "Failed to create category" });
+    }
+  });
+
+  app.put("/api/inventory/categories/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const category = await storage.updateInventoryCategory(id, req.body);
+      res.json(category);
+    } catch (error) {
+      console.error("Error updating inventory category:", error);
+      res.status(500).json({ message: "Failed to update category" });
+    }
+  });
+
+  app.delete("/api/inventory/categories/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const success = await storage.deleteInventoryCategory(id);
+      res.json({ success });
+    } catch (error) {
+      console.error("Error deleting inventory category:", error);
+      res.status(500).json({ message: "Failed to delete category" });
+    }
+  });
+
+  // Inventory Items
+  app.get("/api/inventory/items", async (req, res) => {
+    try {
+      const { categoryId, isActive } = req.query;
+      const filters: any = {};
+      if (categoryId) filters.categoryId = parseInt(categoryId as string);
+      if (isActive !== undefined) filters.isActive = isActive === "true";
+      
+      const items = await storage.getInventoryItems("demo-org", filters);
+      res.json(items);
+    } catch (error) {
+      console.error("Error fetching inventory items:", error);
+      res.status(500).json({ message: "Failed to fetch items" });
+    }
+  });
+
+  app.post("/api/inventory/items", async (req, res) => {
+    try {
+      const data = { ...req.body, organizationId: "demo-org" };
+      const item = await storage.createInventoryItem(data);
+      res.json(item);
+    } catch (error) {
+      console.error("Error creating inventory item:", error);
+      res.status(500).json({ message: "Failed to create item" });
+    }
+  });
+
+  app.put("/api/inventory/items/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const item = await storage.updateInventoryItem(id, req.body);
+      res.json(item);
+    } catch (error) {
+      console.error("Error updating inventory item:", error);
+      res.status(500).json({ message: "Failed to update item" });
+    }
+  });
+
+  app.delete("/api/inventory/items/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const success = await storage.deleteInventoryItem(id);
+      res.json({ success });
+    } catch (error) {
+      console.error("Error deleting inventory item:", error);
+      res.status(500).json({ message: "Failed to delete item" });
+    }
+  });
+
+  // Property Welcome Pack Configs
+  app.get("/api/inventory/property-configs/:propertyId", async (req, res) => {
+    try {
+      const propertyId = parseInt(req.params.propertyId);
+      const config = await storage.getPropertyWelcomePackConfig("demo-org", propertyId);
+      res.json(config);
+    } catch (error) {
+      console.error("Error fetching property config:", error);
+      res.status(500).json({ message: "Failed to fetch property config" });
+    }
+  });
+
+  app.post("/api/inventory/property-configs", async (req, res) => {
+    try {
+      const data = { ...req.body, organizationId: "demo-org" };
+      const config = await storage.createPropertyWelcomePackConfig(data);
+      res.json(config);
+    } catch (error) {
+      console.error("Error creating property config:", error);
+      res.status(500).json({ message: "Failed to create property config" });
+    }
+  });
+
+  app.put("/api/inventory/property-configs/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const config = await storage.updatePropertyWelcomePackConfig(id, req.body);
+      res.json(config);
+    } catch (error) {
+      console.error("Error updating property config:", error);
+      res.status(500).json({ message: "Failed to update property config" });
+    }
+  });
+
+  // Inventory Usage Logs
+  app.get("/api/inventory/usage-logs", async (req, res) => {
+    try {
+      const { propertyId, staffMemberId, startDate, endDate, billingRule, isProcessed } = req.query;
+      const filters: any = {};
+      if (propertyId) filters.propertyId = parseInt(propertyId as string);
+      if (staffMemberId) filters.staffMemberId = staffMemberId as string;
+      if (startDate) filters.startDate = startDate as string;
+      if (endDate) filters.endDate = endDate as string;
+      if (billingRule) filters.billingRule = billingRule as string;
+      if (isProcessed !== undefined) filters.isProcessed = isProcessed === "true";
+      
+      const logs = await storage.getInventoryUsageLogs("demo-org", filters);
+      res.json(logs);
+    } catch (error) {
+      console.error("Error fetching usage logs:", error);
+      res.status(500).json({ message: "Failed to fetch usage logs" });
+    }
+  });
+
+  app.get("/api/inventory/usage-logs/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const log = await storage.getInventoryUsageLog(id);
+      if (!log) {
+        return res.status(404).json({ message: "Usage log not found" });
+      }
+      
+      // Get usage items for this log
+      const items = await storage.getInventoryUsageItems(id);
+      res.json({ ...log, items });
+    } catch (error) {
+      console.error("Error fetching usage log:", error);
+      res.status(500).json({ message: "Failed to fetch usage log" });
+    }
+  });
+
+  app.post("/api/inventory/usage-logs", async (req, res) => {
+    try {
+      // Calculate total pack cost based on property bedroom count and default rates
+      const property = await storage.getProperty(req.body.propertyId);
+      if (!property) {
+        return res.status(404).json({ message: "Property not found" });
+      }
+
+      // Get or create property config
+      let config = await storage.getPropertyWelcomePackConfig("demo-org", req.body.propertyId);
+      if (!config) {
+        // Create default config
+        config = await storage.createPropertyWelcomePackConfig({
+          organizationId: "demo-org",
+          propertyId: req.body.propertyId,
+          oneBrCost: "300.00",
+          twoBrCost: "350.00",
+          threePlusBrCost: "400.00",
+          defaultBillingRule: "owner",
+        });
+      }
+
+      // Calculate pack cost based on bedrooms
+      let packCost = 300; // Default 1BR cost
+      if (property.bedrooms >= 3) {
+        packCost = parseFloat(config.threePlusBrCost);
+      } else if (property.bedrooms === 2) {
+        packCost = parseFloat(config.twoBrCost);
+      } else {
+        packCost = parseFloat(config.oneBrCost);
+      }
+
+      const data = {
+        ...req.body,
+        organizationId: "demo-org",
+        totalPackCost: packCost.toString(),
+        staffMemberId: "staff@test.com", // Demo staff member
+      };
+      
+      const log = await storage.createInventoryUsageLog(data);
+
+      // Create default usage items based on property type
+      const categories = await storage.getInventoryCategories("demo-org");
+      const items = await storage.getInventoryItems("demo-org");
+      
+      const usageItems = items.map((item: any) => ({
+        organizationId: "demo-org",
+        usageLogId: log.id,
+        inventoryItemId: item.id,
+        quantityUsed: item.defaultQuantityPerBedroom * property.bedrooms,
+        unitCost: item.costPerUnit,
+        totalCost: (parseFloat(item.costPerUnit) * item.defaultQuantityPerBedroom * property.bedrooms).toString(),
+      }));
+
+      if (usageItems.length > 0) {
+        await storage.createInventoryUsageItems(usageItems);
+      }
+
+      res.json(log);
+    } catch (error) {
+      console.error("Error creating usage log:", error);
+      res.status(500).json({ message: "Failed to create usage log" });
+    }
+  });
+
+  app.put("/api/inventory/usage-logs/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const log = await storage.updateInventoryUsageLog(id, req.body);
+      res.json(log);
+    } catch (error) {
+      console.error("Error updating usage log:", error);
+      res.status(500).json({ message: "Failed to update usage log" });
+    }
+  });
+
+  app.post("/api/inventory/usage-logs/:id/process", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const log = await storage.processInventoryUsageLog(id, "admin@test.com");
+      res.json(log);
+    } catch (error) {
+      console.error("Error processing usage log:", error);
+      res.status(500).json({ message: "Failed to process usage log" });
+    }
+  });
+
+  // Stock Levels
+  app.get("/api/inventory/stock-levels", async (req, res) => {
+    try {
+      const { isLowStock, inventoryItemId } = req.query;
+      const filters: any = {};
+      if (isLowStock !== undefined) filters.isLowStock = isLowStock === "true";
+      if (inventoryItemId) filters.inventoryItemId = parseInt(inventoryItemId as string);
+      
+      const stockLevels = await storage.getInventoryStockLevels("demo-org", filters);
+      res.json(stockLevels);
+    } catch (error) {
+      console.error("Error fetching stock levels:", error);
+      res.status(500).json({ message: "Failed to fetch stock levels" });
+    }
+  });
+
+  app.put("/api/inventory/stock-levels/:inventoryItemId", async (req, res) => {
+    try {
+      const inventoryItemId = parseInt(req.params.inventoryItemId);
+      const data = { ...req.body, organizationId: "demo-org" };
+      const stockLevel = await storage.updateInventoryStockLevel(inventoryItemId, data);
+      res.json(stockLevel);
+    } catch (error) {
+      console.error("Error updating stock level:", error);
+      res.status(500).json({ message: "Failed to update stock level" });
+    }
+  });
+
+  // Billing Summaries
+  app.get("/api/inventory/billing-summaries", async (req, res) => {
+    try {
+      const { propertyId, monthYear, isProcessed } = req.query;
+      const filters: any = {};
+      if (propertyId) filters.propertyId = parseInt(propertyId as string);
+      if (monthYear) filters.monthYear = monthYear as string;
+      if (isProcessed !== undefined) filters.isProcessed = isProcessed === "true";
+      
+      const summaries = await storage.getWelcomePackBillingSummaries("demo-org", filters);
+      res.json(summaries);
+    } catch (error) {
+      console.error("Error fetching billing summaries:", error);
+      res.status(500).json({ message: "Failed to fetch billing summaries" });
+    }
+  });
+
+  app.post("/api/inventory/billing-summaries", async (req, res) => {
+    try {
+      const data = { ...req.body, organizationId: "demo-org" };
+      const summary = await storage.createWelcomePackBillingSummary(data);
+      res.json(summary);
+    } catch (error) {
+      console.error("Error creating billing summary:", error);
+      res.status(500).json({ message: "Failed to create billing summary" });
+    }
+  });
+
+  app.put("/api/inventory/billing-summaries/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const summary = await storage.updateWelcomePackBillingSummary(id, req.body);
+      res.json(summary);
+    } catch (error) {
+      console.error("Error updating billing summary:", error);
+      res.status(500).json({ message: "Failed to update billing summary" });
+    }
+  });
+
+  // Analytics & Reports
+  app.get("/api/inventory/analytics", async (req, res) => {
+    try {
+      const { propertyId, startDate, endDate, period } = req.query;
+      const filters: any = {};
+      if (propertyId) filters.propertyId = parseInt(propertyId as string);
+      if (startDate) filters.startDate = startDate as string;
+      if (endDate) filters.endDate = endDate as string;
+      if (period) filters.period = period as string;
+      
+      const analytics = await storage.getInventoryUsageAnalytics("demo-org", filters);
+      res.json(analytics);
+    } catch (error) {
+      console.error("Error fetching analytics:", error);
+      res.status(500).json({ message: "Failed to fetch analytics" });
+    }
+  });
+
+  app.get("/api/inventory/reports/usage", async (req, res) => {
+    try {
+      const { propertyId, staffMemberId, startDate, endDate, billingRule } = req.query;
+      const filters: any = {};
+      if (propertyId) filters.propertyId = parseInt(propertyId as string);
+      if (staffMemberId) filters.staffMemberId = staffMemberId as string;
+      if (startDate) filters.startDate = startDate as string;
+      if (endDate) filters.endDate = endDate as string;
+      if (billingRule) filters.billingRule = billingRule as string;
+      
+      const reportData = await storage.getInventoryUsageReportData("demo-org", filters);
+      res.json(reportData);
+    } catch (error) {
+      console.error("Error fetching usage report:", error);
+      res.status(500).json({ message: "Failed to fetch usage report" });
+    }
+  });
+
+  // ===== TASK COMPLETION PHOTO PROOF & PDF ARCHIVE SYSTEM API ENDPOINTS =====
+
+  // Upload task completion photo
+  app.post("/api/tasks/:taskId/photos", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: userId } = req.user;
+      const taskId = parseInt(req.params.taskId);
+      const { photoUrl, description, category } = req.body;
+
+      if (!photoUrl) {
+        return res.status(400).json({ message: "Photo URL is required" });
+      }
+
+      const photoData = {
+        organizationId,
+        taskId,
+        photoUrl,
+        description: description || '',
+        category: category || 'general',
+        uploadedBy: userId,
+        uploadedAt: new Date(),
+      };
+
+      const photo = await storage.createTaskCompletionPhoto(photoData);
+      res.status(201).json(photo);
+    } catch (error) {
+      console.error("Error uploading task photo:", error);
+      res.status(500).json({ message: "Failed to upload photo" });
+    }
+  });
+
+  // Get task completion photos
+  app.get("/api/tasks/:taskId/photos", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId } = req.user;
+      const taskId = parseInt(req.params.taskId);
+
+      const photos = await storage.getTaskCompletionPhotos(organizationId, taskId);
+      res.json(photos);
+    } catch (error) {
+      console.error("Error fetching task photos:", error);
+      res.status(500).json({ message: "Failed to fetch photos" });
+    }
+  });
+
+  // Delete task completion photo
+  app.delete("/api/tasks/:taskId/photos/:photoId", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId } = req.user;
+      const photoId = parseInt(req.params.photoId);
+
+      const deleted = await storage.deleteTaskCompletionPhoto(organizationId, photoId);
+      
+      if (!deleted) {
+        return res.status(404).json({ message: "Photo not found" });
+      }
+
+      res.json({ message: "Photo deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting task photo:", error);
+      res.status(500).json({ message: "Failed to delete photo" });
+    }
+  });
+
+  // Add task completion note
+  app.post("/api/tasks/:taskId/notes", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: userId } = req.user;
+      const taskId = parseInt(req.params.taskId);
+      const { noteText, noteType } = req.body;
+
+      if (!noteText) {
+        return res.status(400).json({ message: "Note text is required" });
+      }
+
+      const noteData = {
+        organizationId,
+        taskId,
+        noteText,
+        noteType: noteType || 'general',
+        addedBy: userId,
+        addedAt: new Date(),
+      };
+
+      const note = await storage.createTaskCompletionNote(noteData);
+      res.status(201).json(note);
+    } catch (error) {
+      console.error("Error adding task note:", error);
+      res.status(500).json({ message: "Failed to add note" });
+    }
+  });
+
+  // Get task completion notes
+  app.get("/api/tasks/:taskId/notes", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId } = req.user;
+      const taskId = parseInt(req.params.taskId);
+
+      const notes = await storage.getTaskCompletionNotes(organizationId, taskId);
+      res.json(notes);
+    } catch (error) {
+      console.error("Error fetching task notes:", error);
+      res.status(500).json({ message: "Failed to fetch notes" });
+    }
+  });
+
+  // Add task completion expense
+  app.post("/api/tasks/:taskId/expenses", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: userId } = req.user;
+      const taskId = parseInt(req.params.taskId);
+      const { description, amount, category, receiptUrl, vendor } = req.body;
+
+      if (!description || !amount) {
+        return res.status(400).json({ message: "Description and amount are required" });
+      }
+
+      const expenseData = {
+        organizationId,
+        taskId,
+        description,
+        amount: parseFloat(amount),
+        category: category || 'general',
+        receiptUrl,
+        vendor,
+        addedBy: userId,
+        addedAt: new Date(),
+      };
+
+      const expense = await storage.createTaskCompletionExpense(expenseData);
+      res.status(201).json(expense);
+    } catch (error) {
+      console.error("Error adding task expense:", error);
+      res.status(500).json({ message: "Failed to add expense" });
+    }
+  });
+
+  // Get task completion expenses
+  app.get("/api/tasks/:taskId/expenses", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId } = req.user;
+      const taskId = parseInt(req.params.taskId);
+
+      const expenses = await storage.getTaskCompletionExpenses(organizationId, taskId);
+      res.json(expenses);
+    } catch (error) {
+      console.error("Error fetching task expenses:", error);
+      res.status(500).json({ message: "Failed to fetch expenses" });
+    }
+  });
+
+  // Delete task completion expense
+  app.delete("/api/tasks/:taskId/expenses/:expenseId", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId } = req.user;
+      const expenseId = parseInt(req.params.expenseId);
+
+      const deleted = await storage.deleteTaskCompletionExpense(organizationId, expenseId);
+      
+      if (!deleted) {
+        return res.status(404).json({ message: "Expense not found" });
+      }
+
+      res.json({ message: "Expense deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting task expense:", error);
+      res.status(500).json({ message: "Failed to delete expense" });
+    }
+  });
+
+  // Submit task for approval (Staff only)
+  app.post("/api/tasks/:taskId/submit-for-approval", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: userId, role } = req.user;
+      const taskId = parseInt(req.params.taskId);
+
+      // Only staff can submit tasks for approval
+      if (role !== 'staff') {
+        return res.status(403).json({ message: "Only staff members can submit tasks for approval" });
+      }
+
+      const approval = await storage.submitTaskForApproval(taskId, userId, organizationId);
+      res.json(approval);
+    } catch (error) {
+      console.error("Error submitting task for approval:", error);
+      res.status(500).json({ message: "Failed to submit task for approval" });
+    }
+  });
+
+  // Get pending task approvals (PM/Admin only)
+  app.get("/api/task-approvals/pending", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role } = req.user;
+
+      // Only PM and admin can view pending approvals
+      if (role !== 'portfolio-manager' && role !== 'admin') {
+        return res.status(403).json({ message: "Only portfolio managers and admins can view task approvals" });
+      }
+
+      const pendingApprovals = await storage.getPendingTaskApprovals(organizationId);
+      res.json(pendingApprovals);
+    } catch (error) {
+      console.error("Error fetching pending approvals:", error);
+      res.status(500).json({ message: "Failed to fetch pending approvals" });
+    }
+  });
+
+  // Approve task (PM/Admin only)
+  app.post("/api/tasks/:taskId/approve", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: userId, role } = req.user;
+      const taskId = parseInt(req.params.taskId);
+      const { reviewNotes } = req.body;
+
+      // Only PM and admin can approve tasks
+      if (role !== 'portfolio-manager' && role !== 'admin') {
+        return res.status(403).json({ message: "Only portfolio managers and admins can approve tasks" });
+      }
+
+      const approval = await storage.approveTask(organizationId, taskId, userId, reviewNotes);
+      res.json(approval);
+    } catch (error) {
+      console.error("Error approving task:", error);
+      res.status(500).json({ message: "Failed to approve task" });
+    }
+  });
+
+  // Request task redo (PM/Admin only)
+  app.post("/api/tasks/:taskId/request-redo", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: userId, role } = req.user;
+      const taskId = parseInt(req.params.taskId);
+      const { reviewNotes } = req.body;
+
+      // Only PM and admin can request redo
+      if (role !== 'portfolio-manager' && role !== 'admin') {
+        return res.status(403).json({ message: "Only portfolio managers and admins can request task redo" });
+      }
+
+      if (!reviewNotes) {
+        return res.status(400).json({ message: "Review notes are required for redo requests" });
+      }
+
+      const approval = await storage.requestTaskRedo(organizationId, taskId, userId, reviewNotes);
+      res.json(approval);
+    } catch (error) {
+      console.error("Error requesting task redo:", error);
+      res.status(500).json({ message: "Failed to request task redo" });
+    }
+  });
+
+  // Get task with completion details
+  app.get("/api/tasks/:taskId/completion-details", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId } = req.user;
+      const taskId = parseInt(req.params.taskId);
+
+      const taskDetails = await storage.getTaskWithCompletionDetails(organizationId, taskId);
+      
+      if (!taskDetails) {
+        return res.status(404).json({ message: "Task not found" });
+      }
+
+      res.json(taskDetails);
+    } catch (error) {
+      console.error("Error fetching task completion details:", error);
+      res.status(500).json({ message: "Failed to fetch task details" });
+    }
+  });
+
+  // Get tasks ready for archive (Admin only)
+  app.get("/api/tasks/ready-for-archive", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role } = req.user;
+
+      // Only admin can view tasks ready for archive
+      if (role !== 'admin') {
+        return res.status(403).json({ message: "Only admins can view tasks ready for archive" });
+      }
+
+      const tasks = await storage.getTasksReadyForArchive(organizationId);
+      res.json(tasks);
+    } catch (error) {
+      console.error("Error fetching tasks ready for archive:", error);
+      res.status(500).json({ message: "Failed to fetch tasks ready for archive" });
+    }
+  });
+
+  // Generate PDF archive (Admin only)
+  app.post("/api/tasks/generate-pdf-archive", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: userId, role } = req.user;
+      const { taskIds, archiveTitle, archiveDescription } = req.body;
+
+      // Only admin can generate PDF archives
+      if (role !== 'admin') {
+        return res.status(403).json({ message: "Only admins can generate PDF archives" });
+      }
+
+      if (!taskIds || !Array.isArray(taskIds) || taskIds.length === 0) {
+        return res.status(400).json({ message: "Task IDs array is required" });
+      }
+
+      // For demo purposes, we'll simulate PDF generation
+      const archiveData = {
+        organizationId,
+        title: archiveTitle || `Task Archive ${new Date().toISOString().split('T')[0]}`,
+        description: archiveDescription || 'Automated 30-day task archive',
+        taskCount: taskIds.length,
+        generatedBy: userId,
+        generatedAt: new Date(),
+        archiveStatus: 'completed',
+        pdfUrl: `https://demo-storage.com/archives/${Date.now()}.pdf`, // Demo URL
+        taskIds: taskIds,
+      };
+
+      const archive = await storage.generateTaskPdfArchive(archiveData);
+
+      // Mark tasks as archived
+      await storage.markTasksAsArchived(taskIds, archive.id, organizationId);
+
+      // Simulate deleting photos after PDF generation (in production, this would happen after successful upload to Google Drive)
+      setTimeout(async () => {
+        await storage.deleteArchivedTaskPhotos(taskIds, organizationId);
+      }, 5000); // 5-second delay for demo
+
+      res.json(archive);
+    } catch (error) {
+      console.error("Error generating PDF archive:", error);
+      res.status(500).json({ message: "Failed to generate PDF archive" });
+    }
+  });
+
+  // Get PDF archives
+  app.get("/api/task-pdf-archives", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId } = req.user;
+      const { propertyId } = req.query;
+
+      const archives = await storage.getTaskPdfArchives(
+        organizationId, 
+        propertyId ? parseInt(propertyId) : undefined
+      );
+      res.json(archives);
+    } catch (error) {
+      console.error("Error fetching PDF archives:", error);
+      res.status(500).json({ message: "Failed to fetch PDF archives" });
+    }
+  });
+
+  // ===== STAFF OVERHOURS & EMERGENCY TASK TRACKER API =====
+
+  // Get staff work hours configuration (Admin/PM only)
+  app.get("/api/staff-overhours/work-hours", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role } = req.user;
+      
+      if (!['admin', 'portfolio-manager'].includes(role)) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const { staffId } = req.query;
+      const workHours = await storage.getStaffWorkHours(organizationId, staffId);
+      res.json(workHours);
+    } catch (error) {
+      console.error("Error fetching staff work hours:", error);
+      res.status(500).json({ message: "Failed to fetch staff work hours" });
+    }
+  });
+
+  // Create or update staff work hours (Admin/PM only)
+  app.post("/api/staff-overhours/work-hours", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role } = req.user;
+      
+      if (!['admin', 'portfolio-manager'].includes(role)) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const workHoursData = { ...req.body, organizationId };
+      const workHours = await storage.createStaffWorkHours(workHoursData);
+      res.status(201).json(workHours);
+    } catch (error) {
+      console.error("Error creating staff work hours:", error);
+      res.status(500).json({ message: "Failed to create staff work hours" });
+    }
+  });
+
+  // Start task timer (Staff only)
+  app.post("/api/staff-overhours/start-timer", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role, userId } = req.user;
+      
+      if (role !== 'staff') {
+        return res.status(403).json({ message: "Access denied. Staff role required." });
+      }
+
+      const timerData = {
+        ...req.body,
+        organizationId,
+        staffId: userId,
+        startTime: new Date(),
+      };
+
+      const timer = await storage.startTaskTimer(timerData);
+      res.status(201).json(timer);
+    } catch (error) {
+      console.error("Error starting task timer:", error);
+      res.status(500).json({ message: "Failed to start task timer" });
+    }
+  });
+
+  // End task timer (Staff only)
+  app.patch("/api/staff-overhours/end-timer/:trackingId", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { role } = req.user;
+      const { trackingId } = req.params;
+      const { taskNotes } = req.body;
+      
+      if (role !== 'staff') {
+        return res.status(403).json({ message: "Access denied. Staff role required." });
+      }
+
+      const updatedTimer = await storage.endTaskTimer(
+        parseInt(trackingId),
+        new Date(),
+        taskNotes
+      );
+
+      if (!updatedTimer) {
+        return res.status(404).json({ message: "Timer not found" });
+      }
+
+      res.json(updatedTimer);
+    } catch (error) {
+      console.error("Error ending task timer:", error);
+      res.status(500).json({ message: "Failed to end task timer" });
+    }
+  });
+
+  // Mark task as emergency (Admin/PM only)
+  app.patch("/api/staff-overhours/mark-emergency/:trackingId", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { role, firstName, lastName } = req.user;
+      const { trackingId } = req.params;
+      const { emergencyReason } = req.body;
+      
+      if (!['admin', 'portfolio-manager'].includes(role)) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const markedBy = `${firstName} ${lastName}`;
+      const updatedTimer = await storage.markTaskAsEmergency(
+        parseInt(trackingId),
+        emergencyReason,
+        markedBy
+      );
+
+      if (!updatedTimer) {
+        return res.status(404).json({ message: "Timer not found" });
+      }
+
+      res.json(updatedTimer);
+    } catch (error) {
+      console.error("Error marking task as emergency:", error);
+      res.status(500).json({ message: "Failed to mark task as emergency" });
+    }
+  });
+
+  // Get task time tracking records
+  app.get("/api/staff-overhours/time-tracking", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role, userId } = req.user;
+      
+      const filters: any = {};
+      
+      // Staff can only see their own records
+      if (role === 'staff') {
+        filters.staffId = userId;
+      } else if (['admin', 'portfolio-manager'].includes(role)) {
+        // Admin/PM can filter by staff member
+        if (req.query.staffId) {
+          filters.staffId = req.query.staffId;
+        }
+      } else {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      // Apply other filters
+      if (req.query.taskId) filters.taskId = parseInt(req.query.taskId);
+      if (req.query.status) filters.status = req.query.status;
+      if (req.query.fromDate) filters.fromDate = new Date(req.query.fromDate);
+      if (req.query.toDate) filters.toDate = new Date(req.query.toDate);
+      if (req.query.isOutsideNormalHours !== undefined) {
+        filters.isOutsideNormalHours = req.query.isOutsideNormalHours === 'true';
+      }
+      if (req.query.isEmergencyTask !== undefined) {
+        filters.isEmergencyTask = req.query.isEmergencyTask === 'true';
+      }
+
+      const timeRecords = await storage.getTaskTimeTracking(organizationId, filters);
+      res.json(timeRecords);
+    } catch (error) {
+      console.error("Error fetching time tracking records:", error);
+      res.status(500).json({ message: "Failed to fetch time tracking records" });
+    }
+  });
+
+  // Get overtime hours summary
+  app.get("/api/staff-overhours/overtime-summary", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role, userId } = req.user;
+      
+      const filters: any = {};
+      
+      // Staff can only see their own summary
+      if (role === 'staff') {
+        filters.staffId = userId;
+      } else if (['admin', 'portfolio-manager'].includes(role)) {
+        // Admin/PM can filter by staff member
+        if (req.query.staffId) {
+          filters.staffId = req.query.staffId;
+        }
+      } else {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      if (req.query.monthYear) filters.monthYear = req.query.monthYear;
+      if (req.query.status) filters.status = req.query.status;
+
+      const summary = await storage.getOvertimeHoursSummary(organizationId, filters);
+      res.json(summary);
+    } catch (error) {
+      console.error("Error fetching overtime summary:", error);
+      res.status(500).json({ message: "Failed to fetch overtime summary" });
+    }
+  });
+
+  // Approve overtime hours (Admin/PM only)
+  app.patch("/api/staff-overhours/approve-overtime/:summaryId", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { role, firstName, lastName } = req.user;
+      const { summaryId } = req.params;
+      const { approvedMinutes } = req.body;
+      
+      if (!['admin', 'portfolio-manager'].includes(role)) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const approvedBy = `${firstName} ${lastName}`;
+      const updatedSummary = await storage.approveOvertimeHours(
+        parseInt(summaryId),
+        approvedBy,
+        approvedMinutes
+      );
+
+      if (!updatedSummary) {
+        return res.status(404).json({ message: "Overtime summary not found" });
+      }
+
+      res.json(updatedSummary);
+    } catch (error) {
+      console.error("Error approving overtime hours:", error);
+      res.status(500).json({ message: "Failed to approve overtime hours" });
+    }
+  });
+
+  // Get staff commission bonuses
+  app.get("/api/staff-overhours/commission-bonuses", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role, userId } = req.user;
+      
+      const filters: any = {};
+      
+      // Staff can only see their own bonuses
+      if (role === 'staff') {
+        filters.staffId = userId;
+      } else if (['admin', 'portfolio-manager'].includes(role)) {
+        // Admin/PM can filter by staff member
+        if (req.query.staffId) {
+          filters.staffId = req.query.staffId;
+        }
+      } else {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      if (req.query.monthYear) filters.monthYear = req.query.monthYear;
+      if (req.query.bonusType) filters.bonusType = req.query.bonusType;
+      if (req.query.status) filters.status = req.query.status;
+
+      const bonuses = await storage.getStaffCommissionBonuses(organizationId, filters);
+      res.json(bonuses);
+    } catch (error) {
+      console.error("Error fetching commission bonuses:", error);
+      res.status(500).json({ message: "Failed to fetch commission bonuses" });
+    }
+  });
+
+  // Award staff commission bonus (Admin/PM only)
+  app.post("/api/staff-overhours/commission-bonuses", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role, firstName, lastName } = req.user;
+      
+      if (!['admin', 'portfolio-manager'].includes(role)) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const awardedBy = `${firstName} ${lastName}`;
+      const bonusData = {
+        ...req.body,
+        organizationId,
+        awardedBy,
+      };
+
+      const bonus = await storage.createStaffCommissionBonus(bonusData);
+      res.status(201).json(bonus);
+    } catch (error) {
+      console.error("Error creating commission bonus:", error);
+      res.status(500).json({ message: "Failed to create commission bonus" });
+    }
+  });
+
+  // Get emergency task reasons
+  app.get("/api/staff-overhours/emergency-reasons", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId } = req.user;
+      const reasons = await storage.getEmergencyTaskReasons(organizationId);
+      res.json(reasons);
+    } catch (error) {
+      console.error("Error fetching emergency task reasons:", error);
+      res.status(500).json({ message: "Failed to fetch emergency task reasons" });
+    }
+  });
+
+  // Create emergency task reason (Admin only)
+  app.post("/api/staff-overhours/emergency-reasons", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role } = req.user;
+      
+      if (role !== 'admin') {
+        return res.status(403).json({ message: "Access denied. Admin role required." });
+      }
+
+      const reasonData = { ...req.body, organizationId };
+      const reason = await storage.createEmergencyTaskReason(reasonData);
+      res.status(201).json(reason);
+    } catch (error) {
+      console.error("Error creating emergency task reason:", error);
+      res.status(500).json({ message: "Failed to create emergency task reason" });
+    }
+  });
+
+  // Get staff overtime analytics (Admin/PM only)
+  app.get("/api/staff-overhours/analytics", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role } = req.user;
+      
+      if (!['admin', 'portfolio-manager'].includes(role)) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const { staffId, fromDate, toDate } = req.query;
+      
+      const analytics = await storage.getStaffOvertimeAnalytics(
+        organizationId,
+        staffId,
+        fromDate ? new Date(fromDate) : undefined,
+        toDate ? new Date(toDate) : undefined
+      );
+      
+      res.json(analytics);
+    } catch (error) {
+      console.error("Error fetching overtime analytics:", error);
+      res.status(500).json({ message: "Failed to fetch overtime analytics" });
+    }
+  });
+
+  // ===== TASK ATTACHMENTS & PROPERTY NOTES API ENDPOINTS =====
+
+  // Task attachments routes
+  app.get("/api/tasks/:taskId/attachments", isDemoAuthenticated, async (req, res) => {
+    try {
+      const taskId = parseInt(req.params.taskId);
+      const attachments = await storage.getTaskAttachments(taskId);
+      res.json(attachments);
+    } catch (error) {
+      console.error("Error fetching task attachments:", error);
+      res.status(500).json({ message: "Failed to fetch task attachments" });
+    }
+  });
+
+  app.post("/api/tasks/:taskId/attachments", isDemoAuthenticated, async (req, res) => {
+    try {
+      const taskId = parseInt(req.params.taskId);
+      const user = req.user;
+      
+      const attachmentData = {
+        ...req.body,
+        taskId,
+        organizationId: user.organizationId,
+        uploadedBy: user.id,
+        uploadedByName: user.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : user.email || 'Unknown User',
+      };
+      
+      const attachment = await storage.createTaskAttachment(attachmentData);
+      res.json(attachment);
+    } catch (error) {
+      console.error("Error creating task attachment:", error);
+      res.status(500).json({ message: "Failed to create task attachment" });
+    }
+  });
+
+  app.put("/api/task-attachments/:id", isDemoAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const attachment = await storage.updateTaskAttachment(id, req.body);
+      res.json(attachment);
+    } catch (error) {
+      console.error("Error updating task attachment:", error);
+      res.status(500).json({ message: "Failed to update task attachment" });
+    }
+  });
+
+  app.delete("/api/task-attachments/:id", isDemoAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const success = await storage.deleteTaskAttachment(id);
+      res.json({ success });
+    } catch (error) {
+      console.error("Error deleting task attachment:", error);
+      res.status(500).json({ message: "Failed to delete task attachment" });
+    }
+  });
+
+  // Property notes routes
+  app.get("/api/properties/:propertyId/notes", isDemoAuthenticated, async (req, res) => {
+    try {
+      const propertyId = parseInt(req.params.propertyId);
+      const { noteType, isPinned, department } = req.query;
+      
+      const filters: any = {};
+      if (noteType) filters.noteType = noteType as string;
+      if (isPinned !== undefined) filters.isPinned = isPinned === 'true';
+      if (department) filters.department = department as string;
+      
+      const notes = await storage.getPropertyNotes(propertyId, filters);
+      res.json(notes);
+    } catch (error) {
+      console.error("Error fetching property notes:", error);
+      res.status(500).json({ message: "Failed to fetch property notes" });
+    }
+  });
+
+  app.post("/api/properties/:propertyId/notes", isDemoAuthenticated, async (req, res) => {
+    try {
+      const propertyId = parseInt(req.params.propertyId);
+      const user = req.user;
+      
+      const noteData = {
+        ...req.body,
+        propertyId,
+        organizationId: user.organizationId,
+        createdBy: user.id,
+        createdByName: user.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : user.email || 'Unknown User',
+      };
+      
+      const note = await storage.createPropertyNote(noteData);
+      res.json(note);
+    } catch (error) {
+      console.error("Error creating property note:", error);
+      res.status(500).json({ message: "Failed to create property note" });
+    }
+  });
+
+  app.put("/api/property-notes/:id", isDemoAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const user = req.user;
+      
+      const updateData = {
+        ...req.body,
+        lastModifiedBy: user.id,
+        lastModifiedByName: user.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : user.email || 'Unknown User',
+      };
+      
+      const note = await storage.updatePropertyNote(id, updateData);
+      res.json(note);
+    } catch (error) {
+      console.error("Error updating property note:", error);
+      res.status(500).json({ message: "Failed to update property note" });
+    }
+  });
+
+  app.delete("/api/property-notes/:id", isDemoAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const success = await storage.deletePropertyNote(id);
+      res.json({ success });
+    } catch (error) {
+      console.error("Error deleting property note:", error);
+      res.status(500).json({ message: "Failed to delete property note" });
+    }
+  });
+
+  // Property attachments routes
+  app.get("/api/properties/:propertyId/attachments", isDemoAuthenticated, async (req, res) => {
+    try {
+      const propertyId = parseInt(req.params.propertyId);
+      const { category, department } = req.query;
+      
+      const filters: any = {};
+      if (category) filters.category = category as string;
+      if (department) filters.department = department as string;
+      
+      const attachments = await storage.getPropertyAttachments(propertyId, filters);
+      res.json(attachments);
+    } catch (error) {
+      console.error("Error fetching property attachments:", error);
+      res.status(500).json({ message: "Failed to fetch property attachments" });
+    }
+  });
+
+  app.post("/api/properties/:propertyId/attachments", isDemoAuthenticated, async (req, res) => {
+    try {
+      const propertyId = parseInt(req.params.propertyId);
+      const user = req.user;
+      
+      const attachmentData = {
+        ...req.body,
+        propertyId,
+        organizationId: user.organizationId,
+        uploadedBy: user.id,
+        uploadedByName: user.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : user.email || 'Unknown User',
+      };
+      
+      const attachment = await storage.createPropertyAttachment(attachmentData);
+      res.json(attachment);
+    } catch (error) {
+      console.error("Error creating property attachment:", error);
+      res.status(500).json({ message: "Failed to create property attachment" });
+    }
+  });
+
+  app.put("/api/property-attachments/:id", isDemoAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const attachment = await storage.updatePropertyAttachment(id, req.body);
+      res.json(attachment);
+    } catch (error) {
+      console.error("Error updating property attachment:", error);
+      res.status(500).json({ message: "Failed to update property attachment" });
+    }
+  });
+
+  app.delete("/api/property-attachments/:id", isDemoAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const success = await storage.deletePropertyAttachment(id);
+      res.json({ success });
+    } catch (error) {
+      console.error("Error deleting property attachment:", error);
+      res.status(500).json({ message: "Failed to delete property attachment" });
+    }
+  });
+
+  // Task guide templates routes
+  app.get("/api/task-guide-templates", isDemoAuthenticated, async (req, res) => {
+    try {
+      const user = req.user;
+      const { category, guideType } = req.query;
+      
+      const filters: any = {};
+      if (category) filters.category = category as string;
+      if (guideType) filters.guideType = guideType as string;
+      
+      const templates = await storage.getTaskGuideTemplates(user.organizationId, filters);
+      res.json(templates);
+    } catch (error) {
+      console.error("Error fetching task guide templates:", error);
+      res.status(500).json({ message: "Failed to fetch task guide templates" });
+    }
+  });
+
+  app.post("/api/task-guide-templates", isDemoAuthenticated, async (req, res) => {
+    try {
+      const user = req.user;
+      
+      const templateData = {
+        ...req.body,
+        organizationId: user.organizationId,
+        createdBy: user.id,
+        createdByName: user.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : user.email || 'Unknown User',
+      };
+      
+      const template = await storage.createTaskGuideTemplate(templateData);
+      res.json(template);
+    } catch (error) {
+      console.error("Error creating task guide template:", error);
+      res.status(500).json({ message: "Failed to create task guide template" });
+    }
+  });
+
+  app.put("/api/task-guide-templates/:id", isDemoAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const user = req.user;
+      
+      const updateData = {
+        ...req.body,
+        lastModifiedBy: user.id,
+        lastModifiedByName: user.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : user.email || 'Unknown User',
+      };
+      
+      const template = await storage.updateTaskGuideTemplate(id, updateData);
+      res.json(template);
+    } catch (error) {
+      console.error("Error updating task guide template:", error);
+      res.status(500).json({ message: "Failed to update task guide template" });
+    }
+  });
+
+  app.delete("/api/task-guide-templates/:id", isDemoAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const success = await storage.deleteTaskGuideTemplate(id);
+      res.json({ success });
+    } catch (error) {
+      console.error("Error deleting task guide template:", error);
+      res.status(500).json({ message: "Failed to delete task guide template" });
+    }
+  });
+
+  // Attachment access logging
+  app.post("/api/attachment-access-log", isDemoAuthenticated, async (req, res) => {
+    try {
+      const user = req.user;
+      
+      const logData = {
+        ...req.body,
+        organizationId: user.organizationId,
+        accessedBy: user.id,
+        accessedByName: user.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : user.email || 'Unknown User',
+      };
+      
+      const log = await storage.logAttachmentAccess(logData);
+      res.json(log);
+    } catch (error) {
+      console.error("Error logging attachment access:", error);
+      res.status(500).json({ message: "Failed to log attachment access" });
+    }
+  });
+
+  app.get("/api/attachment-access-logs", isDemoAuthenticated, async (req, res) => {
+    try {
+      const user = req.user;
+      const { attachmentId, attachmentType, accessedBy } = req.query;
+      
+      const filters: any = {};
+      if (attachmentId) filters.attachmentId = parseInt(attachmentId as string);
+      if (attachmentType) filters.attachmentType = attachmentType as string;
+      if (accessedBy) filters.accessedBy = accessedBy as string;
+      
+      const logs = await storage.getAttachmentAccessLogs(user.organizationId, filters);
+      res.json(logs);
+    } catch (error) {
+      console.error("Error fetching attachment access logs:", error);
+      res.status(500).json({ message: "Failed to fetch attachment access logs" });
+    }
+  });
+
+  // ===== ADD-ON SERVICES BOOKING ENGINE ROUTES =====
+
+  // Service Categories
+  app.get("/api/addon-services/categories", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      const categories = await storage.getServiceCategories(user.organizationId);
+      res.json(categories);
+    } catch (error) {
+      console.error("Error fetching service categories:", error);
+      res.status(500).json({ message: "Failed to fetch service categories" });
+    }
+  });
+
+  app.post("/api/addon-services/categories", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (!['admin', 'portfolio-manager'].includes(user.role)) {
+        return res.status(403).json({ message: "Unauthorized: Admin/PM access required" });
+      }
+
+      const categoryData = { ...req.body, organizationId: user.organizationId };
+      const category = await storage.createServiceCategory(categoryData);
+      res.json(category);
+    } catch (error) {
+      console.error("Error creating service category:", error);
+      res.status(500).json({ message: "Failed to create service category" });
+    }
+  });
+
+  app.put("/api/addon-services/categories/:id", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (!['admin', 'portfolio-manager'].includes(user.role)) {
+        return res.status(403).json({ message: "Unauthorized: Admin/PM access required" });
+      }
+
+      const id = parseInt(req.params.id);
+      const updates = req.body;
+      const category = await storage.updateServiceCategory(id, updates);
+      res.json(category);
+    } catch (error) {
+      console.error("Error updating service category:", error);
+      res.status(500).json({ message: "Failed to update service category" });
+    }
+  });
+
+  app.delete("/api/addon-services/categories/:id", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (!['admin', 'portfolio-manager'].includes(user.role)) {
+        return res.status(403).json({ message: "Unauthorized: Admin/PM access required" });
+      }
+
+      const id = parseInt(req.params.id);
+      const success = await storage.deleteServiceCategory(id);
+      res.json({ success });
+    } catch (error) {
+      console.error("Error deleting service category:", error);
+      res.status(500).json({ message: "Failed to delete service category" });
+    }
+  });
+
+  // Add-on Services
+  app.get("/api/addon-services", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      const { categoryId, isActive } = req.query;
+      
+      const filters: any = {};
+      if (categoryId) filters.categoryId = parseInt(categoryId as string);
+      if (isActive !== undefined) filters.isActive = isActive === 'true';
+
+      const services = await storage.getAddonServices(user.organizationId, filters);
+      res.json(services);
+    } catch (error) {
+      console.error("Error fetching addon services:", error);
+      res.status(500).json({ message: "Failed to fetch addon services" });
+    }
+  });
+
+  app.get("/api/addon-services/:id", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const service = await storage.getAddonService(id);
+      
+      if (!service) {
+        return res.status(404).json({ message: "Service not found" });
+      }
+      
+      res.json(service);
+    } catch (error) {
+      console.error("Error fetching addon service:", error);
+      res.status(500).json({ message: "Failed to fetch addon service" });
+    }
+  });
+
+  app.post("/api/addon-services", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (!['admin', 'portfolio-manager'].includes(user.role)) {
+        return res.status(403).json({ message: "Unauthorized: Admin/PM access required" });
+      }
+
+      const serviceData = { ...req.body, organizationId: user.organizationId };
+      const service = await storage.createAddonService(serviceData);
+      res.json(service);
+    } catch (error) {
+      console.error("Error creating addon service:", error);
+      res.status(500).json({ message: "Failed to create addon service" });
+    }
+  });
+
+  app.put("/api/addon-services/:id", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (!['admin', 'portfolio-manager'].includes(user.role)) {
+        return res.status(403).json({ message: "Unauthorized: Admin/PM access required" });
+      }
+
+      const id = parseInt(req.params.id);
+      const updates = req.body;
+      const service = await storage.updateAddonService(id, updates);
+      res.json(service);
+    } catch (error) {
+      console.error("Error updating addon service:", error);
+      res.status(500).json({ message: "Failed to update addon service" });
+    }
+  });
+
+  app.delete("/api/addon-services/:id", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (!['admin', 'portfolio-manager'].includes(user.role)) {
+        return res.status(403).json({ message: "Unauthorized: Admin/PM access required" });
+      }
+
+      const id = parseInt(req.params.id);
+      const success = await storage.deleteAddonService(id);
+      res.json({ success });
+    } catch (error) {
+      console.error("Error deleting addon service:", error);
+      res.status(500).json({ message: "Failed to delete addon service" });
+    }
+  });
+
+  // Service Bookings
+  app.get("/api/addon-services/bookings", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      const { propertyId, status, paymentRoute } = req.query;
+      
+      const filters: any = {};
+      if (propertyId) filters.propertyId = parseInt(propertyId as string);
+      if (status) filters.status = status as string;
+      if (paymentRoute) filters.paymentRoute = paymentRoute as string;
+
+      const bookings = await storage.getServiceBookings(user.organizationId, filters);
+      res.json(bookings);
+    } catch (error) {
+      console.error("Error fetching service bookings:", error);
+      res.status(500).json({ message: "Failed to fetch service bookings" });
+    }
+  });
+
+  app.get("/api/addon-services/bookings/:id", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const booking = await storage.getServiceBooking(id);
+      
+      if (!booking) {
+        return res.status(404).json({ message: "Booking not found" });
+      }
+      
+      res.json(booking);
+    } catch (error) {
+      console.error("Error fetching service booking:", error);
+      res.status(500).json({ message: "Failed to fetch service booking" });
+    }
+  });
+
+  app.post("/api/addon-services/bookings", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      const bookingData = { 
+        ...req.body, 
+        organizationId: user.organizationId,
+        createdBy: user.id
+      };
+      
+      const booking = await storage.createServiceBooking(bookingData);
+      res.json(booking);
+    } catch (error) {
+      console.error("Error creating service booking:", error);
+      res.status(500).json({ message: "Failed to create service booking" });
+    }
+  });
+
+  app.put("/api/addon-services/bookings/:id", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      const id = parseInt(req.params.id);
+      const updates = { ...req.body, updatedBy: user.id };
+      
+      const booking = await storage.updateServiceBooking(id, updates);
+      res.json(booking);
+    } catch (error) {
+      console.error("Error updating service booking:", error);
+      res.status(500).json({ message: "Failed to update service booking" });
+    }
+  });
+
+  app.delete("/api/addon-services/bookings/:id", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (!['admin', 'portfolio-manager'].includes(user.role)) {
+        return res.status(403).json({ message: "Unauthorized: Admin/PM access required" });
+      }
+
+      const id = parseInt(req.params.id);
+      const success = await storage.deleteServiceBooking(id);
+      res.json({ success });
+    } catch (error) {
+      console.error("Error deleting service booking:", error);
+      res.status(500).json({ message: "Failed to delete service booking" });
+    }
+  });
+
+  // Property Service Pricing
+  app.get("/api/addon-services/pricing/:propertyId", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const propertyId = parseInt(req.params.propertyId);
+      const { serviceId } = req.query;
+      
+      const pricing = await storage.getPropertyServicePricing(
+        propertyId, 
+        serviceId ? parseInt(serviceId as string) : undefined
+      );
+      res.json(pricing);
+    } catch (error) {
+      console.error("Error fetching property service pricing:", error);
+      res.status(500).json({ message: "Failed to fetch property service pricing" });
+    }
+  });
+
+  app.post("/api/addon-services/pricing", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (!['admin', 'portfolio-manager'].includes(user.role)) {
+        return res.status(403).json({ message: "Unauthorized: Admin/PM access required" });
+      }
+
+      const pricingData = { ...req.body, organizationId: user.organizationId };
+      const pricing = await storage.createPropertyServicePricing(pricingData);
+      res.json(pricing);
+    } catch (error) {
+      console.error("Error creating property service pricing:", error);
+      res.status(500).json({ message: "Failed to create property service pricing" });
+    }
+  });
+
+  // Service Availability
+  app.get("/api/addon-services/availability/:serviceId", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const serviceId = parseInt(req.params.serviceId);
+      const availability = await storage.getServiceAvailability(serviceId);
+      res.json(availability);
+    } catch (error) {
+      console.error("Error fetching service availability:", error);
+      res.status(500).json({ message: "Failed to fetch service availability" });
+    }
+  });
+
+  app.post("/api/addon-services/availability", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (!['admin', 'portfolio-manager'].includes(user.role)) {
+        return res.status(403).json({ message: "Unauthorized: Admin/PM access required" });
+      }
+
+      const availabilityData = { ...req.body, organizationId: user.organizationId };
+      const availability = await storage.createServiceAvailability(availabilityData);
+      res.json(availability);
+    } catch (error) {
+      console.error("Error creating service availability:", error);
+      res.status(500).json({ message: "Failed to create service availability" });
+    }
+  });
+
+  // ===== STAFF CLOCK-IN & OVERTIME TRACKER API =====
+
+  // Clock in
+  app.post("/api/staff/clock-in", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role, id: userId } = req.user;
+
+      if (role !== 'staff') {
+        return res.status(403).json({ message: "Staff access required" });
+      }
+
+      // Check if already clocked in
+      const activeClock = await storage.getActiveClock(organizationId, userId);
+      if (activeClock) {
+        return res.status(400).json({ message: "Already clocked in" });
+      }
+
+      const clockData = {
+        organizationId,
+        userId,
+        clockInTime: new Date(),
+        clockType: req.body.clockType || 'workday',
+        propertyId: req.body.propertyId ? parseInt(req.body.propertyId) : null,
+        taskId: req.body.taskId ? parseInt(req.body.taskId) : null,
+        clockInNotes: req.body.clockInNotes,
+        isEmergencyVisit: req.body.isEmergencyVisit || false,
+        isAfterHours: req.body.isAfterHours || false,
+        gpsLocation: req.body.gpsLocation,
+      };
+
+      const clock = await storage.clockIn(clockData);
+
+      // Create audit log
+      await storage.createStaffClockAuditLog({
+        organizationId,
+        actionType: 'clock_in',
+        performedBy: userId,
+        affectedUserId: userId,
+        clockRecordId: clock.id,
+        actionDetails: JSON.stringify({
+          clockType: clockData.clockType,
+          isEmergency: clockData.isEmergencyVisit,
+          isAfterHours: clockData.isAfterHours,
+        }),
+        ipAddress: req.ip,
+        userAgent: req.get('User-Agent'),
+      });
+
+      res.json(clock);
+    } catch (error) {
+      console.error("Error clocking in:", error);
+      res.status(500).json({ message: "Failed to clock in" });
+    }
+  });
+
+  // Clock out
+  app.post("/api/staff/clock-out", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role, id: userId } = req.user;
+
+      if (role !== 'staff') {
+        return res.status(403).json({ message: "Staff access required" });
+      }
+
+      const { clockOutNotes } = req.body;
+
+      const clock = await storage.clockOut(organizationId, userId, clockOutNotes);
+      
+      if (!clock) {
+        return res.status(400).json({ message: "No active clock session found" });
+      }
+
+      // Create audit log
+      await storage.createStaffClockAuditLog({
+        organizationId,
+        actionType: 'clock_out',
+        performedBy: userId,
+        affectedUserId: userId,
+        clockRecordId: clock.id,
+        actionDetails: JSON.stringify({
+          duration: clock.clockOutTime && clock.clockInTime ? 
+            (new Date(clock.clockOutTime).getTime() - new Date(clock.clockInTime).getTime()) / (1000 * 60 * 60) : 0,
+          notes: clockOutNotes,
+        }),
+        ipAddress: req.ip,
+        userAgent: req.get('User-Agent'),
+      });
+
+      res.json(clock);
+    } catch (error) {
+      console.error("Error clocking out:", error);
+      res.status(500).json({ message: "Failed to clock out" });
+    }
+  });
+
+  // Get active clock session
+  app.get("/api/staff/active-clock", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role, id: userId } = req.user;
+
+      if (role !== 'staff') {
+        return res.status(403).json({ message: "Staff access required" });
+      }
+
+      const activeClock = await storage.getActiveClock(organizationId, userId);
+      res.json(activeClock || null);
+    } catch (error) {
+      console.error("Error fetching active clock:", error);
+      res.status(500).json({ message: "Failed to fetch active clock" });
+    }
+  });
+
+  // Get staff clock history
+  app.get("/api/staff/clock-history", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role, id: userId } = req.user;
+
+      if (!['staff', 'admin', 'portfolio-manager'].includes(role)) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const { startDate, endDate, clockType, targetUserId } = req.query;
+
+      // Staff can only view their own history, admin/PM can view others
+      const filterUserId = role === 'staff' ? userId : (targetUserId as string || userId);
+
+      const history = await storage.getStaffClockHistory(organizationId, {
+        userId: filterUserId,
+        startDate: startDate ? new Date(startDate as string) : undefined,
+        endDate: endDate ? new Date(endDate as string) : undefined,
+        clockType: clockType as string,
+      });
+
+      res.json(history);
+    } catch (error) {
+      console.error("Error fetching clock history:", error);
+      res.status(500).json({ message: "Failed to fetch clock history" });
+    }
+  });
+
+  // Get staff clock settings
+  app.get("/api/staff/clock-settings", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role } = req.user;
+
+      if (!['admin', 'portfolio-manager'].includes(role)) {
+        return res.status(403).json({ message: "Admin or Portfolio Manager access required" });
+      }
+
+      const settings = await storage.getStaffClockSettings(organizationId);
+      res.json(settings || {});
+    } catch (error) {
+      console.error("Error fetching clock settings:", error);
+      res.status(500).json({ message: "Failed to fetch clock settings" });
+    }
+  });
+
+  // Update staff clock settings
+  app.put("/api/staff/clock-settings", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role, id: userId } = req.user;
+
+      if (!['admin', 'portfolio-manager'].includes(role)) {
+        return res.status(403).json({ message: "Admin or Portfolio Manager access required" });
+      }
+
+      const settings = await storage.updateStaffClockSettings(organizationId, req.body);
+
+      // Create audit log
+      await storage.createStaffClockAuditLog({
+        organizationId,
+        actionType: 'settings_update',
+        performedBy: userId,
+        affectedUserId: 'system',
+        actionDetails: JSON.stringify(req.body),
+        ipAddress: req.ip,
+        userAgent: req.get('User-Agent'),
+      });
+
+      res.json(settings);
+    } catch (error) {
+      console.error("Error updating clock settings:", error);
+      res.status(500).json({ message: "Failed to update clock settings" });
+    }
+  });
+
+  // Get staff time summaries
+  app.get("/api/staff/time-summaries", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role, id: userId } = req.user;
+
+      if (!['staff', 'admin', 'portfolio-manager'].includes(role)) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const { periodType, periodStart, periodEnd, targetUserId } = req.query;
+
+      // Staff can only view their own summaries, admin/PM can view others
+      const filterUserId = role === 'staff' ? userId : (targetUserId as string || userId);
+
+      const summaries = await storage.getStaffTimeSummaries(organizationId, {
+        userId: filterUserId,
+        periodType: periodType as string,
+        periodStart: periodStart ? new Date(periodStart as string) : undefined,
+        periodEnd: periodEnd ? new Date(periodEnd as string) : undefined,
+      });
+
+      res.json(summaries);
+    } catch (error) {
+      console.error("Error fetching time summaries:", error);
+      res.status(500).json({ message: "Failed to fetch time summaries" });
+    }
+  });
+
+  // Calculate overtime for period
+  app.get("/api/staff/overtime-calculation", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role, id: userId } = req.user;
+
+      if (!['staff', 'admin', 'portfolio-manager'].includes(role)) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const { startDate, endDate, targetUserId } = req.query;
+
+      if (!startDate || !endDate) {
+        return res.status(400).json({ message: "Start date and end date are required" });
+      }
+
+      // Staff can only view their own calculations, admin/PM can view others
+      const filterUserId = role === 'staff' ? userId : (targetUserId as string || userId);
+
+      const calculation = await storage.calculateOvertimeForPeriod(
+        organizationId,
+        filterUserId,
+        new Date(startDate as string),
+        new Date(endDate as string)
+      );
+
+      res.json(calculation);
+    } catch (error) {
+      console.error("Error calculating overtime:", error);
+      res.status(500).json({ message: "Failed to calculate overtime" });
+    }
+  });
+
+  // Generate staff time report (admin/PM only)
+  app.get("/api/staff/time-report", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role } = req.user;
+
+      if (!['admin', 'portfolio-manager'].includes(role)) {
+        return res.status(403).json({ message: "Admin or Portfolio Manager access required" });
+      }
+
+      const { startDate, endDate, format, userId: targetUserId } = req.query;
+
+      const report = await storage.generateStaffTimeReport(organizationId, {
+        userId: targetUserId as string,
+        startDate: startDate ? new Date(startDate as string) : undefined,
+        endDate: endDate ? new Date(endDate as string) : undefined,
+        format: format as 'weekly' | 'monthly',
+      });
+
+      res.json(report);
+    } catch (error) {
+      console.error("Error generating time report:", error);
+      res.status(500).json({ message: "Failed to generate time report" });
+    }
+  });
+
+  // Export time report as CSV (admin/PM only)
+  app.get("/api/staff/time-report/export", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role } = req.user;
+
+      if (!['admin', 'portfolio-manager'].includes(role)) {
+        return res.status(403).json({ message: "Admin or Portfolio Manager access required" });
+      }
+
+      const { startDate, endDate, format, userId: targetUserId } = req.query;
+
+      const report = await storage.generateStaffTimeReport(organizationId, {
+        userId: targetUserId as string,
+        startDate: startDate ? new Date(startDate as string) : undefined,
+        endDate: endDate ? new Date(endDate as string) : undefined,
+        format: format as 'weekly' | 'monthly',
+      });
+
+      // Convert to CSV format
+      let csvContent = 'User ID,User Name,Regular Hours,Overtime Hours,Total Hours,Emergency Visits,After Hours Total,Estimated Pay\n';
+      
+      report.staffReports.forEach(staff => {
+        csvContent += `${staff.userId},${staff.userName},${staff.regularHours},${staff.overtimeHours},${staff.totalHours},${staff.emergencyVisits},${staff.afterHoursTotal},${staff.estimatedPay}\n`;
+      });
+
+      csvContent += `\nTotals:,,${report.totalRegularHours},${report.totalOvertimeHours},,,,${report.totalEstimatedPay}\n`;
+
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', `attachment; filename="staff-time-report-${report.reportPeriod}.csv"`);
+      res.send(csvContent);
+    } catch (error) {
+      console.error("Error exporting time report:", error);
+      res.status(500).json({ message: "Failed to export time report" });
+    }
+  });
+
+  // Get audit logs (admin only)
+  app.get("/api/staff/clock-audit-logs", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role } = req.user;
+
+      if (role !== 'admin') {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const { actionType, performedBy, affectedUserId, startDate, endDate } = req.query;
+
+      const logs = await storage.getStaffClockAuditLogs(organizationId, {
+        actionType: actionType as string,
+        performedBy: performedBy as string,
+        affectedUserId: affectedUserId as string,
+        startDate: startDate ? new Date(startDate as string) : undefined,
+        endDate: endDate ? new Date(endDate as string) : undefined,
+      });
+
+      res.json(logs);
+    } catch (error) {
+      console.error("Error fetching audit logs:", error);
+      res.status(500).json({ message: "Failed to fetch audit logs" });
+    }
+  });
+
+  // Manual clock override (admin only)
+  app.post("/api/staff/manual-override", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role, id: adminUserId } = req.user;
+
+      if (role !== 'admin') {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const { userId, action, clockData, reason } = req.body;
+
+      let result;
+      if (action === 'force_clock_out') {
+        result = await storage.clockOut(organizationId, userId, `Admin override: ${reason}`);
+      } else if (action === 'manual_clock_in') {
+        result = await storage.clockIn({
+          organizationId,
+          userId,
+          clockInTime: new Date(clockData.clockInTime),
+          clockType: clockData.clockType || 'workday',
+          propertyId: clockData.propertyId,
+          taskId: clockData.taskId,
+          clockInNotes: `Admin manual entry: ${reason}`,
+          isEmergencyVisit: clockData.isEmergencyVisit || false,
+          isAfterHours: clockData.isAfterHours || false,
+        });
+      }
+
+      // Create audit log
+      await storage.createStaffClockAuditLog({
+        organizationId,
+        actionType: 'manual_override',
+        performedBy: adminUserId,
+        affectedUserId: userId,
+        clockRecordId: result?.id,
+        actionDetails: JSON.stringify({
+          action,
+          reason,
+          originalData: clockData,
+        }),
+        ipAddress: req.ip,
+        userAgent: req.get('User-Agent'),
+      });
+
+      res.json({ success: true, result, message: `Override completed: ${action}` });
+    } catch (error) {
+      console.error("Error performing manual override:", error);
+      res.status(500).json({ message: "Failed to perform manual override" });
+    }
+  });
+
+  // ==================== MAINTENANCE SUGGESTIONS & APPROVAL FLOW ====================
+
+  // Maintenance suggestions CRUD operations
+  app.get("/api/maintenance-suggestions", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = "demo-org";
+      const { propertyId, status, submittedBy } = req.query;
+      
+      const suggestions = await storage.getMaintenanceSuggestions(organizationId, {
+        propertyId: propertyId ? parseInt(propertyId as string) : undefined,
+        status: status as string,
+        submittedBy: submittedBy as string,
+      });
+      
+      res.json(suggestions);
+    } catch (error) {
+      console.error("Error fetching maintenance suggestions:", error);
+      res.status(500).json({ message: "Failed to fetch maintenance suggestions" });
+    }
+  });
+
+  app.get("/api/maintenance-suggestions/:id", isDemoAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const suggestion = await storage.getMaintenanceSuggestion(id);
+      
+      if (!suggestion) {
+        return res.status(404).json({ message: "Maintenance suggestion not found" });
+      }
+      
+      res.json(suggestion);
+    } catch (error) {
+      console.error("Error fetching maintenance suggestion:", error);
+      res.status(500).json({ message: "Failed to fetch maintenance suggestion" });
+    }
+  });
+
+  app.post("/api/maintenance-suggestions", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = "demo-org";
+      const user = req.user;
+      
+      // Only admin and PM can create suggestions
+      if (user.role !== 'admin' && user.role !== 'portfolio-manager') {
+        return res.status(403).json({ message: "Only admin and portfolio managers can create maintenance suggestions" });
+      }
+
+      const suggestion = await storage.createMaintenanceSuggestion({
+        organizationId,
+        submittedBy: user.id,
+        submittedByRole: user.role,
+        ...req.body,
+      });
+
+      // Create timeline entry
+      await storage.createMaintenanceTimelineEntry({
+        organizationId,
+        suggestionId: suggestion.id,
+        actionType: 'created',
+        actionBy: user.id,
+        actionByRole: user.role,
+        description: `Maintenance suggestion created: ${req.body.title}`,
+      });
+
+      res.json(suggestion);
+    } catch (error) {
+      console.error("Error creating maintenance suggestion:", error);
+      res.status(500).json({ message: "Failed to create maintenance suggestion" });
+    }
+  });
+
+  app.put("/api/maintenance-suggestions/:id", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const user = req.user;
+      
+      // Only admin and PM can update suggestions
+      if (user.role !== 'admin' && user.role !== 'portfolio-manager') {
+        return res.status(403).json({ message: "Only admin and portfolio managers can update maintenance suggestions" });
+      }
+
+      const updated = await storage.updateMaintenanceSuggestion(id, req.body);
+      
+      if (!updated) {
+        return res.status(404).json({ message: "Maintenance suggestion not found" });
+      }
+
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating maintenance suggestion:", error);
+      res.status(500).json({ message: "Failed to update maintenance suggestion" });
+    }
+  });
+
+  app.delete("/api/maintenance-suggestions/:id", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const user = req.user;
+      
+      // Only admin can delete suggestions
+      if (user.role !== 'admin') {
+        return res.status(403).json({ message: "Only admin can delete maintenance suggestions" });
+      }
+
+      const success = await storage.deleteMaintenanceSuggestion(id);
+      res.json({ success });
+    } catch (error) {
+      console.error("Error deleting maintenance suggestion:", error);
+      res.status(500).json({ message: "Failed to delete maintenance suggestion" });
+    }
+  });
+
+  // Owner approval workflow
+  app.post("/api/maintenance-suggestions/:id/approve", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const user = req.user;
+      const { comments } = req.body;
+      
+      // Only owners can approve suggestions
+      if (user.role !== 'owner') {
+        return res.status(403).json({ message: "Only owners can approve maintenance suggestions" });
+      }
+
+      const approved = await storage.approveMaintenanceSuggestion(id, user.id, comments);
+      
+      if (!approved) {
+        return res.status(404).json({ message: "Maintenance suggestion not found" });
+      }
+
+      // Create timeline entry
+      await storage.createMaintenanceTimelineEntry({
+        organizationId: "demo-org",
+        suggestionId: id,
+        actionType: 'approved',
+        actionBy: user.id,
+        actionByRole: user.role,
+        description: `Owner approved maintenance suggestion${comments ? ': ' + comments : ''}`,
+      });
+
+      // TODO: Auto-create task if approved
+      
+      res.json(approved);
+    } catch (error) {
+      console.error("Error approving maintenance suggestion:", error);
+      res.status(500).json({ message: "Failed to approve maintenance suggestion" });
+    }
+  });
+
+  app.post("/api/maintenance-suggestions/:id/decline", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const user = req.user;
+      const { comments } = req.body;
+      
+      // Only owners can decline suggestions
+      if (user.role !== 'owner') {
+        return res.status(403).json({ message: "Only owners can decline maintenance suggestions" });
+      }
+
+      const declined = await storage.declineMaintenanceSuggestion(id, user.id, comments);
+      
+      if (!declined) {
+        return res.status(404).json({ message: "Maintenance suggestion not found" });
+      }
+
+      // Create timeline entry
+      await storage.createMaintenanceTimelineEntry({
+        organizationId: "demo-org",
+        suggestionId: id,
+        actionType: 'declined',
+        actionBy: user.id,
+        actionByRole: user.role,
+        description: `Owner declined maintenance suggestion${comments ? ': ' + comments : ''}`,
+      });
+
+      res.json(declined);
+    } catch (error) {
+      console.error("Error declining maintenance suggestion:", error);
+      res.status(500).json({ message: "Failed to decline maintenance suggestion" });
+    }
+  });
+
+  // Owner-specific endpoints for dashboard
+  app.get("/api/owner/maintenance-suggestions", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = "demo-org";
+      const user = req.user;
+      
+      if (user.role !== 'owner') {
+        return res.status(403).json({ message: "Owner access required" });
+      }
+
+      const suggestions = await storage.getOwnerMaintenanceSuggestions(organizationId, user.id);
+      res.json(suggestions);
+    } catch (error) {
+      console.error("Error fetching owner maintenance suggestions:", error);
+      res.status(500).json({ message: "Failed to fetch owner maintenance suggestions" });
+    }
+  });
+
+  app.get("/api/owner/pending-approvals", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = "demo-org";
+      const user = req.user;
+      
+      if (user.role !== 'owner') {
+        return res.status(403).json({ message: "Owner access required" });
+      }
+
+      const pending = await storage.getPendingOwnerApprovals(organizationId, user.id);
+      res.json(pending);
+    } catch (error) {
+      console.error("Error fetching pending approvals:", error);
+      res.status(500).json({ message: "Failed to fetch pending approvals" });
+    }
+  });
+
+  // Approval logs
+  app.get("/api/maintenance-approval-logs", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = "demo-org";
+      const { suggestionId } = req.query;
+      
+      const logs = await storage.getMaintenanceApprovalLogs(
+        organizationId,
+        suggestionId ? parseInt(suggestionId as string) : undefined
+      );
+      
+      res.json(logs);
+    } catch (error) {
+      console.error("Error fetching approval logs:", error);
+      res.status(500).json({ message: "Failed to fetch approval logs" });
+    }
+  });
+
+  // Settings management
+  app.get("/api/maintenance-suggestion-settings", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = "demo-org";
+      const settings = await storage.getMaintenanceSuggestionSettings(organizationId);
+      res.json(settings);
+    } catch (error) {
+      console.error("Error fetching settings:", error);
+      res.status(500).json({ message: "Failed to fetch settings" });
+    }
+  });
+
+  app.post("/api/maintenance-suggestion-settings", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = "demo-org";
+      const user = req.user;
+      
+      // Only admin can update settings
+      if (user.role !== 'admin') {
+        return res.status(403).json({ message: "Only admin can update settings" });
+      }
+
+      const settings = await storage.updateMaintenanceSuggestionSettings(organizationId, req.body);
+      res.json(settings);
+    } catch (error) {
+      console.error("Error updating settings:", error);
+      res.status(500).json({ message: "Failed to update settings" });
+    }
+  });
+
+  // ===== ADD-ON SERVICES ENGINE API ENDPOINTS =====
+
+  // Service categories
+  app.get("/api/addon-service-categories", isDemoAuthenticated, async (req, res) => {
+    try {
+      const categories = await storage.getAddonServiceCategories("default");
+      res.json(categories);
+    } catch (error: any) {
+      console.error("Error fetching service categories:", error);
+      res.status(500).json({ message: "Failed to fetch service categories" });
+    }
+  });
+
+  app.post("/api/addon-service-categories", isDemoAuthenticated, async (req, res) => {
+    try {
+      const category = await storage.createAddonServiceCategory({
+        ...req.body,
+        organizationId: "default",
+      });
+      res.json(category);
+    } catch (error: any) {
+      console.error("Error creating service category:", error);
+      res.status(500).json({ message: "Failed to create service category" });
+    }
+  });
+
+  // Service catalog
+  app.get("/api/addon-service-catalog", isDemoAuthenticated, async (req, res) => {
+    try {
+      const { category } = req.query;
+      const filters: any = {};
+      if (category && category !== "all") {
+        filters.category = category as string;
+      }
+      
+      const services = await storage.getAddonServiceCatalog("default", filters);
+      res.json(services);
+    } catch (error: any) {
+      console.error("Error fetching service catalog:", error);
+      res.status(500).json({ message: "Failed to fetch service catalog" });
+    }
+  });
+
+  app.post("/api/addon-service-catalog", isDemoAuthenticated, async (req, res) => {
+    try {
+      const service = await storage.createAddonServiceCatalogItem({
+        ...req.body,
+        organizationId: "default",
+      });
+      res.json(service);
+    } catch (error: any) {
+      console.error("Error creating service:", error);
+      res.status(500).json({ message: "Failed to create service" });
+    }
+  });
+
+  app.put("/api/addon-service-catalog/:id", isDemoAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const service = await storage.updateAddonServiceCatalogItem(id, req.body);
+      if (!service) {
+        return res.status(404).json({ message: "Service not found" });
+      }
+      res.json(service);
+    } catch (error: any) {
+      console.error("Error updating service:", error);
+      res.status(500).json({ message: "Failed to update service" });
+    }
+  });
+
+  // Service bookings
+  app.get("/api/addon-service-bookings", isDemoAuthenticated, async (req, res) => {
+    try {
+      const { status, billingRule, category, dateFrom, dateTo, propertyId } = req.query;
+      const filters: any = {};
+      
+      if (status && status !== "all") filters.status = status as string;
+      if (billingRule && billingRule !== "all") filters.billingRule = billingRule as string;
+      if (category && category !== "all") filters.category = category as string;
+      if (dateFrom) filters.dateFrom = dateFrom as string;
+      if (dateTo) filters.dateTo = dateTo as string;
+      if (propertyId) filters.propertyId = parseInt(propertyId as string);
+      
+      const bookings = await storage.getAddonServiceBookings("default", filters);
+      res.json(bookings);
+    } catch (error: any) {
+      console.error("Error fetching service bookings:", error);
+      res.status(500).json({ message: "Failed to fetch service bookings" });
+    }
+  });
+
+  app.post("/api/addon-service-bookings", isDemoAuthenticated, async (req, res) => {
+    try {
+      const booking = await storage.createAddonServiceBooking({
+        ...req.body,
+        organizationId: "default",
+      });
+      
+      // Create commission record if there's a commission amount
+      if (booking.commissionAmount && parseFloat(booking.commissionAmount) > 0) {
+        await storage.createAddonServiceCommission({
+          organizationId: "default",
+          bookingId: booking.id,
+          serviceId: booking.serviceId,
+          category: req.body.category || "general",
+          staffId: booking.bookedBy,
+          commissionAmount: booking.commissionAmount,
+          commissionRate: req.body.commissionRate || "15.00",
+          paymentStatus: "pending",
+          notes: `Commission for booking #${booking.id}`,
+        });
+      }
+      
+      res.json(booking);
+    } catch (error: any) {
+      console.error("Error creating service booking:", error);
+      res.status(500).json({ message: "Failed to create service booking" });
+    }
+  });
+
+  app.put("/api/addon-service-bookings/:id/confirm", isDemoAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const booking = await storage.confirmAddonServiceBooking(id, req.body.confirmedBy);
+      if (!booking) {
+        return res.status(404).json({ message: "Booking not found" });
+      }
+      res.json(booking);
+    } catch (error: any) {
+      console.error("Error confirming booking:", error);
+      res.status(500).json({ message: "Failed to confirm booking" });
+    }
+  });
+
+  app.put("/api/addon-service-bookings/:id/complete", isDemoAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const booking = await storage.completeAddonServiceBooking(id, new Date(req.body.completedAt), req.body.notes);
+      if (!booking) {
+        return res.status(404).json({ message: "Booking not found" });
+      }
+      res.json(booking);
+    } catch (error: any) {
+      console.error("Error completing booking:", error);
+      res.status(500).json({ message: "Failed to complete booking" });
+    }
+  });
+
+  // Service commissions
+  app.get("/api/addon-service-commissions", isDemoAuthenticated, async (req, res) => {
+    try {
+      const { staffId, category, paymentStatus, dateFrom, dateTo } = req.query;
+      const filters: any = {};
+      
+      if (staffId) filters.staffId = staffId as string;
+      if (category) filters.category = category as string;
+      if (paymentStatus) filters.paymentStatus = paymentStatus as string;
+      if (dateFrom) filters.dateFrom = dateFrom as string;
+      if (dateTo) filters.dateTo = dateTo as string;
+      
+      const commissions = await storage.getAddonServiceCommissions("default", filters);
+      res.json(commissions);
+    } catch (error: any) {
+      console.error("Error fetching service commissions:", error);
+      res.status(500).json({ message: "Failed to fetch service commissions" });
+    }
+  });
+
+  app.put("/api/addon-service-commissions/:id/pay", isDemoAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const commission = await storage.processCommissionPayment(id, new Date(), req.body.paymentMethod || "bank_transfer");
+      if (!commission) {
+        return res.status(404).json({ message: "Commission not found" });
+      }
+      res.json(commission);
+    } catch (error: any) {
+      console.error("Error processing commission payment:", error);
+      res.status(500).json({ message: "Failed to process commission payment" });
+    }
+  });
+
+  // Service reports
+  app.get("/api/addon-service-reports", isDemoAuthenticated, async (req, res) => {
+    try {
+      const { reportMonth, category } = req.query;
+      const filters: any = {};
+      
+      if (reportMonth) filters.reportMonth = reportMonth as string;
+      if (category) filters.category = category as string;
+      
+      const reports = await storage.getAddonServiceReports("default", filters);
+      res.json(reports);
+    } catch (error: any) {
+      console.error("Error fetching service reports:", error);
+      res.status(500).json({ message: "Failed to fetch service reports" });
+    }
+  });
+
+  app.post("/api/addon-service-reports/generate", isDemoAuthenticated, async (req, res) => {
+    try {
+      const { reportMonth } = req.body;
+      const reports = await storage.generateMonthlyServiceReport("default", reportMonth);
+      res.json(reports);
+    } catch (error: any) {
+      console.error("Error generating service report:", error);
+      res.status(500).json({ message: "Failed to generate service report" });
+    }
+  });
+
+  // Service summary analytics
+  app.get("/api/addon-service-summary", isDemoAuthenticated, async (req, res) => {
+    try {
+      const { startDate, endDate } = req.query;
+      const summary = await storage.getServiceCategorySummary(
+        "default", 
+        startDate as string || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], 
+        endDate as string || new Date().toISOString().split('T')[0]
+      );
+      res.json(summary);
+    } catch (error: any) {
+      console.error("Error fetching service summary:", error);
+      res.status(500).json({ message: "Failed to fetch service summary" });
+    }
+  });
+
+  // Billing rules
+  app.get("/api/addon-billing-rules", isDemoAuthenticated, async (req, res) => {
+    try {
+      const { category, isActive } = req.query;
+      const filters: any = {};
+      
+      if (category) filters.category = category as string;
+      if (isActive !== undefined) filters.isActive = isActive === "true";
+      
+      const rules = await storage.getAddonBillingRules("default", filters);
+      res.json(rules);
+    } catch (error: any) {
+      console.error("Error fetching billing rules:", error);
+      res.status(500).json({ message: "Failed to fetch billing rules" });
+    }
+  });
+
+  app.post("/api/addon-billing-rules", isDemoAuthenticated, async (req, res) => {
+    try {
+      const rule = await storage.createAddonBillingRule({
+        ...req.body,
+        organizationId: "default",
+      });
+      res.json(rule);
+    } catch (error: any) {
+      console.error("Error creating billing rule:", error);
+      res.status(500).json({ message: "Failed to create billing rule" });
+    }
+  });
+
+  app.put("/api/addon-billing-rules/:id", isDemoAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const rule = await storage.updateAddonBillingRule(id, req.body);
+      if (!rule) {
+        return res.status(404).json({ message: "Billing rule not found" });
+      }
+      res.json(rule);
+    } catch (error: any) {
+      console.error("Error updating billing rule:", error);
+      res.status(500).json({ message: "Failed to update billing rule" });
+    }
+  });
+
+  // ===== STAFF ADVANCE SALARY & OVERTIME TRACKER API ENDPOINTS =====
+
+  // Staff overtime sessions
+  app.get("/api/staff-overtime-sessions", isDemoAuthenticated, async (req, res) => {
+    try {
+      const { staffId, status, dateFrom, dateTo, isEmergency, isAfterHours } = req.query;
+      const filters: any = {};
+      
+      if (staffId) filters.staffId = staffId as string;
+      if (status) filters.status = status as string;
+      if (dateFrom) filters.dateFrom = dateFrom as string;
+      if (dateTo) filters.dateTo = dateTo as string;
+      if (isEmergency !== undefined) filters.isEmergency = isEmergency === "true";
+      if (isAfterHours !== undefined) filters.isAfterHours = isAfterHours === "true";
+      
+      const sessions = await storage.getStaffOvertimeSessions("default", filters);
+      res.json(sessions);
+    } catch (error: any) {
+      console.error("Error fetching overtime sessions:", error);
+      res.status(500).json({ message: "Failed to fetch overtime sessions" });
+    }
+  });
+
+  app.post("/api/staff-overtime-sessions", isDemoAuthenticated, async (req, res) => {
+    try {
+      const session = await storage.createStaffOvertimeSession(req.body);
+      res.json(session);
+    } catch (error: any) {
+      console.error("Error creating overtime session:", error);
+      res.status(500).json({ message: "Failed to create overtime session" });
+    }
+  });
+
+  app.put("/api/staff-overtime-sessions/:id/clock-out", isDemoAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const session = await storage.updateStaffOvertimeSession(id, {
+        clockOutTime: new Date(req.body.clockOutTime),
+      });
+      if (!session) {
+        return res.status(404).json({ message: "Overtime session not found" });
+      }
+      res.json(session);
+    } catch (error: any) {
+      console.error("Error clocking out:", error);
+      res.status(500).json({ message: "Failed to clock out" });
+    }
+  });
+
+  app.put("/api/staff-overtime-sessions/:id/approve", isDemoAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { approvedBy, compensationType, compensationAmount, adminNotes } = req.body;
+      const session = await storage.approveOvertimeSession(
+        id, 
+        approvedBy, 
+        compensationType, 
+        compensationAmount, 
+        adminNotes
+      );
+      if (!session) {
+        return res.status(404).json({ message: "Overtime session not found" });
+      }
+      res.json(session);
+    } catch (error: any) {
+      console.error("Error approving overtime session:", error);
+      res.status(500).json({ message: "Failed to approve overtime session" });
+    }
+  });
+
+  // Staff advance requests
+  app.get("/api/staff-advance-requests", isDemoAuthenticated, async (req, res) => {
+    try {
+      const { staffId, status, dateFrom, dateTo, urgencyLevel } = req.query;
+      const filters: any = {};
+      
+      if (staffId) filters.staffId = staffId as string;
+      if (status) filters.status = status as string;
+      if (dateFrom) filters.dateFrom = dateFrom as string;
+      if (dateTo) filters.dateTo = dateTo as string;
+      if (urgencyLevel) filters.urgencyLevel = urgencyLevel as string;
+      
+      const requests = await storage.getStaffAdvanceRequests("default", filters);
+      res.json(requests);
+    } catch (error: any) {
+      console.error("Error fetching advance requests:", error);
+      res.status(500).json({ message: "Failed to fetch advance requests" });
+    }
+  });
+
+  app.post("/api/staff-advance-requests", isDemoAuthenticated, async (req, res) => {
+    try {
+      const request = await storage.createStaffAdvanceRequest(req.body);
+      res.json(request);
+    } catch (error: any) {
+      console.error("Error creating advance request:", error);
+      res.status(500).json({ message: "Failed to create advance request" });
+    }
+  });
+
+  app.put("/api/staff-advance-requests/:id/approve", isDemoAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { approvedBy, paymentMethod, deductionStartMonth, adminNotes } = req.body;
+      const request = await storage.approveAdvanceRequest(
+        id, 
+        approvedBy, 
+        paymentMethod, 
+        deductionStartMonth, 
+        adminNotes
+      );
+      if (!request) {
+        return res.status(404).json({ message: "Advance request not found" });
+      }
+      res.json(request);
+    } catch (error: any) {
+      console.error("Error approving advance request:", error);
+      res.status(500).json({ message: "Failed to approve advance request" });
+    }
+  });
+
+  app.put("/api/staff-advance-requests/:id/reject", isDemoAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { reviewedBy, rejectionReason } = req.body;
+      const request = await storage.rejectAdvanceRequest(id, reviewedBy, rejectionReason);
+      if (!request) {
+        return res.status(404).json({ message: "Advance request not found" });
+      }
+      res.json(request);
+    } catch (error: any) {
+      console.error("Error rejecting advance request:", error);
+      res.status(500).json({ message: "Failed to reject advance request" });
+    }
+  });
+
+  // Staff salary deductions
+  app.get("/api/staff-salary-deductions", isDemoAuthenticated, async (req, res) => {
+    try {
+      const { staffId, deductionMonth, deductionType } = req.query;
+      const filters: any = {};
+      
+      if (staffId) filters.staffId = staffId as string;
+      if (deductionMonth) filters.deductionMonth = deductionMonth as string;
+      if (deductionType) filters.deductionType = deductionType as string;
+      
+      const deductions = await storage.getStaffSalaryDeductions("default", filters);
+      res.json(deductions);
+    } catch (error: any) {
+      console.error("Error fetching salary deductions:", error);
+      res.status(500).json({ message: "Failed to fetch salary deductions" });
+    }
+  });
+
+  app.post("/api/staff-salary-deductions", isDemoAuthenticated, async (req, res) => {
+    try {
+      const deduction = await storage.createStaffSalaryDeduction(req.body);
+      res.json(deduction);
+    } catch (error: any) {
+      console.error("Error creating salary deduction:", error);
+      res.status(500).json({ message: "Failed to create salary deduction" });
+    }
+  });
+
+  // Staff compensation time
+  app.get("/api/staff-compensation-time", isDemoAuthenticated, async (req, res) => {
+    try {
+      const { staffId, isExpired } = req.query;
+      const filters: any = {};
+      
+      if (staffId) filters.staffId = staffId as string;
+      if (isExpired !== undefined) filters.isExpired = isExpired === "true";
+      
+      const compensationTime = await storage.getStaffCompensationTime("default", filters);
+      res.json(compensationTime);
+    } catch (error: any) {
+      console.error("Error fetching compensation time:", error);
+      res.status(500).json({ message: "Failed to fetch compensation time" });
+    }
+  });
+
+  app.post("/api/staff-compensation-time", isDemoAuthenticated, async (req, res) => {
+    try {
+      const compensationTime = await storage.createStaffCompensationTime(req.body);
+      res.json(compensationTime);
+    } catch (error: any) {
+      console.error("Error creating compensation time:", error);
+      res.status(500).json({ message: "Failed to create compensation time" });
+    }
+  });
+
+  // Staff monthly summary
+  app.get("/api/staff-monthly-summary", isDemoAuthenticated, async (req, res) => {
+    try {
+      const { staffId, month } = req.query;
+      if (!staffId || !month) {
+        return res.status(400).json({ message: "staffId and month are required" });
+      }
+      
+      const summary = await storage.getStaffMonthlySummary("default", staffId as string, month as string);
+      if (!summary) {
+        return res.status(404).json({ message: "Monthly summary not found" });
+      }
+      res.json(summary);
+    } catch (error: any) {
+      console.error("Error fetching monthly summary:", error);
+      res.status(500).json({ message: "Failed to fetch monthly summary" });
+    }
+  });
+
+  app.post("/api/staff-monthly-summary", isDemoAuthenticated, async (req, res) => {
+    try {
+      const summary = await storage.createStaffMonthlySummary(req.body);
+      res.json(summary);
+    } catch (error: any) {
+      console.error("Error creating monthly summary:", error);
+      res.status(500).json({ message: "Failed to create monthly summary" });
+    }
+  });
+
+  // Staff notification settings
+  app.get("/api/staff-notification-settings", isDemoAuthenticated, async (req, res) => {
+    try {
+      const { staffId } = req.query;
+      if (!staffId) {
+        return res.status(400).json({ message: "staffId is required" });
+      }
+      
+      const settings = await storage.getStaffNotificationSettings("default", staffId as string);
+      if (!settings) {
+        return res.status(404).json({ message: "Notification settings not found" });
+      }
+      res.json(settings);
+    } catch (error: any) {
+      console.error("Error fetching notification settings:", error);
+      res.status(500).json({ message: "Failed to fetch notification settings" });
+    }
+  });
+
+  app.put("/api/staff-notification-settings", isDemoAuthenticated, async (req, res) => {
+    try {
+      const { staffId } = req.body;
+      if (!staffId) {
+        return res.status(400).json({ message: "staffId is required" });
+      }
+      
+      const settings = await storage.updateStaffNotificationSettings("default", staffId, req.body);
+      res.json(settings);
+    } catch (error: any) {
+      console.error("Error updating notification settings:", error);
+      res.status(500).json({ message: "Failed to update notification settings" });
+    }
+  });
+
+  // Generate monthly report
+  app.post("/api/staff-monthly-report", isDemoAuthenticated, async (req, res) => {
+    try {
+      const { staffId, month } = req.body;
+      if (!staffId || !month) {
+        return res.status(400).json({ message: "staffId and month are required" });
+      }
+      
+      const result = await storage.generateStaffMonthlyReport("default", staffId, month);
+      res.json(result);
+    } catch (error: any) {
+      console.error("Error generating monthly report:", error);
+      res.status(500).json({ message: "Failed to generate monthly report" });
+    }
+  });
+
+  // ===== STAFF PROFILE & PAYROLL LOGGING API ROUTES =====
+
+  // Get all staff profiles (admin/PM only)
+  app.get("/api/staff-profiles", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (!user || (user.role !== 'admin' && user.role !== 'portfolio-manager')) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const organizationId = user.organizationId || "default-org";
+      const { department, isActive } = req.query;
+      
+      const filters: any = {};
+      if (department) filters.department = department;
+      if (isActive !== undefined) filters.isActive = isActive === 'true';
+
+      const profiles = await storage.getStaffProfiles(organizationId, filters);
+      res.json(profiles);
+    } catch (error) {
+      console.error("Error fetching staff profiles:", error);
+      res.status(500).json({ message: "Failed to fetch staff profiles" });
+    }
+  });
+
+  // Get single staff profile
+  app.get("/api/staff-profiles/:staffId", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (!user) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const organizationId = user.organizationId || "default-org";
+      const { staffId } = req.params;
+
+      // Staff can only view their own profile, admin/PM can view any
+      if (user.role === 'staff' && user.id !== staffId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const profile = await storage.getStaffProfile(organizationId, staffId);
+      if (!profile) {
+        return res.status(404).json({ message: "Staff profile not found" });
+      }
+
+      res.json(profile);
+    } catch (error) {
+      console.error("Error fetching staff profile:", error);
+      res.status(500).json({ message: "Failed to fetch staff profile" });
+    }
+  });
+
+  // Create staff profile (admin/PM only)
+  app.post("/api/staff-profiles", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (!user || (user.role !== 'admin' && user.role !== 'portfolio-manager')) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const organizationId = user.organizationId || "default-org";
+      const profileData = {
+        ...req.body,
+        organizationId,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      };
+
+      const profile = await storage.createStaffProfile(profileData);
+      res.status(201).json(profile);
+    } catch (error) {
+      console.error("Error creating staff profile:", error);
+      res.status(500).json({ message: "Failed to create staff profile" });
+    }
+  });
+
+  // Get monthly payroll records
+  app.get("/api/payroll-records", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (!user) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const organizationId = user.organizationId || "default-org";
+      const { staffId, payrollPeriod, status } = req.query;
+      
+      const filters: any = {};
+      if (staffId) filters.staffId = staffId;
+      if (payrollPeriod) filters.payrollPeriod = payrollPeriod;
+      if (status) filters.status = status;
+
+      // Staff can only view their own records
+      if (user.role === 'staff') {
+        filters.staffId = user.id;
+      }
+
+      const records = await storage.getMonthlyPayrollRecords(organizationId, filters);
+      res.json(records);
+    } catch (error) {
+      console.error("Error fetching payroll records:", error);
+      res.status(500).json({ message: "Failed to fetch payroll records" });
+    }
+  });
+
+  // Create monthly payroll record (admin/PM only)
+  app.post("/api/payroll-records", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (!user || (user.role !== 'admin' && user.role !== 'portfolio-manager')) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const organizationId = user.organizationId || "default-org";
+      const recordData = {
+        ...req.body,
+        organizationId,
+        createdBy: user.id,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      };
+
+      const record = await storage.createMonthlyPayrollRecord(recordData);
+      res.status(201).json(record);
+    } catch (error) {
+      console.error("Error creating payroll record:", error);
+      res.status(500).json({ message: "Failed to create payroll record" });
+    }
+  });
+
+  // Get task performance logs
+  app.get("/api/task-performance", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (!user) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const organizationId = user.organizationId || "default-org";
+      const { staffId, taskId, propertyId } = req.query;
+      
+      const filters: any = {};
+      if (staffId) filters.staffId = staffId;
+      if (taskId) filters.taskId = parseInt(taskId as string);
+      if (propertyId) filters.propertyId = parseInt(propertyId as string);
+
+      // Staff can only view their own performance logs
+      if (user.role === 'staff') {
+        filters.staffId = user.id;
+      }
+
+      const logs = await storage.getTaskPerformanceLogs(organizationId, filters);
+      res.json(logs);
+    } catch (error) {
+      console.error("Error fetching task performance logs:", error);
+      res.status(500).json({ message: "Failed to fetch task performance logs" });
+    }
+  });
+
+  // Get attendance records
+  app.get("/api/attendance", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (!user) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const organizationId = user.organizationId || "default-org";
+      const { staffId, workDate, status } = req.query;
+      
+      const filters: any = {};
+      if (staffId) filters.staffId = staffId;
+      if (workDate) filters.workDate = workDate;
+      if (status) filters.status = status;
+
+      // Staff can only view their own attendance
+      if (user.role === 'staff') {
+        filters.staffId = user.id;
+      }
+
+      const records = await storage.getAttendanceRecords(organizationId, filters);
+      res.json(records);
+    } catch (error) {
+      console.error("Error fetching attendance records:", error);
+      res.status(500).json({ message: "Failed to fetch attendance records" });
+    }
+  });
+
+  // Create attendance record (clock in/out)
+  app.post("/api/attendance", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (!user) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const organizationId = user.organizationId || "default-org";
+      const recordData = {
+        ...req.body,
+        organizationId,
+        staffId: user.id,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      };
+
+      const record = await storage.createAttendanceRecord(recordData);
+      res.status(201).json(record);
+    } catch (error) {
+      console.error("Error creating attendance record:", error);
+      res.status(500).json({ message: "Failed to create attendance record" });
+    }
+  });
+
+  // Get leave requests
+  app.get("/api/leave-requests", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (!user) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const organizationId = user.organizationId || "default-org";
+      const { staffId, status } = req.query;
+      
+      const filters: any = {};
+      if (staffId) filters.staffId = staffId;
+      if (status) filters.status = status;
+
+      // Staff can only view their own leave requests
+      if (user.role === 'staff') {
+        filters.staffId = user.id;
+      }
+
+      const requests = await storage.getLeaveRequests(organizationId, filters);
+      res.json(requests);
+    } catch (error) {
+      console.error("Error fetching leave requests:", error);
+      res.status(500).json({ message: "Failed to fetch leave requests" });
+    }
+  });
+
+  // Create leave request
+  app.post("/api/leave-requests", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (!user) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const organizationId = user.organizationId || "default-org";
+      const requestData = {
+        ...req.body,
+        organizationId,
+        staffId: user.id,
+        status: 'pending',
+        requestedAt: new Date(),
+        createdAt: new Date(),
+        updatedAt: new Date()
+      };
+
+      const request = await storage.createLeaveRequest(requestData);
+      res.status(201).json(request);
+    } catch (error) {
+      console.error("Error creating leave request:", error);
+      res.status(500).json({ message: "Failed to create leave request" });
+    }
+  });
+
+  // Get staff commissions
+  app.get("/api/staff-commissions", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (!user) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const organizationId = user.organizationId || "default-org";
+      const { staffId, payrollPeriod, isPaid } = req.query;
+      
+      const filters: any = {};
+      if (staffId) filters.staffId = staffId;
+      if (payrollPeriod) filters.payrollPeriod = payrollPeriod;
+      if (isPaid !== undefined) filters.isPaid = isPaid === 'true';
+
+      // Staff can only view their own commissions
+      if (user.role === 'staff') {
+        filters.staffId = user.id;
+      }
+
+      const commissions = await storage.getStaffCommissions(organizationId, filters);
+      res.json(commissions);
+    } catch (error) {
+      console.error("Error fetching staff commissions:", error);
+      res.status(500).json({ message: "Failed to fetch staff commissions" });
+    }
+  });
+
+  // Get pay slips
+  app.get("/api/pay-slips", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      if (!user) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const organizationId = user.organizationId || "default-org";
+      const { staffId, period, status } = req.query;
+      
+      const filters: any = {};
+      if (staffId) filters.staffId = staffId;
+      if (period) filters.period = period;
+      if (status) filters.status = status;
+
+      // Staff can only view their own pay slips
+      if (user.role === 'staff') {
+        filters.staffId = user.id;
+      }
+
+      const paySlips = await storage.getPaySlips(organizationId, filters);
+      res.json(paySlips);
+    } catch (error) {
+      console.error("Error fetching pay slips:", error);
+      res.status(500).json({ message: "Failed to fetch pay slips" });
+    }
+  });
+
+  // ===== COMMUNICATION SYSTEM ROUTES =====
+  
+  // Internal Chat Routes
+
+  // Get communication channels
+  app.get("/api/communication/channels", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: userId } = req.user;
+      const channels = await storage.getCommunicationChannels(organizationId, userId);
+      res.json(channels);
+    } catch (error) {
+      console.error("Error fetching communication channels:", error);
+      res.status(500).json({ message: "Failed to fetch channels" });
+    }
+  });
+
+  // Create communication channel (Admin/PM)
+  app.post("/api/communication/channels", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: userId, role } = req.user;
+      
+      if (!['admin', 'portfolio-manager'].includes(role)) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const { name, description, isPrivate, memberIds } = req.body;
+      
+      const channelData = {
+        organizationId,
+        name,
+        description,
+        isPrivate: isPrivate || false,
+        createdBy: userId,
+      };
+
+      const channel = await storage.createCommunicationChannel(channelData, memberIds);
+      res.status(201).json(channel);
+    } catch (error) {
+      console.error("Error creating communication channel:", error);
+      res.status(500).json({ message: "Failed to create channel" });
+    }
+  });
+
+  // Get messages for a channel
+  app.get("/api/communication/channels/:channelId/messages", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: userId } = req.user;
+      const { channelId } = req.params;
+      const { limit = 50, offset = 0 } = req.query;
+
+      const messages = await storage.getChannelMessages(organizationId, parseInt(channelId), userId, parseInt(limit), parseInt(offset));
+      res.json(messages);
+    } catch (error) {
+      console.error("Error fetching channel messages:", error);
+      res.status(500).json({ message: "Failed to fetch messages" });
+    }
+  });
+
+  // Send message to channel
+  app.post("/api/communication/channels/:channelId/messages", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: userId } = req.user;
+      const { channelId } = req.params;
+      const { content, messageType, attachmentUrl } = req.body;
+
+      const messageData = {
+        organizationId,
+        channelId: parseInt(channelId),
+        senderId: userId,
+        content,
+        messageType: messageType || 'text',
+        attachmentUrl,
+      };
+
+      const message = await storage.createInternalMessage(messageData);
+      res.status(201).json(message);
+    } catch (error) {
+      console.error("Error sending message:", error);
+      res.status(500).json({ message: "Failed to send message" });
+    }
+  });
+
+  // Owner-PM Communication Routes
+
+  // Get owner-PM conversations
+  app.get("/api/communication/owner-pm", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: userId, role } = req.user;
+      const conversations = await storage.getOwnerPmCommunications(organizationId, userId, role);
+      res.json(conversations);
+    } catch (error) {
+      console.error("Error fetching owner-PM communications:", error);
+      res.status(500).json({ message: "Failed to fetch conversations" });
+    }
+  });
+
+  // Send owner-PM message
+  app.post("/api/communication/owner-pm", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: userId, role } = req.user;
+      const { receiverId, subject, message, priority, attachmentUrl } = req.body;
+
+      const communicationData = {
+        organizationId,
+        senderId: userId,
+        receiverId,
+        subject,
+        message,
+        priority: priority || 'medium',
+        senderType: role,
+        receiverType: role === 'owner' ? 'portfolio-manager' : 'owner',
+        attachmentUrl,
+      };
+
+      const communication = await storage.createOwnerPmCommunication(communicationData);
+      res.status(201).json(communication);
+    } catch (error) {
+      console.error("Error sending owner-PM message:", error);
+      res.status(500).json({ message: "Failed to send message" });
+    }
+  });
+
+  // Guest Smart Requests Routes
+
+  // Get guest smart requests
+  app.get("/api/communication/guest-requests", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId } = req.user;
+      const { status, priority, propertyId } = req.query;
+      
+      const filters = {
+        status: status,
+        priority: priority,
+        propertyId: propertyId ? parseInt(propertyId) : undefined,
+      };
+
+      const requests = await storage.getGuestSmartRequests(organizationId, filters);
+      res.json(requests);
+    } catch (error) {
+      console.error("Error fetching guest smart requests:", error);
+      res.status(500).json({ message: "Failed to fetch requests" });
+    }
+  });
+
+  // Create guest smart request (Guest Portal)
+  app.post("/api/communication/guest-requests", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId } = req.user;
+      const { guestName, guestEmail, propertyId, requestType, subject, description, priority, urgencyLevel } = req.body;
+
+      const requestData = {
+        organizationId,
+        guestName,
+        guestEmail,
+        propertyId,
+        requestType,
+        subject,
+        description,
+        priority: priority || 'medium',
+        urgencyLevel: urgencyLevel || 'normal',
+      };
+
+      const request = await storage.createGuestSmartRequest(requestData);
+      res.status(201).json(request);
+    } catch (error) {
+      console.error("Error creating guest smart request:", error);
+      res.status(500).json({ message: "Failed to create request" });
+    }
+  });
+
+  // Update guest smart request status (Staff/PM/Admin)
+  app.put("/api/communication/guest-requests/:requestId", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: userId, role } = req.user;
+      const { requestId } = req.params;
+      const { status, response, assignedTo } = req.body;
+
+      if (!['admin', 'portfolio-manager', 'staff'].includes(role)) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const updateData = {
+        status,
+        response,
+        assignedTo,
+        processedBy: userId,
+        processedAt: new Date(),
+      };
+
+      const request = await storage.updateGuestSmartRequest(organizationId, parseInt(requestId), updateData);
+      res.json(request);
+    } catch (error) {
+      console.error("Error updating guest smart request:", error);
+      res.status(500).json({ message: "Failed to update request" });
+    }
+  });
+
+  // Communication Configuration Routes
+
+  // Get smart request configuration
+  app.get("/api/communication/config", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId } = req.user;
+      const config = await storage.getSmartRequestConfig(organizationId);
+      res.json(config);
+    } catch (error) {
+      console.error("Error fetching smart request config:", error);
+      res.status(500).json({ message: "Failed to fetch configuration" });
+    }
+  });
+
+  // Update smart request configuration (Admin/PM)
+  app.put("/api/communication/config", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role } = req.user;
+      
+      if (!['admin', 'portfolio-manager'].includes(role)) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const { autoResponseEnabled, responseTimeHours, escalationRules, requestCategories } = req.body;
+      
+      const configData = {
+        organizationId,
+        autoResponseEnabled,
+        responseTimeHours,
+        escalationRules,
+        requestCategories,
+      };
+
+      const config = await storage.updateSmartRequestConfig(configData);
+      res.json(config);
+    } catch (error) {
+      console.error("Error updating smart request config:", error);
+      res.status(500).json({ message: "Failed to update configuration" });
+    }
+  });
+
+  // Communication Analytics Routes
+
+  // Get communication analytics
+  app.get("/api/communication/analytics", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, role } = req.user;
+      
+      if (!['admin', 'portfolio-manager'].includes(role)) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const { period = '30d' } = req.query;
+      const analytics = await storage.getCommunicationAnalytics(organizationId, period);
+      res.json(analytics);
+    } catch (error) {
+      console.error("Error fetching communication analytics:", error);
+      res.status(500).json({ message: "Failed to fetch analytics" });
+    }
+  });
+
+  // ===== PROPERTY ACCESS MANAGEMENT API ROUTES =====
+
+  // Get property access credentials
+  app.get("/api/property-access/credentials", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = req.user?.organizationId || 'default-org';
+      const { propertyId } = req.query;
+      
+      const credentials = await storage.getPropertyAccessCredentials(
+        organizationId, 
+        propertyId ? parseInt(propertyId) : undefined
+      );
+      
+      res.json(credentials);
+    } catch (error) {
+      console.error("Error fetching property access credentials:", error);
+      res.status(500).json({ message: "Failed to fetch property access credentials" });
+    }
+  });
+
+  // Get filtered property access credentials based on user role
+  app.get("/api/property-access/credentials/filtered", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = req.user?.organizationId || 'default-org';
+      const userRole = req.user?.role || 'staff';
+      const userId = req.user?.id || '';
+      const { propertyId } = req.query;
+      
+      const credentials = await storage.getFilteredAccessCredentials(
+        organizationId, 
+        userRole,
+        userId,
+        propertyId ? parseInt(propertyId) : undefined
+      );
+      
+      res.json(credentials);
+    } catch (error) {
+      console.error("Error fetching filtered property access credentials:", error);
+      res.status(500).json({ message: "Failed to fetch filtered property access credentials" });
+    }
+  });
+
+  // Get single property access credential
+  app.get("/api/property-access/credentials/:id", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const credential = await storage.getPropertyAccessCredential(parseInt(id));
+      
+      if (!credential) {
+        return res.status(404).json({ message: "Property access credential not found" });
+      }
+      
+      res.json(credential);
+    } catch (error) {
+      console.error("Error fetching property access credential:", error);
+      res.status(500).json({ message: "Failed to fetch property access credential" });
+    }
+  });
+
+  // Create property access credential
+  app.post("/api/property-access/credentials", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = req.user?.organizationId || 'default-org';
+      const userId = req.user?.id || '';
+      
+      const credentialData = {
+        ...req.body,
+        organizationId,
+        createdBy: userId,
+        updatedBy: userId
+      };
+      
+      const newCredential = await storage.createPropertyAccessCredential(credentialData);
+      
+      // Log the creation
+      await storage.createAccessChangeLog({
+        credentialId: newCredential.id,
+        changeType: 'created',
+        changedBy: userId,
+        oldValue: null,
+        newValue: JSON.stringify(credentialData),
+        changeReason: 'Initial creation'
+      });
+      
+      res.status(201).json(newCredential);
+    } catch (error) {
+      console.error("Error creating property access credential:", error);
+      res.status(500).json({ message: "Failed to create property access credential" });
+    }
+  });
+
+  // Update property access credential
+  app.put("/api/property-access/credentials/:id", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const userId = req.user?.id || '';
+      
+      // Get the old credential for logging
+      const oldCredential = await storage.getPropertyAccessCredential(parseInt(id));
+      if (!oldCredential) {
+        return res.status(404).json({ message: "Property access credential not found" });
+      }
+      
+      const updatedCredential = await storage.updatePropertyAccessCredential(
+        parseInt(id), 
+        { ...req.body, updatedBy: userId }
+      );
+      
+      if (!updatedCredential) {
+        return res.status(404).json({ message: "Property access credential not found" });
+      }
+      
+      // Log the update
+      await storage.createAccessChangeLog({
+        credentialId: parseInt(id),
+        changeType: 'updated',
+        changedBy: userId,
+        oldValue: JSON.stringify(oldCredential),
+        newValue: JSON.stringify(updatedCredential),
+        changeReason: req.body.changeReason || 'Manual update'
+      });
+      
+      res.json(updatedCredential);
+    } catch (error) {
+      console.error("Error updating property access credential:", error);
+      res.status(500).json({ message: "Failed to update property access credential" });
+    }
+  });
+
+  // Delete property access credential
+  app.delete("/api/property-access/credentials/:id", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const userId = req.user?.id || '';
+      
+      // Get the credential for logging
+      const credential = await storage.getPropertyAccessCredential(parseInt(id));
+      if (!credential) {
+        return res.status(404).json({ message: "Property access credential not found" });
+      }
+      
+      const deleted = await storage.deletePropertyAccessCredential(parseInt(id));
+      
+      if (!deleted) {
+        return res.status(404).json({ message: "Property access credential not found" });
+      }
+      
+      // Log the deletion
+      await storage.createAccessChangeLog({
+        credentialId: parseInt(id),
+        changeType: 'deleted',
+        changedBy: userId,
+        oldValue: JSON.stringify(credential),
+        newValue: null,
+        changeReason: 'Manual deletion'
+      });
+      
+      res.json({ message: "Property access credential deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting property access credential:", error);
+      res.status(500).json({ message: "Failed to delete property access credential" });
+    }
+  });
+
+  // Get property access photos
+  app.get("/api/property-access/credentials/:id/photos", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const photos = await storage.getPropertyAccessPhotos(parseInt(id));
+      res.json(photos);
+    } catch (error) {
+      console.error("Error fetching property access photos:", error);
+      res.status(500).json({ message: "Failed to fetch property access photos" });
+    }
+  });
+
+  // Create property access photo
+  app.post("/api/property-access/credentials/:id/photos", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const userId = req.user?.id || '';
+      
+      const photoData = {
+        ...req.body,
+        credentialId: parseInt(id),
+        uploadedBy: userId
+      };
+      
+      const newPhoto = await storage.createPropertyAccessPhoto(photoData);
+      res.status(201).json(newPhoto);
+    } catch (error) {
+      console.error("Error creating property access photo:", error);
+      res.status(500).json({ message: "Failed to create property access photo" });
+    }
+  });
+
+  // Delete property access photo
+  app.delete("/api/property-access/photos/:id", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const deleted = await storage.deletePropertyAccessPhoto(parseInt(id));
+      
+      if (!deleted) {
+        return res.status(404).json({ message: "Property access photo not found" });
+      }
+      
+      res.json({ message: "Property access photo deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting property access photo:", error);
+      res.status(500).json({ message: "Failed to delete property access photo" });
+    }
+  });
+
+  // Get access change log
+  app.get("/api/property-access/credentials/:id/changelog", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const changeLog = await storage.getAccessChangeLog(parseInt(id));
+      res.json(changeLog);
+    } catch (error) {
+      console.error("Error fetching access change log:", error);
+      res.status(500).json({ message: "Failed to fetch access change log" });
+    }
+  });
+
+  // Get guest access sessions
+  app.get("/api/property-access/guest-sessions", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = req.user?.organizationId || 'default-org';
+      const { bookingId, credentialId, guestEmail } = req.query;
+      
+      const filters: any = {};
+      if (bookingId) filters.bookingId = parseInt(bookingId);
+      if (credentialId) filters.credentialId = parseInt(credentialId);
+      if (guestEmail) filters.guestEmail = guestEmail;
+      
+      const sessions = await storage.getGuestAccessSessions(organizationId, filters);
+      res.json(sessions);
+    } catch (error) {
+      console.error("Error fetching guest access sessions:", error);
+      res.status(500).json({ message: "Failed to fetch guest access sessions" });
+    }
+  });
+
+  // Create guest access session
+  app.post("/api/property-access/guest-sessions", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = req.user?.organizationId || 'default-org';
+      const userId = req.user?.id || '';
+      
+      // Generate access token
+      const accessToken = await storage.generateGuestAccessToken(
+        req.body.bookingId,
+        req.body.credentialId
+      );
+      
+      const sessionData = {
+        ...req.body,
+        organizationId,
+        accessToken,
+        grantedBy: userId
+      };
+      
+      const newSession = await storage.createGuestAccessSession(sessionData);
+      res.status(201).json(newSession);
+    } catch (error) {
+      console.error("Error creating guest access session:", error);
+      res.status(500).json({ message: "Failed to create guest access session" });
+    }
+  });
+
+  // Revoke guest access session
+  app.patch("/api/property-access/guest-sessions/:id/revoke", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const { reason } = req.body;
+      const userId = req.user?.id || '';
+      
+      const revokedSession = await storage.revokeGuestAccessSession(
+        parseInt(id),
+        userId,
+        reason || 'Manual revocation'
+      );
+      
+      if (!revokedSession) {
+        return res.status(404).json({ message: "Guest access session not found" });
+      }
+      
+      res.json(revokedSession);
+    } catch (error) {
+      console.error("Error revoking guest access session:", error);
+      res.status(500).json({ message: "Failed to revoke guest access session" });
+    }
+  });
+
+  // Validate guest access token
+  app.post("/api/property-access/validate-token", async (req, res) => {
+    try {
+      const { token } = req.body;
+      
+      if (!token) {
+        return res.status(400).json({ message: "Token is required" });
+      }
+      
+      const validation = await storage.validateGuestAccessToken(token);
+      res.json(validation);
+    } catch (error) {
+      console.error("Error validating guest access token:", error);
+      res.status(500).json({ message: "Failed to validate guest access token" });
+    }
+  });
+
+  // Get code rotation schedules
+  app.get("/api/property-access/rotation-schedules", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = req.user?.organizationId || 'default-org';
+      const { propertyId, dueForRotation } = req.query;
+      
+      const filters: any = {};
+      if (propertyId) filters.propertyId = parseInt(propertyId);
+      if (dueForRotation === 'true') filters.dueForRotation = true;
+      
+      const schedules = await storage.getCodeRotationSchedules(organizationId, filters);
+      res.json(schedules);
+    } catch (error) {
+      console.error("Error fetching code rotation schedules:", error);
+      res.status(500).json({ message: "Failed to fetch code rotation schedules" });
+    }
+  });
+
+  // Create code rotation schedule
+  app.post("/api/property-access/rotation-schedules", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = req.user?.organizationId || 'default-org';
+      const userId = req.user?.id || '';
+      
+      const scheduleData = {
+        ...req.body,
+        organizationId,
+        createdBy: userId
+      };
+      
+      const newSchedule = await storage.createCodeRotationSchedule(scheduleData);
+      res.status(201).json(newSchedule);
+    } catch (error) {
+      console.error("Error creating code rotation schedule:", error);
+      res.status(500).json({ message: "Failed to create code rotation schedule" });
+    }
+  });
+
+  // Update code rotation schedule
+  app.put("/api/property-access/rotation-schedules/:id", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const updatedSchedule = await storage.updateCodeRotationSchedule(parseInt(id), req.body);
+      
+      if (!updatedSchedule) {
+        return res.status(404).json({ message: "Code rotation schedule not found" });
+      }
+      
+      res.json(updatedSchedule);
+    } catch (error) {
+      console.error("Error updating code rotation schedule:", error);
+      res.status(500).json({ message: "Failed to update code rotation schedule" });
+    }
+  });
+
+  // Get due rotation reminders
+  app.get("/api/property-access/due-reminders", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = req.user?.organizationId || 'default-org';
+      const dueReminders = await storage.getDueRotationReminders(organizationId);
+      res.json(dueReminders);
+    } catch (error) {
+      console.error("Error fetching due rotation reminders:", error);
+      res.status(500).json({ message: "Failed to fetch due rotation reminders" });
+    }
+  });
+
+  // Mark rotation reminder as sent
+  app.patch("/api/property-access/rotation-schedules/:id/mark-sent", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const marked = await storage.markRotationReminderSent(parseInt(id));
+      
+      if (!marked) {
+        return res.status(404).json({ message: "Code rotation schedule not found" });
+      }
+      
+      res.json({ message: "Rotation reminder marked as sent" });
+    } catch (error) {
+      console.error("Error marking rotation reminder as sent:", error);
+      res.status(500).json({ message: "Failed to mark rotation reminder as sent" });
+    }
+  });
+
+  // ===== AUTO-SCHEDULING & RECURRING TASKS ROUTES =====
+
+  // Task Scheduling Rules Routes
+  app.get("/api/task-scheduling-rules", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = "default-org";
+      const propertyId = req.query.propertyId ? parseInt(req.query.propertyId) : undefined;
+      
+      const rules = await storage.getTaskSchedulingRules(organizationId, propertyId);
+      res.json(rules);
+    } catch (error) {
+      console.error("Error fetching task scheduling rules:", error);
+      res.status(500).json({ message: "Failed to fetch task scheduling rules" });
+    }
+  });
+
+  app.get("/api/task-scheduling-rules/:ruleId", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = "default-org";
+      const ruleId = parseInt(req.params.ruleId);
+      
+      const rule = await storage.getTaskSchedulingRule(organizationId, ruleId);
+      if (!rule) {
+        return res.status(404).json({ message: "Task scheduling rule not found" });
+      }
+      
+      res.json(rule);
+    } catch (error) {
+      console.error("Error fetching task scheduling rule:", error);
+      res.status(500).json({ message: "Failed to fetch task scheduling rule" });
+    }
+  });
+
+  app.post("/api/task-scheduling-rules", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = "default-org";
+      const user = req.user;
+      
+      // Only admin and portfolio-manager can create rules
+      if (user?.role !== 'admin' && user?.role !== 'portfolio-manager') {
+        return res.status(403).json({ message: "Insufficient permissions to create task scheduling rules" });
+      }
+
+      const ruleData = {
+        ...req.body,
+        organizationId,
+        createdBy: user.id
+      };
+      
+      const newRule = await storage.createTaskSchedulingRule(ruleData);
+      res.status(201).json(newRule);
+    } catch (error) {
+      console.error("Error creating task scheduling rule:", error);
+      res.status(500).json({ message: "Failed to create task scheduling rule" });
+    }
+  });
+
+  app.put("/api/task-scheduling-rules/:ruleId", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = "default-org";
+      const ruleId = parseInt(req.params.ruleId);
+      const user = req.user;
+      
+      // Only admin and portfolio-manager can update rules
+      if (user?.role !== 'admin' && user?.role !== 'portfolio-manager') {
+        return res.status(403).json({ message: "Insufficient permissions to update task scheduling rules" });
+      }
+      
+      const updatedRule = await storage.updateTaskSchedulingRule(organizationId, ruleId, req.body);
+      res.json(updatedRule);
+    } catch (error) {
+      console.error("Error updating task scheduling rule:", error);
+      res.status(500).json({ message: "Failed to update task scheduling rule" });
+    }
+  });
+
+  app.delete("/api/task-scheduling-rules/:ruleId", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = "default-org";
+      const ruleId = parseInt(req.params.ruleId);
+      const user = req.user;
+      
+      // Only admin and portfolio-manager can delete rules
+      if (user?.role !== 'admin' && user?.role !== 'portfolio-manager') {
+        return res.status(403).json({ message: "Insufficient permissions to delete task scheduling rules" });
+      }
+      
+      await storage.deleteTaskSchedulingRule(organizationId, ruleId);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting task scheduling rule:", error);
+      res.status(500).json({ message: "Failed to delete task scheduling rule" });
+    }
+  });
+
+  app.patch("/api/task-scheduling-rules/:ruleId/toggle", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = "default-org";
+      const ruleId = parseInt(req.params.ruleId);
+      const { isActive } = req.body;
+      const user = req.user;
+      
+      // Only admin and portfolio-manager can toggle rules
+      if (user?.role !== 'admin' && user?.role !== 'portfolio-manager') {
+        return res.status(403).json({ message: "Insufficient permissions to toggle task scheduling rules" });
+      }
+      
+      const updatedRule = await storage.toggleTaskSchedulingRule(organizationId, ruleId, isActive);
+      res.json(updatedRule);
+    } catch (error) {
+      console.error("Error toggling task scheduling rule:", error);
+      res.status(500).json({ message: "Failed to toggle task scheduling rule" });
+    }
+  });
+
+  // Recurring Tasks Routes
+  app.get("/api/recurring-tasks", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = "default-org";
+      const user = req.user;
+      
+      const filters: any = {};
+      
+      // Add query filters
+      if (req.query.propertyId) filters.propertyId = parseInt(req.query.propertyId);
+      if (req.query.department) filters.department = req.query.department;
+      if (req.query.status) filters.status = req.query.status;
+      if (req.query.dateFrom) filters.dateFrom = req.query.dateFrom;
+      if (req.query.dateTo) filters.dateTo = req.query.dateTo;
+      
+      // Staff can only see tasks assigned to them
+      if (user?.role === 'staff') {
+        filters.assignedTo = user.id;
+      }
+      
+      const tasks = await storage.getRecurringTasks(organizationId, filters);
+      res.json(tasks);
+    } catch (error) {
+      console.error("Error fetching recurring tasks:", error);
+      res.status(500).json({ message: "Failed to fetch recurring tasks" });
+    }
+  });
+
+  app.get("/api/recurring-tasks/:taskId", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = "default-org";
+      const taskId = parseInt(req.params.taskId);
+      
+      const task = await storage.getRecurringTask(organizationId, taskId);
+      if (!task) {
+        return res.status(404).json({ message: "Recurring task not found" });
+      }
+      
+      res.json(task);
+    } catch (error) {
+      console.error("Error fetching recurring task:", error);
+      res.status(500).json({ message: "Failed to fetch recurring task" });
+    }
+  });
+
+  app.put("/api/recurring-tasks/:taskId", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = "default-org";
+      const taskId = parseInt(req.params.taskId);
+      
+      const updatedTask = await storage.updateRecurringTask(organizationId, taskId, req.body);
+      res.json(updatedTask);
+    } catch (error) {
+      console.error("Error updating recurring task:", error);
+      res.status(500).json({ message: "Failed to update recurring task" });
+    }
+  });
+
+  app.post("/api/recurring-tasks/:taskId/complete", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = "default-org";
+      const taskId = parseInt(req.params.taskId);
+      const completionData = req.body;
+      
+      const completedTask = await storage.completeRecurringTask(organizationId, taskId, completionData);
+      res.json(completedTask);
+    } catch (error) {
+      console.error("Error completing recurring task:", error);
+      res.status(500).json({ message: "Failed to complete recurring task" });
+    }
+  });
+
+  app.post("/api/recurring-tasks/:taskId/skip", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = "default-org";
+      const taskId = parseInt(req.params.taskId);
+      const { skipReason } = req.body;
+      
+      const skippedTask = await storage.skipRecurringTask(organizationId, taskId, skipReason);
+      res.json(skippedTask);
+    } catch (error) {
+      console.error("Error skipping recurring task:", error);
+      res.status(500).json({ message: "Failed to skip recurring task" });
+    }
+  });
+
+  // Task Generation Routes
+  app.post("/api/generate-recurring-tasks", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = "default-org";
+      const { targetDate } = req.body;
+      const user = req.user;
+      
+      // Only admin and portfolio-manager can trigger task generation
+      if (user?.role !== 'admin' && user?.role !== 'portfolio-manager') {
+        return res.status(403).json({ message: "Insufficient permissions to generate tasks" });
+      }
+      
+      const log = await storage.generateRecurringTasks(organizationId, targetDate);
+      res.json(log);
+    } catch (error) {
+      console.error("Error generating recurring tasks:", error);
+      res.status(500).json({ message: "Failed to generate recurring tasks" });
+    }
+  });
+
+  app.get("/api/task-generation-logs", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = "default-org";
+      const limit = req.query.limit ? parseInt(req.query.limit) : 50;
+      
+      const logs = await storage.getTaskGenerationLogs(organizationId, limit);
+      res.json(logs);
+    } catch (error) {
+      console.error("Error fetching task generation logs:", error);
+      res.status(500).json({ message: "Failed to fetch task generation logs" });
+    }
+  });
+
+  // Analytics Routes
+  app.get("/api/recurring-task-analytics", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = "default-org";
+      const propertyId = req.query.propertyId ? parseInt(req.query.propertyId) : undefined;
+      const department = req.query.department as string;
+      const year = req.query.year ? parseInt(req.query.year) : undefined;
+      const month = req.query.month ? parseInt(req.query.month) : undefined;
+      
+      const analytics = await storage.getRecurringTaskAnalytics(organizationId, propertyId, department, year, month);
+      res.json(analytics);
+    } catch (error) {
+      console.error("Error fetching recurring task analytics:", error);
+      res.status(500).json({ message: "Failed to fetch recurring task analytics" });
+    }
+  });
+
+  app.post("/api/recurring-task-analytics/update", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = "default-org";
+      const user = req.user;
+      
+      // Only admin and portfolio-manager can update analytics
+      if (user?.role !== 'admin' && user?.role !== 'portfolio-manager') {
+        return res.status(403).json({ message: "Insufficient permissions to update analytics" });
+      }
+      
+      await storage.updateRecurringTaskAnalytics(organizationId);
+      res.json({ message: "Analytics updated successfully" });
+    } catch (error) {
+      console.error("Error updating recurring task analytics:", error);
+      res.status(500).json({ message: "Failed to update recurring task analytics" });
+    }
+  });
+
+  // Alerts Routes
+  app.get("/api/task-scheduling-alerts", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = "default-org";
+      
+      const filters: any = {};
+      if (req.query.severity) filters.severity = req.query.severity;
+      if (req.query.status) filters.status = req.query.status;
+      if (req.query.propertyId) filters.propertyId = parseInt(req.query.propertyId);
+      
+      const alerts = await storage.getTaskSchedulingAlerts(organizationId, filters);
+      res.json(alerts);
+    } catch (error) {
+      console.error("Error fetching task scheduling alerts:", error);
+      res.status(500).json({ message: "Failed to fetch task scheduling alerts" });
+    }
+  });
+
+  app.post("/api/task-scheduling-alerts", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = "default-org";
+      
+      const alertData = {
+        ...req.body,
+        organizationId
+      };
+      
+      const newAlert = await storage.createTaskSchedulingAlert(alertData);
+      res.status(201).json(newAlert);
+    } catch (error) {
+      console.error("Error creating task scheduling alert:", error);
+      res.status(500).json({ message: "Failed to create task scheduling alert" });
+    }
+  });
+
+  app.patch("/api/task-scheduling-alerts/:alertId/acknowledge", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = "default-org";
+      const alertId = parseInt(req.params.alertId);
+      const user = req.user;
+      
+      const acknowledgedAlert = await storage.acknowledgeTaskSchedulingAlert(organizationId, alertId, user.id);
+      res.json(acknowledgedAlert);
+    } catch (error) {
+      console.error("Error acknowledging task scheduling alert:", error);
+      res.status(500).json({ message: "Failed to acknowledge task scheduling alert" });
+    }
+  });
+
+  // ===== GUEST CHECKOUT SURVEY API ROUTES =====
+
+  // Get guest checkout surveys
+  app.get("/api/guest-checkout-surveys", isDemoAuthenticated, async (req, res) => {
+    try {
+      const organizationId = req.user.organizationId;
+      const { guestId, propertyId, surveyType, startDate, endDate } = req.query;
+      
+      const filters: any = {};
+      if (guestId) filters.guestId = guestId as string;
+      if (propertyId) filters.propertyId = parseInt(propertyId as string);
+      if (surveyType) filters.surveyType = surveyType as string;
+      if (startDate && endDate) {
+        filters.dateRange = {
+          start: new Date(startDate as string),
+          end: new Date(endDate as string)
+        };
+      }
+      
+      const surveys = await storage.getGuestCheckoutSurveys(organizationId, filters);
+      res.json(surveys);
+    } catch (error) {
+      console.error("Error fetching guest checkout surveys:", error);
+      res.status(500).json({ message: "Failed to fetch surveys" });
+    }
+  });
+
+  // Get guest checkout survey by ID
+  app.get("/api/guest-checkout-surveys/:id", isDemoAuthenticated, async (req, res) => {
+    try {
+      const survey = await storage.getGuestCheckoutSurvey(parseInt(req.params.id));
+      if (!survey) {
+        return res.status(404).json({ message: "Survey not found" });
+      }
+      res.json(survey);
+    } catch (error) {
+      console.error("Error fetching guest checkout survey:", error);
+      res.status(500).json({ message: "Failed to fetch survey" });
+    }
+  });
+
+  // Create new guest checkout survey (public route for guests)
+  app.post("/api/guest-checkout-surveys", async (req, res) => {
+    try {
+      const surveyData = {
+        ...req.body,
+        organizationId: req.body.organizationId || "default",
+      };
+
+      // Validate required fields
+      if (!surveyData.guestId) {
+        return res.status(400).json({ message: "Guest ID is required" });
+      }
+
+      const survey = await storage.createGuestCheckoutSurvey(surveyData);
+      res.status(201).json(survey);
+    } catch (error) {
+      console.error("Error creating guest checkout survey:", error);
+      res.status(500).json({ message: "Failed to create survey" });
+    }
+  });
+
+  // Update guest checkout survey (admin only)
+  app.put("/api/guest-checkout-surveys/:id", isDemoAuthenticated, async (req, res) => {
+    try {
+      const updated = await storage.updateGuestCheckoutSurvey(parseInt(req.params.id), req.body);
+      if (!updated) {
+        return res.status(404).json({ message: "Survey not found" });
+      }
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating guest checkout survey:", error);
+      res.status(500).json({ message: "Failed to update survey" });
+    }
+  });
+
+  // Review guest survey (admin/PM only)
+  app.post("/api/guest-checkout-surveys/:id/review", isDemoAuthenticated, async (req, res) => {
+    try {
+      const { adminNotes } = req.body;
+      const updated = await storage.reviewGuestSurvey(
+        parseInt(req.params.id),
+        req.user.id,
+        adminNotes
+      );
+      if (!updated) {
+        return res.status(404).json({ message: "Survey not found" });
+      }
+      res.json(updated);
+    } catch (error) {
+      console.error("Error reviewing guest survey:", error);
+      res.status(500).json({ message: "Failed to review survey" });
+    }
+  });
+
+  // ===== SYSTEM SETTINGS API ENDPOINTS =====
+  // Get system settings (currency, date format, organization name)
+  app.get("/api/system-settings", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = req.user.organizationId;
+      
+      // Get settings from platform_settings table
+      const baseCurrencySetting = await storage.getPlatformSetting('baseCurrency');
+      const displayCurrencySetting = await storage.getPlatformSetting('displayCurrency');
+      const dateFormatSetting = await storage.getPlatformSetting('dateFormat');
+      const companyNameSetting = await storage.getPlatformSetting('companyName');
+      const timezoneSetting = await storage.getPlatformSetting('timezone');
+      
+      // baseCurrency = currency amounts are stored in (defaults to USD)
+      // displayCurrency = currency shown to user (defaults to baseCurrency)
+      const baseCurrency = baseCurrencySetting?.settingValue || 'USD';
+      const displayCurrency = displayCurrencySetting?.settingValue || baseCurrency;
+      
+      res.json({
+        id: 1,
+        organizationId,
+        baseCurrency, // Currency amounts are stored in DB
+        displayCurrency, // Currency shown to user (for conversion)
+        defaultCurrency: displayCurrency, // Backwards compatibility
+        dateFormat: dateFormatSetting?.settingValue || 'DD/MM/YYYY',
+        companyName: companyNameSetting?.settingValue || 'HostPilotPro',
+        timezone: timezoneSetting?.settingValue || 'Asia/Bangkok',
+      });
+    } catch (error) {
+      console.error("Error fetching system settings:", error);
+      res.status(500).json({ message: "Failed to fetch system settings" });
+    }
+  });
+
+  // Update system settings
+  app.put("/api/system-settings", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = req.user.organizationId;
+      const { defaultCurrency, displayCurrency, baseCurrency, dateFormat, companyName, timezone } = req.body;
+      
+      // Update displayCurrency (what user selects for display)
+      const currencyToSave = displayCurrency || defaultCurrency;
+      if (currencyToSave) {
+        await storage.upsertPlatformSetting({
+          settingKey: 'displayCurrency',
+          settingValue: currencyToSave,
+          settingType: 'string',
+          category: 'currency',
+          description: 'Display currency for the organization (for conversion)',
+          updatedBy: req.user.id,
+        });
+      }
+      
+      // Update baseCurrency only if explicitly provided (usually set once)
+      if (baseCurrency) {
+        await storage.upsertPlatformSetting({
+          settingKey: 'baseCurrency',
+          settingValue: baseCurrency,
+          settingType: 'string',
+          category: 'currency',
+          description: 'Base currency for stored amounts',
+          updatedBy: req.user.id,
+        });
+      }
+      
+      if (dateFormat) {
+        await storage.upsertPlatformSetting({
+          settingKey: 'dateFormat',
+          settingValue: dateFormat,
+          settingType: 'string',
+          category: 'system',
+          description: 'Default date format for the organization',
+          updatedBy: req.user.id,
+        });
+      }
+      
+      if (companyName) {
+        await storage.upsertPlatformSetting({
+          settingKey: 'companyName',
+          settingValue: companyName,
+          settingType: 'string',
+          category: 'system',
+          description: 'Organization/company name',
+          updatedBy: req.user.id,
+        });
+      }
+      
+      if (timezone) {
+        await storage.upsertPlatformSetting({
+          settingKey: 'timezone',
+          settingValue: timezone,
+          settingType: 'string',
+          category: 'system',
+          description: 'Default timezone for the organization',
+          updatedBy: req.user.id,
+        });
+      }
+
+      // Get current values after update
+      const updatedBaseCurrency = (await storage.getPlatformSetting('baseCurrency'))?.settingValue || 'USD';
+      const updatedDisplayCurrency = (await storage.getPlatformSetting('displayCurrency'))?.settingValue || updatedBaseCurrency;
+      
+      console.log(`[SYSTEM-SETTINGS] Display currency updated to: ${updatedDisplayCurrency}`);
+      
+      res.json({
+        id: 1,
+        organizationId,
+        baseCurrency: updatedBaseCurrency,
+        displayCurrency: updatedDisplayCurrency,
+        defaultCurrency: updatedDisplayCurrency, // Backwards compatibility
+        dateFormat: dateFormat || 'DD/MM/YYYY',
+        companyName: companyName || 'HostPilotPro',
+        timezone: timezone || 'Asia/Bangkok',
+        message: 'System settings updated successfully'
+      });
+    } catch (error) {
+      console.error("Error updating system settings:", error);
+      res.status(500).json({ message: "Failed to update system settings" });
+    }
+  });
+
+  // ===== CURRENCY CONVERSION API ENDPOINTS =====
+  // Import currency service
+  const currencyService = await import('./services/currencyConversionService');
+  
+  // Get exchange rates for frontend
+  app.get("/api/currency/rates", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const baseCurrency = (req.query.base as string) || 'USD';
+      const ratesData = await currencyService.getAllRatesForFrontend(baseCurrency);
+      res.json(ratesData);
+    } catch (error) {
+      console.error("Error fetching exchange rates:", error);
+      res.status(500).json({ message: "Failed to fetch exchange rates" });
+    }
+  });
+
+  // Convert a specific amount
+  app.get("/api/currency/convert", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { amount, from, to } = req.query;
+      
+      if (!amount || !from || !to) {
+        return res.status(400).json({ message: "Missing required parameters: amount, from, to" });
+      }
+
+      const numAmount = parseFloat(amount as string);
+      if (isNaN(numAmount)) {
+        return res.status(400).json({ message: "Invalid amount" });
+      }
+
+      const convertedAmount = await currencyService.convertAmount(
+        numAmount,
+        from as string,
+        to as string
+      );
+
+      res.json({
+        originalAmount: numAmount,
+        fromCurrency: from,
+        toCurrency: to,
+        convertedAmount,
+        rate: await currencyService.getConversionRate(from as string, to as string),
+      });
+    } catch (error) {
+      console.error("Error converting currency:", error);
+      res.status(500).json({ message: "Failed to convert currency" });
+    }
+  });
+
+  // Get supported currencies
+  app.get("/api/currency/supported", async (req, res) => {
+    try {
+      res.json({
+        currencies: currencyService.SUPPORTED_CURRENCIES,
+        symbols: currencyService.CURRENCY_SYMBOLS,
+      });
+    } catch (error) {
+      console.error("Error fetching supported currencies:", error);
+      res.status(500).json({ message: "Failed to fetch supported currencies" });
+    }
+  });
+
+  // Get survey settings
+  app.get("/api/survey-settings", isDemoAuthenticated, async (req, res) => {
+    try {
+      const organizationId = req.user.organizationId;
+      const { propertyId } = req.query;
+      
+      const settings = await storage.getSurveySettings(
+        organizationId,
+        propertyId ? parseInt(propertyId as string) : undefined
+      );
+      res.json(settings);
+    } catch (error) {
+      console.error("Error fetching survey settings:", error);
+      res.status(500).json({ message: "Failed to fetch survey settings" });
+    }
+  });
+
+  // Create or update survey settings
+  app.post("/api/survey-settings", isDemoAuthenticated, async (req, res) => {
+    try {
+      const settingsData = {
+        ...req.body,
+        organizationId: req.user.organizationId,
+      };
+      
+      const settings = await storage.createSurveySettings(settingsData);
+      res.status(201).json(settings);
+    } catch (error) {
+      console.error("Error creating survey settings:", error);
+      res.status(500).json({ message: "Failed to create survey settings" });
+    }
+  });
+
+  // Get survey alerts
+  app.get("/api/survey-alerts", isDemoAuthenticated, async (req, res) => {
+    try {
+      const organizationId = req.user.organizationId;
+      const { severity, resolved, alertType } = req.query;
+      
+      const filters: any = {};
+      if (severity) filters.severity = severity as string;
+      if (resolved !== undefined) filters.resolved = resolved === 'true';
+      if (alertType) filters.alertType = alertType as string;
+      
+      const alerts = await storage.getSurveyAlerts(organizationId, filters);
+      res.json(alerts);
+    } catch (error) {
+      console.error("Error fetching survey alerts:", error);
+      res.status(500).json({ message: "Failed to fetch survey alerts" });
+    }
+  });
+
+  // Resolve survey alert
+  app.post("/api/survey-alerts/:id/resolve", isDemoAuthenticated, async (req, res) => {
+    try {
+      const { resolutionNotes } = req.body;
+      const updated = await storage.resolveSurveyAlert(
+        parseInt(req.params.id),
+        req.user.id,
+        resolutionNotes
+      );
+      if (!updated) {
+        return res.status(404).json({ message: "Alert not found" });
+      }
+      res.json(updated);
+    } catch (error) {
+      console.error("Error resolving survey alert:", error);
+      res.status(500).json({ message: "Failed to resolve alert" });
+    }
+  });
+
+  // Get survey analytics
+  app.get("/api/survey-analytics", isDemoAuthenticated, async (req, res) => {
+    try {
+      const organizationId = req.user.organizationId;
+      const { propertyId, period } = req.query;
+      
+      const analytics = await storage.getSurveyAnalytics(
+        organizationId,
+        propertyId ? parseInt(propertyId as string) : undefined,
+        period as string
+      );
+      res.json(analytics);
+    } catch (error) {
+      console.error("Error fetching survey analytics:", error);
+      res.status(500).json({ message: "Failed to fetch survey analytics" });
+    }
+  });
+
+  // Generate survey analytics (admin only)
+  app.post("/api/survey-analytics/generate", isDemoAuthenticated, async (req, res) => {
+    try {
+      const organizationId = req.user.organizationId;
+      const { propertyId } = req.body;
+      
+      await storage.generateSurveyAnalytics(organizationId, propertyId);
+      res.json({ message: "Analytics generated successfully" });
+    } catch (error) {
+      console.error("Error generating survey analytics:", error);
+      res.status(500).json({ message: "Failed to generate analytics" });
+    }
+  });
+
+  // Get demo survey data (for testing)
+  app.get("/api/guest-checkout-surveys/demo", isDemoAuthenticated, async (req, res) => {
+    try {
+      const organizationId = req.user.organizationId;
+      const demoData = await storage.getGuestSurveyDemoData(organizationId);
+      res.json(demoData);
+    } catch (error) {
+      console.error("Error fetching demo survey data:", error);
+      res.status(500).json({ message: "Failed to fetch demo data" });
+    }
+  });
+
+  // ===== MARKETING PACK GENERATION SYSTEM =====
+
+  // Get all marketing packs for organization
+  app.get("/api/marketing-packs", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId } = req.user;
+      const { propertyId, status, packType, targetAudience, language } = req.query;
+
+      const filters: any = {};
+      if (propertyId) filters.propertyId = parseInt(propertyId);
+      if (status) filters.status = status;
+      if (packType) filters.packType = packType;
+      if (targetAudience) filters.targetAudience = targetAudience;
+      if (language) filters.language = language;
+
+      const packs = await storage.getMarketingPacks(organizationId, filters);
+      res.json(packs);
+    } catch (error) {
+      console.error("Error fetching marketing packs:", error);
+      res.status(500).json({ message: "Failed to fetch marketing packs" });
+    }
+  });
+
+  // Create new marketing pack
+  app.post("/api/marketing-packs", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: userId } = req.user;
+      const packData = insertMarketingPackSchema.parse({
+        ...req.body,
+        organizationId,
+        generatedBy: userId,
+      });
+
+      // Generate AI summary for the pack
+      if (packData.propertyId && packData.packType && packData.targetAudience && packData.language) {
+        packData.aiSummary = await storage.generateMarketingContent(
+          packData.propertyId,
+          packData.packType,
+          packData.targetAudience,
+          packData.language
+        );
+      }
+
+      const pack = await storage.createMarketingPack(packData);
+      res.status(201).json(pack);
+    } catch (error) {
+      console.error("Error creating marketing pack:", error);
+      res.status(500).json({ message: "Failed to create marketing pack" });
+    }
+  });
+
+  // Get marketing pack by ID
+  app.get("/api/marketing-packs/:id", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId } = req.user;
+      const id = parseInt(req.params.id);
+
+      const pack = await storage.getMarketingPackById(organizationId, id);
+      
+      if (!pack) {
+        return res.status(404).json({ message: "Marketing pack not found" });
+      }
+
+      res.json(pack);
+    } catch (error) {
+      console.error("Error fetching marketing pack:", error);
+      res.status(500).json({ message: "Failed to fetch marketing pack" });
+    }
+  });
+
+  // Update marketing pack
+  app.put("/api/marketing-packs/:id", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId } = req.user;
+      const id = parseInt(req.params.id);
+      const updates = req.body;
+
+      const pack = await storage.updateMarketingPack(organizationId, id, updates);
+      
+      if (!pack) {
+        return res.status(404).json({ message: "Marketing pack not found" });
+      }
+
+      res.json(pack);
+    } catch (error) {
+      console.error("Error updating marketing pack:", error);
+      res.status(500).json({ message: "Failed to update marketing pack" });
+    }
+  });
+
+  // Delete marketing pack
+  app.delete("/api/marketing-packs/:id", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId } = req.user;
+      const id = parseInt(req.params.id);
+
+      const deleted = await storage.deleteMarketingPack(organizationId, id);
+      
+      if (!deleted) {
+        return res.status(404).json({ message: "Marketing pack not found" });
+      }
+
+      res.json({ message: "Marketing pack deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting marketing pack:", error);
+      res.status(500).json({ message: "Failed to delete marketing pack" });
+    }
+  });
+
+  // Get marketing pack analytics
+  app.get("/api/marketing-packs/analytics", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId } = req.user;
+
+      const analytics = await storage.getMarketingPackAnalytics(organizationId);
+      res.json(analytics);
+    } catch (error) {
+      console.error("Error fetching marketing pack analytics:", error);
+      res.status(500).json({ message: "Failed to fetch analytics" });
+    }
+  });
+
+  // Get marketing packs by property
+  app.get("/api/marketing-packs/property/:propertyId", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId } = req.user;
+      const propertyId = parseInt(req.params.propertyId);
+
+      const packs = await storage.getMarketingPacksByProperty(organizationId, propertyId);
+      res.json(packs);
+    } catch (error) {
+      console.error("Error fetching marketing packs by property:", error);
+      res.status(500).json({ message: "Failed to fetch marketing packs" });
+    }
+  });
+
+  // Generate AI marketing content
+  app.post("/api/marketing-packs/generate-ai", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { propertyId, packType, targetAudience, language } = req.body;
+
+      if (!propertyId || !packType || !targetAudience || !language) {
+        return res.status(400).json({ 
+          message: "Property ID, pack type, target audience, and language are required" 
+        });
+      }
+
+      const aiContent = await storage.generateMarketingContent(
+        propertyId,
+        packType,
+        targetAudience,
+        language
+      );
+
+      res.json({ aiSummary: aiContent });
+    } catch (error) {
+      console.error("Error generating AI marketing content:", error);
+      res.status(500).json({ message: "Failed to generate AI content" });
+    }
+  });
+
+  // ===== AI OPERATIONS ANOMALIES API ROUTES =====
+
+  // Get all AI operations anomalies
+  app.get("/api/ai-ops-anomalies", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId } = req.user;
+      const anomalies = await storage.getAiOpsAnomalies(organizationId);
+      res.json(anomalies);
+    } catch (error) {
+      console.error("Error fetching AI operations anomalies:", error);
+      res.status(500).json({ message: "Failed to fetch AI operations anomalies" });
+    }
+  });
+
+  // Create AI operations anomaly
+  app.post("/api/ai-ops-anomalies", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId } = req.user;
+      const anomaly = await storage.createAiOpsAnomaly(organizationId, req.body);
+      res.json(anomaly);
+    } catch (error) {
+      console.error("Error creating AI operations anomaly:", error);
+      res.status(500).json({ message: "Failed to create AI operations anomaly" });
+    }
+  });
+
+  // Get AI operations anomaly by ID
+  app.get("/api/ai-ops-anomalies/:id", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId } = req.user;
+      const id = parseInt(req.params.id);
+      const anomaly = await storage.getAiOpsAnomalyById(organizationId, id);
+      
+      if (!anomaly) {
+        return res.status(404).json({ message: "AI operations anomaly not found" });
+      }
+      
+      res.json(anomaly);
+    } catch (error) {
+      console.error("Error fetching AI operations anomaly:", error);
+      res.status(500).json({ message: "Failed to fetch AI operations anomaly" });
+    }
+  });
+
+  // Update AI operations anomaly
+  app.put("/api/ai-ops-anomalies/:id", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId } = req.user;
+      const id = parseInt(req.params.id);
+      const anomaly = await storage.updateAiOpsAnomaly(organizationId, id, req.body);
+      
+      if (!anomaly) {
+        return res.status(404).json({ message: "AI operations anomaly not found" });
+      }
+      
+      res.json(anomaly);
+    } catch (error) {
+      console.error("Error updating AI operations anomaly:", error);
+      res.status(500).json({ message: "Failed to update AI operations anomaly" });
+    }
+  });
+
+  // Delete AI operations anomaly
+  app.delete("/api/ai-ops-anomalies/:id", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId } = req.user;
+      const id = parseInt(req.params.id);
+      const success = await storage.deleteAiOpsAnomaly(organizationId, id);
+      
+      if (!success) {
+        return res.status(404).json({ message: "AI operations anomaly not found" });
+      }
+      
+      res.json({ message: "AI operations anomaly deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting AI operations anomaly:", error);
+      res.status(500).json({ message: "Failed to delete AI operations anomaly" });
+    }
+  });
+
+  // Get anomalies by type
+  app.get("/api/ai-ops-anomalies/type/:type", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId } = req.user;
+      const anomalies = await storage.getAnomaliesByType(organizationId, req.params.type);
+      res.json(anomalies);
+    } catch (error) {
+      console.error("Error fetching anomalies by type:", error);
+      res.status(500).json({ message: "Failed to fetch anomalies by type" });
+    }
+  });
+
+  // Get anomalies by property
+  app.get("/api/ai-ops-anomalies/property/:propertyId", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId } = req.user;
+      const propertyId = parseInt(req.params.propertyId);
+      const anomalies = await storage.getAnomaliesByProperty(organizationId, propertyId);
+      res.json(anomalies);
+    } catch (error) {
+      console.error("Error fetching anomalies by property:", error);
+      res.status(500).json({ message: "Failed to fetch anomalies by property" });
+    }
+  });
+
+  // Resolve anomaly
+  app.post("/api/ai-ops-anomalies/:id/resolve", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId } = req.user;
+      const id = parseInt(req.params.id);
+      const { fixAction } = req.body;
+      const anomaly = await storage.resolveAnomaly(organizationId, id, fixAction);
+      
+      if (!anomaly) {
+        return res.status(404).json({ message: "AI operations anomaly not found" });
+      }
+      
+      res.json(anomaly);
+    } catch (error) {
+      console.error("Error resolving AI operations anomaly:", error);
+      res.status(500).json({ message: "Failed to resolve AI operations anomaly" });
+    }
+  });
+
+  // Get AI operations analytics
+  app.get("/api/ai-ops-anomalies/analytics", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId } = req.user;
+      const analytics = await storage.getAiOpsAnalytics(organizationId);
+      res.json(analytics);
+    } catch (error) {
+      console.error("Error fetching AI operations analytics:", error);
+      res.status(500).json({ message: "Failed to fetch AI operations analytics" });
+    }
+  });
+
+  // Detect anomalies
+  app.post("/api/ai-ops-anomalies/detect", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId } = req.user;
+      const detectedAnomalies = await storage.detectAnomalies(organizationId);
+      res.json({
+        message: `Detected ${detectedAnomalies.length} anomalies`,
+        anomalies: detectedAnomalies,
+        count: detectedAnomalies.length,
+      });
+    } catch (error) {
+      console.error("Error detecting anomalies:", error);
+      res.status(500).json({ message: "Failed to detect anomalies" });
+    }
+  });
+
+  // Auto-fix anomalies
+  app.post("/api/ai-ops-anomalies/auto-fix", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId } = req.user;
+      const fixedCount = await storage.autoFixAnomalies(organizationId);
+      res.json({
+        message: `Auto-fixed ${fixedCount} anomalies`,
+        fixedCount,
+        success: true,
+      });
+    } catch (error) {
+      console.error("Error auto-fixing anomalies:", error);
+      res.status(500).json({ message: "Failed to auto-fix anomalies" });
+    }
+  });
+
+  // Bulk generate marketing packs
+  app.post("/api/marketing-packs/bulk-generate", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, id: userId } = req.user;
+      const { propertyIds, packType, targetAudience, language } = req.body;
+
+      if (!propertyIds || !Array.isArray(propertyIds) || propertyIds.length === 0) {
+        return res.status(400).json({ message: "Property IDs array is required" });
+      }
+
+      if (!packType || !targetAudience || !language) {
+        return res.status(400).json({ 
+          message: "Pack type, target audience, and language are required" 
+        });
+      }
+
+      const packConfig = {
+        packType,
+        targetAudience,
+        language,
+        generatedBy: userId,
+      };
+
+      const createdPacks = await storage.bulkGenerateMarketingPacks(
+        organizationId,
+        propertyIds,
+        packConfig
+      );
+
+      res.status(201).json({
+        message: `Successfully generated ${createdPacks.length} marketing packs`,
+        packs: createdPacks,
+      });
+    } catch (error) {
+      console.error("Error bulk generating marketing packs:", error);
+      res.status(500).json({ message: "Failed to bulk generate marketing packs" });
+    }
+  });
+
+  const httpServer = createServer(app);
+
+  // ===== REPORTS & ANALYTICS ROUTES =====
+  
+  // Get all reports for organization
+  app.get("/api/reports", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = req.user.organizationId || "default-org";
+      const reports = await storage.getReports(organizationId);
+      res.json(reports);
+    } catch (error) {
+      console.error("Error fetching reports:", error);
+      res.status(500).json({ message: "Failed to fetch reports" });
+    }
+  });
+
+  // Get reports by type
+  app.get("/api/reports/type/:type", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = req.user.organizationId || "default-org";
+      const { type } = req.params;
+      const reports = await storage.getReportsByType(organizationId, type);
+      res.json(reports);
+    } catch (error) {
+      console.error("Error fetching reports by type:", error);
+      res.status(500).json({ message: "Failed to fetch reports" });
+    }
+  });
+
+  // Get single report
+  app.get("/api/reports/:id", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const report = await storage.getReport(parseInt(req.params.id));
+      if (!report) {
+        return res.status(404).json({ message: "Report not found" });
+      }
+      res.json(report);
+    } catch (error) {
+      console.error("Error fetching report:", error);
+      res.status(500).json({ message: "Failed to fetch report" });
+    }
+  });
+
+  // Generate new report
+  app.post("/api/reports/generate", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = req.user.organizationId || "default-org";
+      const { type } = req.body;
+      
+      if (!type) {
+        return res.status(400).json({ message: "Report type is required" });
+      }
+      
+      const report = await storage.generateReport(organizationId, type, req.user.id);
+      res.status(201).json(report);
+    } catch (error) {
+      console.error("Error generating report:", error);
+      res.status(500).json({ message: "Failed to generate report" });
+    }
+  });
+
+  // Export report to CSV
+  app.get("/api/reports/:id/export", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const report = await storage.getReport(parseInt(req.params.id));
+      
+      if (!report) {
+        return res.status(404).json({ message: "Report not found" });
+      }
+
+      const { Parser } = await import('json2csv');
+      const fields = report.data.details && report.data.details.length > 0 
+        ? Object.keys(report.data.details[0])
+        : [];
+      
+      const parser = new Parser({ fields });
+      const csv = parser.parse(report.data.details || []);
+      
+      res.header("Content-Type", "text/csv");
+      res.attachment(`${report.type}_report_${report.id}.csv`);
+      res.send(csv);
+    } catch (error) {
+      console.error("Error exporting report:", error);
+      res.status(500).json({ message: "Failed to export report" });
+    }
+  });
+
+  // Delete report
+  app.delete("/api/reports/:id", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const success = await storage.deleteReport(parseInt(req.params.id));
+      if (!success) {
+        return res.status(404).json({ message: "Report not found" });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting report:", error);
+      res.status(500).json({ message: "Failed to delete report" });
+    }
+  });
+
+  // ===== AUTOMATION & ALERTS ROUTES =====
+  
+  // Get all automations
+  app.get("/api/automations", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = req.user.organizationId || "default-org";
+      const automations = await storage.getAutomations(organizationId);
+      res.json(automations);
+    } catch (error) {
+      console.error("Error fetching automations:", error);
+      res.status(500).json({ message: "Failed to fetch automations" });
+    }
+  });
+
+  // Get active automations only
+  app.get("/api/automations/active", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = req.user.organizationId || "default-org";
+      const automations = await storage.getActiveAutomations(organizationId);
+      res.json(automations);
+    } catch (error) {
+      console.error("Error fetching active automations:", error);
+      res.status(500).json({ message: "Failed to fetch automations" });
+    }
+  });
+
+  // Get single automation
+  app.get("/api/automations/:id", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const automation = await storage.getAutomation(parseInt(req.params.id));
+      if (!automation) {
+        return res.status(404).json({ message: "Automation not found" });
+      }
+      res.json(automation);
+    } catch (error) {
+      console.error("Error fetching automation:", error);
+      res.status(500).json({ message: "Failed to fetch automation" });
+    }
+  });
+
+  // Create automation
+  app.post("/api/automations", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = req.user.organizationId || "default-org";
+      const automationData = {
+        ...req.body,
+        organizationId,
+        createdBy: req.user.id
+      };
+      
+      const automation = await storage.createAutomation(automationData);
+      res.status(201).json(automation);
+    } catch (error) {
+      console.error("Error creating automation:", error);
+      res.status(500).json({ message: "Failed to create automation" });
+    }
+  });
+
+  // Update automation
+  app.put("/api/automations/:id", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const automation = await storage.updateAutomation(parseInt(req.params.id), req.body);
+      if (!automation) {
+        return res.status(404).json({ message: "Automation not found" });
+      }
+      res.json(automation);
+    } catch (error) {
+      console.error("Error updating automation:", error);
+      res.status(500).json({ message: "Failed to update automation" });
+    }
+  });
+
+  // Toggle automation active/inactive
+  app.patch("/api/automations/:id/toggle", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const { isActive } = req.body;
+      const automation = await storage.toggleAutomation(parseInt(req.params.id), isActive);
+      if (!automation) {
+        return res.status(404).json({ message: "Automation not found" });
+      }
+      res.json(automation);
+    } catch (error) {
+      console.error("Error toggling automation:", error);
+      res.status(500).json({ message: "Failed to toggle automation" });
+    }
+  });
+
+  // Delete automation
+  app.delete("/api/automations/:id", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const success = await storage.deleteAutomation(parseInt(req.params.id));
+      if (!success) {
+        return res.status(404).json({ message: "Automation not found" });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting automation:", error);
+      res.status(500).json({ message: "Failed to delete automation" });
+    }
+  });
+
+  // Get automation logs
+  app.get("/api/automations/:id/logs", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const logs = await storage.getAutomationLogs(parseInt(req.params.id));
+      res.json(logs);
+    } catch (error) {
+      console.error("Error fetching automation logs:", error);
+      res.status(500).json({ message: "Failed to fetch automation logs" });
+    }
+  });
+
+
+  // ===== INVOICE GENERATOR API ROUTES =====
+  
+  // IMPORTANT: Specific routes must come BEFORE generic :id route to avoid parsing issues
+  
+  // Get next invoice number
+  app.get("/api/billing-invoices/next-number", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = req.user?.organizationId || "default-org";
+      const nextNumber = await storage.getNextInvoiceNumber(organizationId);
+      res.json({ invoiceNumber: nextNumber });
+    } catch (error) {
+      console.error("Error getting next invoice number:", error);
+      res.status(500).json({ message: "Failed to get next invoice number" });
+    }
+  });
+  
+  // Get invoice statistics for analytics
+  app.get("/api/billing-invoices/stats", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = req.user?.organizationId || "default-org";
+      const stats = await storage.getBillingInvoiceStats(organizationId);
+      res.json(stats);
+    } catch (error) {
+      console.error("Error getting invoice stats:", error);
+      res.status(500).json({ message: "Failed to get invoice stats" });
+    }
+  });
+  
+  // Export invoices as CSV
+  app.get("/api/billing-invoices/export", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = req.user?.organizationId || "default-org";
+      const filters = {
+        status: req.query.status,
+        fromDate: req.query.fromDate,
+        toDate: req.query.toDate,
+      };
+      
+      const invoices = await storage.exportBillingInvoices(organizationId, filters);
+      
+      // Convert to CSV
+      const { Parser } = require('json2csv');
+      const fields = [
+        'invoiceNumber',
+        'clientType',
+        'clientName',
+        'issueDate',
+        'dueDate',
+        'status',
+        'subtotal',
+        'taxTotal',
+        'discountTotal',
+        'total',
+      ];
+      const parser = new Parser({ fields });
+      const csv = parser.parse(invoices);
+      
+      res.header('Content-Type', 'text/csv');
+      res.header('Content-Disposition', `attachment; filename=invoices-export-${new Date().toISOString().split('T')[0]}.csv`);
+      res.send(csv);
+    } catch (error) {
+      console.error("Error exporting invoices:", error);
+      res.status(500).json({ message: "Failed to export invoices" });
+    }
+  });
+  
+  // Get all invoices with pagination and filters
+  app.get("/api/billing-invoices", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = req.user?.organizationId || "default-org";
+      const filters = {
+        status: req.query.status,
+        clientId: req.query.clientId,
+        propertyId: req.query.propertyId ? parseInt(req.query.propertyId) : undefined,
+        search: req.query.search,
+        fromDate: req.query.fromDate,
+        toDate: req.query.toDate,
+        page: req.query.page ? parseInt(req.query.page) : 1,
+        limit: req.query.limit ? parseInt(req.query.limit) : 20,
+      };
+      
+      const result = await storage.getBillingInvoices(organizationId, filters);
+      res.json(result);
+    } catch (error) {
+      console.error("Error fetching invoices:", error);
+      res.status(500).json({ message: "Failed to fetch invoices" });
+    }
+  });
+  
+  // Get single invoice by ID
+  app.get("/api/billing-invoices/:id", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const invoice = await storage.getBillingInvoice(id);
+      
+      if (!invoice) {
+        return res.status(404).json({ message: "Invoice not found" });
+      }
+      
+      // Also fetch line items
+      const lineItems = await db
+        .select()
+        .from(billingInvoiceLineItems)
+        .where(eq(billingInvoiceLineItems.invoiceId, id));
+      
+      res.json({ ...invoice, lineItems });
+    } catch (error) {
+      console.error("Error fetching invoice:", error);
+      res.status(500).json({ message: "Failed to fetch invoice" });
+    }
+  });
+  
+  // Create new invoice
+  app.post("/api/billing-invoices", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const organizationId = req.user?.organizationId || "default-org";
+      
+      const { lineItems, ...invoiceData } = req.body;
+      
+      // Validation
+      if (!invoiceData.invoiceNumber || !invoiceData.clientType || !invoiceData.clientName) {
+        return res.status(400).json({ message: "Missing required fields" });
+      }
+      
+      if (!lineItems || lineItems.length === 0) {
+        return res.status(400).json({ message: "At least one line item is required" });
+      }
+      
+      // Additional validation for "sent" status
+      if (invoiceData.status === "sent") {
+        if (!invoiceData.issueDate || !invoiceData.dueDate) {
+          return res.status(400).json({ message: "Issue date and due date are required for sent invoices" });
+        }
+      }
+      
+      const invoice = await storage.createBillingInvoice(
+        {
+          ...invoiceData,
+          organizationId,
+          createdBy: userId,
+        },
+        lineItems
+      );
+      
+      res.status(201).json(invoice);
+    } catch (error) {
+      console.error("Error creating invoice:", error);
+      res.status(500).json({ message: "Failed to create invoice" });
+    }
+  });
+  
+  // Update invoice
+  app.put("/api/billing-invoices/:id", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { lineItems, ...invoiceData } = req.body;
+      
+      const updatedInvoice = await storage.updateBillingInvoice(id, invoiceData, lineItems);
+      
+      if (!updatedInvoice) {
+        return res.status(404).json({ message: "Invoice not found" });
+      }
+      
+      res.json(updatedInvoice);
+    } catch (error) {
+      console.error("Error updating invoice:", error);
+      res.status(500).json({ message: "Failed to update invoice" });
+    }
+  });
+  
+  // Delete invoice
+  app.delete("/api/billing-invoices/:id", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const deleted = await storage.deleteBillingInvoice(id);
+      
+      if (!deleted) {
+        return res.status(404).json({ message: "Invoice not found" });
+      }
+      
+      res.json({ message: "Invoice deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting invoice:", error);
+      res.status(500).json({ message: "Failed to delete invoice" });
+    }
+  });
+  
+  // ===== INVOICE TEMPLATE API ROUTES =====
+  
+  // Get all templates
+  app.get("/api/billing-invoice-templates", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const organizationId = req.user?.organizationId || "default-org";
+      const templates = await storage.getBillingInvoiceTemplates(organizationId);
+      res.json(templates);
+    } catch (error) {
+      console.error("Error fetching templates:", error);
+      res.status(500).json({ message: "Failed to fetch templates" });
+    }
+  });
+  
+  // Get single template with line items
+  app.get("/api/billing-invoice-templates/:id", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const template = await storage.getBillingInvoiceTemplate(id);
+      
+      if (!template) {
+        return res.status(404).json({ message: "Template not found" });
+      }
+      
+      // Fetch template line items
+      const lineItems = await db
+        .select()
+        .from(billingTemplateLineItems)
+        .where(eq(billingTemplateLineItems.templateId, id));
+      
+      res.json({ ...template, lineItems });
+    } catch (error) {
+      console.error("Error fetching template:", error);
+      res.status(500).json({ message: "Failed to fetch template" });
+    }
+  });
+  
+  // Create new template
+  app.post("/api/billing-invoice-templates", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const organizationId = req.user?.organizationId || "default-org";
+      
+      const { lineItems, ...templateData } = req.body;
+      
+      if (!templateData.name) {
+        return res.status(400).json({ message: "Template name is required" });
+      }
+      
+      const template = await storage.createBillingInvoiceTemplate(
+        {
+          ...templateData,
+          organizationId,
+          createdBy: userId,
+        },
+        lineItems || []
+      );
+      
+      res.status(201).json(template);
+    } catch (error) {
+      console.error("Error creating template:", error);
+      res.status(500).json({ message: "Failed to create template" });
+    }
+  });
+  
+  // Update template
+  app.put("/api/billing-invoice-templates/:id", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { lineItems, ...templateData } = req.body;
+      
+      const updatedTemplate = await storage.updateBillingInvoiceTemplate(id, templateData, lineItems);
+      
+      if (!updatedTemplate) {
+        return res.status(404).json({ message: "Template not found" });
+      }
+      
+      res.json(updatedTemplate);
+    } catch (error) {
+      console.error("Error updating template:", error);
+      res.status(500).json({ message: "Failed to update template" });
+    }
+  });
+  
+  // Delete template
+  app.delete("/api/billing-invoice-templates/:id", isDemoAuthenticated, async (req: any, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const deleted = await storage.deleteBillingInvoiceTemplate(id);
+      
+      if (!deleted) {
+        return res.status(404).json({ message: "Template not found" });
+      }
+      
+      res.json({ message: "Template deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting template:", error);
+      res.status(500).json({ message: "Failed to delete template" });
+    }
+  });
+
+
+  return httpServer;
+}

@@ -1,0 +1,66 @@
+Add to Admin Dashboard:
+
+Create a full User Management Module with the following features:
+
+1. **Master User List:**
+   - View/search users by name, email, role, or assigned property.
+   - Filter by role: Admin, Portfolio Manager, Owner, Retail Agent, Referral Agent, Staff, Freelancer.
+
+2. **Role Assignment System:**
+   - Assign roles via dropdown.
+   - If “Staff”, show sub-roles:
+     - Housekeeping, Host, Supervisor, Gardener, Handyman, Pool Maintenance, Pest Control
+   - If “Freelancer”, assign specialized categories:
+     - Electrician, Contractor, Plumber, Pest Control, Private Chef, Spa Therapist, Nanny, External Maid
+
+3. **User Access Toggle Panel:**
+   - Admin can enable/disable each module per user:
+     - Bookings view
+     - Financial reports
+     - Task access and checklists
+     - Guest chat module
+     - Utilities and bills view/edit
+     - Property description editor
+     - Documents module
+     - Calendar/schedule access
+     - Visibility of salary or commission
+     - Submit photo/tasks
+     - View maintenance logs
+     - Upload/download files
+     - Notifications module
+     - Reservation notes and add-ons
+     - Chat/comment wall visibility
+
+4. **Property Assignment System:**
+   - Assign properties to Owners, Portfolio Managers, or Staff
+   - Freelancers can be temporarily assigned to one or more properties
+
+5. **Freelancer Dashboard Functions:**
+   - Calendar with availability selector:
+     - Can mark available/unavailable dates
+     - Block time slots
+   - Task Requests Tab:
+     - See all incoming service task requests (with proposed date/time)
+     - Options per request:
+       - ✅ Confirm
+       - ❌ Decline
+       - 🔁 Propose another time/date
+   - Notifications triggered when a request is sent by host/manager/admin
+   - Once confirmed, task is scheduled and shown in both sides’ dashboards (freelancer + admin/host)
+
+6. **Freelancer Invite Feature:**
+   - Admin/manager can invite external service providers
+   - Create login credentials with:
+     - Assigned category (electrician, chef, pest control, etc.)
+     - Assigned properties
+     - Expiration date for login (optional)
+
+7. **Audit + Status:**
+   - Last login
+   - Task performance overview
+   - Status toggle: active/inactive
+   - View change logs (e.g., role updated, permissions changed)
+
+8. **UI Enforcement:**
+   - All permission toggles sync with actual dashboard views (users see only what they’re allowed to)
+

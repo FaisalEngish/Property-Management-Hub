@@ -1,0 +1,65 @@
+Please implement and restore the following essential modules that were present in the earlier version or part of the framework plan, focused on **Owners and Property Settings**:
+
+👤 OWNER DASHBOARD – Missing Features to Add:
+
+1. ✅ **Onboarding Wizard for New Owners**  
+   - Step-by-step setup:  
+     Step 1: Personal Info  
+     Step 2: Property Details (Name, Address, Bedroom Count)  
+     Step 3: Upload Documents (Ownership Proof, Floorplan, Licenses, Insurance)  
+     Step 4: Select Service Packages (Pool, Garden, Pest Control, Maintenance)  
+     Step 5: Set Preferred Payout Method & Frequency  
+     Step 6: Agree to Terms → Submit
+
+2. 📂 **Document Upload Section for Each Property**  
+   - File uploads allowed: PDF, Images  
+   - Categories:  
+     - Proof of Ownership  
+     - Floorplan  
+     - Rental License  
+     - Property Insurance  
+     - Welcome Book / Guest Manual  
+     - Safety Certificates  
+     - HOA / Residence Rules
+
+3. ⚙️ **Property Settings for Owners (if permission granted)**  
+   - View or edit:  
+     - Property Title & Description  
+     - Electricity Rate (per KW)  
+     - Water Rate  
+     - Internet Provider  
+     - Include/Exclude utilities in guest rate  
+     - Custom welcome pack (dropdown or checklist)  
+     - Check-in/Out time  
+     - GPS Coordinates (editable field)  
+     - Add ‘Other’ utilities (e.g., Gas, HOA Fee)  
+
+4. 🛠️ **Maintenance Module (Visible to Owners)**  
+   - Submit New Request  
+   - View All Past Requests  
+   - See status: Open / In Progress / Resolved  
+   - Attach Photos  
+   - Add Priority Level  
+   - Filter by Category (AC, Pool, Plumbing, Electric, General)
+
+5. 📋 **Full Task History for Owners (Read-Only):**  
+   - Filter by Date / Type (Cleaning, Maintenance, Hosting)  
+   - View Results / Attachments (e.g., cleaning photos, maintenance resolution notes)  
+   - See who performed task
+
+6. 🔁 **Property Overview Sidebar (Reusable Component)**  
+   - Located in Owner, Admin, and Portfolio Manager dashboards  
+   - Contains:  
+     - Status Summary  
+     - Utilities Setup  
+     - Financial Overview  
+     - Documents  
+     - Service History  
+     - Guest Reviews (pulled from platforms if connected)
+
+7. 📝 **Optional: Description Editor**  
+   - If property is set as “Owner Editable,” allow them to:  
+     - Edit property title and guest-facing description  
+     - Upload new hero images (placeholder only in demo)
+
+Please confirm once all of the above are implemented and linkable from the Owner dashboard and Property view menus. Also make sure property-specific modules for utility config and task history match those in the Portfolio Manager dashboard for consistency.

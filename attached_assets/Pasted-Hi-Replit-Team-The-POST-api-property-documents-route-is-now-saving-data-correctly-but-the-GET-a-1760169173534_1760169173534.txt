@@ -1,0 +1,62 @@
+Hi Replit Team,
+
+The POST /api/property-documents route is now saving data correctly, but the GET /api/property-documents/property/:id endpoint still isn’t executing. The frontend doesn’t receive any documents, and there’s no [PROPERTY-DOCS] GET endpoint hit log.
+
+After reviewing the logs, it’s clear that the main server/routes.ts file is overloaded with 2,500+ TypeScript errors, which may be silently preventing the new routes from executing — even though the POST route is registered.
+
+To fully isolate this issue, please set up an independent router file instead of relying on routes.ts.
+
+🔧 Suggested Solution:
+
+Create a new file:
+server/property-document-routes.ts
+
+import express from "express";
+import { storage } from "./storage";
+import { isDemoAuthenticated } from "./demoAuth";
+
+export const propertyDocRouter = express.Router();
+
+propertyDocRouter.post("/", isDemoAuthenticated, async (req, res) => {
+  console.log("[ALT-ROUTE] POST /api/property-documents hit");
+  try {
+    const orgId = req.user?.organizationId || "default-org";
+    const data = req.body;
+    if (!data.docType || !data.fileUrl || !data.uploadedBy) {
+      return res.status(400).json({ message: "Missing required fields" });
+    }
+    const created = await storage.createPropertyDocument(orgId, data);
+    res.json(created);
+  } catch (err) {
+    console.error("[ALT-ROUTE] ERROR creating document:", err);
+    res.status(500).json({ message: "Server error creating document" });
+  }
+});
+
+propertyDocRouter.get("/property/:propertyId", isDemoAuthenticated, async (req, res) => {
+  console.log("[ALT-ROUTE] GET /api/property-documents/property/:propertyId hit");
+  try {
+    const orgId = req.user?.organizationId || "default-org";
+    const { propertyId } = req.params;
+    const docs = await storage.getPropertyDocuments(orgId, Number(propertyId));
+    res.json(docs);
+  } catch (err) {
+    console.error("[ALT-ROUTE] ERROR fetching documents:", err);
+    res.status(500).json({ message: "Server error fetching documents" });
+  }
+});
+
+
+Then register it inside server/index.ts:
+
+import { propertyDocRouter } from "./property-document-routes";
+app.use("/api/property-documents", propertyDocRouter);
+console.log("[INIT] Alternate property-document-routes mounted ✅");
+
+
+This will bypass the corrupted routes.ts and ensure both POST and GET routes execute independently without being blocked by compilation errors.
+
+Please implement this alternate router setup and restart the server so I can test again.
+
+Thanks,
+Farid

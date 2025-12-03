@@ -1,0 +1,163 @@
+You are working on my HostPilotPro project.
+
+## High-level goal
+
+Make **Hostaway properties behave exactly like local properties** inside the app:
+
+- In **Property → Hostaway Properties** tab I already have a **“View Details”** button on each card.
+- When I click it, I should land on the **same property details page** as a local property (`/property/:id`).
+- From that page I must be able to:
+  - create property-specific bookings,
+  - create property-specific tasks,
+  - and have all bookings + expenses flow into the **Finance Hub** (revenue, expenses, profit, etc.) exactly the same as for local properties.
+
+I’m already syncing Hostaway properties into the DB and showing images correctly on the Hostaway cards.
+
+For extra context about the integration and existing decisions, you can open this doc (treat it as a URL you can read):  
+`/mnt/data/hostaway_integration_consolidated.md`
+
+Also look at the last snapshots I uploaded for reference (don’t blindly overwrite them, just use as guidance if useful):
+
+- `/mnt/data/PropertyHub (1).tsx`
+- `/mnt/data/Hostaway.tsx`
+- `/mnt/data/hostawayService (1).ts`
+- `/mnt/data/hostaway-routes (2).ts`
+
+Now follow these steps carefully and modify the real project files in the Replit repo.
+
+---
+
+## STEP 1 — Confirm Hostaway → DB mapping and Hostaway listings API
+
+1. Open the server code that handles Hostaway:
+   - `hostawayService.ts` (or similar)
+   - `hostaway-routes.ts` (or similar, the one that defines `/api/hostaway/listings` and `/api/hostaway/sync-properties`).
+2. Confirm that:
+   - Hostaway listings are being saved into our **properties** table (or a dedicated hostaway listings table) with:
+     - `id` (our local property id)
+     - `organizationId`
+     - `source = "HOSTAWAY"`
+     - `externalId` (Hostaway listing id)
+     - mapping fields like `hostawayListingMapId` or `hostawayId` as available.
+   - `/api/hostaway/listings` returns **DB-backed** Hostaway properties with:
+     - `id` = local property id
+     - core fields used by the UI: `name`, `description`, `price`, `bedroomsNumber`, `bathroomsNumber`, `personCapacity`, `averageReviewRating`, `airbnbListingUrl`
+     - image fields used by the Hostaway tab:  
+       `thumbnailUrl` and `listingImages: { url: string }[]`
+3. If `/api/hostaway/listings` is still returning raw Hostaway API data or bare properties without `thumbnailUrl` / `listingImages`, normalize it so each listing has those fields. (You can use the code pattern from the snapshots I uploaded as reference.)
+
+**Goal of this step:** Each Hostaway card in the PropertyHub Hostaway section is a **real DB property row** with `source = "HOSTAWAY"` and has images, name, price, etc.
+
+---
+
+## STEP 2 — Ensure “View Details” navigates to the property details page
+
+1. Open the React page for the property hub:
+   - likely `client/src/pages/PropertyHub.tsx` (or similar).
+2. Find the **Hostaway** section / tab component (we previously called it `HostawaySync` or similar).
+3. Inside the Hostaway card rendering:
+   - Confirm there is a **“View Details”** button.
+   - It should only be enabled when the listing is DB-backed (e.g. `syncResults.backend === "db"` and the listing has a valid `id`).
+   - The onClick handler should navigate to the **same details route** as local properties, for example:
+
+     ```tsx
+     const [, navigate] = useLocation(); // or use your router hook
+
+     // inside the card
+     <Button
+       variant="outline"
+       size="sm"
+       className="h-7 px-3 text-xs"
+       onClick={() => navigate(`/property/${listing.id}`)}
+     >
+       View Details →
+     </Button>
+     ```
+
+4. Verify in the browser:
+   - Clicking “View Details” on a Hostaway property opens the **standard property details page** (the same layout used by local properties, with charts, actions, etc.).
+
+**Goal of this step:** Hostaway properties open the **same** details page as local ones.
+
+---
+
+## STEP 3 — Property Details page must treat HOSTAWAY like LOCAL
+
+1. Open the property details page component (the page that shows the chart, “View Tasks”, “View Bookings”, “Edit Property”, “View Finances”, etc.).
+2. Make sure it **does NOT hide or disable** actions for `source === "HOSTAWAY"`. Concretely:
+   - If there is any conditional like `if (property.source !== "LOCAL") return null` or similar, remove or relax it so Hostaway properties still show:
+     - New Booking / Bookings section
+     - Tasks / New Task
+     - Finance / revenue summary
+3. Use the property’s `id` and `source` to drive logic, not hard-coded assumptions.
+   - For bookings + tasks + finance, the key identifier is always `propertyId`.
+
+**Goal of this step:** On the details page, Hostaway properties have **all the same actions** visible and usable as local ones.
+
+---
+
+## STEP 4 — Implement a unified booking create route that supports Hostaway
+
+Right now, when I try to create a booking from a Hostaway property, I get “Unauthorized”.
+
+I want a single backend endpoint that:
+
+- Creates bookings for **local** properties.
+- For **Hostaway** properties:
+  - First creates a reservation in Hostaway using their API.
+  - Then stores a matching booking in our local `bookings` table.
+- Returns a meaningful error message if Hostaway rejects the reservation (instead of a generic “Unauthorized”).
+
+### 4.1 Create or update `/api/booking-revenue` route
+
+1. Create a file like `server/booking-revenue-routes.ts` if it doesn’t exist yet.
+2. Implement a `POST /api/booking-revenue` handler (Express or the framework we use) roughly with this logic:
+
+   - Check auth (use the same middleware as other protected routes).
+   - Extract from `req.body`:
+     - `propertyId`
+     - `guestName`, `guestEmail`, `guestPhone`
+     - `checkIn`, `checkOut` (YYYY-MM-DD strings)
+     - `guests` (number)
+     - `totalAmount`, `amountPaid`, `amountDue`
+     - `paymentStatus`
+     - `specialRequests`
+     - `currency`
+   - Load the property by `propertyId`.
+     - If not found → 404.
+   - If `property.source === "HOSTAWAY"`:
+     - Ensure it has a valid mapping to Hostaway (e.g. `hostawayListingMapId` or equivalent).
+     - Call a helper on `hostawayService` like:
+
+       ```ts
+       const reservation = await hostawayService.createReservation({
+         listingMapId: property.hostawayListingMapId,
+         arrivalDate: checkIn,
+         departureDate: checkOut,
+         guestName,
+         guestEmail,
+         guestPhone,
+         numberOfGuests: guests || 1,
+         specialRequests,
+       });
+       ```
+
+     - If Hostaway responds with an error (401 or anything else), log the raw message and return a `500` with `message: <Hostaway error message>` so the frontend toast shows something meaningful.
+     - Capture any `reservation.id` / `reservationCode`.
+   - Insert a booking row into our local `bookings` table with at least:
+     - `organizationId`
+     - `propertyId`
+     - `source` = property.source (`"HOSTAWAY"` or `"LOCAL"`)
+     - `externalId` / `hostawayId` = reservation id if a Hostaway reservation was created
+     - `guestName`, contact fields
+     - `checkIn`, `checkOut`, `guests`
+     - `totalAmount`, `amountPaid`, `amountDue` (stored as strings/decimals per schema)
+     - `currency`, `status`, `paymentStatus`
+     - `bookingPlatform` = `"hostaway"` for Hostaway source, `"direct"` (or existing value) for local properties.
+   - Return `{ success: true, booking: createdBooking, hostawayReservationCode }`.
+
+3. Wire this route in the API index:
+
+   ```ts
+   import bookingRevenueRoutes from "./booking-revenue-routes";
+   app.use("/api", bookingRevenueRoutes);

@@ -1,0 +1,216 @@
+I need you to implement real currency conversion in my HostPilotPro project, not just changing the symbol.
+
+Context
+
+Tech stack: React (frontend) + Node/Express (backend) – the standard setup in this Repl.
+
+There is a System → Settings → System tab with a “Default Currency” dropdown (USD, EUR, GBP, THB, JPY, AUD).
+
+There is a Finance Hub page showing:
+
+Total Revenue
+
+Total Expenses
+
+Net Profit
+
+Pending Payments
+
+Recent Transactions list
+
+Right now, when I change the “Default Currency”, only the symbol changes ( $, €, £, ฿, ¥, A$ ) and the numeric amount stays the same.
+
+I want a full implementation so that changing the system currency actually converts the amounts using a currency converter API.
+
+Example of expected behavior:
+If Total Revenue is $20,000 when system currency is USD, then when I change the default currency to Thai Baht (฿), the Finance Hub should automatically show the correctly converted amount in THB (and the symbol).
+
+What I want you to build (end-to-end)
+1. Use an external currency rates API
+
+Integrate a currency rates API (for example ExchangeRate-API or similar).
+
+Add a new env var in the Repl:
+
+EXCHANGE_RATES_API_KEY – I’ll put the actual key.
+
+Create a backend helper/service module, e.g. server/src/services/currencyService.ts (or .js) that:
+
+Fetches rates from the external API for a base currency.
+
+Supports at least these ISO codes: USD, EUR, GBP, THB, JPY, AUD.
+
+Caches the result in memory for at least 12 hours to avoid hitting rate limits.
+
+Exposes functions like:
+
+getRates(baseCurrency: string) → returns a map { [code]: rate } where rate converts from baseCurrency → that code.
+
+convertAmount(amount: number, from: string, to: string) → uses the cached rates to convert.
+
+You can assume the external API returns something like conversion_rates or similar; implement the mapping accordingly.
+
+2. Organization settings: base currency vs display currency
+
+Right now the System settings only store one currency that’s used to show the symbol. I want a slightly more robust structure:
+
+In the backend organization/system settings model, add/ensure fields like:
+
+baseCurrency – currency in which amounts are stored in the DB (string, ISO code; e.g. "USD" or "GBP").
+
+displayCurrency – the currency selected in the System → Settings dropdown (also ISO code).
+
+On initial deployment:
+
+If there is an existing currency field, use that as both baseCurrency and displayCurrency for now.
+
+Do not modify any historical amounts; assume all existing amounts are already in baseCurrency.
+
+Update the System settings API:
+
+When I change the dropdown and click save, it should update displayCurrency only, not baseCurrency.
+
+Return the updated org settings including both baseCurrency and displayCurrency.
+
+3. Backend endpoints for finance data
+
+Wherever the backend returns money totals (Finance Hub summary, transactions, etc.):
+
+Make sure the backend:
+
+Always returns amounts in baseCurrency units (plain numbers, no symbol, no formatting).
+
+Also returns the baseCurrency code in the response payload.
+
+Do not do the conversion to the display currency on the backend.
+Conversion will happen on the frontend using a shared helper + rates.
+
+So for example, /api/finance/summary should return something like:
+
+{
+  "baseCurrency": "USD",
+  "totals": {
+    "totalRevenue": 20000,
+    "totalExpenses": 12131,
+    "netProfit": 234969,
+    "pendingPayments": 2680222
+  }
+}
+
+
+(Structure can match whatever the existing response is, just ensure baseCurrency and raw numeric totals are there.)
+
+Same idea for transactions (each transaction amount is stored and returned in base currency).
+
+4. Frontend: currency context + formatting
+
+Implement a global currency context/store on the frontend so everything reacts to the selected currency.
+
+Create a CurrencyContext or similar shared store (Zustand/Context, whatever matches the project) that holds:
+
+baseCurrency – from backend.
+
+displayCurrency – from org/system settings.
+
+rates – map of currencyCode → rate (base → that currency).
+
+setDisplayCurrency(code) – updates display currency and refetches rates if needed.
+
+Add a helper function, e.g. formatCurrency(amountInBase: number): string that:
+
+Looks up displayCurrency.
+
+Looks up the conversion rate to displayCurrency.
+
+Computes converted = amountInBase * rate.
+
+Formats it with the correct symbol and sensible decimal places.
+
+Returns a properly formatted string (e.g. £247,100, ฿7,200,000, etc.).
+
+Create a symbol map on the frontend for the six currencies:
+
+USD: "$"
+
+EUR: "€"
+
+GBP: "£"
+
+THB: "฿"
+
+JPY: "¥"
+
+AUD: "A$"
+
+5. Hook System Settings dropdown to the currency context
+
+On the System → Settings → System tab:
+
+Make sure the dropdown stores the ISO code ("USD", "EUR", "GBP", "THB", "JPY", "AUD") rather than the symbol text.
+
+When the user selects a new currency and hits save:
+
+Call the backend to update org displayCurrency.
+
+Update the frontend CurrencyContext with the new displayCurrency.
+
+Fetch the latest rates for baseCurrency → new displayCurrency (via backend API endpoint using currencyService).
+
+After this, all pages that use formatCurrency() should automatically show converted amounts in the newly selected display currency.
+
+6. Apply conversion to all relevant UI parts
+
+Update the React components so that no one manually concatenates symbols to numbers.
+
+Specifically:
+
+Finance Hub cards:
+
+Total Revenue
+
+Total Expenses
+
+Net Profit
+
+Pending Payments
+These should each take the raw numbers from the API (base currency) and pass them to formatCurrency(amountInBase).
+
+Recent Transactions list:
+
+Each transaction row’s amount should also use formatCurrency() for display.
+
+Any other page where money is shown (property revenue, salaries, etc.) should also use the same helper so they all react to displayCurrency.
+
+7. Error handling / fallbacks
+
+Implement minimal, sensible error handling:
+
+If the rates API fails:
+
+Log the error on the server.
+
+On the frontend, fall back to showing amounts in baseCurrency with its symbol.
+
+Optionally show a small, non-blocking warning in the console; no UI alert necessary.
+
+Ensure that changing currency is smooth:
+
+While new rates are loading, you can temporarily show old converted values or a short loading state, whichever is easier.
+
+Final acceptance criteria
+
+Changing the “Default Currency” in System → Settings:
+
+Updates displayCurrency in org settings.
+
+Triggers fetching the correct conversion rates from the external API.
+
+Causes all monetary values in Finance Hub (and other money displays) to update numeric amounts and symbols according to the selected currency.
+
+The conversion works at least for these currencies:
+
+USD, EUR, GBP, THB, JPY, AUD.
+
+Historical amounts in the DB are not mutated; conversion is purely for display.
+
+Please implement all of the above from start to finish and clean up any obvious duplication where symbols or amounts were previously hard-coded.

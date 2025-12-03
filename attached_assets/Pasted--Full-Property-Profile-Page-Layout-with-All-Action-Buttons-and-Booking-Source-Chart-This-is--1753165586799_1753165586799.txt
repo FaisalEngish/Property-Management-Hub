@@ -1,0 +1,110 @@
+// ✅ Full Property Profile Page Layout with All Action Buttons and Booking Source Chart
+// This is a full React + Tailwind component (drop into /pages/property/[id].tsx or similar)
+
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+
+const bookingSourceData = [
+  { name: 'Airbnb', value: 70 },
+  { name: 'Booking.com', value: 15 },
+  { name: 'Direct', value: 10 },
+  { name: 'Other', value: 5 },
+];
+
+const COLORS = ['#00bcd4', '#ff9800', '#4caf50', '#9e9e9e'];
+
+export default function PropertyProfile() {
+  return (
+    <div className="p-6 grid md:grid-cols-3 gap-6">
+      {/* Left Side: Property Info */}
+      <div className="md:col-span-2 space-y-6">
+        <h2 className="text-2xl font-semibold">Villa Aruna <span className="text-sm text-blue-500 ml-2">(Demo)</span></h2>
+
+        <div className="aspect-video bg-gray-100 rounded flex items-center justify-center">
+          <span className="text-gray-400">[ Image Placeholder ]</span>
+        </div>
+
+        <Card>
+          <CardContent className="p-4">
+            <h3 className="font-semibold text-lg mb-2">Property Details</h3>
+            <p>🛏️ 3 Bedrooms • 🚿 3 Bathrooms • 👤 6 Guests • ฿20,000/night</p>
+            <p className="text-sm text-gray-500">📍 Bophut Hills, Koh Samui, Thailand</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4 space-y-2">
+            <h3 className="font-semibold text-lg">Descriptions (Synced via Hostaway)</h3>
+            <p className="text-gray-700">📄 General Description: <span className="italic">Synced content from Hostaway</span></p>
+            <p className="text-gray-700">🏠 Space Description: <span className="italic">Synced content from Hostaway</span></p>
+            <p className="text-gray-700">🤝 Interaction Description: <span className="italic">Synced content from Hostaway</span></p>
+            <p className="text-gray-700">🌍 Neighborhood: <span className="italic">Synced content from Hostaway</span></p>
+            <p className="text-gray-700">📝 Things to Note: <span className="italic">Synced content from Hostaway</span></p>
+            <p className="text-gray-700">🚗 Transit: <span className="italic">Synced content from Hostaway</span></p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent>
+            <h3 className="font-semibold text-lg mb-2">📊 Booking Source Distribution</h3>
+            <ResponsiveContainer width="100%" height={250}>
+              <PieChart>
+                <Pie
+                  data={bookingSourceData}
+                  cx="50%"
+                  cy="50%"
+                  outerRadius={80}
+                  dataKey="value"
+                  label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                >
+                  {bookingSourceData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip />
+                <Legend verticalAlign="bottom" height={36} />
+              </PieChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Right Side: Stats + Actions */}
+      <div className="space-y-6">
+        <Card>
+          <CardContent className="p-4 space-y-1">
+            <h3 className="font-semibold text-lg">Quick Stats</h3>
+            <p>Property ID: <strong>#3</strong></p>
+            <p>Status: <span className="text-blue-600">active</span></p>
+            <p>Nightly Rate: <strong>฿20,000</strong></p>
+            <p>Capacity: <strong>6 guests</strong></p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4 space-y-2">
+            <h3 className="font-semibold text-lg">Actions</h3>
+            <Button className="w-full">View Tasks</Button>
+            <Button variant="secondary" className="w-full">View Bookings</Button>
+            <Button variant="outline" className="w-full">Edit Property</Button>
+            <hr className="my-2" />
+            <Button variant="ghost" className="w-full">View Utilities</Button>
+            <Button variant="ghost" className="w-full">View Accounting</Button>
+            <Button variant="ghost" className="w-full">View Important Info</Button>
+            <Button variant="ghost" className="w-full">View Documents</Button>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4">
+            <h3 className="font-semibold text-lg">Performance</h3>
+            <p>⭐ Average Rating: <strong>4.8</strong></p>
+            <p>📝 Total Reviews: <strong>127</strong></p>
+            <p>📈 Occupancy Rate: <strong>85%</strong></p>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}

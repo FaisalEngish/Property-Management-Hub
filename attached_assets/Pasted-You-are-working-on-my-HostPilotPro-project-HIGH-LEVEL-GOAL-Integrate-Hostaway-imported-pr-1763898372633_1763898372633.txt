@@ -1,0 +1,87 @@
+You are working on my HostPilotPro project.
+
+# HIGH-LEVEL GOAL
+
+Integrate **Hostaway-imported properties and bookings** into my existing **Multi-Property Calendar** so that:
+
+- Calendar shows bookings for BOTH:
+  - locally created properties, and
+  - Hostaway properties (source = "HOSTAWAY").
+- Calendar property filter (“All Properties (59)” dropdown) includes Hostaway properties.
+- A booking cell looks and behaves the same regardless of whether the booking originated locally or from Hostaway.
+- Any new bookings created in our system for Hostaway properties also appear in the calendar like local ones (these are already written to our DB).
+
+Follow the steps below and modify the actual project files in this Replit workspace.
+
+---
+
+## STEP 1 – Locate the Calendar View implementation
+
+1. Search the client code for these text snippets:
+   - `"Multi-Property Calendar"`
+   - `"Booking Status Legend"`
+   - `"Confirmed Bookings"`
+2. Identify:
+   - The main calendar view page component (likely under `client/src/pages/` or `client/src/components/property/`).
+   - Any helper hooks / components that fetch and transform booking data for the calendar (e.g. hooks with “useCalendarBookings”, “usePropertyCalendarData”, etc.).
+3. Identify the **backend endpoints** currently used by the calendar, by searching for:
+   - `/api/calendar`
+   - `/api/bookings/calendar`
+   - `/api/property/calendar`
+   or any similar patterns.
+
+Do NOT change the UI layout; we will focus on data integration.
+
+---
+
+## STEP 2 – Understand current booking + property models
+
+1. Find the **bookings** schema in the shared schema file (Drizzle or equivalent) – usually something like `bookings` or `bookingRevenue`.
+2. Confirm fields such as:
+   - `id`
+   - `organizationId`
+   - `propertyId`
+   - `checkIn` / `checkOut` (or `startDate` / `endDate`)
+   - `status` (confirmed, pending, cancelled, etc.)
+   - `source` or `bookingPlatform` (this is important; we expect `"LOCAL"` and `"HOSTAWAY"` or similar).
+3. Find the **properties** schema and confirm:
+   - `id`
+   - `source` (should be `"LOCAL"` or `"HOSTAWAY"`)
+   - hostaway mapping fields such as `externalId`, `hostawayListingMapId`, etc., as already used in hostawayService.
+4. Verify that **bookings for Hostaway properties created through our system** are already saved to the same `bookings` table with:
+   - `propertyId` = local property row
+   - `source` = `"HOSTAWAY"` or `bookingPlatform = "hostaway"`.
+
+This means we can treat Hostaway bookings exactly like local bookings when querying the DB.
+
+---
+
+## STEP 3 – Find the calendar backend route and extend it to include HOSTAWAY
+
+1. Locate the server route that the calendar calls (from Step 1), e.g.:
+   - `server/calendar-routes.ts`
+   - `server/property-calendar-routes.ts`
+   or similar.
+2. Open the **GET** endpoint that returns calendar data (e.g. `GET /api/calendar/bookings`).
+
+This route likely:
+
+- Accepts query parameters:
+  - `startDate`
+  - `endDate`
+  - `propertyId` or `propertyIds` (or “All”)
+- Queries the bookings table, joins with properties, and returns a DTO like:
+
+  ```ts
+  {
+    bookings: {
+      id: string;
+      propertyId: string;
+      propertyName: string;
+      checkIn: string;
+      checkOut: string;
+      status: string;
+      totalAmount?: number;
+      guestName?: string;
+    }[];
+  }

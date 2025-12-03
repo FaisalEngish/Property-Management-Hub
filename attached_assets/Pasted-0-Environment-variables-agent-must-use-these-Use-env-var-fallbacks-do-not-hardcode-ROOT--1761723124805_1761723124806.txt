@@ -1,0 +1,343 @@
+0) Environment variables (agent must use these)
+
+Use env var fallbacks, do not hardcode:
+
+ROOT="$(pwd)"
+API_URL="${API_URL:-http://localhost:${PORT:-4000}}"
+BACKEND_DIR="${ROOT}/src/server"
+FRONTEND_DIR="${ROOT}/src/client"
+SHARED_DIR="${ROOT}/src/shared"
+TS_NODE="${TS_NODE:-npx ts-node-esm}"   # for quick TS execution if needed
+
+1) Safety backup
+ts=$(date +%s)
+mkdir -p .setup_backups
+[ -d "$BACKEND_DIR" ] && cp -r "$BACKEND_DIR" ".setup_backups/server.backup.$ts"
+[ -d "$FRONTEND_DIR" ] && cp -r "$FRONTEND_DIR" ".setup_backups/client.backup.$ts"
+[ -d "$SHARED_DIR" ] && cp -r "$SHARED_DIR" ".setup_backups/shared.backup.$ts"
+echo "backups saved to .setup_backups/*.$ts"
+
+2) Backend: add safe TypeScript endpoints (Drizzle-aware)
+
+If src/server/routes/reports.ts or automations.ts already exist, do NOT overwrite — instead append missing handlers. Otherwise create these files.
+
+File: src/server/routes/reports.ts
+(Agent: create only if missing; if file exists, append the router.get('/summary'), router.post('/generate'), and router.get('/export/:type') handlers.)
+
+// src/server/routes/reports.ts  (TypeScript - add if missing or merge)
+import { Router } from "express";
+import { db } from "../db";                 // your existing Drizzle db instance
+import { reports as reportsTable } from "../../shared/schema";
+import { eq } from "drizzle-orm";
+import { Parser } from "json2csv";
+
+const router = Router();
+
+router.get("/summary", async (req, res) => {
+  try {
+    // fetch aggregated summary (customize to your schema)
+    const rows = await db.select().from(reportsTable).all();
+    // simple example response - agent should keep this minimal
+    res.json({ count: rows.length, items: rows });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to fetch reports summary" });
+  }
+});
+
+router.post("/generate", async (req, res) => {
+  try {
+    const { type, payload } = req.body; // payload: optional query/filters
+    const inserted = await db.insert(reportsTable).values({
+      title: `${type} report`,
+      type,
+      data: payload ?? {},
+    }).returning();
+    res.status(201).json(inserted[0] ?? null);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to generate report" });
+  }
+});
+
+router.get("/export/:type", async (req, res) => {
+  try {
+    const rows = await db.select().from(reportsTable).where(eq(reportsTable.type, req.params.type));
+    const parser = new Parser();
+    const csv = parser.parse(rows);
+    res.header("Content-Type", "text/csv");
+    res.attachment(`${req.params.type}.csv`);
+    res.send(csv);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to export CSV" });
+  }
+});
+
+export default router;
+
+
+File: src/server/routes/automations.ts
+(Agent: create if missing; otherwise add handlers.)
+
+// src/server/routes/automations.ts
+import { Router } from "express";
+import { db } from "../db";
+import { automations as automationsTable } from "../../shared/schema";
+import { eq } from "drizzle-orm";
+
+const router = Router();
+
+router.get("/", async (req, res) => {
+  const rules = await db.select().from(automationsTable).all();
+  res.json(rules);
+});
+
+router.post("/", async (req, res) => {
+  const payload = req.body;
+  const inserted = await db.insert(automationsTable).values(payload).returning();
+  res.status(201).json(inserted[0] ?? null);
+});
+
+router.put("/:id", async (req, res) => {
+  const id = Number(req.params.id);
+  const updated = await db.update(automationsTable).set(req.body).where(eq(automationsTable.id, id)).returning();
+  res.json(updated[0] ?? null);
+});
+
+router.delete("/:id", async (req, res) => {
+  const id = Number(req.params.id);
+  await db.delete(automationsTable).where(eq(automationsTable.id, id));
+  res.status(204).send();
+});
+
+export default router;
+
+
+Register routes in your main Express app (usually src/server/index.ts or src/server/app.ts):
+
+// sample; only add imports/uses if not already present
+import reportsRouter from "./routes/reports";
+import automationsRouter from "./routes/automations";
+app.use("/api/reports", reportsRouter);
+app.use("/api/automations", automationsRouter);
+
+
+Agent must not change any DB migrations automatically — only create records via Drizzle insert. If migration is required, the agent should log and abort (see verification step).
+
+3) Frontend: add modal/dropdown components and wire the dashboard buttons
+
+Goal: When user clicks the dashboard cards, open modal inline — do not navigate.
+
+Files to add (or merge):
+
+src/client/src/components/ReportsGenerateModal.tsx
+
+src/client/src/components/AutomationCreateModal.tsx
+
+Update dashboard card component file (search Reports & Analytics / Generate Report button and Automation & Alerts / Setup Alert) to import and toggle these modals.
+
+Component: ReportsGenerateModal.tsx
+
+// src/client/src/components/ReportsGenerateModal.tsx
+import React, { useState } from "react";
+import axios from "axios";
+const API = import.meta.env.VITE_API_URL ?? "<use-env>";
+
+type Props = { open: boolean; onClose: () => void };
+
+export default function ReportsGenerateModal({ open, onClose }: Props) {
+  const [type, setType] = useState("bookings");
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState<any>(null);
+
+  if (!open) return null;
+  return (
+    <div className="modal-overlay">
+      <div className="modal-card">
+        <h3>Generate Report</h3>
+        <select value={type} onChange={(e) => setType(e.target.value)}>
+          <option value="bookings">Bookings</option>
+          <option value="finances">Finances</option>
+          <option value="tasks">Tasks</option>
+        </select>
+        <div style={{ marginTop: 12 }}>
+          <button
+            onClick={async () => {
+              setLoading(true);
+              try {
+                const resp = await axios.post(`${API}/api/reports/generate`, { type, payload: {} });
+                setResult(resp.data);
+              } catch (err) {
+                console.error(err);
+                setResult({ error: "Failed" });
+              } finally {
+                setLoading(false);
+              }
+            }}
+          >
+            {loading ? "Generating..." : "Generate Report"}
+          </button>
+          <button onClick={onClose} style={{ marginLeft: 8 }}>Close</button>
+        </div>
+        {result && (
+          <pre style={{ marginTop: 12, maxHeight: 250, overflow: "auto" }}>{JSON.stringify(result, null, 2)}</pre>
+        )}
+      </div>
+    </div>
+  );
+}
+
+
+Component: AutomationCreateModal.tsx
+
+// src/client/src/components/AutomationCreateModal.tsx
+import React, { useState } from "react";
+import axios from "axios";
+const API = import.meta.env.VITE_API_URL ?? "<use-env>";
+
+type Props = { open: boolean; onClose: () => void };
+
+export default function AutomationCreateModal({ open, onClose }: Props) {
+  const [form, setForm] = useState({ name: "", trigger: "booking_due", action: "email", schedule: "0 9 * * *", active: 1 });
+  const [loading, setLoading] = useState(false);
+
+  if (!open) return null;
+  return (
+    <div className="modal-overlay">
+      <div className="modal-card">
+        <h3>Create Automation</h3>
+        <input placeholder="Name" value={form.name} onChange={e => setForm({...form, name: e.target.value})} />
+        <input placeholder="Trigger" value={form.trigger} onChange={e => setForm({...form, trigger: e.target.value})} />
+        <input placeholder="Action" value={form.action} onChange={e => setForm({...form, action: e.target.value})} />
+        <input placeholder="Schedule (cron)" value={form.schedule} onChange={e => setForm({...form, schedule: e.target.value})} />
+        <div style={{ marginTop: 12 }}>
+          <button onClick={async () => {
+            setLoading(true);
+            try {
+              await axios.post(`${API}/api/automations`, form);
+              onClose();
+            } catch (err) {
+              console.error(err);
+            } finally { setLoading(false); }
+          }}>{loading ? "Creating..." : "Create Automation"}</button>
+          <button onClick={onClose} style={{ marginLeft: 8 }}>Cancel</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+Style & overlay: Agent may add minimal CSS to src/client/src/index.css or existing CSS:
+
+/* minimal modal CSS */
+.modal-overlay { position: fixed; inset:0; display:flex; align-items:center; justify-content:center; background: rgba(0,0,0,0.3); z-index:9999; }
+.modal-card { background:white; padding:20px; border-radius:8px; width:420px; box-shadow:0 6px 24px rgba(0,0,0,0.12); }
+
+
+Update dashboard card component (example file search and patch):
+
+Search for the buttons — find the JSX containing Generate Report and Setup Alert.
+
+Replace the current click handlers (that show toast) with toggle state to open modal:
+
+// inside the dashboard component
+import React, { useState } from "react";
+import ReportsGenerateModal from "../components/ReportsGenerateModal";
+import AutomationCreateModal from "../components/AutomationCreateModal";
+
+export default function DashboardCards(){
+  const [openReport, setOpenReport] = useState(false);
+  const [openAutomation, setOpenAutomation] = useState(false);
+
+  return (
+    <>
+      <div className="card">
+        {/* ... existing content ... */}
+        <button onClick={() => setOpenReport(true)}>Generate Report</button>
+      </div>
+
+      <div className="card">
+        {/* ... existing content ... */}
+        <button onClick={() => setOpenAutomation(true)}>Setup Alert</button>
+      </div>
+
+      <ReportsGenerateModal open={openReport} onClose={() => setOpenReport(false)} />
+      <AutomationCreateModal open={openAutomation} onClose={() => setOpenAutomation(false)} />
+    </>
+  );
+}
+
+
+Agent: if the dashboard uses a UI library (Ant/Chakra/Tailwind components), adapt the modal code to that library's modal component instead of raw overlay.
+
+4) Backend / Frontend dependency & build adjustments
+
+Backend: ensure package.json has required packages:
+
+drizzle-orm, json2csv, express, pg, zod (if used), types for Node/Express/Drizzle
+
+Frontend: ensure axios is installed and VITE_API_URL environment variable points to backend URL.
+
+Agent commands (no hardcodes):
+
+# backend
+cd "$BACKEND_DIR"
+npm install json2csv --save
+# verify TypeScript build
+npx tsc -p ../../tsconfig.json --noEmit || echo "TypeScript check OK"
+
+# frontend
+cd "$FRONTEND_DIR"
+npm install axios --save
+
+
+(Agent should not change major deps like Drizzle or DB driver.)
+
+5) Quick runtime tests (agent must run and append results to setup_log.txt)
+# 1. Backend route test (summary)
+curl -sS "${API_URL}/api/reports/summary" -o /tmp/reports_summary.json || true
+jq -r '. | {ok: true, count: .count}' /tmp/reports_summary.json 2>/dev/null || echo "reports/summary missing or invalid" >> setup_log.txt
+
+# 2. Automation CRUD smoke test
+curl -sS -X GET "${API_URL}/api/automations" -o /tmp/automations.json || true
+jq -r '.' /tmp/automations.json 2>/dev/null || echo "automations endpoint missing" >> setup_log.txt
+
+
+If any endpoint returns 404 or 500, append the raw output to setup_log.txt and do not auto-apply DB migrations — instead report failure.
+
+6) Rollback plan (if errors)
+
+If the agent finds critical errors (TypeScript build failures or server crash), restore backups:
+
+# restore example
+cp -r ".setup_backups/server.backup.$ts" "$BACKEND_DIR"
+cp -r ".setup_backups/client.backup.$ts" "$FRONTEND_DIR"
+
+7) Agent final output (JSON) — must be returned exactly
+
+After completion, reply with a JSON object like this:
+
+{
+  "status": "success",
+  "backend_url": "<value-of-API_URL-used>",
+  "frontend_notes": "Modals wired; dashboard buttons now open inline modals.",
+  "endpoints_tested": [
+    { "endpoint": "/api/reports/summary", "status": 200 },
+    { "endpoint": "/api/reports/generate", "status": 201 },
+    { "endpoint": "/api/automations", "status": 200 }
+  ],
+  "log_files": ["setup_log.txt"],
+  "notes": "If any TypeScript/build errors occurred, server was not modified and backups are available under .setup_backups/"
+}
+
+Final notes to the Replit Agent (explicit)
+
+Do not overwrite existing tables or run destructive migrations. If a Drizzle migration is strictly required (no table exists), log the requirement and abort for manual review.
+
+If you detect the project uses a UI library, adapt modal styling to existing patterns.
+
+If src/server/db/db.ts exports a differently named db object, the agent must import the actual export name (search export const db or export default).
+
+If you face CORS or env issues, set VITE_API_URL in Replit secrets to the backend public URL.

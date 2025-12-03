@@ -1,0 +1,45 @@
+Enter sandbox testing mode for Mr. Property Siam Magic Tools:
+
+1. Validate all dashboards (Admin, Manager, Staff, Owner, Agent, Guest) for:
+   - Navigation: Add back buttons where missing
+   - Logout + top-right menu bar: consistent across all roles
+   - Notification toggle in Settings
+   - Currency selector in user profile (THB default, auto convert to USD/EUR via live forex API*)
+
+2. Booking simulation:
+   - Reservation: Demo1234 (Villa Aruna)
+   - Guest: Liam Andersen
+   - Electricity meter in/out: 1000 > 1100, @7 THB/kW = 700 THB
+   - Deposit: 8000 THB in cash → Refund preview = 7300 THB
+   - Check-in/out photos + passport photo uploaded
+   - Tasks: cleaning, pool, garden, chef scheduled and visible
+   - Guest sees schedule + property AI info (area, restaurants, beaches, rules)
+   - Survey form on checkout enabled
+
+3. Task modules check:
+   - Portfolio Manager sees only assigned properties
+   - Housekeeping, Pool, Garden dashboards split by tab
+   - Tasks can be filtered by date range, type, or property
+   - Completed task logs visible under each property
+
+4. Utility System:
+   - Track bills by service (Electricity, Internet, Water, Pest)
+   - Manual entry of provider and account number per villa
+   - AI pattern alerts for missed uploads (e.g. if no electric bill uploaded by 20th)
+   - Upload receipt, track status (Pending, Paid, Overdue)
+   - Custom utilities allowed (Gas, Residence Fees)
+
+5. Owner Dashboard:
+   - Monthly overview of income, expenses, occupancy
+   - Utility log, task history, last service dates (AC, pool, garden, pest)
+   - Document center (upload licenses, plans, passports)
+   - Booking sync (Hostaway API placeholder)
+   - Chat tab visible only if enabled
+   - Request payout / pay balance modules working
+
+6. Misc Fixes:
+   - Remove duplicate modules
+   - Sidebar scrolling and category collapse added
+   - All demos use reservation IDs: Demo1234, Demo1235
+   - Staff salary module has emergency task log + advance salary request
+   - All views get “back” and “home” buttons

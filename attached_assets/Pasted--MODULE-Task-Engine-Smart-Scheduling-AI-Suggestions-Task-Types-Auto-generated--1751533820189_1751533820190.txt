@@ -1,0 +1,78 @@
+### MODULE: Task Engine, Smart Scheduling & AI Suggestions
+
+🧭 Task Types:
+- Auto-generated:
+  • Checkout Clean – based on guest check-out
+  • Pool/Garden/Pest – recurring schedule (daily/weekly/monthly)
+  • Maintenance Follow-Ups – recurring or based on reminders
+- AI-suggested:
+  • During-stay clean for bookings > 6 nights
+  • Extra towel change if occupancy > X guests
+  • Inspection task if previous review mentions problem
+- Manual:
+  • Created by PM, Supervisor, Admin
+  • Emergency repair, custom visit, or owner request
+
+📆 Scheduler Features:
+- Calendar view by property / by staff
+- Time blocks with task type and status (Not Started / In Progress / Done)
+- Tasks can be auto-assigned or manually dragged
+- Real-time filters: by property, staff, department, task status
+
+🏷️ Department Tagging:
+- Every task assigned to a category:
+  • Cleaning
+  • Pool
+  • Garden
+  • Maintenance
+  • General/Admin
+- Reports can be filtered per department for both Admin and Owners
+
+📸 Task Evidence Upload:
+- Each task requires:
+  • Description
+  • Photo proof (before & after)
+  • Notes (optional)
+- Final checkbox: “Mark as Complete”
+
+🚦Task Prioritization:
+- Urgent tags for guest complaints (from Guest Portal/AI)
+- Repeating tasks show missed cycles if not completed
+- Tasks with expenses marked "Billable to Guest / Owner / Company"
+
+🧠 AI-Triggered Tasks:
+- Feedback analysis from reviews and guest chat
+- Example: “Pool was dirty” triggers:
+  → Task for Pool Department
+  → Notification to Supervisor
+  → Suggested inspection scheduled next day
+
+🧮 Task Billing Rules:
+- Each property defines:
+  • Cost per Checkout Clean
+  • Pool service fee (monthly)
+  • Garden service fee (monthly)
+  • Pest control fee (monthly)
+- Tasks log expenses and deduct automatically from:
+  → Owner balance (or Guest if applicable)
+
+🧾 Task Logs:
+- Each task creates a record in:
+  • Property Timeline
+  • Staff Performance Report
+  • Financial Logs (if billable)
+- Guest-initiated tasks link back to their booking
+
+📢 Notifications:
+- PMs & Admin notified of:
+  • Overdue tasks
+  • Emergency flags
+  • Photo missing alerts
+  • Incomplete tasks after due time
+
+Benefits:
+✔️ Auto-scheduling aligned with checkouts and services  
+✔️ AI-assisted quality control via guest review scanning  
+✔️ Transparent and organized task records  
+✔️ Billing linked to tasks for full traceability  
+✔️ Owners get confidence through photo-documented service

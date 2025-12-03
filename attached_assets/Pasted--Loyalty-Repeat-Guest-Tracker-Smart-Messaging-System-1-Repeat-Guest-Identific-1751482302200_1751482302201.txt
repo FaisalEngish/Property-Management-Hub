@@ -1,0 +1,66 @@
+🏆 **Loyalty & Repeat Guest Tracker + Smart Messaging System**
+
+---
+
+1. **Repeat Guest Identification:**
+- System flags returning guests automatically (based on name + phone/email match across past bookings).
+- Shows badge on guest profile: 🔁 “Repeat Guest”
+- Track frequency of returns (e.g., "3 stays since Jan 2023")
+
+---
+
+2. **Loyalty Level System (Optional Future Add):**
+- Define tiers like:
+   - Silver (2 stays)
+   - Gold (5 stays)
+   - Platinum (10+ stays)
+- Auto-upgrade and unlock perks like:
+   - Free airport pickup
+   - Complimentary breakfast
+   - Early check-in / Late check-out
+- Admin editable per brand/villa group
+
+---
+
+3. **Smart Messaging (AI Companion):**
+
+💬 Auto-Triggers:
+- After check-in → “Welcome message”
+- Day before check-out → “Let us know if you need a taxi”
+- After check-out → “Thank you + Review Request”
+- 3 months after stay → “Come back soon” (discount optional)
+
+AI reads booking reviews:
+- Detects if guest says things like "no hot water", “pool dirty”, “loved the breakfast”
+- 🧠 Flags the team or generates a recommendation (e.g., create pool task, notify chef manager)
+
+---
+
+4. **Smart Reply Suggestions (Internal Staff View):**
+- Staff gets chat suggestions like:
+   - “Hi! Yes we can arrange that for you, let me check availability.”
+   - “So sorry for the inconvenience, I will notify our technician right away.”
+
+These reply options appear in the guest chat box as suggested one-click responses.
+
+---
+
+5. **Inbox & Chat Interface:**
+- 🔔 Message Center for each user (Admin, Staff, PM)
+- Each guest has their own thread linked to booking
+- Requests tagged by urgency (AI-triggered or guest-marked)
+- Attachments: Photos, videos, invoice previews
+
+---
+
+6. **Booking-Linked Context:**
+- Each guest message thread links to:
+   - Stay dates
+   - Assigned villa
+   - Booking platform
+   - Previous requests
+   - Add-on service logs
+
+---
+
+🎯 Purpose: Combine automation with personal touch for higher reviews, smoother operations, and guest retention.

@@ -1,0 +1,82 @@
+Please implement the following module: 📦 Smart Inventory & Supply Chain Tracker
+
+🎯 PURPOSE:
+Track all consumables used in properties (e.g., toilet paper, water bottles, soap, coffee, dish sponges) and tie each use to a cost — billed to guest, owner, or company depending on settings.
+
+---
+
+🔩 INVENTORY TYPES
+
+1. 🧻 Standard Items (default list):
+- Toilet paper rolls
+- Small and large water bottles
+- Coffee and tea sachets
+- Shampoo / shower gel / hand soap
+- Dish soap + sponge
+- Trash bags
+- Amenities: snacks, soft drinks, welcome notes
+
+2. 🧼 Cleaning Supplies:
+- Mop liquid, glass cleaner, bleach, gloves
+- Rags, brooms, equipment
+
+3. 🔧 Optional Items:
+- Gas bottles
+- Mosquito repellent
+- Lightbulbs
+- Spare keys
+
+---
+
+🏡 PROPERTY-LEVEL SETTINGS
+
+- Each villa can have a default welcome pack assigned (Pack A, B, C)
+- Each villa can customize inventory per check-in (edit cost per item)
+- Each villa can tag items as:
+  - 💰 Guest-billable
+  - 🏠 Owner-billable
+  - 🎁 Company Gift
+  - ✅ Complimentary (no billing)
+
+---
+
+🧮 AUTOMATED LOGGING
+
+- Upon every checkout clean, inventory is logged as:
+  - Used: how many items
+  - By who: staff name auto-filled
+  - Date/time
+  - Billed to: guest / owner / company
+  - Linked to: guest name + booking ID
+
+- Auto-generates stock usage and refill reminders when items run low
+
+---
+
+📦 STOCK MANAGEMENT
+
+- Storage warehouse or central stock per island can be defined
+- Every team member sees:
+  - Assigned stock
+  - Request refill button
+  - Remaining stock alert
+- Admin sees:
+  - Monthly usage
+  - Top used items
+  - Properties with high consumption
+  - Auto-refill stock threshold and alert
+
+---
+
+📊 REPORTING
+
+- Monthly stock report per villa (with billing breakdown)
+- Export as PDF or Excel
+- Add notes per item (e.g., VIP guest so gave extra water/snacks)
+
+---
+
+🛡️ ACCESS:
+- Housekeeping: Can log usage and request refills
+- PM/Admin: Full control
+- Owners: Can view reports for their villa

@@ -1,0 +1,145 @@
+You are working on my HostPilotPro project.
+
+# HIGH-LEVEL GOAL
+
+Make the **Utility Tracker** in my app fully functional and property-aware.
+
+Dev URL (for reference only, don’t hard-code):  
+`/utility-tracker`
+
+Tabs on this page:
+
+- Overview
+- Bills
+- Accounts
+- Analytics
+- Alerts
+- Settings
+
+I want:
+
+1. All utility data stored in the DB, scoped by **organization** and **property**.
+2. Every tab to work end-to-end (CRUD, charts, filters).
+3. Ability to filter by property so the same Utility Tracker supports:
+   - Portfolio view (all properties)
+   - Property view (only one property)
+4. From a property’s details page, the “View Utilities” action should open the Utility Tracker **pre-filtered for that property**.
+
+Use this screenshot as the visual reference for layout and UX:  
+`/mnt/data/61f80ce8-8f71-44ef-909d-3702cb8b7d4f.png`
+
+Follow the steps below and modify the actual project files in this Replit workspace. Use the existing tech stack and patterns (same ORM, same API style, same React patterns).
+
+---
+
+## STEP 1 – Locate the Utility Tracker page & components
+
+1. Search the repo for: `Utility Tracker`, `Recent Bills`, `Add Utility Account`, `Upload Bill`.
+2. Identify:
+   - The main page component for the Utility Tracker (likely something like `client/src/pages/UtilityTracker.tsx` or similar).
+   - Any child components used for:
+     - Overview cards
+     - Recent bills list
+     - Bills table
+     - Accounts list
+     - Analytics/chart section
+     - Alerts/settings sections
+3. Do **not** throw away existing UI – wire it up to real data and APIs.
+
+If there is no dedicated page yet, create:
+
+- `client/src/pages/UtilityTracker.tsx` – will host the tab layout and shared filters.
+- `client/src/components/utility/` – for subcomponents (Overview, Bills, Accounts, Analytics, Alerts, Settings).
+
+---
+
+## STEP 2 – DB schema for utility tracking
+
+Use the same ORM and conventions as the project (e.g. Drizzle in `shared/schema.ts`).
+
+Add the following tables (names can be tweaked to match current style, but keep analogous fields):
+
+### 2.1 `utility_accounts`
+
+Fields:
+
+- `id` (PK)
+- `organizationId` (FK to organizations, consistent with rest of app)
+- `propertyId` (FK to `properties.id`, nullable – null means portfolio-level account)
+- `name` (e.g. “PEA Bangkok – Water”)
+- `providerName` (e.g. “PEA Bangkok”)
+- `accountNumber` (string)
+- `utilityType` (text or enum: `"electricity" | "water" | "internet" | "gas" | "security" | "maintenance" | ...`)
+- `billingCycle` (text, e.g. `"monthly"`)
+- `currency` (string, default from organization)
+- `isActive` (boolean, default true)
+- `notes` (text, nullable)
+- `createdAt`, `updatedAt`
+
+### 2.2 `utility_bills`
+
+Fields:
+
+- `id` (PK)
+- `organizationId`
+- `propertyId` (FK to `properties.id`)
+- `accountId` (FK to `utility_accounts.id`)
+- `utilityType` (duplicate from account for easier querying)
+- `billingPeriodStart` (date)
+- `billingPeriodEnd` (date)
+- `dueDate` (date)
+- `amount` (decimal or string consistent with app)
+- `currency` (string)
+- `status` (enum: `"paid" | "pending" | "overdue" | "cancelled"`)
+- `unitsUsed` (numeric, nullable – kWh, m³, GB, etc.)
+- `unitLabel` (string, nullable)
+- `paidDate` (date, nullable)
+- `paymentMethod` (string, nullable)
+- `referenceNumber` (string, nullable)
+- `notes` (text, nullable)
+- `createdAt`, `updatedAt`
+
+### 2.3 `utility_alert_rules` (user-configurable rules)
+
+Fields:
+
+- `id`
+- `organizationId`
+- `propertyId` (nullable – if null, applies across all properties)
+- `utilityType` (nullable – null means any utility)
+- `type` (string; at minimum support: `"upcoming_due_date"`, `"overdue_bill"`, `"high_amount"`)
+- `thresholdAmount` (decimal, nullable – used for `"high_amount"`)
+- `daysBeforeDue` (int, nullable – used for `"upcoming_due_date"`)
+- `isEnabled` (boolean)
+- `channel` (string, default `"in-app"` for now)
+- `createdAt`, `updatedAt`
+
+### 2.4 `utility_alerts` (generated notifications)
+
+Fields:
+
+- `id`
+- `organizationId`
+- `propertyId`
+- `billId` (FK to `utility_bills.id`, nullable)
+- `ruleId` (FK to `utility_alert_rules.id`, nullable)
+- `message` (text)
+- `status` (enum: `"unread" | "read" | "dismissed"`)
+- `createdAt`
+- `resolvedAt` (nullable)
+
+Implement these in the schema file and add migrations as per the project’s migration tooling.
+
+---
+
+## STEP 3 – Backend API routes for Utility Tracker
+
+Create a new server routes file, e.g.:
+
+- `server/utility-routes.ts`
+
+Then mount it in the main server entry (the same place where other routes are registered):
+
+```ts
+import utilityRoutes from "./utility-routes";
+app.use("/api/utility", utilityRoutes);

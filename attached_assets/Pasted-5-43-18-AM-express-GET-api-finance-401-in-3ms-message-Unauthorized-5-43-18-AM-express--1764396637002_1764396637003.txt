@@ -1,0 +1,40 @@
+5:43:18 AM [express] GET /api/finance 401 in 3ms :: {"message":"Unauthorized"}
+5:43:18 AM [express] GET /api/tasks 401 in 1ms :: {"message":"Unauthorized"}
+5:43:18 AM [express] GET /api/currency/rates 401 in 2ms :: {"message":"Unauthorized"}
+5:43:18 AM [express] GET /api/system-settings 401 in 2ms :: {"message":"Unauthorized"}
+5:43:18 AM [express] GET /api/dashboard/stats 401 in 1ms :: {"message":"Unauthorized"}
+5:43:18 AM [express] GET /api/bookings 401 in 1ms :: {"message":"Unauthorized"}
+5:43:18 AM [express] GET /api/finance/analytics 401 in 0ms :: {"message":"Unauthorized"}
+5:43:18 AM [express] GET /api/users 401 in 27ms :: {"message":"Unauthorized"}
+5:43:18 AM [express] GET /api/auth/user 401 in 1ms :: {"message":"Not authenticated"}
+5:43:19 AM [express] GET /api/auth/demo-users 200 in 1ms :: []
+Ultra-fast cache hit: GET:/:anonymous
+5:43:20 AM [express] GET /api/dashboard/stats 200 in 1ms :: {"message":"Unauthorized"}
+5:43:20 AM [express] GET /api/properties 401 in 0ms :: {"message":"Unauthorized"}
+5:43:20 AM [express] GET /api/finance/analytics 401 in 1ms :: {"message":"Unauthorized"}
+5:43:20 AM [express] GET /api/tasks 401 in 1ms :: {"message":"Unauthorized"}
+5:43:20 AM [express] GET /api/finance 401 in 1ms :: {"message":"Unauthorized"}
+5:43:20 AM [express] GET /api/bookings 401 in 0ms :: {"message":"Unauthorized"}
+5:43:20 AM [express] GET /api/system-settings 401 in 1ms :: {"message":"Unauthorized"}
+5:43:20 AM [express] GET /api/currency/rates 401 in 1ms :: {"message":"Unauthorized"}
+5:43:20 AM [express] GET /api/users 401 in 0ms :: {"message":"Unauthorized"}
+Ultra-fast cache hit: GET:/:anonymous
+5:43:20 AM [express] GET /api/dashboard/stats 304 in 1ms :: {"message":"Unauthorized"}
+5:43:20 AM [express] GET /api/finance/analytics 401 in 0ms :: {"message":"Unauthorized"}
+5:43:20 AM [express] GET /api/bookings 401 in 1ms :: {"message":"Unauthorized"}
+5:43:20 AM [express] GET /api/tasks 401 in 1ms :: {"message":"Unauthorized"}
+5:43:22 AM [express] GET /api/finance 401 in 1ms :: {"message":"Unauthorized"}
+5:43:22 AM [express] GET /api/currency/rates 401 in 1ms :: {"message":"Unauthorized"}
+5:43:22 AM [express] GET /api/system-settings 401 in 1ms :: {"message":"Unauthorized"}
+5:43:22 AM [express] GET /api/users 401 in 0ms :: {"message":"Unauthorized"}
+5:43:22 AM [express] GET /api/bookings 401 in 1ms :: {"message":"Unauthorized"}
+5:43:22 AM [express] GET /api/finance/analytics 401 in 1ms :: {"message":"Unauthorized"}
+5:43:22 AM [express] GET /api/tasks 401 in 0ms :: {"message":"Unauthorized"}
+5:43:36 AM [express] POST /api/auth/demo-login 401 in 945ms :: {"message":"Invalid credentials"}
+5:43:49 AM [express] GET /api/system-settings 401 in 1ms :: {"message":"Unauthorized"}
+5:43:50 AM [express] GET /api/system-settings 401 in 2ms :: {"message":"Unauthorized"}
+5:43:53 AM [express] POST /api/auth/demo-login 401 in 235ms :: {"message":"Invalid credentials"}
+5:43:53 AM [express] GET /api/system-settings 401 in 1ms :: {"message":"Unauthorized"}
+5:44:04 AM [express] GET /api/system-settings 401 in 1ms :: {"message":"Unauthorized"}
+5:44:05 AM [express] GET /api/system-settings 401 in 1ms :: {"message":"Unauthorized"}
+5:44:07 AM [express] GET /api/system-settings 401 in 1ms :: {"message":"Unauthorized"}

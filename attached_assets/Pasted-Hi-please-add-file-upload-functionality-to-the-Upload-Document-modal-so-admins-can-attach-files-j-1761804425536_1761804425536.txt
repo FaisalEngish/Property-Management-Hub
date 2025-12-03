@@ -1,0 +1,316 @@
+Hi — please add file upload functionality to the Upload Document modal so admins can attach files (jpg, png, pdf, xlsx). Do only the tasks below. When finished, paste the grep output, modified files / commit link, and any server logs.
+
+1) Reproduce current behavior
+
+Start the app on Replit in dev mode.
+
+Log in as admin@test.com.
+
+Open Property → Document Center and click Upload Document.
+
+Verify there is no file input or the Upload button does not send file data.
+
+Record the UI file/component path shown in console or DOM inspector (e.g. src/components/documents/UploadDocumentModal.jsx).
+
+2) Files to search / likely places to modify
+
+From project root run:
+
+# find modal / upload components
+grep -R --line-number "Upload Document" .
+grep -R --line-number "property document" .
+grep -R --line-number "document center" src || true
+
+# find existing API endpoints for documents
+grep -R --line-number "/api/documents" server || true
+grep -R --line-number "documents" server || true
+
+
+Attach outputs. Typical files to edit:
+
+Frontend modal component: src/components/Documents/UploadModal.jsx (or similar)
+
+API route: server/routes/documents.js (or api/documents)
+
+Storage helper: server/utils/storage.js or integrate multer directly
+
+DB insert: where documents metadata stored (e.g., documents table)
+
+3) Frontend changes (React) — add file input and send FormData
+
+Replace the modal form submit to include a <input type="file" /> and send FormData to backend.
+
+Example (adapt to project hooks/style):
+
+// src/components/Documents/UploadDocumentModal.jsx
+import React, { useState } from "react";
+import axios from "axios";
+
+export default function UploadDocumentModal({ onClose, propertyId }) {
+  const [file, setFile] = useState(null);
+  const [filename, setFilename] = useState("");
+  const [category, setCategory] = useState("");
+  const [type, setType] = useState("pdf");
+  const [tags, setTags] = useState("");
+  const [desc, setDesc] = useState("");
+  const [loading, setLoading] = useState(false);
+  const MAX_SIZE = 10 * 1024 * 1024; // 10MB
+  const ALLOWED = [
+    "application/pdf",
+    "image/jpeg",
+    "image/png",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "application/vnd.ms-excel"
+  ];
+
+  function handleFileChange(e) {
+    const f = e.target.files[0];
+    if (!f) { setFile(null); return; }
+    if (f.size > MAX_SIZE) {
+      alert("File is too large. Max 10 MB allowed.");
+      e.target.value = null;
+      setFile(null);
+      return;
+    }
+    if (!ALLOWED.includes(f.type)) {
+      alert("Unsupported file type. Allowed: pdf, jpg, png, xlsx, xls.");
+      e.target.value = null;
+      setFile(null);
+      return;
+    }
+    setFile(f);
+    setFilename(f.name);
+  }
+
+  async function handleUpload(e) {
+    e.preventDefault();
+    if (!file) return alert("Please select a file to upload.");
+    setLoading(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      fd.append("file_name", filename || file.name);
+      fd.append("category", category);
+      fd.append("file_type", type);
+      fd.append("tags", tags);
+      fd.append("description", desc);
+      if (propertyId) fd.append("property_id", propertyId);
+
+      // include credentials if using session cookie
+      const res = await axios.post("/api/documents/upload", fd, {
+        headers: { "Content-Type": "multipart/form-data" },
+        withCredentials: true
+      });
+
+      // success: close modal and refresh list
+      onClose?.(res.data);
+    } catch (err) {
+      console.error(err);
+      alert("Upload failed: " + (err.response?.data?.error || err.message));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <form onSubmit={handleUpload}>
+      {/* existing fields */}
+      <label>File</label>
+      <input
+        type="file"
+        accept=".pdf,.jpg,.jpeg,.png,.xlsx,.xls"
+        onChange={handleFileChange}
+      />
+      {/* other inputs: file name, category, tags, description */}
+      <button type="button" onClick={onClose}>Cancel</button>
+      <button type="submit" disabled={loading}>
+        {loading ? "Uploading..." : "Upload"}
+      </button>
+    </form>
+  );
+}
+
+
+Notes:
+
+Use accept attribute to hint file picker.
+
+Use FormData to send file.
+
+withCredentials: true if session cookie auth used.
+
+4) Backend: add multipart handler and validation (Express + multer example)
+
+Add endpoint POST /api/documents/upload. Use multer for parsing and validation.
+
+Install multer (if not already):
+
+# from project root
+npm install multer
+
+
+Add route sample:
+
+// server/routes/documents.js
+const express = require('express');
+const router = express.Router();
+const multer  = require('multer');
+const path = require('path');
+const fs = require('fs');
+
+// storage: store in uploads/documents or use cloud (S3) in production
+const UPLOAD_DIR = path.join(__dirname, '..', 'uploads', 'documents');
+if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+
+const MAX_SIZE = 10 * 1024 * 1024; // 10MB
+const ALLOWED = [
+  'application/pdf',
+  'image/jpeg',
+  'image/png',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'application/vnd.ms-excel'
+];
+
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, UPLOAD_DIR),
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname);
+    const base = path.basename(file.originalname, ext).replace(/\s+/g, '_');
+    cb(null, `${Date.now()}_${base}${ext}`);
+  }
+});
+
+function fileFilter (req, file, cb) {
+  if (!ALLOWED.includes(file.mimetype)) {
+    return cb(new Error('Unsupported file type'), false);
+  }
+  cb(null, true);
+}
+
+const upload = multer({
+  storage,
+  fileFilter,
+  limits: { fileSize: MAX_SIZE }
+});
+
+router.post('/upload', ensureAuth, upload.single('file'), async (req, res) => {
+  try {
+    // ensure user has permission: only admin/owner/portfolio manager
+    const roles = req.user?.roles || (req.user?.role ? [req.user.role] : []);
+    const allowedRoles = new Set(['Admin','Administrator','Portfolio Manager','Owner']);
+    if (!roles.some(r => allowedRoles.has(r))) {
+      // remove uploaded file if permission fails
+      if (req.file?.path) fs.unlinkSync(req.file.path);
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+
+    // save metadata to DB (adapt to project's DB helper)
+    const doc = {
+      file_name: req.body.file_name || req.file.originalname,
+      file_path: `/uploads/documents/${req.file.filename}`, // or full URL
+      mime_type: req.file.mimetype,
+      size: req.file.size,
+      category: req.body.category || null,
+      file_type: req.body.file_type || null,
+      tags: req.body.tags || null,
+      description: req.body.description || null,
+      uploaded_by: req.user.id,
+      property_id: req.body.property_id || null,
+      created_at: new Date()
+    };
+
+    // Insert into DB (pseudo):
+    // const inserted = await db('documents').insert(doc).returning('*');
+    // respond with inserted record (adapt to your DB)
+    res.json({ success: true, document: doc });
+  } catch (err) {
+    console.error("Upload error:", err);
+    return res.status(500).json({ error: err.message || "Upload failed" });
+  }
+});
+
+module.exports = router;
+
+
+ensureAuth is your existing middleware; use ensureAdmin if available.
+
+If project uses cloud storage (S3), replace diskStorage with streaming upload to S3 and store returned URL.
+
+Mount the route in your server:
+
+// in server/index.js or app.js
+app.use('/api/documents', require('./routes/documents'));
+
+5) Security & validation
+
+Validate allowed mime types server-side (don’t rely on client).
+
+Enforce max file size in multer limits.
+
+Protect endpoint with auth middleware and role check.
+
+When saving files on disk, sanitize file names and avoid path traversal.
+
+If serving files from /uploads, ensure static route has safe headers and not executable.
+
+Consider virus scanning in production (optional).
+
+6) DB / metadata
+
+Insert a row in documents table with metadata: file_name, file_path (or url), mime_type, size, category, tags, description, uploaded_by, property_id, created_at.
+
+If no table exists, create a minimal migration (ask before making migrations). Prefer adding rows only for now if table already exists.
+
+7) Client-side display & download
+
+After upload, refresh Document Center list by re-fetching /api/documents?property_id=....
+
+When showing files, use <a href="/uploads/documents/filename" target="_blank" rel="noopener"> or signed URL if using S3.
+
+Set proper Content-Type and Content-Disposition: attachment headers when serving downloads.
+
+If using Express static:
+
+app.use('/uploads/documents', express.static(path.join(__dirname, 'uploads', 'documents')));
+
+8) Manual tests to run
+
+Upload small PDF (1 MB) — expect 200 and appear in list.
+
+Upload JPG and PNG — expect 200.
+
+Upload XLSX — expect 200.
+
+Try uploading >10 MB file — expect 413/ error message.
+
+Try uploading .exe — expect 400 with unsupported type.
+
+Try with non-admin user — expect 403.
+
+Check uploads directory and DB record created.
+
+Also test from browser devtools Network tab to confirm multipart/form-data request and response.
+
+Sample curl (for testing with cookie-based session):
+
+curl -i -X POST -H "Cookie: <session_cookie>" \
+  -F "file=@/path/to/file.pdf" \
+  -F "file_name=LeaseDoc.pdf" \
+  -F "category=Contracts" \
+  https://<dev-url>/api/documents/upload
+
+9) Acceptance criteria
+
+Upload modal shows a file picker that accepts pdf/jpg/png/xlsx/xls.
+
+Files up to 10 MB upload successfully.
+
+Server returns 200 with document metadata and the document appears in the Document Center list.
+
+Server rejects files >10 MB or unsupported types with clear error message.
+
+Only allowed roles can upload (Admin/Portfolio Manager/Owner).
+
+Provide commit/PR link, grep output, modified file list, example API response (first record), and screenshots of upload success.

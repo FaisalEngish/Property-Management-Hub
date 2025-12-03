@@ -1,0 +1,63 @@
+Please implement a **full working demo flow** for 1 of the properties (e.g. “Villa Samui Breeze”) with the following mock data:
+
+🏡 PROPERTY:
+- Name: Villa Samui Breeze
+- Bedrooms: 3
+- Assigned Portfolio Manager: Adam
+- Pool and Garden Service Enabled
+- Utilities: Electric @ 7 THB/KW, Internet by True Online
+
+📅 BOOKING:
+- Guest Name: John Doe
+- Booking Platform: Airbnb
+- Check-in: 1 July 2025
+- Check-out: 5 July 2025
+- Total Nights: 4
+- Rental Income: 32,000 THB
+- Deposit Paid: 5,000 THB (Cash)
+- Electricity Meter on Check-in: 1000 kW
+- Electricity Meter on Check-out: 1100 kW
+- Services Used:
+   - Airport Pickup: 700 THB
+   - Private Chef Dinner: 2,000 THB
+   - Mid-stay Cleaning: 850 THB
+- Welcome Pack Used: Pack A (Standard)
+- Notes: Guest mentioned AC was weak — trigger maintenance AI alert.
+
+📋 CHECK-IN:
+- Handled by: Nye
+- Passport photo uploaded (demo file placeholder)
+- Deposit dropdown selected: Cash / 5,000 THB
+- Electric meter photo uploaded: 1000 kW
+- Notes: Guest arrived early
+
+📋 CHECK-OUT:
+- Handled by: Thura
+- Electric meter photo uploaded: 1100 kW
+- Usage: 100 kW x 7 THB = 700 THB
+- Services and damage log: No damage, all clean
+- Final Refund to guest: 5,000 - 700 (electric) - 850 (cleaning) - 2,000 (chef) - 700 (pickup) = **750 THB returned**
+
+📊 FINANCIAL MODULE:
+- Property Owner: “Michael”
+- Owner's share: 70% = 22,400 THB
+- Company Share: 30% = 9,600 THB
+- Portfolio Manager Commission: 50% of company share = 4,800 THB
+- Guest-billed services added to financials
+- Expense logs auto-tagged
+
+💼 TASKS:
+- Cleaning: Scheduled at checkout
+- Pool Service: Auto-generated 2x during stay
+- Maintenance AI: Triggered by AC complaint in guest log
+
+💬 CHAT:
+- Auto-generated guest complaint about AC on Day 2
+- Triggered alert to Adam and maintenance team
+
+🧾 INVOICES:
+- Sample invoice from company to owner
+- Sample payout request from Adam
+- Sample guest receipt
+
+Please make sure all modules referencing bookings, income, check-in/out, guest dashboard, and reports pull from this fake booking for evaluation.

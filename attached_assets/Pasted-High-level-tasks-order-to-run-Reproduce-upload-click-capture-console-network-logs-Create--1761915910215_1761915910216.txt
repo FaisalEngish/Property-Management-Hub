@@ -1,0 +1,351 @@
+High-level tasks (order to run)
+
+Reproduce upload click & capture console/network logs.
+
+Create API endpoints: GET /api/utility-bills, POST /api/utility-bills (multipart).
+
+Implement file upload on backend (multer) with allowed types and size limit.
+
+Persist bill metadata to DB (with property_id, type, amount, due_date, file_path).
+
+Update GET endpoint to return joined property.name.
+
+Frontend: implement upload modal/form, accept files, send FormData to backend.
+
+Frontend: implement Utility Bills table that fetches /api/utility-bills and renders property name.
+
+Add UX improvements: progress, disable button during upload, success/error toast.
+
+Test cases & acceptance checklist.
+
+Before you start — quick reproduction step
+
+Ask agent to open DevTools → Console & Network → click Upload Receipt and note:
+
+Is any JS error printed? (copy text)
+
+Does any network request happen? (URL / method)
+If no request and no error, button is not wired — frontend-level fix.
+
+Backend: Implementation (Express + Sequelize or Prisma examples)
+
+Put these files in your backend codebase. Adjust variable names & imports to match your project.
+
+1) Add DB table (example SQL)
+
+If using SQL, a migration example (Postgres):
+
+CREATE TABLE utility_bills (
+  id SERIAL PRIMARY KEY,
+  property_id INTEGER NOT NULL REFERENCES properties(id),
+  bill_type VARCHAR(100),    -- e.g. Electricity, Water
+  amount NUMERIC(12,2),
+  due_date TIMESTAMP WITH TIME ZONE,
+  file_path TEXT,            -- stored file path or cloud URL
+  file_mime VARCHAR(50),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+);
+
+2) Express route & controller (with multer)
+
+Install multer: npm i multer
+
+server/routes/utilityBills.js
+
+const express = require('express');
+const router = express.Router();
+const utilityController = require('../controllers/utilityController');
+const multer = require('multer');
+const path = require('path');
+
+// storage: local disk (for demo). For production use S3 / cloud storage.
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, path.join(__dirname, '../uploads/utility_bills')),
+  filename: (req, file, cb) => {
+    const unique = Date.now() + '-' + Math.round(Math.random()*1e9);
+    cb(null, unique + path.extname(file.originalname));
+  }
+});
+
+const upload = multer({
+  storage,
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB
+  fileFilter: (req, file, cb) => {
+    const allowed = ['application/pdf', 'image/jpeg', 'image/png'];
+    if (allowed.includes(file.mimetype)) cb(null, true);
+    else cb(new Error('Invalid file type'));
+  }
+});
+
+router.get('/', utilityController.list);
+router.post('/', upload.single('receipt'), utilityController.create);
+
+module.exports = router;
+
+
+server/controllers/utilityController.js
+
+const db = require('../models'); // or prisma client
+const fs = require('fs');
+const path = require('path');
+
+exports.list = async (req, res) => {
+  try {
+    // Example using Sequelize
+    const bills = await db.UtilityBill.findAll({
+      include: [{ model: db.Property, as: 'property', attributes: ['id','name'] }],
+      order: [['created_at','DESC']]
+    });
+    return res.json(bills);
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({error:'Server error'});
+  }
+};
+
+exports.create = async (req, res) => {
+  try {
+    // req.body fields: property_id, bill_type, amount, due_date
+    const { property_id, bill_type, amount, due_date } = req.body;
+    const file = req.file; // multer
+    if (!file) return res.status(400).json({error:'Receipt file required'});
+
+    const record = await db.UtilityBill.create({
+      property_id: parseInt(property_id,10),
+      bill_type,
+      amount: amount ? parseFloat(amount) : null,
+      due_date: due_date ? new Date(due_date) : null,
+      file_path: `/uploads/utility_bills/${file.filename}`,
+      file_mime: file.mimetype
+    });
+
+    // return created record with property name via join
+    const created = await db.UtilityBill.findByPk(record.id, {
+      include: [{ model: db.Property, as: 'property', attributes: ['id','name'] }]
+    });
+
+    return res.status(201).json(created);
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({error: err.message || 'Server error'});
+  }
+};
+
+
+If using Prisma, create and list would use prisma.utilityBill.create and prisma.utilityBill.findMany({ include: { property: true }}).
+
+3) Static route to serve uploaded files (dev)
+
+Add to your Express app:
+
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+
+For production, upload to S3 and store the S3 URL in file_path.
+
+Frontend: Implementation (React example)
+1) UtilityBillsPage.jsx (fetch + render)
+import React, { useEffect, useState } from 'react';
+
+export default function UtilityBillsPage() {
+  const [bills, setBills] = useState([]);
+  const [showModal, setShowModal] = useState(false);
+
+  useEffect(() => { fetchBills(); }, []);
+
+  const fetchBills = async () => {
+    const res = await fetch('/api/utility-bills');
+    const data = await res.json();
+    setBills(data);
+  };
+
+  return (
+    <div>
+      <div className="filters-row">
+        {/* existing filters */}
+        <button onClick={() => setShowModal(true)}>Upload Receipt</button>
+      </div>
+
+      <div className="bills-list">
+        {bills.length === 0 && <div>No utility bills found</div>}
+        {bills.length > 0 && (
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th><th>Property</th><th>Type</th><th>Amount</th><th>Due Date</th><th>Receipt</th>
+              </tr>
+            </thead>
+            <tbody>
+              {bills.map(b => (
+                <tr key={b.id}>
+                  <td>{b.id}</td>
+                  <td>{b.property?.name || `Property ${b.property_id}`}</td>
+                  <td>{b.bill_type}</td>
+                  <td>{b.amount ? `$${Number(b.amount).toFixed(2)}` : '-'}</td>
+                  <td>{b.due_date ? new Date(b.due_date).toLocaleDateString() : '-'}</td>
+                  <td>{b.file_path ? <a href={b.file_path} target="_blank" rel="noreferrer">View</a> : '-'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      {showModal && <UploadReceiptModal onClose={() => { setShowModal(false); fetchBills(); }} />}
+    </div>
+  );
+}
+
+2) UploadReceiptModal.jsx
+import React, { useState } from 'react';
+
+export default function UploadReceiptModal({ onClose }) {
+  const [file, setFile] = useState(null);
+  const [propertyId, setPropertyId] = useState('');
+  const [billType, setBillType] = useState('');
+  const [amount, setAmount] = useState('');
+  const [dueDate, setDueDate] = useState('');
+  const [isUploading, setIsUploading] = useState(false);
+  const allowed = ['application/pdf','image/jpeg','image/png'];
+
+  const onSubmit = async (e) => {
+    e.preventDefault();
+    if (!file) return alert('Attach a receipt (pdf/jpg/png).');
+    if (!allowed.includes(file.type)) return alert('Only PDF, JPG, PNG allowed.');
+    setIsUploading(true);
+
+    const fd = new FormData();
+    fd.append('receipt', file);
+    fd.append('property_id', propertyId);
+    fd.append('bill_type', billType);
+    fd.append('amount', amount);
+    fd.append('due_date', dueDate);
+
+    try {
+      const res = await fetch('/api/utility-bills', {
+        method: 'POST',
+        body: fd,
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || 'Upload failed');
+      alert('Upload successful');
+      onClose();
+    } catch (err) {
+      console.error(err);
+      alert('Upload failed: ' + err.message);
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  return (
+    <div className="modal">
+      <form onSubmit={onSubmit}>
+        <h3>Upload Utility Bill</h3>
+        <label>
+          Property ID:
+          <input value={propertyId} onChange={e=>setPropertyId(e.target.value)} required />
+        </label>
+        <label>
+          Type:
+          <input value={billType} onChange={e=>setBillType(e.target.value)} placeholder="Electricity, Water..." />
+        </label>
+        <label>
+          Amount:
+          <input type="number" step="0.01" value={amount} onChange={e=>setAmount(e.target.value)} />
+        </label>
+        <label>
+          Due date:
+          <input type="date" value={dueDate} onChange={e=>setDueDate(e.target.value)} />
+        </label>
+        <label>
+          Receipt (pdf / jpg / png, max 10MB):
+          <input type="file" accept=".pdf,image/jpeg,image/png" onChange={e => setFile(e.target.files[0])} />
+        </label>
+
+        <button type="button" onClick={onClose} disabled={isUploading}>Cancel</button>
+        <button type="submit" disabled={isUploading}>{isUploading ? 'Uploading...' : 'Upload'}</button>
+      </form>
+    </div>
+  );
+}
+
+
+If you already have a UI modal library in the project, integrate the form into that modal.
+
+Frontend wiring: If the Upload button currently does nothing
+
+Replace the current button element with:
+
+<button id="open-upload-modal" onClick={() => setShowModal(true)}>Upload Receipt</button>
+
+
+Ensure setShowModal exists in the component’s state.
+
+Extra defensive checks
+
+Backend fileFilter enforces allowed MIME types.
+
+Multer limits.fileSize enforces 10MB.
+
+Frontend accept attribute restricts file chooser.
+
+Disable submit button during upload.
+
+Return clear error messages and show to user.
+
+Verification steps (agent must run these and attach evidence)
+
+Repro step before fix: screenshot showing clicking does nothing (if still reproducible).
+
+Backend test: run curl test to POST a file:
+
+curl -v -F "receipt=@/path/to/sample.pdf" \
+  -F "property_id=6" \
+  -F "bill_type=Electricity" \
+  -F "amount=120.00" \
+  -F "due_date=2025-11-01" \
+  http://localhost:3000/api/utility-bills
+
+
+Expect HTTP 201 and JSON with created record including property.name.
+
+Frontend test:
+
+Open page → Upload Receipt → select property id, file (pdf/png/jpg) → Upload.
+
+Verify success toast + modal closes.
+
+Verify the bill shows in the Utility Bills table.
+
+Capture Network tab for POST request (headers, request body FormData, response).
+
+Console should have no errors.
+
+Security checks:
+
+Files stored in uploads/utility_bills not directly executable.
+
+If using S3, ensure uploaded files are not publicly exposed unless desired (or use signed URLs).
+
+Acceptance checklist for you to sign off
+
+ Click Upload opens modal.
+// (if previously non-responsive)
+
+ Upload accepts pdf, jpg, png.
+
+ File size limited to 10MB.
+
+ Upload POST returns 201 and created bill.
+
+ Uploaded bill appears in Utility Bills list.
+
+ Property column shows property name (joined on backend).
+
+ No console errors or server 500s when uploading.
+
+ Files accessible via View link (or S3 URL).
+
+ Agent attached: modified file list + diffs + screenshots + curl/test logs.

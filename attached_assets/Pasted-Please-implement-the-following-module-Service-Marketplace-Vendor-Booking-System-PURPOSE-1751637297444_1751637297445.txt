@@ -1,0 +1,80 @@
+Please implement the following module: 🛎️ Service Marketplace & Vendor Booking System
+
+🎯 PURPOSE:
+Allow internal and external service providers to offer bookable add-ons (e.g., private chefs, massages, taxis, tours). Managers and guests can request or book services, and billing is tracked to guest, owner, or company accounts.
+
+---
+
+🏪 SERVICE CATEGORIES:
+
+1. 🍳 Private Chef
+2. 🧖 Massage
+3. 🚗 Airport Transfer
+4. 🛥️ Tours & Activities
+5. 🧺 Laundry
+6. 🛒 Grocery Delivery
+7. 🧰 Emergency Repairs
+8. 🧼 Deep Cleaning
+9. 🏄‍♂️ Instructor (Yoga, Muay Thai, Diving)
+
+---
+
+📦 SERVICE PROFILES:
+Each service will have:
+- Name
+- Description
+- Photos
+- Price (flat rate, per hour, or quote-based)
+- Vendor (internal or external)
+- Category tag
+- Commission setting (to PM or Company)
+- Booking rules (subject to availability / pre-payment / cancellation fee)
+
+---
+
+🗓️ BOOKING INTERFACE:
+
+- Managers & Guests can:
+  - View services per category
+  - Filter by price, type, or vendor
+  - Book or request a service
+  - Select time/date
+  - Add guest note/request
+  - See whether price is included in their stay, extra, or part of package
+
+---
+
+🧾 BILLING & LOGGING:
+
+- Bookings auto-generate billing entry tagged as:
+  - Guest billable
+  - Owner expense (e.g., owner orders chef)
+  - Company expense (e.g., gift)
+- Admin/PMs can override who pays
+- Vendors are notified of bookings with contact info, time/location
+- Staff can mark services as completed
+- Logged per guest + per villa
+
+---
+
+📊 REPORTING:
+
+- Track usage by service type and vendor
+- Top revenue-generating services
+- Vendor performance and feedback
+- Export CSV or PDF per month
+
+---
+
+🛠️ ACCESS ROLES:
+
+- Guests: Can view & request/book services
+- PMs/Admins: Can approve bookings, set pricing, assign vendors
+- Staff: Can mark as done or collect feedback
+- Vendors: Can log in (or receive via email) to confirm jobs
+
+---
+
+Optional Later:
+- Sync with Stripe/Omise for prepayment
+- Auto-booking based on calendar slots

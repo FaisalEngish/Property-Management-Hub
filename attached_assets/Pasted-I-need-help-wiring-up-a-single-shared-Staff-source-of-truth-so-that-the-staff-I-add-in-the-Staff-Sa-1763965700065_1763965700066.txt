@@ -1,0 +1,163 @@
+I need help wiring up a single shared Staff source of truth so that the staff I add in the “Staff Salaries & Wages” module (SimpleSalariesWages.tsx) are available to select as Assigned Staff when I create a task on the Task Management page (ultraFastTasks.tsx).
+
+Screenshot of the salaries module UI (for context):
+/mnt/data/02530fa9-bc0d-4438-a625-c9e532b5bf87.png
+
+High-level goal
+
+When I add a staff member from SimpleSalariesWages.tsx, that staff record should be persisted in the backend.
+
+On ultraFastTasks.tsx, in the “Create Task” flow, I want the Assigned Staff dropdown/list to be populated from the same backend staff data.
+
+I should NOT need to maintain two separate staff lists – everything should come from one Staff model / table / collection.
+
+What I want you to do (step-by-step)
+1. Inspect current implementation
+
+Check frontend:
+
+src/.../SimpleSalariesWages.tsx
+
+src/.../ultraFastTasks.tsx
+
+Any shared types/interfaces for staff or tasks (e.g. types.ts, models.ts, etc.).
+
+Check backend:
+
+Existing models/schemas (Prisma, Mongoose, etc.) related to staff, users, or employees.
+
+Existing routes related to staff or HR if they already exist (e.g. /api/staff, /api/employees, /api/users).
+
+Existing task model and routes (e.g. /api/tasks).
+
+Please note whether staff is currently:
+
+hard-coded on the salaries page,
+
+or already in the database but not reused by the tasks page.
+
+2. Create/normalize a Staff model in the backend
+
+If we don’t already have a dedicated Staff model, please create one that fits our existing stack and naming conventions. Suggested fields:
+
+id (primary key, string/uuid or ObjectId)
+
+employeeId (e.g. "EMP001")
+
+name
+
+position (Cleaner, Supervisor, etc.)
+
+department
+
+salary (number)
+
+status (e.g. "active" | "inactive")
+
+Timestamps as per our standard (createdAt, updatedAt)
+
+If there is already a similar model (e.g. Employee, Staff, User), reuse and adapt that instead of creating a duplicate. The key is that whatever model we use will be the one the salaries module and tasks module both read from.
+
+3. Expose staff via backend API
+
+Create or update REST endpoints (or GraphQL if that’s what we use) that the frontend can call. Minimum needed:
+
+GET /api/staff
+
+Returns a list of all staff records with the fields above.
+
+Optional: allow query param to filter only active staff, e.g. GET /api/staff?status=active.
+
+POST /api/staff
+
+Creates a new staff member.
+
+Body should match the fields used in the salaries “Add Staff Member” form.
+
+If the app already has these routes, just ensure they are wired correctly and return data in a clean, typed shape for the frontend.
+
+Update any necessary auth/middleware so these routes work the same way our other admin routes do.
+
+4. Wire SimpleSalariesWages.tsx to the backend
+
+In SimpleSalariesWages.tsx:
+
+Replace any hard-coded staff array with data fetched from GET /api/staff (using whatever fetch/axios/React Query pattern we already use in this project).
+
+When I click “Add Staff Member” and submit the form:
+
+Call POST /api/staff with the form payload.
+
+On success, refresh the staff list so the new staff appears in the table.
+
+Make sure type definitions (e.g. Staff, StaffMember) are defined in a shared types file and reused across both salaries and tasks components.
+
+The salaries module should now be the place where staff are created/managed, and the data should live in the backend.
+
+5. Connect ultraFastTasks.tsx to the same staff data
+
+In ultraFastTasks.tsx:
+
+Identify the part of the UI where I create a new task and assign staff (likely a modal or form with something like “Assigned To” or “Staff”).
+
+Replace any hard-coded list of assignees with a call to GET /api/staff?status=active (or GET /api/staff and then filter for status === "active" on the frontend).
+
+Populate the assignment control (Select, autocomplete, etc.) with:
+
+value: staff id
+
+label: something like ${employeeId} - ${name} so it’s easy to recognize.
+
+Ensure when a task is created:
+
+The task payload includes an assignedStaffId (or similar) referencing the Staff model’s id.
+
+Update the backend task schema/model and /api/tasks endpoints if needed to store this assignedStaffId field.
+
+When listing tasks:
+
+Either join/populate staff so you can show the staff name/employeeId for each task,
+
+Or on the frontend, fetch both tasks and staff, and map assignedStaffId to the corresponding staff record.
+
+6. Keep types consistent
+
+Introduce a shared Staff interface/type in a dedicated file (for example src/types/staff.ts or wherever we keep shared types):
+
+export interface Staff {
+  id: string;
+  employeeId: string;
+  name: string;
+  position: string;
+  department: string;
+  salary: number;
+  status: "active" | "inactive";
+  // plus timestamps if needed
+}
+
+
+Use this type in both SimpleSalariesWages.tsx and ultraFastTasks.tsx, as well as any hooks (e.g. useStaff).
+
+7. UX details
+
+In the task creation form, only show active staff in the “Assigned Staff” dropdown.
+
+If a staff member becomes inactive later:
+
+Existing tasks can still show them as assigned (read-only / labeled as inactive).
+
+But they should no longer appear as options for new tasks.
+
+8. Final check
+
+Once implemented, please verify:
+
+I can create a new staff member from the salaries module.
+
+Refresh the Task Management page.
+
+Create a new task and see that the newly added staff appears in the “Assigned Staff” dropdown.
+
+The created task stores and displays the link to that staff member correctly.
+
+Please implement all necessary frontend + backend changes, keep the code clean and typed, and then briefly summarize what you changed (files touched and key logic) so I can understand and extend it later.
